@@ -499,7 +499,7 @@ function DecisionRoom() {
               <div className="panel">
                 <div className="panel-header">
                   <span>AFFECTED PORTS</span>
-                  <span>(Top 8)</span>
+                  <span>(Top affected)</span>
                 </div>
                 <div className="grid grid-cols-[16px_1fr_36px_54px] px-2 py-1 border-b border-[var(--color-line)]/60 text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
                   <span></span>
@@ -533,7 +533,7 @@ function DecisionRoom() {
                     );
                   })}
                   <div className="text-[10px] text-[var(--color-cyan)] px-1 py-1">
-                    View all 121 ports →
+                    View affected ports →
                   </div>
                 </div>
                 <div className="p-2 border-t border-[var(--color-line)]">

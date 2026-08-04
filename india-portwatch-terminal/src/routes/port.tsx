@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Chip, Sparkline, Bar } from "@/components/terminal/ui";
-import chennaiSat from "@/assets/chennai-port.jpg";
 import {
   fetchDecisionRecommendation,
   fetchForecastForPort,
@@ -10,7 +9,6 @@ import {
 } from "@/services/model";
 import { fetchNewsEvents } from "@/services/news";
 import { fetchPorts, fetchPortSnapshot } from "@/services/ports";
-import { listNewsEvents } from "@/services/newsService";
 import { getMarineWeatherIntelligence } from "@/services/weatherService";
 import { fetchWeatherSignal } from "@/services/weather";
 
@@ -21,52 +19,7 @@ export const Route = createFileRoute("/port")({
   component: PortPage,
 });
 
-const berthOcc = [
-  ["B1", 100, "red"],
-  ["B2", 95, "red"],
-  ["B3", 95, "red"],
-  ["B4", 90, "red"],
-  ["B5", 65, "amber"],
-  ["B6", 60, "amber"],
-  ["B7", 60, "amber"],
-  ["B8", 50, "amber"],
-  ["B9", 40, "mint"],
-  ["B10", 30, "mint"],
-] as const;
 
-const chennaiHarborVessels = {
-  berth: [
-    { id: "B1", x: 218, y: 186, heading: 92, color: "#ff5566", label: "CONT", status: "Restricted" },
-    { id: "B2", x: 218, y: 214, heading: 92, color: "#7ef0b4", label: "TUG", status: "At berth" },
-    { id: "B3", x: 219, y: 246, heading: 94, color: "#ffb347", label: "BULK", status: "Delayed" },
-    { id: "B4", x: 218, y: 278, heading: 91, color: "#7ef0b4", label: "CONT", status: "At berth" },
-    { id: "B5", x: 220, y: 316, heading: 93, color: "#7dd3fc", label: "GEN", status: "Working" },
-    { id: "B6", x: 220, y: 354, heading: 91, color: "#ffb347", label: "TANK", status: "Weather hold" },
-  ],
-  anchorage: [
-    { id: "A1", x: 516, y: 154, heading: 302, color: "#ffb347", label: "CONT", status: "Waiting" },
-    { id: "A2", x: 592, y: 176, heading: 286, color: "#7dd3fc", label: "LNG", status: "Anchored" },
-    { id: "A3", x: 672, y: 210, heading: 274, color: "#ff5566", label: "TANK", status: "Restricted" },
-    { id: "A4", x: 474, y: 232, heading: 318, color: "#7dd3fc", label: "CONT", status: "Anchored" },
-    { id: "A5", x: 568, y: 262, heading: 300, color: "#ffb347", label: "BULK", status: "Waiting" },
-    { id: "A6", x: 646, y: 300, heading: 284, color: "#c58cff", label: "SAR", status: "Low conf" },
-    { id: "A7", x: 520, y: 342, heading: 302, color: "#ffb347", label: "GEN", status: "Waiting" },
-    { id: "A8", x: 704, y: 366, heading: 276, color: "#7dd3fc", label: "CONT", status: "Anchored" },
-    { id: "A9", x: 604, y: 408, heading: 292, color: "#ffb347", label: "TANK", status: "Delayed" },
-  ],
-  approach: [
-    { id: "P1", x: 768, y: 218, heading: 282, color: "#7dd3fc", label: "CONT", status: "Approach" },
-    { id: "P2", x: 694, y: 244, heading: 284, color: "#7dd3fc", label: "CONT", status: "Pilot inbound" },
-    { id: "P3", x: 628, y: 272, heading: 288, color: "#ffb347", label: "TANK", status: "Slow steam" },
-    { id: "P4", x: 770, y: 378, heading: 268, color: "#ff5566", label: "PAT", status: "Restricted box" },
-    { id: "P5", x: 684, y: 386, heading: 274, color: "#c58cff", label: "SAR", status: "Proxy track" },
-  ],
-  service: [
-    { id: "S1", x: 292, y: 202, heading: 148, color: "#7ef0b4", label: "TUG", status: "Assist" },
-    { id: "S2", x: 318, y: 298, heading: 34, color: "#7ef0b4", label: "TUG", status: "Assist" },
-    { id: "S3", x: 358, y: 382, heading: 256, color: "#7ef0b4", label: "SRV", status: "Pilot" },
-  ],
-} as const;
 
 function PortPage() {
   const { port } = Route.useSearch();
@@ -363,288 +316,93 @@ function PortPage() {
           className="grid grid-cols-[1.6fr_0.9fr_1.1fr] gap-2"
           style={{ minHeight: 380 }}
         >
-          {/* DIGITAL TWIN */}
+          {/* MODEL-BACKED CONTEXT */}
           <div className="panel flex flex-col">
             <div className="panel-header">
-              <span>PORT DIGITAL TWIN — {portName} PORT</span>
-              <span>UPDATED: {chn.updatedAt}</span>
+              <span>MODEL-BACKED PORT CONTEXT — {portName}</span>
+              <span>BACKEND OUTPUT</span>
             </div>
-            <div className="relative flex-1 overflow-hidden">
-              <img
-                src={chennaiSat}
-                alt="Chennai port satellite"
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{
-                  filter: "brightness(0.72) saturate(1.08) contrast(1.05)",
-                }}
-              />
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background:
-                    "radial-gradient(ellipse at center, transparent 40%, oklch(0 0 0 / 0.55) 100%)",
-                }}
-              />
 
-              {/* Zone shading + labels + vessels */}
-              <svg
-                viewBox="0 0 800 500"
-                preserveAspectRatio="none"
-                className="absolute inset-0 w-full h-full"
-              >
-                <defs>
-                  <linearGradient id="berthZone" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="oklch(0.86 0.19 155 / 0.10)" />
-                    <stop offset="1" stopColor="oklch(0.86 0.19 155 / 0.02)" />
-                  </linearGradient>
-                  <linearGradient id="anchorZone" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0" stopColor="oklch(0.82 0.18 75 / 0.09)" />
-                    <stop offset="1" stopColor="oklch(0.82 0.18 75 / 0.02)" />
-                  </linearGradient>
-                  <radialGradient id="harborZone" cx="30%" cy="55%" r="45%">
-                    <stop offset="0" stopColor="oklch(0.82 0.18 195 / 0.10)" />
-                    <stop offset="100%" stopColor="oklch(0.82 0.18 195 / 0)" />
-                  </radialGradient>
-                  <filter
-                    id="vShip"
-                    x="-50%"
-                    y="-50%"
-                    width="200%"
-                    height="200%"
-                  >
-                    <feDropShadow
-                      dx="0"
-                      dy="0.5"
-                      stdDeviation="0.5"
-                      floodColor="#000"
-                      floodOpacity="0.65"
-                    />
-                  </filter>
-                </defs>
+            <div className="p-4 space-y-4 text-[12px] leading-relaxed">
+              <div>
+                <div className="text-[10px] tracking-[0.32em] text-[var(--color-muted-foreground)] mb-1">
+                  CURRENT DEMO MODE
+                </div>
+                <div className="text-[var(--color-foreground)]">
+                  This cockpit is showing backend model outputs for{" "}
+                  <span className="text-[var(--color-cyan)]">{portName}</span>.
+                  The satellite/AIS digital-twin layer is hidden until real
+                  satellite-derived vessel features are integrated.
+                </div>
+              </div>
 
-                {/* Zone regions */}
-                <path
-                  d="M 40 140 Q 250 130 320 200 L 320 420 Q 200 440 40 420 Z"
-                  fill="url(#harborZone)"
-                  stroke="oklch(0.82 0.18 195 / 0.35)"
-                  strokeWidth="0.8"
-                  strokeDasharray="3 4"
-                />
-                <path
-                  d="M 200 160 L 340 160 L 340 400 L 200 400 Z"
-                  fill="url(#berthZone)"
-                  stroke="oklch(0.86 0.19 155 / 0.4)"
-                  strokeWidth="0.6"
-                  strokeDasharray="2 3"
-                />
-                <path
-                  d="M 380 100 Q 620 130 780 220 L 780 460 Q 600 470 380 460 Z"
-                  fill="url(#anchorZone)"
-                  stroke="oklch(0.82 0.18 75 / 0.35)"
-                  strokeWidth="0.6"
-                  strokeDasharray="2 4"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="panel p-3">
+                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
+                    MODEL FLOW
+                  </div>
+                  <div className="mt-2 text-[var(--color-mint)]">
+                    Features → HSMM regime → TFT forecast → Decision layer
+                  </div>
+                </div>
 
-                {/* Zone captions */}
-                <text
-                  x="60"
-                  y="128"
-                  fontSize="8"
-                  letterSpacing="2"
-                  fill="oklch(0.82 0.18 195)"
-                  opacity="0.85"
-                  className="label-halo"
-                >
-                  ◆ INNER HARBOUR
-                </text>
-                <text
-                  x="216"
-                  y="152"
-                  fontSize="8"
-                  letterSpacing="2"
-                  fill="oklch(0.86 0.19 155)"
-                  opacity="0.9"
-                  className="label-halo"
-                >
-                  ◆ BERTH AREA
-                </text>
-                <text
-                  x="560"
-                  y="94"
-                  fontSize="8"
-                  letterSpacing="2"
-                  fill="oklch(0.82 0.18 75)"
-                  opacity="0.9"
-                  className="label-halo"
-                >
-                  ◆ OUTER ANCHORAGE
-                </text>
+                <div className="panel p-3">
+                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
+                    SELECTED PORT
+                  </div>
+                  <div className="mt-2 text-[var(--color-cyan)] text-[18px] font-semibold">
+                    {portName}
+                  </div>
+                </div>
 
-                {/* Berth region sub-labels */}
-                {[
-                  ["KASIMEDU HARBOUR", 90, 40],
-                  ["KASIRAJPURAM", 210, 30],
-                  ["ENNORE", 480, 30],
-                  ["PORT TRUST", 90, 90],
-                  ["BHARATI DOCK", 130, 180],
-                  ["NORTH HARBOUR", 100, 240],
-                  ["CENTRAL BASIN", 180, 300],
-                  ["OIL JETTY", 220, 380],
-                  ["SOUTH HARBOUR", 130, 420],
-                  ["KAMARAJAR PORT LTD (KPL)", 210, 470],
-                ].map(([t, x, y]) => (
-                  <text
-                    key={t as string}
-                    x={x as number}
-                    y={y as number}
-                    fontSize="8"
-                    fill="oklch(0.82 0.18 195)"
-                    opacity="0.55"
-                    letterSpacing="1.2"
-                    className="label-halo"
-                  >
-                    {t}
-                  </text>
-                ))}
+                <div className="panel p-3">
+                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
+                    CURRENT SEVERITY
+                  </div>
+                  <div className="mt-2 text-[var(--color-amber)] text-[18px] font-semibold">
+                    {severityLabel}
+                  </div>
+                </div>
 
-                {/* Berth quay line */}
-                <line
-                  x1="205"
-                  y1="170"
-                  x2="205"
-                  y2="395"
-                  stroke="oklch(0.86 0.19 155 / 0.6)"
-                  strokeWidth="0.8"
-                />
+                <div className="panel p-3">
+                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
+                    FORECAST HORIZON
+                  </div>
+                  <div className="mt-2 text-[var(--color-mint)] text-[18px] font-semibold">
+                    10 days
+                  </div>
+                </div>
+              </div>
 
-                {/* Approach lanes with glow */}
-                <path
-                  d="M 800 220 Q 600 260 380 300"
-                  stroke="oklch(0.82 0.18 195)"
-                  strokeWidth="2.2"
-                  opacity="0.08"
-                  fill="none"
-                />
-                <path
-                  d="M 800 220 Q 600 260 380 300"
-                  stroke="oklch(0.82 0.18 195 / 0.85)"
-                  strokeWidth="0.9"
-                  strokeDasharray="3 7"
-                  fill="none"
-                  style={{ animation: "dash-flow 3s linear infinite" }}
-                />
-                <path
-                  d="M 800 380 Q 620 380 440 400"
-                  stroke="oklch(0.82 0.18 75)"
-                  strokeWidth="2.1"
-                  opacity="0.07"
-                  fill="none"
-                />
-                <path
-                  d="M 800 380 Q 620 380 440 400"
-                  stroke="oklch(0.82 0.18 75 / 0.8)"
-                  strokeWidth="0.9"
-                  strokeDasharray="3 7"
-                  fill="none"
-                  style={{ animation: "dash-flow 4s linear infinite" }}
-                />
-                <path
-                  d="M 780 140 Q 620 190 440 240"
-                  stroke="oklch(0.82 0.18 195 / 0.5)"
-                  strokeWidth="0.9"
-                  strokeDasharray="2 5"
-                  fill="none"
-                />
-                {/* Deterministic Chennai AIS/SAR vessel placements */}
-                {chennaiHarborVessels.berth.map((vessel) => (
-                  <HarborVessel key={vessel.id} vessel={vessel} berth />
-                ))}
-                {chennaiHarborVessels.anchorage.map((vessel) => (
-                  <HarborVessel key={vessel.id} vessel={vessel} anchored />
-                ))}
-                {chennaiHarborVessels.approach.map((vessel) => (
-                  <HarborVessel key={vessel.id} vessel={vessel} underway />
-                ))}
-                {chennaiHarborVessels.service.map((vessel) => (
-                  <HarborVessel key={vessel.id} vessel={vessel} service />
-                ))}
-              </svg>
-
-              {/* Legend */}
-              <div className="absolute bottom-2 left-2 right-2 px-2 py-1 border border-[var(--color-cyan)]/25 bg-[oklch(0.10_0.02_240_/_0.82)] backdrop-blur flex items-center gap-3 text-[9px] tracking-widest">
-                <LegendPill c="#7ef0b4" t="At Berth" />
-                <LegendPill c="#ffb347" t="Anchored" />
-                <LegendPill c="#7dd3fc" t="En Route" />
-                <LegendPill c="#c58cff" t="Drifting" />
-                <LegendPill c="#ff5566" t="Restricted" />
-                <span className="ml-auto flex items-center gap-3">
-                  <span className="text-[var(--color-muted-foreground)]">
-                    -·- Tug/Service
-                  </span>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    ---- Approach Lane
-                  </span>
-                </span>
+              <div className="text-[10px] text-[var(--color-muted-foreground)] border-t border-[var(--color-line)] pt-3">
+                Planned satellite/AIS features: detected vessels, anchorage density,
+                berth queue proxy, SAR confidence, AIS mismatch count, and route
+                deviation.
               </div>
             </div>
           </div>
 
-          {/* Anchorage + Berth Occupancy */}
+          {/* DATA READINESS */}
           <div className="panel flex flex-col">
             <div className="panel-header">
-              <span>ANCHORAGE QUEUES</span>
+              <span>DATA READINESS</span>
+              <span>REVIEW SAFE</span>
             </div>
-            <div className="p-3 space-y-2 text-[11px]">
+            <div className="p-4 space-y-3 text-[11px]">
               {[
-                ["Outer Anchorage (E)", 25, "#7ef0b4"],
-                ["Outer Anchorage (W)", 17, "#ffb347"],
-                ["Northern Roads", 10, "#7dd3fc"],
-                ["Southern Roads", 10, "#c58cff"],
-              ].map(([l, n, c]) => (
+                ["HSMM regime", "model output", "mint"],
+                ["TFT forecast", "model output", "mint"],
+                ["Decision recommendation", "backend logic", "amber"],
+                ["Weather", "backend cache", "mint"],
+                ["News/NLP", "backend cache", "mint"],
+                ["Satellite/AIS", "planned extension", "amber"],
+              ].map(([label, status, tone]) => (
                 <div
-                  key={l as string}
-                  className="flex items-center justify-between"
+                  key={label}
+                  className="grid grid-cols-[150px_1fr] gap-2 items-center"
                 >
-                  <span className="flex items-center gap-2 text-[var(--color-foreground)]">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: c as string }}
-                    />
-                    {l}
-                  </span>
-                  <span className="tabular-nums text-[var(--color-muted-foreground)]">
-                    {n} vessels
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="panel-header border-t border-[var(--color-line)]">
-              <span>BERTH OCCUPANCY</span>
-            </div>
-            <div className="p-2 space-y-1 text-[10px]">
-              {berthOcc.map(([b, v, tone]) => (
-                <div
-                  key={b}
-                  className="grid grid-cols-[24px_1fr_36px] items-center gap-2"
-                >
-                  <span className="text-[var(--color-cyan)]">{b}</span>
-                  <div className="h-1.5 bg-[var(--color-panel-2)] overflow-hidden rounded-sm">
-                    <div
-                      className="h-full"
-                      style={{
-                        width: `${v}%`,
-                        background:
-                          tone === "red"
-                            ? "var(--color-red)"
-                            : tone === "amber"
-                              ? "var(--color-amber)"
-                              : "var(--color-mint)",
-                      }}
-                    />
-                  </div>
-                  <span className="tabular-nums text-right text-[var(--color-foreground)]">
-                    {v}%
-                  </span>
+                  <span className="text-[var(--color-cyan)]">{label}</span>
+                  <Chip tone={tone as any}>{status}</Chip>
                 </div>
               ))}
             </div>
@@ -904,81 +662,60 @@ function PortPage() {
         <div className="grid grid-cols-3 gap-2">
           <div className="panel">
             <div className="panel-header">
-              <span>KEY FORECAST DRIVERS · {portName}</span>
-              <span>IMPACT</span>
+              <span>BACKEND FORECAST SIGNALS · {portName}</span>
+              <span>MODEL INPUTS</span>
             </div>
-            <div className="p-2 space-y-1.5 text-[11px]">
+            <div className="p-2 space-y-2 text-[11px]">
               {[
-                ["1", "Wind Speed (WNW 20–30 kt)", "+28%", "HIGH", "red"],
-                ["2", "SW Monsoon Onset (Active)", "+25%", "HIGH", "red"],
-                ["3", "Sea State (Moderate)", "+16%", "HIGH", "amber"],
-                ["4", "Labor Availability Risk", "+11%", "MED", "amber"],
-                [
-                  "5",
-                  "Dredging Operations (Entry Channel)",
-                  "-7%",
-                  "LOW",
-                  "mint",
-                ],
-                ["6", "Export Demand (Auto Components)", "+6%", "MED", "amber"],
-              ].map(([n, label, delta, sev, tone]) => (
+                ["HSMM regime", regime.regimeLabel ?? regime.regime ?? "available", "mint"],
+                ["TFT forecast", `${forecastDays.length} horizon points`, "mint"],
+                ["Weather risk", `${Math.round((weather.riskScore ?? weather.weatherProbability ?? 0) * 100)}%`, "amber"],
+                ["Decision layer", recommendation.severity ?? severityLabel, "amber"],
+              ].map(([label, value, tone]) => (
                 <div
-                  key={n}
-                  className="grid grid-cols-[16px_1fr_50px_54px] items-center gap-2"
+                  key={label}
+                  className="grid grid-cols-[120px_1fr_58px] items-center gap-2"
                 >
-                  <span className="text-[var(--color-cyan)] tabular-nums">
-                    {n}
-                  </span>
-                  <span className="text-[var(--color-foreground)]">
-                    {label}
-                  </span>
-                  <span className="text-right tabular-nums text-[var(--color-foreground)]">
-                    {delta}
-                  </span>
-                  <Chip tone={tone as any}>{sev}</Chip>
+                  <span className="text-[var(--color-cyan)]">{label}</span>
+                  <span className="text-[var(--color-foreground)]">{value}</span>
+                  <Chip tone={tone as any}>backend</Chip>
                 </div>
               ))}
               <div className="text-[9px] text-[var(--color-muted-foreground)] pt-1 border-t border-[var(--color-line)]/60">
-                ⓘ Impact shown is relative contribution to congestion index
-                (next 24h).
+                ⓘ This panel summarizes backend/cache signals used in the cockpit.
+                Detailed feature attribution is planned as a future SHAP/attention
+                explanation layer.
               </div>
             </div>
           </div>
 
           <div className="panel">
             <div className="panel-header">
-              <span>MODEL OUTPUTS · EXPERT CHAIN ({portName})</span>
-              <span>Confidence</span>
+              <span>PIPELINE MODULES · {portName}</span>
+              <span>STATUS</span>
             </div>
             <div className="p-2 space-y-1.5 text-[11px]">
-              {experts.map((expert) => (
+              {[
+                ["Feature Builder", "daily port-level feature table", "mint"],
+                ["HSMM Regime", "regime probabilities before TFT", "mint"],
+                ["TFT Forecast", "q10/q50/q90 congestion forecast", "mint"],
+                ["Decision Layer", "rule-based operational recommendation", "amber"],
+                ["Satellite/AIS", "planned extension", "amber"],
+              ].map(([name, detail, tone]) => (
                 <div
-                  key={expert.key}
-                  className="grid grid-cols-[18px_140px_1fr_36px] gap-2 items-center"
+                  key={name}
+                  className="grid grid-cols-[120px_1fr_60px] gap-2 items-center"
                 >
-                  <span className="text-[var(--color-cyan)]">◎</span>
-                  <span className="text-[var(--color-foreground)]">
-                    {expert.name}
-                  </span>
+                  <span className="text-[var(--color-foreground)]">{name}</span>
                   <span className="text-[10px] text-[var(--color-muted-foreground)]">
-                    {expert.effectOnForecast}
+                    {detail}
                   </span>
-                  <span
-                    className={
-                      "text-right tabular-nums " +
-                      (expert.score > 0.7
-                        ? "text-[var(--color-red)]"
-                        : expert.score > 0.55
-                          ? "text-[var(--color-amber)]"
-                          : "text-[var(--color-cyan)]")
-                    }
-                  >
-                    {expert.confidence.toFixed(2)}
-                  </span>
+                  <Chip tone={tone as any}>{tone === "mint" ? "done" : "next"}</Chip>
                 </div>
               ))}
               <div className="text-[9px] text-[var(--color-muted-foreground)] pt-1 border-t border-[var(--color-line)]/60">
-                ⓘ Expert chain output drives HSMM regime and TFT forecast.
+                ⓘ This is a pipeline status view, not a fabricated expert-confidence
+                output.
               </div>
             </div>
           </div>
@@ -989,9 +726,8 @@ function PortPage() {
               <span>Impact · Confidence</span>
             </div>
             <div className="p-2 space-y-2 text-[11px]">
-              {newsForPort
-                .slice(0, 4)
-                .map((event, i) => (
+              {newsForPort.length ? (
+                newsForPort.slice(0, 4).map((event, i) => (
                   <div
                     key={event.id}
                     className="grid grid-cols-[14px_1fr_54px_44px] gap-2"
@@ -1030,9 +766,17 @@ function PortPage() {
                       {event.confidence.toFixed(2)}
                     </span>
                   </div>
-                ))}
+                ))
+              ) : (
+                <div className="text-[10px] text-[var(--color-muted-foreground)] leading-relaxed">
+                  No backend news events are currently mapped to this port.
+                  The News/NLP page still shows the full backend historical
+                  sentiment cache.
+                </div>
+              )}
               <div className="text-[9px] text-[var(--color-muted-foreground)] pt-1 border-t border-[var(--color-line)]/60">
-                ⓘ News & events intelligence integrated into expert chain.
+                ⓘ This panel uses backend news-cache events only. It does not fall
+                back to local mock news.
               </div>
             </div>
           </div>
