@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Chip } from "./ui";
 import { cn } from "@/lib/utils";
-import { listNewsEvents } from "@/services/newsService";
 import { getPort } from "@/services/portService";
 import { resolveScenarioKey } from "@/services/scenarioService";
 
@@ -34,7 +33,6 @@ export function TerminalShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { time, date } = useUtc();
   const [command, setCommand] = useState("");
-  const tickerEvents = listNewsEvents();
 
   const pageTitle =
     path === "/" ? { eyebrow: "NATIONAL PORT RADAR", chip: "AI SATELLITE PROXY MODE" } :
@@ -44,7 +42,7 @@ export function TerminalShell({ children }: { children: React.ReactNode }) {
     path.startsWith("/model")? { eyebrow: "MODEL INTELLIGENCE", chip: "TFT-HSMM v4.2" } :
     path.startsWith("/wx")   ? { eyebrow: "WEATHER INTELLIGENCE", chip: "IMD · INCOIS · ECMWF" } :
     path.startsWith("/sar")  ? { eyebrow: "SAR / AIS PROXY", chip: "SENTINEL-1 · S1-IW" } :
-    { eyebrow: "NEWS / NLP INTELLIGENCE", chip: "GDELT · REUTERS · SPLASH" };
+    { eyebrow: "NEWS / NLP INTELLIGENCE", chip: "BACKEND NEWS CACHE" };
 
   const runCommand = (raw: string) => {
     const cleaned = raw.trim().replace(/\s+/g, " ").toUpperCase();
@@ -208,27 +206,6 @@ export function TerminalShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 min-w-0 min-h-0 overflow-hidden">{children}</main>
       </div>
 
-      {/* BOTTOM SYSTEM FEED (thin ticker) */}
-      <footer className="h-[26px] shrink-0 border-t border-[var(--color-line)] bg-[oklch(0.11_0.02_240)] flex items-center overflow-hidden">
-        <div className="px-3 h-full flex items-center gap-2 border-r border-[var(--color-line)] text-[9px] tracking-[0.22em]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-mint)] animate-blink" />
-          <span className="text-[var(--color-mint)]">SYSTEM FEED</span>
-        </div>
-        <div className="flex-1 overflow-hidden whitespace-nowrap">
-          <div className="animate-ticker inline-flex gap-8 pl-4 text-[10px] tabular-nums">
-            {[...tickerEvents, ...tickerEvents].map((n, i) => (
-              <span key={i} className="inline-flex items-center gap-2">
-                <span className="text-[var(--color-cyan)]">{n.timestamp}</span>
-                <Chip tone={n.severity === "severe" ? "red" : "amber"}>{n.tag}</Chip>
-                <span className="text-[var(--color-foreground)]">{n.text}</span>
-                <span className="text-[var(--color-muted-foreground)]">— {n.source}</span>
-                <span className="text-[var(--color-line-strong)]">◆</span>
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="px-3 text-[10px] tracking-widest text-[var(--color-cyan)] border-l border-[var(--color-line)]">View all feeds →</div>
-      </footer>
     </div>
   );
 }

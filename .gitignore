@@ -12,6 +12,7 @@ env/
 # --- Generated outputs / caches / DB (regeneratable) ---
 outputs/
 data/cache/
+data/processed/
 data/sample/
 work/
 *.db
@@ -32,6 +33,7 @@ india-portwatch-terminal/.env.*
 !india-portwatch-terminal/.env.example
 
 # --- Model artifacts / large binaries ---
+models/
 *.ckpt
 *.pt
 *.pth

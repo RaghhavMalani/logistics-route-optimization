@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Panel, Chip, Bar } from "@/components/terminal/ui";
-import {
-  listAlertEvents,
-  listEntitySentiment,
-  listNewsEvents,
-} from "@/services/newsService";
 import { fetchNewsBundle, fetchNewsEventsForEntity } from "@/services/news";
 
 export const Route = createFileRoute("/nlp")({
@@ -18,30 +13,44 @@ export const Route = createFileRoute("/nlp")({
 function NlpPage() {
   const { entity } = Route.useSearch();
   const normalizedEntity = entity.toUpperCase();
+
   const focusedQuery = useQuery({
     queryKey: ["news-entity", normalizedEntity],
     queryFn: () => fetchNewsEventsForEntity(normalizedEntity),
-    initialData: () =>
-      listNewsEvents().filter(
-        (event) =>
-          event.entity.includes(normalizedEntity) ||
-          event.tag.includes(normalizedEntity),
-      ),
     staleTime: 30_000,
   });
+
   const newsBundleQuery = useQuery({
     queryKey: ["news-bundle"],
     queryFn: fetchNewsBundle,
-    initialData: () => ({
-      events: listNewsEvents(),
-      alerts: listAlertEvents(),
-      sentiment: listEntitySentiment(),
-    }),
     staleTime: 30_000,
   });
-  const events = newsBundleQuery.data.events;
-  const focusedEvents = focusedQuery.data.length
-    ? focusedQuery.data
+
+  if (focusedQuery.isLoading || newsBundleQuery.isLoading) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
+        LOADING BACKEND NLP FEED...
+      </div>
+    );
+  }
+
+  if (
+    focusedQuery.isError ||
+    newsBundleQuery.isError ||
+    !focusedQuery.data ||
+    !newsBundleQuery.data
+  ) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
+        NEWS API UNAVAILABLE
+      </div>
+    );
+  }
+
+  const events = newsBundleQuery.data.events ?? [];
+  const entityEvents = focusedQuery.data ?? [];
+  const focusedEvents = entityEvents.length
+    ? entityEvents
     : events.filter(
         (event) =>
           event.entity.includes(normalizedEntity) ||
@@ -53,15 +62,83 @@ function NlpPage() {
         ...events.filter((event) => !focusedEvents.includes(event)),
       ]
     : events;
-  const entities = newsBundleQuery.data.sentiment;
+  const entities = newsBundleQuery.data.sentiment ?? [];
+  const alerts = newsBundleQuery.data.alerts ?? [];
+  const summary = newsBundleQuery.data.summary ?? {};
+  const sourceLabel =
+    summary.dataSource ??
+    events[0]?.dataSource ??
+    "data/cache/news_bundle.json";
+
+  const avgSentiment = events.length
+    ? events.reduce((total, event) => total + Number(event.sentiment ?? 0), 0) /
+      events.length
+    : 0;
+
+  const dominantEntities = entities
+    .slice(0, 3)
+    .map((entity) => entity.entity)
+    .join(", ");
+
+  const stopWords = new Set([
+    "daily",
+    "maritime",
+    "news",
+    "sentiment",
+    "index",
+    "rolling14",
+    "affected",
+    "ports",
+    "selected",
+    "from",
+    "current",
+    "risk",
+    "ranking",
+    "backend",
+    "cache",
+    "historical",
+    "aggregate",
+  ]);
+
+  const derivedKeywords = Array.from(
+    new Set(
+      feedEvents.flatMap((event) =>
+        `${event.tag} ${event.entity} ${event.text}`
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((word) => word.length > 3 && !stopWords.has(word)),
+      ),
+    ),
+  ).slice(0, 12);
+
+  const keywordPulse = derivedKeywords.length
+    ? derivedKeywords
+    : ["no-keywords-from-backend"];
+
+  const timelineSource = feedEvents.length ? feedEvents : events;
+  const timelinePoints =
+    timelineSource.length > 1
+      ? timelineSource
+          .slice(0, 24)
+          .map((event, index, arr) => {
+            const x = (index * 240) / Math.max(arr.length - 1, 1);
+            const sentiment = Math.max(
+              -1.5,
+              Math.min(1.5, Number(event.sentiment ?? 0)),
+            );
+            const y = 40 - (sentiment / 1.5) * 28;
+            return `${x},${y}`;
+          })
+          .join(" ")
+      : "0,40 240,40";
 
   return (
     <div className="h-full grid grid-cols-[1.4fr_1fr_1fr] gap-2">
       <Panel
-        title={`NLP FEED · ${normalizedEntity} · GDELT + REUTERS + LLOYD'S · Δ 45s`}
+        title={`NLP FEED · ${normalizedEntity} · BACKEND NEWS CACHE`}
       >
         <div className="p-2 space-y-2">
-          {feedEvents.concat(feedEvents).map((n, i) => (
+          {feedEvents.map((n, i) => (
             <div key={`${n.id}-${i}`} className="panel p-2">
               <div className="flex items-center justify-between text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
                 <div className="flex items-center gap-2">
@@ -128,65 +205,29 @@ function NlpPage() {
             ))}
           </div>
         </Panel>
-        <Panel title="SUPPLY-CHAIN GRAPH">
-          <div className="p-3">
-            <svg viewBox="0 0 400 220" className="w-full h-full">
-              {[
-                { id: "HRMZ", x: 60, y: 60, c: "red" },
-                { id: "BAB", x: 60, y: 160, c: "amber" },
-                { id: "SUEZ", x: 200, y: 40, c: "amber" },
-                { id: "MLC", x: 340, y: 60, c: "mint" },
-                { id: "IN-W", x: 200, y: 120, c: "amber" },
-                { id: "IN-E", x: 340, y: 160, c: "red" },
-              ].map((n) => (
-                <g key={n.id} transform={`translate(${n.x} ${n.y})`}>
-                  <circle
-                    r="14"
-                    fill="oklch(0.18 0.03 240)"
-                    stroke={`var(--color-${n.c})`}
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    textAnchor="middle"
-                    y="3"
-                    fontSize="9"
-                    fill={`var(--color-${n.c})`}
-                  >
-                    {n.id}
-                  </text>
-                </g>
-              ))}
-              {[
-                ["HRMZ", "IN-W"],
-                ["BAB", "IN-W"],
-                ["SUEZ", "IN-W"],
-                ["MLC", "IN-E"],
-                ["IN-W", "IN-E"],
-              ].map(([a, b], i) => {
-                const nodes: any = {
-                  HRMZ: [60, 60],
-                  BAB: [60, 160],
-                  SUEZ: [200, 40],
-                  MLC: [340, 60],
-                  "IN-W": [200, 120],
-                  "IN-E": [340, 160],
-                };
-                const [x1, y1] = nodes[a],
-                  [x2, y2] = nodes[b];
-                return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="oklch(0.82 0.18 195 / 0.4)"
-                    strokeWidth="1"
-                    className="animate-dash"
-                  />
-                );
-              })}
-            </svg>
+        <Panel title="BACKEND ENTITY LINKS">
+          <div className="p-3 space-y-2 text-[10px]">
+            {entities.length ? (
+              entities.slice(0, 6).map((entity, index) => (
+                <div
+                  key={entity.entity}
+                  className="panel px-2 py-1.5 flex items-center justify-between"
+                >
+                  <span className="text-[var(--color-cyan)]">
+                    #{index + 1} {entity.entity}
+                  </span>
+                  <span className="tabular-nums text-[var(--color-muted-foreground)]">
+                    {entity.mentions} mentions ·{" "}
+                    {entity.sentiment >= 0 ? "+" : ""}
+                    {entity.sentiment.toFixed(2)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-[var(--color-muted-foreground)]">
+                No entity sentiment returned by backend.
+              </div>
+            )}
           </div>
         </Panel>
       </div>
@@ -204,12 +245,7 @@ function NlpPage() {
                 strokeDasharray="2 3"
               />
               <polyline
-                points={Array.from({ length: 24 })
-                  .map(
-                    (_, i) =>
-                      `${i * 10},${40 - Math.sin(i / 2) * 15 - (i > 16 ? 10 : 0)}`,
-                  )
-                  .join(" ")}
+                points={timelinePoints}
                 fill="none"
                 stroke="var(--color-red)"
                 strokeWidth="1.4"
@@ -221,55 +257,54 @@ function NlpPage() {
             </div>
           </div>
         </Panel>
-        <Panel title="LLM INTELLIGENCE · SUMMARY">
+        <Panel title="BACKEND NLP CACHE · SUMMARY">
           <div className="p-3 text-[11px] leading-relaxed space-y-2">
             <p>
-              Corpus of{" "}
-              <span className="text-[var(--color-cyan)] tabular-nums">
-                1,284
-              </span>{" "}
-              maritime articles in last 24h. Dominant themes:{" "}
-              <span className="text-[var(--color-red)]">
-                Hormuz tanker rerouting
+              Source:{" "}
+              <span className="text-[var(--color-cyan)]">
+                {sourceLabel}
               </span>
-              ,{" "}
-              <span className="text-[var(--color-amber)]">
-                Bay-of-Bengal cyclogenesis
-              </span>
-              ,{" "}
-              <span className="text-[var(--color-amber)]">JNPT congestion</span>
               .
             </p>
             <p>
-              Sentiment on India east-coast ports has decayed{" "}
-              <span className="text-[var(--color-red)]">−0.24</span> over 12h.
-              GDELT tone reinforces HSMM regime shift to CONGESTED_HIGH.
+              Loaded{" "}
+              <span className="text-[var(--color-cyan)] tabular-nums">
+                {events.length}
+              </span>{" "}
+              historical sentiment events and{" "}
+              <span className="text-[var(--color-cyan)] tabular-nums">
+                {alerts.length}
+              </span>{" "}
+              TFT-linked alerts from the backend cache.
             </p>
             <p>
-              NLP feeds forward with weight{" "}
-              <span className="text-[var(--color-cyan)] tabular-nums">
-                0.18
-              </span>{" "}
-              into TFT covariates.
+              Dominant backend entities:{" "}
+              <span className="text-[var(--color-amber)]">
+                {dominantEntities || "none returned"}
+              </span>
+              .
+            </p>
+            <p>
+              Mean displayed sentiment:{" "}
+              <span
+                className={
+                  avgSentiment < -0.2
+                    ? "text-[var(--color-red)]"
+                    : avgSentiment < 0
+                      ? "text-[var(--color-amber)]"
+                      : "text-[var(--color-mint)]"
+                }
+              >
+                {avgSentiment >= 0 ? "+" : ""}
+                {avgSentiment.toFixed(2)}
+              </span>
+              . This page is showing backend cache signals, not live articles.
             </p>
           </div>
         </Panel>
         <Panel title="KEYWORD PULSE">
           <div className="p-3 flex flex-wrap gap-1.5 text-[10px]">
-            {[
-              "strait of hormuz",
-              "tanker premium",
-              "cyclogenesis",
-              "kakinada",
-              "dredging",
-              "labour rotation",
-              "monsoon swell",
-              "reroute",
-              "cape of good hope",
-              "fuel surcharge",
-              "JNPT",
-              "yard util",
-            ].map((k) => (
+            {keywordPulse.map((k) => (
               <span
                 key={k}
                 className="border border-[var(--color-line-strong)] px-1.5 py-0.5 text-[var(--color-muted-foreground)]"

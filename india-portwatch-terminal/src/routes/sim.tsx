@@ -4,11 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Chip, Sparkline } from "@/components/terminal/ui";
 import { cn } from "@/lib/utils";
 import { listPortOperationalSnapshots } from "@/services/portService";
-import {
-  listScenarioDefinitions,
-  simulateScenario,
-} from "@/services/scenarioService";
 import { fetchScenarioDefinitions, runScenario } from "@/services/scenarios";
+import { fetchNewsBundle } from "@/services/news";
 import type { OperationalRiskLevel } from "@/types/portwatch";
 
 export const Route = createFileRoute("/sim")({
@@ -107,35 +104,170 @@ function signedHours(value: number): string {
 }
 
 function DecisionRoom() {
+  const newsBundleQuery = useQuery({
+    queryKey: ["decision-room-news"],
+    queryFn: fetchNewsBundle,
+    staleTime: 30_000,
+  });
+
+  const backendNewsEvents = newsBundleQuery.data?.events ?? [];
+  const selectedBackendNewsEvent = backendNewsEvents[0];
+
   const search = Route.useSearch();
   const [sel, setSel] = useState(search.scenario);
   const [intensity, setIntensity] = useState(
     Number.isFinite(search.intensity) ? search.intensity : 1.5,
   );
   const [runId, setRunId] = useState(0);
+  const [askQuestion, setAskQuestion] = useState("");
+  const [activeQuestion, setActiveQuestion] = useState(
+    "Why is this port marked at this risk level?",
+  );
+
   const scenariosQuery = useQuery({
     queryKey: ["scenario-definitions"],
     queryFn: fetchScenarioDefinitions,
-    initialData: listScenarioDefinitions,
     staleTime: 60_000,
   });
+
   const ports = listPortOperationalSnapshots();
+  const defaultPortCode =
+    ports.find((port) => port.portCode === "INNSA")?.portCode ??
+    ports[0]?.portCode ??
+    "INMAA";
+  const [selectedPortCode, setSelectedPortCode] = useState(defaultPortCode);
+
   const scenarioResultQuery = useQuery({
     queryKey: ["scenario-result", sel, intensity, runId],
     queryFn: () => runScenario(sel, intensity, 1247 + runId),
-    initialData: () => simulateScenario(sel, intensity, 1247 + runId),
+    enabled: Boolean(sel),
     staleTime: 5_000,
   });
+
+  useEffect(() => {
+    setSel(search.scenario);
+    setIntensity(Number.isFinite(search.intensity) ? search.intensity : 1.5);
+  }, [search.scenario, search.intensity]);
+
+  if (scenariosQuery.isLoading || scenarioResultQuery.isLoading) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
+        LOADING LIVE SCENARIO SIMULATOR...
+      </div>
+    );
+  }
+
+  if (
+    scenariosQuery.isError ||
+    scenarioResultQuery.isError ||
+    !scenariosQuery.data ||
+    !scenarioResultQuery.data
+  ) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
+        SCENARIO API UNAVAILABLE
+      </div>
+    );
+  }
+
   const scenarios = scenariosQuery.data;
   const result = scenarioResultQuery.data;
   const impactByPort = new Map(
     result.affectedPorts.map((impact) => [impact.portCode, impact]),
   );
 
-  useEffect(() => {
-    setSel(search.scenario);
-    setIntensity(Number.isFinite(search.intensity) ? search.intensity : 1.5);
-  }, [search.scenario, search.intensity]);
+  const selectedPort =
+    ports.find((port) => port.portCode === selectedPortCode) ?? ports[0];
+  const selectedImpact = impactByPort.get(selectedPortCode);
+
+  const selectedRisk = (selectedImpact?.riskLevel ?? "low") as OperationalRiskLevel;
+  const selectedRiskLabel = riskLabel(selectedRisk);
+  const selectedRiskTone = riskTone(selectedRisk);
+
+  const focusCongestionDelta = selectedImpact?.congestionDelta ?? 0;
+  const focusDelayDeltaHours = selectedImpact?.delayDeltaHours ?? 0;
+  const focusThroughputDelta = selectedImpact?.throughputDelta ?? 0;
+  const focusImpactScore = selectedImpact?.impactScore ?? 0;
+  const focusFreightDelta =
+    selectedImpact && result.congestionDelta
+      ? result.freightDelta * (focusCongestionDelta / result.congestionDelta)
+      : 0;
+
+  const topAffectedPorts = [...result.affectedPorts]
+    .sort((a, b) => b.impactScore - a.impactScore)
+    .slice(0, 5);
+
+  const highestDelayPorts = [...result.affectedPorts]
+    .sort((a, b) => b.delayDeltaHours - a.delayDeltaHours)
+    .slice(0, 3);
+
+  const backendNewsCount = backendNewsEvents.length;
+  const selectedPortName = selectedPort?.name ?? selectedPortCode;
+
+  const askSuggestions = [
+    `Why is ${selectedPortName} marked ${selectedRiskLabel.toLowerCase()} risk?`,
+    "Which ports are most exposed in this scenario?",
+    "Which routes have highest delay risk?",
+    "What should operators do next?",
+    "What backend signals support this decision?",
+  ];
+
+  const submitAskQuestion = (question?: string) => {
+    const finalQuestion = (question ?? askQuestion).trim() || askSuggestions[0];
+    setActiveQuestion(finalQuestion);
+    setAskQuestion("");
+  };
+
+  const q = activeQuestion.toLowerCase();
+
+  const answerTitle = q.includes("route")
+    ? "Route delay risk is driven by the scenario-level route impact output."
+    : q.includes("exposed") || q.includes("ports")
+      ? "The most exposed ports are ranked from the backend scenario impact output."
+      : q.includes("operator") || q.includes("what should") || q.includes("next")
+        ? "Recommended actions come from the backend scenario decision layer."
+        : q.includes("signal") || q.includes("backend")
+          ? "This answer is grounded in backend scenario, news, and model-cache signals."
+          : `${selectedPortName} is marked ${selectedRiskLabel} based on its selected-port scenario impact.`;
+
+  const answerBullets = q.includes("route")
+    ? [
+        `West/east route impacts are scenario-wide and remain tied to the selected disruption.`,
+        `Selected focus port delay delta: ${signedHours(focusDelayDeltaHours)}.`,
+        `Freight impact proxy for this focus: ${signedPercent(focusFreightDelta)}.`,
+      ]
+    : q.includes("exposed") || q.includes("ports")
+      ? topAffectedPorts.map(
+          (portImpact) =>
+            `${portImpact.portName ?? portImpact.portCode}: ${riskLabel(
+              portImpact.riskLevel,
+            )} risk, impact score ${portImpact.impactScore.toFixed(2)}, delay ${signedHours(
+              portImpact.delayDeltaHours,
+            )}.`,
+        )
+      : q.includes("operator") || q.includes("what should") || q.includes("next")
+        ? result.recommendation.actions.slice(0, 4)
+        : q.includes("signal") || q.includes("backend")
+          ? [
+              `Scenario API output: ${result.scenarioName ?? sel} at ${intensity.toFixed(1)}x intensity.`,
+              `Selected port impact: congestion ${signedPercent(
+                focusCongestionDelta,
+              )}, delay ${signedHours(focusDelayDeltaHours)}, throughput ${signedPercent(
+                focusThroughputDelta,
+              )}.`,
+              `Backend news cache events available: ${backendNewsCount}.`,
+              `Pipeline shown: data fusion → HSMM regime → TFT forecast → decision layer.`,
+            ]
+          : [
+              `Risk level: ${selectedRiskLabel}.`,
+              `Congestion delta for selected port: ${signedPercent(focusCongestionDelta)}.`,
+              `Delay delta for selected port: ${signedHours(focusDelayDeltaHours)}.`,
+              `Throughput delta for selected port: ${signedPercent(focusThroughputDelta)}.`,
+            ];
+
+  const answerConfidence = selectedImpact
+    ? Math.min(0.95, 0.65 + Math.abs(focusImpactScore) / 100)
+    : 0.62;
 
   return (
     <div className="h-full overflow-auto overflow-x-hidden">
@@ -151,20 +283,27 @@ function DecisionRoom() {
             Current focus:
           </span>
           <span className="text-[var(--color-foreground)]">
-            Jawaharlal Nehru (Nhava Sheva)
+            {selectedPort?.name ?? selectedPortCode}
           </span>
           <span className="text-[var(--color-muted-foreground)]">
-            — Severe Congestion (High Confidence)
+            — {selectedRiskLabel} scenario focus
           </span>
-          <Chip tone="red">SEVERE</Chip>
+          <Chip tone={selectedRiskTone}>{selectedRiskLabel}</Chip>
           <div className="ml-auto flex items-center gap-1.5 text-[9px] flex-wrap justify-end">
             <span className="text-[var(--color-muted-foreground)]">
               Select Port
             </span>
-            <div className="border border-[var(--color-line-strong)] px-2 py-1 flex items-center gap-2 min-w-[180px] justify-between">
-              JNPT (Nhava Sheva){" "}
-              <span className="text-[var(--color-cyan)]">▾</span>
-            </div>
+            <select
+              value={selectedPortCode}
+              onChange={(event) => setSelectedPortCode(event.target.value)}
+              className="border border-[var(--color-line-strong)] bg-[var(--color-panel)] px-2 py-1 min-w-[180px] text-[var(--color-foreground)] outline-none focus:border-[var(--color-cyan)]"
+            >
+              {ports.map((portOption) => (
+                <option key={portOption.portCode} value={portOption.portCode}>
+                  {portOption.name ?? portOption.portCode}
+                </option>
+              ))}
+            </select>
             <button className="border border-[var(--color-line-strong)] px-2 py-1 text-[var(--color-cyan)]">
               ↗ Share Scenario
             </button>
@@ -285,39 +424,48 @@ function DecisionRoom() {
               </span>
             </div>
             <div className="p-2 text-[10px] text-[var(--color-muted-foreground)]">
-              Before vs After impact on affected ports, routes & operations
+              Before vs After impact for selected focus port:{" "}
+              <span className="text-[var(--color-cyan)]">
+                {selectedPort?.name ?? selectedPortCode}
+              </span>
+              . Scenario-wide route and chokepoint impacts remain unchanged.
+              {!selectedImpact && (
+                <span className="text-[var(--color-amber)]">
+                  {" "}This port is not directly affected in the current scenario output.
+                </span>
+              )}
             </div>
             <div className="px-2 grid grid-cols-5 gap-1.5" key={runId}>
               <ImpactCard
                 label="Congestion Increase"
-                avg={signedPercent(result.congestionDelta)}
-                tone={riskTone(result.riskLevel) === "red" ? "red" : "amber"}
-                data={[45, 50, 58, 62, result.congestionDelta]}
-                sub={`Risk ${riskLabel(result.riskLevel)}`}
+                avg={signedPercent(focusCongestionDelta)}
+                tone={selectedRiskTone === "red" ? "red" : selectedRiskTone === "mint" ? "mint" : "amber"}
+                data={[0, 8, 16, 24, focusCongestionDelta]}
+                sub={`Risk ${selectedRiskLabel}`}
                 delay={0}
               />
               <ImpactCard
                 label="Delay Increase"
-                avg={signedHours(result.delayDeltaHours)}
+                avg={signedHours(focusDelayDeltaHours)}
                 tone="red"
-                data={[6, 8, 9, 10, result.delayDeltaHours]}
+                data={[0, 2, 4, 6, focusDelayDeltaHours]}
                 sub="fleet ETA delta"
                 delay={80}
               />
               <ImpactCard
                 label="Throughput Drop"
-                avg={signedPercent(result.throughputDelta)}
+                avg={signedPercent(focusThroughputDelta)}
                 tone="mint"
-                data={[100, 95, 90, 85, 100 + result.throughputDelta]}
+                data={[100, 98, 96, 94, 100 + focusThroughputDelta]}
                 sub="TEU/day proxy"
                 invert
                 delay={160}
               />
               <ImpactCard
                 label="Freight Impact"
-                avg={signedPercent(result.freightDelta)}
+                avg={signedPercent(focusFreightDelta)}
                 tone="red"
-                data={[100, 102, 104, 106, 100 + result.freightDelta]}
+                data={[100, 101, 102, 103, 100 + focusFreightDelta]}
                 sub="per TEU proxy"
                 delay={240}
               />
@@ -351,7 +499,7 @@ function DecisionRoom() {
               <div className="panel">
                 <div className="panel-header">
                   <span>AFFECTED PORTS</span>
-                  <span>(Top 8)</span>
+                  <span>(Top affected)</span>
                 </div>
                 <div className="grid grid-cols-[16px_1fr_36px_54px] px-2 py-1 border-b border-[var(--color-line)]/60 text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
                   <span></span>
@@ -385,7 +533,7 @@ function DecisionRoom() {
                     );
                   })}
                   <div className="text-[10px] text-[var(--color-cyan)] px-1 py-1">
-                    View all 121 ports →
+                    View affected ports →
                   </div>
                 </div>
                 <div className="p-2 border-t border-[var(--color-line)]">
@@ -744,133 +892,149 @@ function DecisionRoom() {
         <div className="grid grid-cols-[1.35fr_0.9fr_1.15fr] gap-2">
           <div className="panel">
             <div className="panel-header">
-              <span>NEWS / NLP INTELLIGENCE</span>
-              <span>Real-time maritime disruptions & extracted insights</span>
+              <span>BACKEND NEWS / NLP CACHE</span>
+              <span>Historical sentiment events & TFT-linked alerts</span>
             </div>
             <div className="grid grid-cols-2 gap-2 p-2">
               <div className="space-y-2">
-                {[
-                  [
-                    "HIGH",
-                    "red",
-                    "Iran threatens to close Strait of Hormuz",
-                    "in response to escalation",
-                    "2h ago",
-                  ],
-                  [
-                    "HIGH",
-                    "red",
-                    "Red Sea attacks continue; two vessels hit",
-                    "near Bab-el-Mandeb",
-                    "3h ago",
-                  ],
-                  [
-                    "MEDIUM",
-                    "amber",
-                    "IMD: Heavy rainfall along Maharashtra",
-                    "coast over next 48 hours",
-                    "4h ago",
-                  ],
-                  [
-                    "MEDIUM",
-                    "amber",
-                    "JNPT issues advisory: Gate congestion",
-                    "expected this week",
-                    "5h ago",
-                  ],
-                  [
-                    "LOW",
-                    "mint",
-                    "OPEC+ to gradually raise output from Sep",
-                    "Market watch",
-                    "6h ago",
-                  ],
-                ].map(([sev, t, title, sub, ago], i) => (
-                  <div
-                    key={i}
-                    className="border-l-2 pl-2 py-1"
-                    style={{
-                      borderColor:
-                        t === "red"
-                          ? "var(--color-red)"
-                          : t === "amber"
-                            ? "var(--color-amber)"
-                            : "var(--color-mint)",
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Chip tone={t as any}>{sev}</Chip>
-                      <span className="text-[10px] text-[var(--color-foreground)]">
-                        {title}
-                      </span>
-                      <span className="ml-auto text-[9px] text-[var(--color-muted-foreground)]">
-                        {ago}
-                      </span>
-                    </div>
-                    <div className="text-[9px] text-[var(--color-muted-foreground)]">
-                      {sub}
-                    </div>
+                {newsBundleQuery.isLoading ? (
+                  <div className="text-[10px] text-[var(--color-muted-foreground)]">
+                    Loading backend news cache...
                   </div>
-                ))}
+                ) : backendNewsEvents.length ? (
+                  backendNewsEvents.slice(0, 5).map((event) => {
+                    const sentiment = Number(event.sentiment ?? 0);
+                    const tone =
+                      event.severity === "severe"
+                        ? "red"
+                        : event.severity === "normal"
+                          ? "mint"
+                          : "amber";
+
+                    return (
+                      <div
+                        key={event.id}
+                        className="border-l-2 pl-2 py-1"
+                        style={{
+                          borderColor:
+                            tone === "red"
+                              ? "var(--color-red)"
+                              : tone === "amber"
+                                ? "var(--color-amber)"
+                                : "var(--color-mint)",
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Chip tone={tone as any}>
+                            {(event.severity ?? "event").toUpperCase()}
+                          </Chip>
+                          <span className="text-[10px] text-[var(--color-foreground)]">
+                            {event.tag}
+                          </span>
+                          <span className="ml-auto text-[9px] text-[var(--color-muted-foreground)]">
+                            {event.timestamp}Z
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-[var(--color-foreground)] leading-snug mt-1">
+                          {event.text}
+                        </div>
+                        <div className="text-[9px] text-[var(--color-muted-foreground)]">
+                          {event.source} · sentiment{" "}
+                          {sentiment >= 0 ? "+" : ""}
+                          {sentiment.toFixed(2)}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-[10px] text-[var(--color-muted-foreground)]">
+                    No backend news events available.
+                  </div>
+                )}
               </div>
+
               <div className="panel p-2 text-[10px] space-y-1.5">
                 <div className="flex justify-between text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
-                  <span>SELECTED EVENT</span>
+                  <span>SELECTED BACKEND EVENT</span>
                   <span className="text-[var(--color-cyan)]">
-                    OPEN IN FULL ⧉
+                    CACHE SOURCE
                   </span>
                 </div>
-                <div className="text-[11px] text-[var(--color-foreground)] font-medium">
-                  Iran threatens to close Strait of Hormuz in response to
-                  escalation
-                </div>
-                <div className="grid grid-cols-[80px_1fr] gap-y-1 text-[10px] mt-1">
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Event Type
-                  </span>
-                  <span className="text-[var(--color-foreground)]">
-                    Geopolitical Threat
-                  </span>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Sentiment / Risk
-                  </span>
-                  <span className="text-[var(--color-foreground)] flex items-center gap-2">
-                    <Chip tone="red">High</Chip>
-                    <span className="tabular-nums">0.86</span>
-                  </span>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Affected Ports
-                  </span>
-                  <span className="text-[var(--color-foreground)]">
-                    Mundra, Kandla, JNPT, Kochi, Hazira
-                  </span>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Impact
-                  </span>
-                  <span className="text-[var(--color-foreground)]">
-                    Crude/LNG flow disruption risk; freight spike likely
-                  </span>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Entities
-                  </span>
-                  <span className="text-[var(--color-foreground)]">
-                    Strait of Hormuz; Iran; Oil, LNG, Shipping
-                  </span>
-                </div>
-                <div className="pt-1 flex items-center gap-2 text-[9px]">
-                  <span className="text-[var(--color-muted-foreground)]">
-                    NLP Confidence
-                  </span>
-                  <div className="flex-1 h-1 bg-[var(--color-panel-2)]">
-                    <div
-                      className="h-full bg-[var(--color-mint)]"
-                      style={{ width: "91%" }}
-                    />
+
+                {selectedBackendNewsEvent ? (
+                  (() => {
+                    const sentiment = Number(selectedBackendNewsEvent.sentiment ?? 0);
+                    const confidence = Number(selectedBackendNewsEvent.confidence ?? 0);
+                    const tone =
+                      selectedBackendNewsEvent.severity === "severe"
+                        ? "red"
+                        : selectedBackendNewsEvent.severity === "normal"
+                          ? "mint"
+                          : "amber";
+
+                    return (
+                      <>
+                        <div className="text-[11px] text-[var(--color-foreground)] font-medium">
+                          {selectedBackendNewsEvent.text}
+                        </div>
+                        <div className="grid grid-cols-[86px_1fr] gap-y-1 text-[10px] mt-1">
+                          <span className="text-[var(--color-muted-foreground)]">
+                            Source
+                          </span>
+                          <span className="text-[var(--color-foreground)]">
+                            {selectedBackendNewsEvent.source}
+                          </span>
+                          <span className="text-[var(--color-muted-foreground)]">
+                            Tag / Entity
+                          </span>
+                          <span className="text-[var(--color-foreground)]">
+                            {selectedBackendNewsEvent.tag} / {selectedBackendNewsEvent.entity}
+                          </span>
+                          <span className="text-[var(--color-muted-foreground)]">
+                            Sentiment
+                          </span>
+                          <span className="text-[var(--color-foreground)] flex items-center gap-2">
+                            <Chip tone={tone as any}>
+                              {(selectedBackendNewsEvent.severity ?? "event").toUpperCase()}
+                            </Chip>
+                            <span className="tabular-nums">
+                              {sentiment >= 0 ? "+" : ""}
+                              {sentiment.toFixed(2)}
+                            </span>
+                          </span>
+                          <span className="text-[var(--color-muted-foreground)]">
+                            Affected Ports
+                          </span>
+                          <span className="text-[var(--color-foreground)]">
+                            {selectedBackendNewsEvent.affectedPorts?.length
+                              ? selectedBackendNewsEvent.affectedPorts.join(", ")
+                              : "Not mapped"}
+                          </span>
+                        </div>
+                        <div className="pt-1 flex items-center gap-2 text-[9px]">
+                          <span className="text-[var(--color-muted-foreground)]">
+                            NLP Confidence
+                          </span>
+                          <div className="flex-1 h-1 bg-[var(--color-panel-2)]">
+                            <div
+                              className="h-full bg-[var(--color-mint)]"
+                              style={{
+                                width: `${Math.round(confidence * 100)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[var(--color-mint)] tabular-nums">
+                            {confidence.toFixed(2)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <div className="text-[var(--color-muted-foreground)]">
+                    No backend event selected.
                   </div>
-                  <span className="text-[var(--color-mint)] tabular-nums">
-                    0.91
-                  </span>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -881,15 +1045,10 @@ function DecisionRoom() {
               <span>Ask questions in natural language</span>
             </div>
             <div className="p-3 space-y-2 text-[10px]">
-              {[
-                "Why is Chennai marked medium risk?",
-                "Which ports are most exposed to Hormuz closure?",
-                "What changed since yesterday?",
-                "What is the best arrival day for MV Coromandel?",
-                "Which routes have highest delay risk?",
-              ].map((q) => (
+              {askSuggestions.map((q) => (
                 <button
                   key={q}
+                  onClick={() => submitAskQuestion(q)}
                   className="w-full text-left px-3 py-2 border border-[var(--color-line-strong)] hover:border-[var(--color-cyan)] hover:text-[var(--color-cyan)] text-[var(--color-foreground)]"
                 >
                   {q}
@@ -897,10 +1056,20 @@ function DecisionRoom() {
               ))}
               <div className="mt-2 flex items-center gap-2">
                 <input
+                  value={askQuestion}
+                  onChange={(event) => setAskQuestion(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      submitAskQuestion();
+                    }
+                  }}
                   placeholder="Type your question…"
                   className="flex-1 bg-[var(--color-panel-2)] border border-[var(--color-line-strong)] px-2 py-2 outline-none focus:border-[var(--color-cyan)] text-[11px]"
                 />
-                <button className="w-9 h-9 border border-[var(--color-cyan)]/60 text-[var(--color-cyan)] flex items-center justify-center">
+                <button
+                  onClick={() => submitAskQuestion()}
+                  className="w-9 h-9 border border-[var(--color-cyan)]/60 text-[var(--color-cyan)] flex items-center justify-center"
+                >
                   ▸
                 </button>
               </div>
@@ -912,70 +1081,35 @@ function DecisionRoom() {
             <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--color-cyan)]/25 bg-gradient-to-r from-[oklch(0.82_0.18_195/0.12)] to-transparent">
               <span className="text-[10px] tracking-[0.2em] text-[var(--color-cyan)] font-semibold flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-cyan)] animate-blink" />
-                AI RESPONSE
+                SCENARIO RESPONSE
               </span>
               <span className="text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
-                MULTI-EXPERT SYNTHESIS · 0.88 CONF
+                RULE-BASED SYNTHESIS · {answerConfidence.toFixed(2)} CONF
               </span>
             </div>
             <div className="p-3 text-[11px] leading-relaxed text-[var(--color-foreground)] space-y-2">
               <div className="text-[var(--color-muted-foreground)] text-[10px] tracking-wide">
-                Q · Why is Chennai marked medium risk?
+                Q · {activeQuestion}
               </div>
+
               <div className="text-[12px]">
-                Chennai is under{" "}
-                <span className="text-[var(--color-amber)] font-semibold">
-                  MEDIUM
-                </span>{" "}
-                risk primarily due to elevated rainfall forecast (48–72h) and
-                moderate congestion outlook.
+                {answerTitle}
               </div>
+
               <ul className="space-y-1 text-[10px] border-l border-[var(--color-cyan)]/30 pl-3">
-                <li>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Weather Impact
-                  </span>{" "}
-                  <span className="text-[var(--color-foreground)] tabular-nums">
-                    0.62
-                  </span>{" "}
-                  — moderate rainfall, wind &lt; 35 kt
-                </li>
-                <li>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Port Ops
-                  </span>{" "}
-                  Yard util. <span className="tabular-nums">74%</span>, berth
-                  occ. <span className="tabular-nums">65%</span>
-                </li>
-                <li>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    Demand
-                  </span>{" "}
-                  Expected surge{" "}
-                  <span className="text-[var(--color-amber)] tabular-nums">
-                    +11%
-                  </span>{" "}
-                  vs baseline
-                </li>
-                <li>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    HSMM Regime
-                  </span>{" "}
-                  Moderate Congestion{" "}
-                  <span className="tabular-nums">(0.61)</span>
-                </li>
-                <li>
-                  <span className="text-[var(--color-muted-foreground)]">
-                    TFT Forecast
-                  </span>{" "}
-                  P90 congestion <span className="tabular-nums">0.68</span> (7d)
-                </li>
+                {answerBullets.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
               </ul>
+
               <div className="text-[10px] text-[var(--color-mint)] border-t border-[var(--color-line)] pt-2">
-                ▸ Conditions are manageable with proactive planning.
+                ▸ Recommendation: {result.recommendation.actions[0]}
               </div>
+
               <div className="flex items-center gap-2 pt-1 text-[9px] text-[var(--color-muted-foreground)]">
-                <span>Sources: 6 experts · 4 news events</span>
+                <span>
+                  Sources: scenario API · selected port impact · backend news cache
+                </span>
                 <span className="ml-auto flex gap-1">
                   <button className="px-2 py-0.5 border border-[var(--color-line-strong)] hover:border-[var(--color-mint)] hover:text-[var(--color-mint)]">
                     Helpful

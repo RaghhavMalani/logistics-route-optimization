@@ -1,12 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Panel, Chip, Bar, Sparkline } from "@/components/terminal/ui";
-import { getPortSnapshot } from "@/services/portService";
 import { fetchPortSnapshot } from "@/services/ports";
-import {
-  listGatingWeights,
-  listModelPipelineStatuses,
-} from "@/services/modelService";
+import { listGatingWeights } from "@/services/modelService";
 import { fetchModelPipelineStatuses } from "@/services/model";
 
 export const Route = createFileRoute("/model")({
@@ -31,16 +27,37 @@ function ModelPage() {
   const portDataQuery = useQuery({
     queryKey: ["port", portQuery],
     queryFn: () => fetchPortSnapshot(portQuery),
-    initialData: () => getPortSnapshot(portQuery),
     staleTime: 30_000,
   });
-  const port = portDataQuery.data;
+
   const pipelineQuery = useQuery({
     queryKey: ["model-pipeline"],
     queryFn: fetchModelPipelineStatuses,
-    initialData: listModelPipelineStatuses,
     staleTime: 60_000,
   });
+
+  if (portDataQuery.isLoading || pipelineQuery.isLoading) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
+        LOADING LIVE MODEL OUTPUTS...
+      </div>
+    );
+  }
+
+  if (
+    portDataQuery.isError ||
+    pipelineQuery.isError ||
+    !portDataQuery.data ||
+    !pipelineQuery.data
+  ) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
+        MODEL API UNAVAILABLE
+      </div>
+    );
+  }
+
+  const port = portDataQuery.data;
   const pipeline = pipelineQuery.data;
   const gatingWeights = listGatingWeights();
 

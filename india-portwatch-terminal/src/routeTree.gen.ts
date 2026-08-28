@@ -9,43 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WxRouteImport } from './routes/wx'
-import { Route as SimRouteImport } from './routes/sim'
-import { Route as SarRouteImport } from './routes/sar'
-import { Route as PortRouteImport } from './routes/port'
-import { Route as NlpRouteImport } from './routes/nlp'
-import { Route as ModelRouteImport } from './routes/model'
-import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FleetRouteImport } from './routes/fleet'
+import { Route as ModelRouteImport } from './routes/model'
+import { Route as NlpRouteImport } from './routes/nlp'
+import { Route as PortRouteImport } from './routes/port'
+import { Route as SarRouteImport } from './routes/sar'
+import { Route as SimRouteImport } from './routes/sim'
+import { Route as WxRouteImport } from './routes/wx'
 
-const WxRoute = WxRouteImport.update({
-  id: '/wx',
-  path: '/wx',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SimRoute = SimRouteImport.update({
-  id: '/sim',
-  path: '/sim',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SarRoute = SarRouteImport.update({
-  id: '/sar',
-  path: '/sar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortRoute = PortRouteImport.update({
-  id: '/port',
-  path: '/port',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NlpRoute = NlpRouteImport.update({
-  id: '/nlp',
-  path: '/nlp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ModelRoute = ModelRouteImport.update({
-  id: '/model',
-  path: '/model',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FleetRoute = FleetRouteImport.update({
@@ -53,9 +28,34 @@ const FleetRoute = FleetRouteImport.update({
   path: '/fleet',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ModelRoute = ModelRouteImport.update({
+  id: '/model',
+  path: '/model',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NlpRoute = NlpRouteImport.update({
+  id: '/nlp',
+  path: '/nlp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortRoute = PortRouteImport.update({
+  id: '/port',
+  path: '/port',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SarRoute = SarRouteImport.update({
+  id: '/sar',
+  path: '/sar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SimRoute = SimRouteImport.update({
+  id: '/sim',
+  path: '/sim',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WxRoute = WxRouteImport.update({
+  id: '/wx',
+  path: '/wx',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -121,46 +121,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/wx': {
-      id: '/wx'
-      path: '/wx'
-      fullPath: '/wx'
-      preLoaderRoute: typeof WxRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sim': {
-      id: '/sim'
-      path: '/sim'
-      fullPath: '/sim'
-      preLoaderRoute: typeof SimRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sar': {
-      id: '/sar'
-      path: '/sar'
-      fullPath: '/sar'
-      preLoaderRoute: typeof SarRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/port': {
-      id: '/port'
-      path: '/port'
-      fullPath: '/port'
-      preLoaderRoute: typeof PortRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/nlp': {
-      id: '/nlp'
-      path: '/nlp'
-      fullPath: '/nlp'
-      preLoaderRoute: typeof NlpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/model': {
-      id: '/model'
-      path: '/model'
-      fullPath: '/model'
-      preLoaderRoute: typeof ModelRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fleet': {
@@ -170,11 +135,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FleetRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/model': {
+      id: '/model'
+      path: '/model'
+      fullPath: '/model'
+      preLoaderRoute: typeof ModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nlp': {
+      id: '/nlp'
+      path: '/nlp'
+      fullPath: '/nlp'
+      preLoaderRoute: typeof NlpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/port': {
+      id: '/port'
+      path: '/port'
+      fullPath: '/port'
+      preLoaderRoute: typeof PortRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sar': {
+      id: '/sar'
+      path: '/sar'
+      fullPath: '/sar'
+      preLoaderRoute: typeof SarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sim': {
+      id: '/sim'
+      path: '/sim'
+      fullPath: '/sim'
+      preLoaderRoute: typeof SimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wx': {
+      id: '/wx'
+      path: '/wx'
+      fullPath: '/wx'
+      preLoaderRoute: typeof WxRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Chip, Sparkline } from "@/components/terminal/ui";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
-import { fetchRadarOverview, localRadarOverview } from "@/services/ports";
+import { fetchRadarOverview } from "@/services/ports";
 
 export const Route = createFileRoute("/")({
   component: RadarPage,
@@ -10,12 +10,29 @@ export const Route = createFileRoute("/")({
 
 function RadarPage() {
   const navigate = useNavigate();
+
   const radarQuery = useQuery({
     queryKey: ["radar-overview"],
     queryFn: fetchRadarOverview,
-    initialData: localRadarOverview,
     staleTime: 30_000,
   });
+
+  if (radarQuery.isLoading) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
+        LOADING LIVE PORT RADAR...
+      </div>
+    );
+  }
+
+  if (radarQuery.isError || !radarQuery.data) {
+    return (
+      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
+        PORT RADAR API UNAVAILABLE
+      </div>
+    );
+  }
+
   const {
     ports,
     vessels: vesselProxies,

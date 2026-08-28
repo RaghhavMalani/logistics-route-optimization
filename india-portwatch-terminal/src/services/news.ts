@@ -1,22 +1,39 @@
 import { getJson } from "./api";
-import {
-  listAlertEvents,
-  listEntitySentiment,
-  listNewsEvents,
-} from "./newsService";
 import type { NewsEvent } from "@/types/portwatch";
+
+interface AlertEvent {
+  id: string;
+  portCode: string;
+  severity: string;
+  text: string;
+  ts: string;
+  dataSource?: string;
+}
+
+interface EntitySentiment {
+  entity: string;
+  mentions: number;
+  sentiment: number;
+}
 
 interface NewsBundle {
   events: NewsEvent[];
-  alerts: ReturnType<typeof listAlertEvents>;
-  sentiment: ReturnType<typeof listEntitySentiment>;
+  alerts: AlertEvent[];
+  sentiment: EntitySentiment[];
+  summary?: {
+    totalEvents?: number;
+    totalAlerts?: number;
+    negativeEvents?: number;
+    averageConfidence?: number;
+    dataSource?: string;
+  };
 }
 
 export async function fetchNewsBundle(): Promise<NewsBundle> {
   return getJson<NewsBundle>("/news", () => ({
-    events: listNewsEvents(),
-    alerts: listAlertEvents(),
-    sentiment: listEntitySentiment(),
+    events: [],
+    alerts: [],
+    sentiment: [],
   }));
 }
 
@@ -24,9 +41,7 @@ export async function fetchNewsEvents(): Promise<NewsEvent[]> {
   return (await fetchNewsBundle()).events;
 }
 
-export async function fetchAlertEvents(): Promise<
-  ReturnType<typeof listAlertEvents>
-> {
+export async function fetchAlertEvents(): Promise<AlertEvent[]> {
   return (await fetchNewsBundle()).alerts;
 }
 
@@ -36,12 +51,9 @@ export async function fetchNewsEventsForEntity(
   const bundle = await getJson<{ events: NewsEvent[] }>(
     `/news/entity/${encodeURIComponent(entity)}`,
     () => ({
-      events: listNewsEvents().filter(
-        (event) =>
-          event.entity.includes(entity.toUpperCase()) ||
-          event.tag.includes(entity.toUpperCase()),
-      ),
+      events: [],
     }),
   );
-  return bundle.events.length ? bundle.events : listNewsEvents();
+
+  return bundle.events;
 }
