@@ -14,6 +14,10 @@ export const ports: Port[] = [
   { code: "INVTZ", name: "Visakhapatnam", authority: "Visakhapatnam Port Authority", short: "VTZ", location: { lat: 17.68, lon: 83.21 }, radar: { x: 0.585, y: 0.53 }, schematic: { x: 610, y: 500 }, coast: "east" },
   { code: "INPRT", name: "Paradip", authority: "Paradip Port Authority", short: "PRT", location: { lat: 20.26, lon: 86.67 }, radar: { x: 0.615, y: 0.44 }, schematic: { x: 675, y: 425 }, coast: "east" },
   { code: "INHAL", name: "Haldia / Kolkata", authority: "Syama Prasad Mookerjee Port", short: "HAL", location: { lat: 22.03, lon: 88.06 }, radar: { x: 0.63, y: 0.375 }, schematic: { x: 720, y: 370 }, coast: "east" },
+  { code: "INPBR", name: "Port Blair", authority: "Port Blair Authority", short: "PBL", location: { lat: 11.6234, lon: 92.7265 }, radar: { x: 0.75, y: 0.50 }, schematic: { x: 750, y: 500 }, coast: "east" },
+  { code: "INDHM", name: "Dhamra", authority: "Dhamra Port Authority", short: "DHM", location: { lat: 20.7820, lon: 86.9850 }, radar: { x: 0.68, y: 0.29 }, schematic: { x: 680, y: 290 }, coast: "east" },
+  { code: "INKPT", name: "Krishnapatnam", authority: "Krishnapatnam Port Authority", short: "KPT", location: { lat: 14.25, lon: 80.12 }, radar: { x: 0.59, y: 0.44 }, schematic: { x: 590, y: 440 }, coast: "east" },
+  { code: "INHAZ", name: "Hazira", authority: "Hazira Port Authority", short: "HAZ", location: { lat: 21.1167, lon: 72.65 }, radar: { x: 0.50, y: 0.28 }, schematic: { x: 500, y: 280 }, coast: "west" },
 ];
 
 export const portRisks: PortRisk[] = [

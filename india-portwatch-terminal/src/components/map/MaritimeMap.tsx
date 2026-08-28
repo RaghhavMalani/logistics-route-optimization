@@ -104,7 +104,7 @@ function getIndiaView(width: number, height: number): ViewTransform {
   );
 }
 
-export function MaritimeMap(_props: {
+export function MaritimeMap(props: {
   ports: PortOperationalSnapshot[];
   vessels: VesselProxy[];
   chokepoints: Chokepoint[];
@@ -234,6 +234,37 @@ export function MaritimeMap(_props: {
     });
   };
 
+  const zoomAroundPoint = (factor: number, cx: number, cy: number) => {
+    setView((current) => {
+      const nextScale = clamp(current.scale * factor, MIN_SCALE, MAX_SCALE);
+      const worldX = (cx - current.x) / current.scale;
+      const worldY = (cy - current.y) / current.scale;
+
+      return keepImageInReach(
+        {
+          ...current,
+          scale: nextScale,
+          x: cx - worldX * nextScale,
+          y: cy - worldY * nextScale,
+        },
+        viewportRef.current?.getBoundingClientRect().width ?? 0,
+        viewportRef.current?.getBoundingClientRect().height ?? 0,
+      );
+    });
+  };
+
+  const zoomIn = () => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    zoomAroundPoint(1.2, rect.width / 2, rect.height / 2);
+  };
+
+  const zoomOut = () => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    zoomAroundPoint(1 / 1.2, rect.width / 2, rect.height / 2);
+  };
+
   const resetToIndia = () => {
     const { width, height } = getViewportSize();
     if (!width || !height) return;
@@ -275,6 +306,96 @@ export function MaritimeMap(_props: {
         style={imageStyle}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,transparent_55%,oklch(0_0_0/0.28)_100%)]" />
+      {/* Port markers (positioned in world coordinates so they follow pans/zoom) */}
+      {/* Only show the main Indian ports the project focuses on */}
+      {(() => {
+        const target = [
+          "Mumbai",
+          "JNPT",
+          "Kandla",
+          "Mormugao",
+          "New Mangalore",
+          "Kochi",
+          "Tuticorin",
+          "Chennai",
+          "Ennore",
+          "Visakhapatnam",
+          "Paradip",
+          "Kolkata",
+          "Haldia",
+          "Port Blair",
+          "Dhamra",
+          "Krishnapatnam",
+          "Hazira",
+          "Mundra",
+        ].map((s) => s.toLowerCase().replace(/[_\s]+/g, " "));
+
+        function norm(s: string) {
+          return s.toLowerCase().replace(/[_\s]+/g, " ");
+        }
+
+        return props.ports
+          .filter((port) => {
+            const n = norm(port.name);
+            const short = norm(port.short ?? "");
+            return (
+              target.some((t) => n.includes(t) || short.includes(t) || port.code.toLowerCase().includes(t.replace(/ /g, "")))
+            );
+          })
+          .map((port) => {
+        const pt = lonLatToMercatorPoint([port.location.lon, port.location.lat], view.baseSize);
+        const left = view.x + pt.x * view.scale;
+        const top = view.y + pt.y * view.scale;
+        const markerStyle: CSSProperties = {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          transform: `translate3d(${left}px, ${top}px, 0)`,
+          transformOrigin: "0 0",
+          pointerEvents: "auto",
+        };
+
+        return (
+          <div key={port.code} style={markerStyle} className="group pointer-events-auto">
+            <button
+              title={port.name}
+              onClick={() => props.onPortSelect(port.code)}
+              className="rounded-full bg-[var(--color-red)] border border-white/10 shadow-sm twinkle"
+              style={{ width: 6, height: 6 }}
+            />
+            <span className="marker-tooltip absolute left-3 -top-1 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100">
+              {port.name}
+            </span>
+          </div>
+        );
+      });
+    })()
+      }
+
+      {/* Zoom controls */}
+      <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
+        <button
+          aria-label="Zoom in"
+          onClick={zoomIn}
+          className="w-8 h-8 rounded bg-[oklch(0.12_0.02_240)]/80 flex items-center justify-center text-[var(--color-foreground)] border border-[var(--color-line)]"
+        >
+          +
+        </button>
+        <button
+          aria-label="Zoom out"
+          onClick={zoomOut}
+          className="w-8 h-8 rounded bg-[oklch(0.12_0.02_240)]/80 flex items-center justify-center text-[var(--color-foreground)] border border-[var(--color-line)]"
+        >
+          −
+        </button>
+        <button
+          aria-label="Reset to India"
+          onClick={resetToIndia}
+          className="w-8 h-8 rounded bg-[oklch(0.12_0.02_240)]/80 flex items-center justify-center text-[var(--color-foreground)] border border-[var(--color-line)]"
+        >
+          ⤢
+        </button>
+      </div>
     </div>
   );
 }

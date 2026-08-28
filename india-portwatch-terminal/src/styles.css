@@ -301,6 +301,26 @@
   }
 }
 
+@keyframes twinkle {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.twinkle {
+  animation: twinkle 1.6s ease-in-out infinite;
+}
+
+.marker-tooltip {
+  background: rgba(10, 10, 12, 0.9);
+  color: var(--color-foreground);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
 .animate-blink {
   animation: blink 1.4s ease-in-out infinite;
 }
