@@ -1,27 +1,18 @@
 from __future__ import annotations
 
-import json
 from collections import defaultdict
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
-ROOT = Path(__file__).resolve().parents[3]
-NEWS_BUNDLE_PATH = ROOT / "data" / "cache" / "news_bundle.json"
-
-
 def read_news_bundle() -> dict:
-    if not NEWS_BUNDLE_PATH.exists():
-        raise HTTPException(
-            status_code=503,
-            detail=f"{NEWS_BUNDLE_PATH} not found. Run python backend/pipeline/export_support_cache.py first.",
-        )
+    from backend.app.services import cache_service as cache
 
-    with open(NEWS_BUNDLE_PATH, "r", encoding="utf-8") as f:
-        bundle = json.load(f)
-
+    try:
+        bundle = cache.get_news_bundle()
+    except cache.CacheNotReadyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
     return enrich_news_bundle(bundle)
 
 
@@ -81,10 +72,7 @@ def enrich_news_bundle(bundle: dict) -> dict:
     if "summary" not in bundle:
         bundle["summary"] = {}
 
-    bundle["summary"]["dataSource"] = bundle["summary"].get(
-        "dataSource",
-        "data/cache/news_bundle.json",
-    )
+    bundle["summary"].setdefault("dataSource", "data/cache/news_bundle.json")
 
     return bundle
 
