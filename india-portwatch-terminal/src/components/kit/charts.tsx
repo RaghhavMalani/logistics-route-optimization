@@ -10,12 +10,62 @@
  * series overlap, and a gap wherever the pipeline produced no value.
  */
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { cn } from "@/lib/utils";
 import { TONE_VAR, type Tone } from "./primitives";
 
 /* ------------------------------------------------------------------ util -- */
+
+/**
+ * Track the rendered width of a chart.
+ *
+ * These charts stretch to their container, which means `preserveAspectRatio="none"`
+ * — and that scales *text* horizontally too, so a chart in a narrow rail printed
+ * squashed, illegible tick labels. Drawing in the element's own pixel width
+ * keeps the transform 1:1 and the labels upright.
+ */
+/**
+ * How many x-axis ticks fit, and which ones to draw.
+ *
+ * Ticks are spaced by available pixels rather than by a fixed fraction of the
+ * series, so the same chart is readable in a 230px rail and a 1300px panel. The
+ * final tick is dropped when it would land on top of the one before it.
+ */
+function tickPlan(count: number, plotW: number, minGap = 58) {
+  const maxTicks = Math.max(2, Math.floor(plotW / minGap));
+  const step = Math.max(1, Math.ceil(Math.max(count - 1, 1) / (maxTicks - 1)));
+  const remainder = (count - 1) % step;
+  return { step, showLast: remainder === 0 || remainder >= step * 0.6 };
+}
+
+function useChartWidth(fallback: number): [(node: HTMLDivElement | null) => void, number] {
+  const [width, setWidth] = useState(fallback);
+  const observer = useRef<ResizeObserver | null>(null);
+
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    if (!node) return;
+    const measure = () => {
+      const next = node.clientWidth;
+      if (next > 0) setWidth(next);
+    };
+    measure();
+    observer.current = new ResizeObserver(measure);
+    observer.current.observe(node);
+  }, []);
+
+  useEffect(() => () => observer.current?.disconnect(), []);
+  return [ref, width];
+}
 
 function niceTicks(min: number, max: number, count = 4): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
@@ -126,6 +176,7 @@ export function QuantileChart({
 }) {
   const gradientId = useId();
   const [hover, setHover] = useState<number | null>(null);
+  const [frameRef, width] = useChartWidth(720);
 
   const model = useMemo(() => {
     const values = points.flatMap((p) =>
@@ -155,8 +206,7 @@ export function QuantileChart({
   const padR = 10;
   const padT = 10;
   const padB = 22;
-  const width = 720;
-  const plotW = width - padL - padR;
+  const plotW = Math.max(60, width - padL - padR);
   const plotH = height - padT - padB;
 
   const x = (index: number) => padL + (index / (points.length - 1)) * plotW;
@@ -171,11 +221,12 @@ export function QuantileChart({
     .map((p, i) => (p.q50 == null ? null : `${x(i)},${y(p.q50)}`))
     .filter((v): v is string => v !== null);
 
-  const ticks = niceTicks(model.min, model.max, 4);
+  const yTicks = niceTicks(model.min, model.max, 4);
+  const ticks = tickPlan(points.length, plotW);
   const active = hover != null ? points[hover] : null;
 
   return (
-    <div className={cn("relative w-full", className)}>
+    <div ref={frameRef} className={cn("relative w-full", className)}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
@@ -197,7 +248,7 @@ export function QuantileChart({
           </linearGradient>
         </defs>
 
-        {ticks.map((tick) => (
+        {yTicks.map((tick) => (
           <g key={tick}>
             <line
               x1={padL}
@@ -297,8 +348,8 @@ export function QuantileChart({
         ) : null}
 
         {points.map((point, index) => {
-          const step = Math.max(1, Math.ceil(points.length / 10));
-          if (index % step !== 0 && index !== points.length - 1) return null;
+          const isLast = index === points.length - 1;
+          if (isLast ? !ticks.showLast : index % ticks.step !== 0) return null;
           return (
             <text
               key={`x-${point.label}-${index}`}
@@ -361,6 +412,7 @@ export function SeriesChart({
   yUnit?: string;
 }) {
   const gradientId = useId();
+  const [frameRef, width] = useChartWidth(640);
   const length = series[0]?.points.length ?? 0;
   const values = series.flatMap((s) =>
     s.points.map((p) => p.value).filter((v): v is number => typeof v === "number" && Number.isFinite(v)),
@@ -387,16 +439,16 @@ export function SeriesChart({
   const padR = 8;
   const padT = 8;
   const padB = 18;
-  const width = 640;
-  const plotW = width - padL - padR;
+  const plotW = Math.max(60, width - padL - padR);
   const plotH = height - padT - padB;
 
   const x = (i: number) => padL + (i / (length - 1)) * plotW;
   const y = (v: number) => padT + plotH - ((v - min) / (max - min)) * plotH;
   const ticks = niceTicks(min, max, 3);
+  const xTicks = tickPlan(length, plotW, 52);
 
   return (
-    <div className={cn("relative w-full", className)}>
+    <div ref={frameRef} className={cn("relative w-full", className)}>
       <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full" style={{ height }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -459,8 +511,8 @@ export function SeriesChart({
         })}
 
         {series[0]?.points.map((point, index) => {
-          const step = Math.max(1, Math.ceil(length / 8));
-          if (index % step !== 0 && index !== length - 1) return null;
+          const isLast = index === length - 1;
+          if (isLast ? !xTicks.showLast : index % xTicks.step !== 0) return null;
           return (
             <text
               key={`${point.label}-${index}`}
@@ -571,7 +623,7 @@ export function ColumnChart({
   const max = Math.max(...values, threshold ?? 0) * 1.12 || 1;
   return (
     <div className={cn("w-full", className)}>
-      <div className="relative flex items-end justify-center gap-[3px]" style={{ height }}>
+      <div className="relative flex items-end justify-between gap-[3px]" style={{ height }}>
         {threshold != null ? (
           <div
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[var(--warn)]/70"
@@ -582,7 +634,7 @@ export function ColumnChart({
           <div
             key={`${point.label}-${index}`}
             className="group relative flex-1"
-            style={{ maxWidth: 30 }}
+            style={{ maxWidth: 44 }}
             title={`${point.label} · ${point.value?.toFixed(1) ?? "n/a"}`}
           >
             <div

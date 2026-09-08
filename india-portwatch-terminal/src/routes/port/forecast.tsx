@@ -295,7 +295,7 @@ function PortForecast() {
                   </KeyValue>
                 </div>
                 <p className="mt-2 text-[11px] leading-snug text-[var(--text-3)]">
-                  {state.source}
+                  Source: {state.source}
                 </p>
               </div>
             ) : (

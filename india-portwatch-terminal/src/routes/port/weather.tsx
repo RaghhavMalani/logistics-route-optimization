@@ -232,7 +232,9 @@ function PortWeather() {
             labels={map.labels}
             selected={port.code}
             center={centre}
-            zoom={5.6}
+            // Wide enough that the interpolated field reads as a field rather
+            // than a wash over the one port in view.
+            zoom={4.7}
             loadingLabel="Initialising weather chart"
             overlay={
               <>

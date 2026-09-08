@@ -318,7 +318,12 @@ function VesselOverview() {
             />
           </div>
 
-          <div className="h-[268px] shrink-0 border-t border-[var(--line)]">
+          {/* Sized to the roster: a fixed strip would leave dead space under
+              three vessels and clip a larger fleet. */}
+          <div
+            className="shrink-0 border-t border-[var(--line)]"
+            style={{ height: Math.min(300, 74 + Math.max(intel.length, 1) * 26) }}
+          >
             <Panel
               title="Fleet"
               note={`${intel.length} vessels`}

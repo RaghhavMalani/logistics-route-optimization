@@ -36,6 +36,27 @@ interface QueueItem {
   congestionProbability?: number | null;
 }
 
+/**
+ * Readable form of an action code, without inventing wording.
+ *
+ * The decision layer writes a title for the lead action but not for each
+ * scheduled follow-up, so those rows carry their own code. Case it for reading
+ * and keep the code itself on the row beneath, rather than paraphrasing an
+ * instruction the pipeline did not write.
+ */
+const ACRONYMS = new Set(["ETA", "AIS", "TFT", "HSMM"]);
+
+function humaniseAction(code: string): string {
+  const words = code.split("_").filter(Boolean);
+  return words
+    .map((word, index) => {
+      if (ACRONYMS.has(word)) return word;
+      const lower = word.toLowerCase();
+      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+}
+
 function buildQueue(
   decision: Decision | undefined,
   alerts: Array<{ id: string; severity: string; text: string; action: string; priority: number | null; confidence: number | null }>,
@@ -65,7 +86,7 @@ function buildQueue(
         rank: 0,
         severity: step.priority >= 0.6 ? "high" : step.priority >= 0.35 ? "medium" : "watch",
         tone: step.priority >= 0.6 ? "warn" : step.priority >= 0.35 ? "info" : "neutral",
-        title: step.action.replace(/_/g, " ").toLowerCase(),
+        title: humaniseAction(step.action),
         action: step.action,
         horizon: `day ${step.horizonDay}${step.targetDate ? ` · ${step.targetDate.slice(0, 10)}` : ""}`,
         priority: step.priority,

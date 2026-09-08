@@ -137,7 +137,7 @@ function LoginScreen() {
       : "Reachable";
 
   return (
-    <div className="fixed inset-0 grid grid-cols-1 bg-[var(--bg)] lg:grid-cols-[1.15fr_minmax(430px,0.85fr)]">
+    <div className="fixed inset-0 grid grid-cols-1 bg-[var(--bg)] lg:grid-cols-[1fr_minmax(420px,520px)]">
       {/* ------------------------------------------------------------ left -- */}
       <section className="relative hidden overflow-hidden border-r border-[var(--line)] lg:block">
         <ChartPlate />
@@ -173,8 +173,8 @@ function LoginScreen() {
       </section>
 
       {/* ----------------------------------------------------------- right -- */}
-      <section className="flex min-h-0 flex-col justify-center overflow-auto bg-[var(--panel)] px-8 py-10 lg:px-12">
-        <div className="mx-auto w-full max-w-[360px]">
+      <section className="flex min-h-0 flex-col justify-center overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
+        <div className="mx-auto w-full max-w-[380px]">
           <div className="lg:hidden">
             <div className="mb-6 flex items-center gap-2.5">
               <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>

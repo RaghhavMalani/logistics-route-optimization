@@ -353,7 +353,7 @@ export function buildWeatherField(
           color,
           // Capped low: the field is context under the operational marks, and
           // it must never make the coastline or a port harder to read.
-          opacity: 0.1 + Math.min(0.28, hazard * 0.36),
+          opacity: 0.07 + Math.min(0.26, hazard * 0.34),
         },
         geometry: {
           type: "Polygon",
