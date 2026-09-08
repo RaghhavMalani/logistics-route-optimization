@@ -11,7 +11,7 @@ decide → route*, and at every step, "here is where that number came from".
 ## Before you start
 
 ```bash
-# 1. Build the artefacts (about 4 minutes with the deep model, 90 seconds without)
+# 1. Build the artefacts (about 100 seconds; add --deep for the TFT, +20 min)
 python run_award_demo.py --source portwatch --model ensemble --benchmark
 
 # 2. Confirm the twin is coherent before anyone watches

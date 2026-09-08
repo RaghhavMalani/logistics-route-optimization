@@ -284,22 +284,28 @@ cd india-portwatch-terminal && npm ci && cd ..
 ### One command
 
 ```bash
-python run_award_demo.py --source portwatch --model ensemble --benchmark
+python run_award_demo.py --source portwatch --model ensemble
 ```
 
 That single command runs the whole chain — live acquisition, ten experts, HSMM
-regimes, the walk-forward benchmark, the calibrated ensemble forecast,
-decisions, routing, and the API cache and provenance export.
+regimes, the calibrated ensemble forecast, decisions, routing, and the API cache
+and provenance export. **About 100 seconds** on live data.
 
 Useful flags:
 
-| Flag | Effect |
-|---|---|
-| `--refresh` | Pull a fresh IMF PortWatch snapshot before running |
-| `--benchmark` | Run the walk-forward benchmark and refit the ensemble policy |
-| `--offline` | Skip every network call and run on cached data only |
-| `--source sample` | Run on the bundled synthetic bundle (no network at all) |
-| `--model baseline` | GBM only, skipping the ensemble |
+| Flag | Effect | Cost |
+|---|---|---|
+| `--refresh` | Pull a fresh IMF PortWatch snapshot before running | +30s |
+| `--benchmark` | Run the walk-forward benchmark and refit the ensemble policy | +1 min |
+| `--deep` | Include the TFT as an ensemble member | +20 min |
+| `--offline` | Skip every network call and run on cached data only | faster |
+| `--source sample` | Run on the bundled synthetic bundle (no network at all) | ~40s |
+| `--model baseline` | GBM only, skipping the ensemble | faster |
+
+Without `--deep` the ensemble runs on probabilistic persistence and the GBM, and
+the fitted policy renormalises its weights over the members actually present.
+The deep model's contribution is still *measured* — the benchmark scores it on
+the same folds — it is simply not retrained on every run.
 
 ### Serve it
 

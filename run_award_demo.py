@@ -176,7 +176,7 @@ def _fuse_operational_signals(panel: pd.DataFrame) -> pd.DataFrame:
 
 
 def _forecast(panel: pd.DataFrame, weather_now: pd.DataFrame, horizon: int,
-              model: str, epochs: int):
+              model: str, epochs: int, deep: bool = False):
     """Produce the live forecast using the requested model configuration.
 
     ``ensemble`` blends the members the walk-forward benchmark actually scored:
@@ -196,14 +196,17 @@ def _forecast(panel: pd.DataFrame, weather_now: pd.DataFrame, horizon: int,
         log.warning("Persistence member unavailable (%s).", exc)
 
     tft_forecast = None
+    if not deep and model != "tft":
+        log.info("Deep member skipped (pass --deep to include the TFT). The "
+                 "fitted policy renormalises over the members present.")
     try:
         from src.forecasting.tft_model import TFTForecaster, TFTConfig, torch_available
-        if torch_available():
+        if (deep or model == "tft") and torch_available():
             tft = TFTForecaster(TFTConfig(horizon=horizon, max_epochs=epochs))
             tft.fit(panel, weather_now)
             tft_forecast = tft.predict_future(panel, weather_now)
             tft_forecast["model"] = "tft"
-        else:
+        elif deep or model == "tft":
             log.info("Deep stack not installed; the ensemble runs on "
                      "persistence + GBM.")
     except Exception as exc:
@@ -250,6 +253,11 @@ def main() -> dict:
                              "ensemble weighting policy before forecasting")
     parser.add_argument("--offline", action="store_true",
                         help="skip every network call and rely on cached data")
+    parser.add_argument("--deep", action="store_true",
+                        help="include the TFT as an ensemble member. Training it "
+                             "adds roughly twenty minutes; without it the "
+                             "ensemble runs on persistence + GBM and the fitted "
+                             "policy renormalises over the members present")
     args = parser.parse_args()
 
     ensure_dirs()
@@ -397,7 +405,8 @@ def main() -> dict:
 
     # ------------------------------------------------------------- FORECAST
     section(log, "5 / FORECAST  ·  adaptive ensemble")
-    forecast = _forecast(panel_fc, weather, args.horizon, args.model, args.epochs)
+    forecast = _forecast(panel_fc, weather, args.horizon, args.model,
+                         args.epochs, deep=args.deep)
     forecast = _apply_quality_discount(forecast, quality)
     _write(forecast, FORECASTS_DIR / "forecast_table.csv")
 
