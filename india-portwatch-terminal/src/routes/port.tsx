@@ -138,15 +138,15 @@ function PortCockpit() {
             <div className="p-2 grid grid-cols-2 gap-1.5">
               <Metric
                 label="CONGESTION"
-                value={state.observedCongestionIndex?.toFixed(1) ?? "n/a"}
+                value={state.congestionIndex?.toFixed(1) ?? "n/a"}
                 tone={
-                  (state.observedCongestionIndex ?? 0) >= 65
+                  (state.congestionIndex ?? 0) >= 65
                     ? "red"
-                    : (state.observedCongestionIndex ?? 0) >= 50
+                    : (state.congestionIndex ?? 0) >= 50
                       ? "amber"
                       : "mint"
                 }
-                sub="0-100 pressure index"
+                sub="observed 0-100 pressure index"
               />
               <Metric
                 label="BERTH WAIT"

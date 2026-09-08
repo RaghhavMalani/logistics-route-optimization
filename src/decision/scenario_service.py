@@ -120,6 +120,18 @@ def _apply_shock(forecast: pd.DataFrame, spec: ScenarioSpec,
     return shocked, impacts
 
 
+def _column(frame: pd.DataFrame, name: str, default: float) -> pd.Series:
+    """Numeric column, or a constant Series when the forecast lacks it.
+
+    ``DataFrame.get`` returns a scalar for a missing column, so calling a Series
+    method on the result raises. A forecast produced by the GBM-only path has no
+    ``model_disagreement``, and that must degrade rather than 500.
+    """
+    if name not in frame.columns:
+        return pd.Series(default, index=frame.index, dtype=float)
+    return pd.to_numeric(frame[name], errors="coerce").fillna(default)
+
+
 def _port_summary(baseline: pd.DataFrame, shocked: pd.DataFrame,
                   impacts: Dict[str, dict]) -> List[dict]:
     """Per-port baseline vs shock, with every delta computed from the tables."""
@@ -132,14 +144,12 @@ def _port_summary(baseline: pd.DataFrame, shocked: pd.DataFrame,
 
         base_congestion = float(base_group["predicted_congestion"].mean())
         shock_congestion = float(shock_group["predicted_congestion"].mean())
-        base_delay = float(pd.to_numeric(base_group.get("predicted_delay"),
-                                         errors="coerce").mean())
-        shock_delay = float(pd.to_numeric(shock_group.get("predicted_delay"),
-                                          errors="coerce").mean())
-        base_throughput = float(pd.to_numeric(base_group.get("predicted_throughput"),
-                                              errors="coerce").mean())
-        shock_throughput = float(pd.to_numeric(shock_group.get("predicted_throughput"),
-                                               errors="coerce").mean())
+        base_delay = float(_column(base_group, "predicted_delay", np.nan).mean())
+        shock_delay = float(_column(shock_group, "predicted_delay", np.nan).mean())
+        base_throughput = float(
+            _column(base_group, "predicted_throughput", np.nan).mean())
+        shock_throughput = float(
+            _column(shock_group, "predicted_throughput", np.nan).mean())
 
         base_prob = float(np.mean([prob_exceed(r.q10, r.q50, r.q90,
                                                CONGESTION_THRESHOLD)
@@ -148,10 +158,9 @@ def _port_summary(baseline: pd.DataFrame, shocked: pd.DataFrame,
                                                 CONGESTION_THRESHOLD)
                                     for r in shock_group.itertuples()]))
 
-        disagreement = float(pd.to_numeric(
-            base_group.get("model_disagreement"), errors="coerce").fillna(0.0).mean())
-        forecast_confidence = float(pd.to_numeric(
-            base_group.get("confidence_score"), errors="coerce").fillna(0.6).mean())
+        disagreement = float(_column(base_group, "model_disagreement", 0.0).mean())
+        forecast_confidence = float(
+            _column(base_group, "confidence_score", 0.6).mean())
         impact = impacts.get(str(model_id), {})
         exposure = float(impact.get("exposure", 0.0))
 
@@ -293,6 +302,8 @@ def simulate_scenario(scenario_key: str,
                           if port_rows else 0.0)
 
     origin = pd.to_datetime(baseline["forecast_origin_date"], errors="coerce").max()
+    baseline_model = (str(baseline["model"].iloc[0]) if "model" in baseline.columns
+                      and not baseline.empty else "unknown")
     return {
         "scenarioKey": spec.key,
         "scenarioName": spec.name,
@@ -308,7 +319,7 @@ def simulate_scenario(scenario_key: str,
         "runId": run_id,
 
         "forecastOrigin": None if pd.isna(origin) else origin.isoformat(),
-        "baselineModel": str(baseline.get("model", pd.Series(["unknown"])).iloc[0]),
+        "baselineModel": baseline_model,
         "horizonDays": int(pd.to_numeric(baseline["horizon_day"],
                                          errors="coerce").max()),
 

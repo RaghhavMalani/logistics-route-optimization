@@ -171,10 +171,24 @@ def verify() -> Report:
         best = table.sort_values("mae").iloc[0]
         report.check(str(best["model"]) == summary["bestModel"],
                      "benchmark summary names a different leader than the table")
-        counts = table["n"].nunique()
-        report.warn(counts == 1,
-                    "models were scored on different row counts; the headline "
-                    "comparison is not strictly apples-to-apples")
+        # The leader and the naive floor must be scored on the same rows, or the
+        # headline skill number is comparing two different evaluation sets. A
+        # model with genuinely limited coverage (the deep model cannot train on
+        # the earliest folds) may legitimately have fewer, and is only noted.
+        by_model = dict(zip(table["model"], table["n"]))
+        leader_rows = by_model.get(summary["bestModel"])
+        naive_rows = by_model.get("Naive persistence")
+        report.check(
+            leader_rows is None or naive_rows is None or leader_rows == naive_rows,
+            f"the benchmark leader was scored on {leader_rows} rows against the "
+            f"naive floor's {naive_rows}; the headline skill is not "
+            "apples-to-apples")
+        partial = sorted(name for name, count in by_model.items()
+                         if naive_rows and count != naive_rows)
+        if partial:
+            report.warnings.append(
+                "scored on fewer rows than the naive floor (limited coverage): "
+                + ", ".join(partial))
     else:
         report.warnings.append(
             "no benchmark artefacts; accuracy claims cannot be substantiated "

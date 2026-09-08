@@ -274,9 +274,10 @@ export interface PipelineNode {
 export interface BenchmarkRow {
   model: string;
   n: number;
-  mae: number;
-  rmse: number;
-  mape_pct: number;
+  /** Null where the model produced no prediction for this cell. */
+  mae: number | null;
+  rmse: number | null;
+  mape_pct: number | null;
   pinball_q10?: number | null;
   pinball_q50?: number | null;
   pinball_q90?: number | null;
@@ -309,10 +310,10 @@ export interface Benchmark {
     testRows: number;
     models: string[];
     bestModel: string;
-    bestMae: number;
-    bestRmse: number;
+    bestMae: number | null;
+    bestRmse: number | null;
     bestCoverage80: number | null;
-    naiveMae: number;
+    naiveMae: number | null;
     skillVsNaive: number | null;
     tftEvaluated: boolean;
     ensembleSecondModel: string;
@@ -349,6 +350,54 @@ export interface ChainStage {
   confidence: number | null;
 }
 
+/**
+ * The observed port state the pipeline exported, as served by the intelligence
+ * chain. It is deliberately a different shape from `PortSnapshot`: this is what
+ * was *measured*, with no forecast fields mixed in, so a null here means the
+ * feed genuinely did not carry that value.
+ */
+export interface PortObservedState {
+  portCode: string;
+  modelId: string;
+  name: string;
+  short: string;
+  authority: string | null;
+  coast: Coast | null;
+  location: GeoPoint;
+  capacityIndex: number | null;
+  berthCount: number | null;
+
+  observedAt: string | null;
+  dataAgeHours: number | null;
+  dataStatus: DataStatus;
+
+  congestionIndex: number | null;
+  delayHours: number | null;
+  throughputTonnes: number | null;
+  utilization: number | null;
+  queuePressure: number | null;
+  turnaroundPressure: number | null;
+  vesselCalls: number | null;
+  vesselDensity: number | null;
+  anchorageCount: number | null;
+  capacityPressure: number | null;
+  queueMomentum: number | null;
+  throughputStress: number | null;
+  anomalyScore: number | null;
+  specialistStress: number | null;
+  weatherImpact: number | null;
+  weatherPersistence: number | null;
+  weatherShock: number | null;
+  arrivalClustering: number | null;
+  berthPressure: number | null;
+  disruptionExposure: number | null;
+  disruptionPressure: number | null;
+  dataQuality: number | null;
+  aisConfidence: number | null;
+
+  congestionHistory: HistoryPoint[];
+}
+
 export interface IntelligenceChain {
   portCode: string;
   name: string;
@@ -356,7 +405,7 @@ export interface IntelligenceChain {
   decision: Decision | null;
   regime: RegimeState | null;
   forecast: ForecastPoint[];
-  state: PortSnapshot;
+  state: PortObservedState;
 }
 
 /* ------------------------------------------------------------- weather ---- */

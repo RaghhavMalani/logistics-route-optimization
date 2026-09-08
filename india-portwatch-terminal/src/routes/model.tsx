@@ -79,7 +79,7 @@ function ModelIntelligence() {
   return (
     <div className="h-full overflow-auto p-2 space-y-2">
       {/* Headline: what the benchmark actually measured. */}
-      <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
+      <div className="grid grid-cols-[1fr_320px] gap-2 items-start">
         <Panel title="WALK-FORWARD BENCHMARK" right={benchmark?.version}>
           {benchmark?.available && summary ? (
             <div className="p-3 space-y-2">
@@ -91,9 +91,9 @@ function ModelIntelligence() {
                 />
                 <HeadlineStat
                   label="MAE"
-                  value={summary.bestMae.toFixed(3)}
+                  value={fixed(summary.bestMae, 3)}
                   tone="cyan"
-                  sub={`naive ${summary.naiveMae.toFixed(3)}`}
+                  sub={`naive ${fixed(summary.naiveMae, 3)}`}
                 />
                 <HeadlineStat
                   label="SKILL VS NAIVE"
@@ -109,11 +109,7 @@ function ModelIntelligence() {
                 />
                 <HeadlineStat
                   label="80% COVERAGE"
-                  value={
-                    summary.bestCoverage80 == null
-                      ? "n/a"
-                      : summary.bestCoverage80.toFixed(3)
-                  }
+                  value={fixed(summary.bestCoverage80, 3)}
                   tone="cyan"
                   sub="nominal 0.800"
                 />
@@ -140,7 +136,7 @@ function ModelIntelligence() {
           )}
         </Panel>
 
-        <Panel title="ENSEMBLE POLICY" className="w-[300px]">
+        <Panel title="ENSEMBLE POLICY">
           {weights?.fitted ? (
             <div className="p-3 space-y-2">
               <div className="space-y-1">
@@ -254,13 +250,13 @@ function ModelIntelligence() {
                         )}
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums">
-                        {row.mae.toFixed(3)}
+                        <Value value={row.mae} digits={3} />
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums">
-                        {row.rmse.toFixed(3)}
+                        <Value value={row.rmse} digits={3} />
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums">
-                        {row.mape_pct.toFixed(2)}
+                        <Value value={row.mape_pct} digits={2} />
                       </td>
                       <td className="py-1.5 px-2 text-right tabular-nums">
                         <Value value={row.pinball_q10} digits={3} />
@@ -423,6 +419,11 @@ function HeadlineStat({
   );
 }
 
+/** Formats a number that the pipeline may legitimately not have produced. */
+function fixed(value: number | null | undefined, digits: number): string {
+  return value == null || Number.isNaN(value) ? "n/a" : value.toFixed(digits);
+}
+
 function CoverageCell({ value }: { value: number | null | undefined }) {
   if (value == null) return <Value value={null} />;
   const error = Math.abs(value - 0.8);
@@ -468,8 +469,17 @@ function DrilldownTable({
                   : "REGIME"}
             </th>
             {models.map((model) => (
-              <th key={model} className="py-1.5 px-2 font-normal text-right">
-                {model.replace(" quantile", "").replace(" (deep)", "")}
+              <th
+                key={model}
+                className="py-1.5 px-2 font-normal text-right whitespace-nowrap"
+                title={model}
+              >
+                {model
+                  .replace(" quantile", "")
+                  .replace(" (deep)", "")
+                  .replace("Naive persistence", "Persistence")
+                  .replace("Seasonal naive (7d)", "Seasonal 7d")
+                  .replace("Adaptive ensemble", "Ensemble")}
               </th>
             ))}
           </tr>
@@ -479,7 +489,9 @@ function DrilldownTable({
             const cells = models.map((model) => lookup.get(`${model}|${group}`));
             const best = cells.reduce<number | null>(
               (min, cell) =>
-                cell && (min == null || cell.mae < min) ? cell.mae : min,
+                cell?.mae != null && (min == null || cell.mae < min)
+                  ? cell.mae
+                  : min,
               null,
             );
             return (
@@ -493,12 +505,17 @@ function DrilldownTable({
                     className="py-1 px-2 text-right tabular-nums"
                     style={{
                       color:
-                        cell && best != null && cell.mae === best
+                        cell?.mae != null && best != null && cell.mae === best
                           ? "var(--color-mint)"
                           : undefined,
                     }}
+                    title={
+                      cell?.mae == null
+                        ? "This model produced no prediction for this cell"
+                        : undefined
+                    }
                   >
-                    {cell ? cell.mae.toFixed(2) : "—"}
+                    {cell?.mae == null ? "—" : cell.mae.toFixed(2)}
                   </td>
                 ))}
               </tr>
