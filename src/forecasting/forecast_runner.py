@@ -51,18 +51,46 @@ def _sklearn_available() -> bool:
 class BaselineQuantileForecaster:
     """Direct multi-horizon GBM quantile forecaster (one model per target/quantile).
 
-    `horizon_day` is a feature, so a single model covers all 1..10 day horizons
+    ``horizon_day`` is a feature, so a single model covers all 1..10 day horizons
     (the "direct" multi-horizon strategy).
+
+    Residual formulation
+    --------------------
+    Port congestion is strongly autocorrelated, and a walk-forward benchmark of
+    the level-prediction form showed it losing to naive persistence at *every*
+    horizon: the model was spending its capacity re-learning "tomorrow looks
+    like today" and adding noise on top. The forecaster therefore predicts the
+    **departure from the last observed value**::
+
+        y_hat(t+h) = y(t) + f(features, h)
+
+    Persistence becomes the model's prior, and the learned part only has to
+    capture what actually changes. This is the standard differencing argument,
+    and the benchmark measures whether it pays off rather than assuming it does.
+    Set ``residual=False`` to train the level form for comparison.
     """
 
     def __init__(self, quantiles: List[float] = None,
-                 primary_target: str = PRIMARY_TARGET):
+                 primary_target: str = PRIMARY_TARGET,
+                 residual: bool = True):
         self.quantiles = quantiles or QUANTILES
         self.primary_target = primary_target
+        self.residual = residual
         self.models: Dict[str, object] = {}
         self.fallback_means: Dict[str, float] = {}
         self.available_targets: List[str] = []
         self.use_sklearn = _sklearn_available()
+
+    # -- residual anchoring -------------------------------------------------
+    def _anchor(self, frame: pd.DataFrame, target: str) -> np.ndarray | None:
+        """The last observed value of ``target`` at the forecast origin."""
+        if not self.residual:
+            return None
+        column = f"{target}_now"
+        if column not in frame.columns:
+            return None
+        values = pd.to_numeric(frame[column], errors="coerce").to_numpy(dtype=float)
+        return np.nan_to_num(values, nan=self.fallback_means.get(target, 0.0))
 
     def _new_gbm(self, alpha: float):
         # HistGradientBoostingRegressor is much faster on large frames and
@@ -94,6 +122,9 @@ class BaselineQuantileForecaster:
                 if not self.use_sklearn:
                     log.warning("scikit-learn unavailable; using persistence/mean fallback.")
                 continue
+            anchor = self._anchor(train_frame.loc[mask], tgt)
+            if anchor is not None:
+                y = y - anchor
             Xt = X[mask.to_numpy()]
             # primary target gets all quantiles; others get the median only
             qs = self.quantiles if tgt == self.primary_target else [0.5]
@@ -122,10 +153,15 @@ class BaselineQuantileForecaster:
         now_col = f"{pt}_now" if pt and f"{pt}_now" in frame.columns else None
         persist = frame[now_col].to_numpy() if now_col else None
 
+        anchor = self._anchor(frame, pt) if pt else None
+
         def q_pred(q):
             key = f"{pt}|{q}"
             if key in self.models:
-                return self._predict_one(key, X, pt)
+                prediction = self._predict_one(key, X, pt)
+                # In residual mode the model returns a departure from the last
+                # observed value, so the anchor is added back here.
+                return prediction if anchor is None else prediction + anchor
             return persist if persist is not None else \
                 np.full(len(frame), self.fallback_means.get(pt, 0.0))
 
@@ -143,7 +179,10 @@ class BaselineQuantileForecaster:
             if tgt in self.available_targets:
                 key = f"{tgt}|0.5"
                 if key in self.models:
-                    out[colname] = self._predict_one(key, X, tgt)
+                    prediction = self._predict_one(key, X, tgt)
+                    tgt_anchor = self._anchor(frame, tgt)
+                    out[colname] = (prediction if tgt_anchor is None
+                                    else prediction + tgt_anchor)
                 elif tgt == pt:
                     out[colname] = out["q50"]
                 else:
@@ -196,6 +235,84 @@ def _add_risk_and_confidence(out: pd.DataFrame, frame: pd.DataFrame) -> pd.DataF
 def fit_baseline(train: SupervisedData) -> BaselineQuantileForecaster:
     return BaselineQuantileForecaster().fit(
         train.frame, train.feature_cols, train.available_targets)
+
+
+class PersistenceQuantileForecaster:
+    """Probabilistic persistence: today's value, with measured error bands.
+
+    Naive persistence is the hardest baseline to beat on a smoothed congestion
+    index, and the walk-forward benchmark showed it winning outright at short
+    lead times. Rather than pretend otherwise, this class promotes it to a
+    first-class *probabilistic* member of the ensemble: the median is the last
+    observed value, and the interval comes from the empirical distribution of
+    persistence errors at that horizon in the training window. That gives the
+    stacker something principled to lean on at day 1 and to discard by day 10.
+    """
+
+    def __init__(self, primary_target: str = PRIMARY_TARGET):
+        self.primary_target = primary_target
+        self.bands: Dict[int, tuple] = {}
+        self.global_band: tuple = (-8.0, 8.0)
+
+    def fit(self, train_frame: pd.DataFrame,
+            feature_cols: List[str] | None = None,
+            available_targets: List[str] | None = None
+            ) -> "PersistenceQuantileForecaster":
+        ycol = f"y_{self.primary_target}"
+        now_col = f"{self.primary_target}_now"
+        if ycol not in train_frame or now_col not in train_frame:
+            return self
+        frame = train_frame[train_frame[ycol].notna()]
+        if frame.empty:
+            return self
+        errors = (frame[ycol] - frame[now_col]).to_numpy(dtype=float)
+        self.global_band = (float(np.nanquantile(errors, 0.10)),
+                            float(np.nanquantile(errors, 0.90)))
+        horizons = frame["horizon_day"].to_numpy(dtype=int)
+        for horizon in np.unique(horizons):
+            block = errors[horizons == horizon]
+            if len(block) >= 12:
+                self.bands[int(horizon)] = (float(np.nanquantile(block, 0.10)),
+                                            float(np.nanquantile(block, 0.90)))
+        return self
+
+    def predict(self, frame: pd.DataFrame,
+                feature_cols: List[str] | None = None) -> pd.DataFrame:
+        now_col = f"{self.primary_target}_now"
+        out = frame[[PORT_ID, "forecast_origin_date", "target_date",
+                     "horizon_day"]].copy()
+        centre = (pd.to_numeric(frame[now_col], errors="coerce").to_numpy(dtype=float)
+                  if now_col in frame else np.zeros(len(frame)))
+        centre = np.nan_to_num(centre)
+
+        lows, highs = [], []
+        for horizon in frame["horizon_day"].to_numpy(dtype=int):
+            lo, hi = self.bands.get(int(horizon), self.global_band)
+            lows.append(lo)
+            highs.append(hi)
+
+        q50 = np.clip(centre, 0.0, 100.0)
+        q10 = np.clip(centre + np.asarray(lows), 0.0, 100.0)
+        q90 = np.clip(centre + np.asarray(highs), 0.0, 100.0)
+        stacked = np.sort(np.vstack([q10, q50, q90]), axis=0)
+        out["q10"], out["q50"], out["q90"] = stacked[0], stacked[1], stacked[2]
+        out["predicted_congestion"] = out["q50"]
+        width = (out["q90"] - out["q10"]).to_numpy(dtype=float)
+        out["confidence_score"] = np.clip(1.0 - width / 60.0, 0.05, 0.95).round(3)
+        out["model"] = "persistence"
+        return out.reset_index(drop=True)
+
+
+def run_persistence(panel: pd.DataFrame,
+                    weather_now: pd.DataFrame | None = None,
+                    horizon: int = FORECAST_HORIZON_DAYS) -> pd.DataFrame:
+    """Live probabilistic persistence forecast in the standard schema."""
+    sup = build_supervised(panel, weather_now, horizon)
+    model = PersistenceQuantileForecaster().fit(sup.frame)
+    inf = build_inference(panel, weather_now, horizon)
+    forecast = model.predict(inf.frame, inf.feature_cols)
+    log.info("Persistence forecast produced: %d rows.", len(forecast))
+    return forecast
 
 
 def run_baseline(panel: pd.DataFrame,

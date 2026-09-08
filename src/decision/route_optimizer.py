@@ -173,19 +173,90 @@ def demo_vessels() -> List[Vessel]:
 
 
 def optimize_fleet(forecast: pd.DataFrame,
-                   vessels: List[Vessel] | None = None) -> pd.DataFrame:
+                   vessels: List[Vessel] | None = None,
+                   panel: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Score every vessel against the live forecast and report the trade-off.
+
+    The output is deliberately comparative: for each vessel it reports the
+    intended call and the best alternative side by side, with the ETA, risk and
+    port-wait differences between them, so an operator can see *why* a reroute
+    is or is not worth it rather than being handed a bare instruction.
+    """
     vessels = vessels or demo_vessels()
+    wait_by_port = _expected_wait(forecast)
+    risk_by_port = _entry_risk(forecast)
+
     rows = []
     for v in vessels:
         rec = recommend_route(forecast, v)
-        opts = rec["options"]
-        best_day = int(opts.iloc[0]["best_arrival_day"]) if not opts.empty else None
+        options = rec["options"]
+        if options.empty:
+            rows.append({"vessel": v.name, "intended_port": v.target_port,
+                         "recommended_port": None, "reroute": False,
+                         "recommendation": rec["recommendation"]})
+            continue
+
+        best = options.iloc[0]
+        intended = (options[options["is_intended"]].iloc[0]
+                    if options["is_intended"].any() else best)
+
+        intended_wait = wait_by_port.get(str(intended["port_id"]), float("nan"))
+        best_wait = wait_by_port.get(str(best["port_id"]), float("nan"))
+        wait_delta = (round(float(best_wait - intended_wait), 2)
+                      if pd.notna(intended_wait) and pd.notna(best_wait) else None)
+
+        # ETA difference = extra steaming to the alternative, minus the waiting
+        # time it saves. Negative means the vessel is alongside sooner.
+        extra_steaming = float(best["extra_steaming_hours"]) - float(
+            intended["extra_steaming_hours"])
+        eta_delta = (round(extra_steaming + wait_delta, 2)
+                     if wait_delta is not None else round(extra_steaming, 2))
+
+        risk_delta = None
+        intended_risk = risk_by_port.get(str(intended["port_id"]))
+        best_risk = risk_by_port.get(str(best["port_id"]))
+        if intended_risk is not None and best_risk is not None:
+            risk_delta = round(float(best_risk - intended_risk), 4)
+
         rows.append({
             "vessel": v.name,
             "intended_port": v.target_port,
             "recommended_port": rec.get("recommended_port"),
-            "reroute": rec.get("reroute"),
-            "best_arrival_day": best_day,
+            "reroute": bool(rec.get("reroute")),
+            "best_arrival_day": int(best["best_arrival_day"]),
+            "intended_arrival_day": int(intended["best_arrival_day"]),
+            "eta_delta_hours": eta_delta,
+            "risk_delta": risk_delta,
+            "port_wait_delta_hours": wait_delta,
+            "recommended_buffer_hours": int(intended["recommended_buffer_hours"]),
+            "diversion_km": float(best["diversion_km"]),
+            "extra_steaming_hours": float(best["extra_steaming_hours"]),
+            "intended_congestion_prob": float(intended["congestion_prob"]),
+            "alternative_congestion_prob": float(best["congestion_prob"]),
             "recommendation": rec["recommendation"],
         })
     return pd.DataFrame(rows)
+
+
+def _expected_wait(forecast: pd.DataFrame) -> Dict[str, float]:
+    """Mean predicted berth wait per port across the forecast horizon."""
+    if forecast is None or forecast.empty:
+        return {}
+    frame = forecast.copy()
+    delay = pd.to_numeric(frame.get("predicted_delay"), errors="coerce")
+    if delay is None or delay.isna().all():
+        delay = pd.to_numeric(frame["q50"], errors="coerce") * 0.2
+    frame["_wait"] = delay
+    return {str(k): float(v) for k, v in
+            frame.groupby(PORT_ID)["_wait"].mean().items()}
+
+
+def _entry_risk(forecast: pd.DataFrame) -> Dict[str, float]:
+    """Mean P(congestion > threshold) per port -- the comparable risk number."""
+    if forecast is None or forecast.empty:
+        return {}
+    out: Dict[str, float] = {}
+    for port_id, group in forecast.groupby(PORT_ID):
+        probs = [prob_exceed(r.q10, r.q50, r.q90, 50.0) for r in group.itertuples()]
+        out[str(port_id)] = float(np.mean(probs)) if probs else 0.0
+    return out

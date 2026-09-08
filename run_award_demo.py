@@ -1,13 +1,25 @@
-"""One-command showcase pipeline for the India PortWatch digital twin.
+"""India PortWatch -- one-command predictive maritime digital twin.
 
-This runner keeps the original research pipeline intact while adding two
-specialist agents (capacity + anomaly), stress fusion, an adaptive TFT/GBM
-ensemble, real HSMM outputs, decisions, route recommendations, and API caches.
+Runs the whole chain in the order the product story tells it:
+
+    OBSERVE     satellite-AIS port activity, live marine weather, maritime events
+    UNDERSTAND  weather / news / port-ops / demand / macro experts, plus the
+                capacity, anomaly, arrival-dynamics, disruption-propagation,
+                weather-persistence and data-quality specialists
+    FORECAST    HSMM regimes -> GBM quantiles / TFT -> adaptive ensemble with
+                conformal calibration
+    DECIDE      operational decisions with expected impact
+    ROUTE       fleet-level arrival and reroute recommendations
+
+Every source declares its provenance (live / cached / stale / synthetic) and the
+whole registry is persisted, so the API and terminal report exactly what the
+pipeline actually had.
 
 Examples
 --------
 python run_award_demo.py --source portwatch --refresh
-python run_award_demo.py --source sample --model ensemble
+python run_award_demo.py --source portwatch --benchmark
+python run_award_demo.py --source sample --model baseline
 """
 
 from __future__ import annotations
@@ -22,15 +34,20 @@ from src.utils.config import (
     FORECAST_HORIZON_DAYS, DemoConfig, ensure_dirs,
 )
 from src.utils.logging_utils import get_logger, section
+from src.utils import provenance
 from src.ingestion.load_data import load_raw_bundle
 from src.ingestion.validation import validate_bundle
 from src.ingestion.sample_data import write_sample_data
 from src.experts import weather_expert, news_expert, port_ops_expert, trade_demand_expert
-from src.experts import anomaly_expert, capacity_expert
+from src.experts import (
+    anomaly_expert, arrival_dynamics_expert, capacity_expert,
+    data_quality_expert, disruption_expert, weather_persistence_expert,
+)
 from src.regimes.regime_features import assemble_panel
 from src.regimes.hsmm_model import HSMMRegimeModel
-from src.forecasting.forecast_runner import run_baseline
-from src.forecasting.ensemble import blend_forecasts, weights_from_benchmark
+from src.forecasting.forecast_runner import run_baseline, run_persistence
+from src.forecasting import ensemble as ensemble_members
+from src.forecasting.ensemble import blend_members, load_ensemble_policy
 from src.decision.decision_layer import build_decisions, high_risk_calendar
 from src.decision.route_optimizer import optimize_fleet
 
@@ -44,6 +61,7 @@ def _write(df: pd.DataFrame, path: Path) -> None:
 
 
 def _align_macro(macro_feats: pd.DataFrame | None, observed: pd.DataFrame):
+    """Keep macro aligned to the observed calendar without inventing overlap."""
     if macro_feats is None or macro_feats.empty:
         return macro_feats
     mf = macro_feats.copy()
@@ -59,138 +77,274 @@ def _align_macro(macro_feats: pd.DataFrame | None, observed: pd.DataFrame):
     return mf
 
 
-def _fuse_specialists(
-    panel: pd.DataFrame,
-    anomaly: pd.DataFrame,
-    capacity: pd.DataFrame,
-) -> pd.DataFrame:
-    """Fuse specialist signals into existing model features without leakage.
+def _live_weather(observed: pd.DataFrame, storm_source: pd.DataFrame | None,
+                  horizon: int):
+    """Live Open-Meteo weather merged with GDACS storm flags.
 
-    New columns remain visible for explainability. A small, bounded contribution
-    is also injected into queue/utilization so existing HSMM/TFT configurations
-    immediately benefit without changing the established model schema.
+    Returns ``(nowcast_frame, raw_frame)``. Falls back to whatever the bundle
+    supplied when the live connector cannot deliver -- and says so.
+    """
+    try:
+        from src.ingestion.connectors import weather_live
+        history_start = pd.to_datetime(observed[DATE], errors="coerce").min()
+        live = weather_live.fetch_port_weather(
+            past_days=92, forecast_days=max(horizon, 10),
+            history_start=history_start)
+        if not live.empty:
+            return weather_live.merge_storm_flags(live, storm_source), True
+    except Exception as exc:
+        log.warning("Live weather connector unavailable (%s).", exc)
+        provenance.record(
+            "Marine weather (Open-Meteo)", provenance.UNAVAILABLE,
+            f"Connector error: {exc}", provider="Open-Meteo")
+    if storm_source is not None and not storm_source.empty:
+        provenance.record(
+            "Marine weather (GDACS storm flags)", provenance.CACHED_LIVE,
+            "No live meteorology; only disaster-alert storm flags are available, "
+            "so wind/rain/wave risk is reported as unmeasured.",
+            provider="GDACS via IMF PortWatch",
+            observed_at=pd.to_datetime(storm_source[DATE], errors="coerce").max(),
+            rows=len(storm_source))
+    return storm_source, False
+
+
+def _fuse_specialists(panel: pd.DataFrame, *extras: pd.DataFrame) -> pd.DataFrame:
+    """Merge specialist outputs into the panel and fuse them into ops signals.
+
+    Specialist columns stay visible for explainability *and* are folded into the
+    queue/utilization signals so the established model schema benefits without a
+    schema break. The pre-fusion values are kept as ``*_raw`` so the fusion is
+    auditable rather than hidden.
     """
     out = panel.copy()
-    for extra in (anomaly, capacity):
+    for extra in extras:
         if extra is not None and not extra.empty:
             cols = [c for c in extra.columns if c not in (PORT_ID, DATE)]
-            out = out.merge(
-                extra[[PORT_ID, DATE] + cols].drop_duplicates([PORT_ID, DATE]),
-                on=[PORT_ID, DATE], how="left",
-            )
+            frame = extra[[PORT_ID, DATE] + cols].drop_duplicates([PORT_ID, DATE]).copy()
+            frame[DATE] = pd.to_datetime(frame[DATE], errors="coerce")
+            out[DATE] = pd.to_datetime(out[DATE], errors="coerce")
+            out = out.merge(frame, on=[PORT_ID, DATE], how="left")
 
-    anomaly_score = pd.to_numeric(out.get("anomaly_score", 0.0), errors="coerce").fillna(0.0).clip(0, 1)
-    capacity_pressure = pd.to_numeric(out.get("capacity_pressure", 0.5), errors="coerce").fillna(0.5).clip(0, 1)
+    def unit(column: str, default: float) -> pd.Series:
+        if column not in out.columns:
+            return pd.Series(default, index=out.index, dtype=float)
+        return (pd.to_numeric(out[column], errors="coerce")
+                .fillna(default).clip(0, 1))
 
-    queue = pd.to_numeric(out.get("queue_proxy", 0.0), errors="coerce").fillna(0.0).clip(0, 1)
-    utilization = pd.to_numeric(out.get("utilization", 0.5), errors="coerce").fillna(0.5)
+    anomaly_score = unit("anomaly_score", 0.0)
+    capacity_pressure = unit("capacity_pressure", 0.5)
+    berth_pressure = unit("berth_pressure", 0.0)
+    disruption_pressure = unit("disruption_pressure", 0.0)
+
+    queue = unit("queue_proxy", 0.0)
+    utilization = (pd.to_numeric(out["utilization"], errors="coerce")
+                   if "utilization" in out.columns
+                   else pd.Series(0.5, index=out.index, dtype=float))
     if utilization.quantile(0.95) > 1.5:
         utilization = utilization / 100.0
-    utilization = utilization.clip(0, 1)
+    utilization = utilization.fillna(0.5).clip(0, 1)
 
     out["queue_proxy_raw"] = queue
     out["utilization_raw"] = utilization
-    out["queue_proxy"] = (0.72 * queue + 0.18 * capacity_pressure + 0.10 * anomaly_score).clip(0, 1)
+    out["queue_proxy"] = (0.62 * queue + 0.15 * capacity_pressure
+                          + 0.13 * berth_pressure + 0.10 * anomaly_score).clip(0, 1)
     out["utilization"] = (0.78 * utilization + 0.22 * capacity_pressure).clip(0, 1)
     out["specialist_stress"] = (
-        0.45 * capacity_pressure + 0.35 * anomaly_score + 0.20 * out["queue_proxy"]
+        0.32 * capacity_pressure + 0.24 * anomaly_score
+        + 0.20 * berth_pressure + 0.14 * out["queue_proxy"]
+        + 0.10 * disruption_pressure
     ).clip(0, 1).round(4)
     return out
 
 
-def _forecast(panel: pd.DataFrame, weather_now: pd.DataFrame, horizon: int, model: str, epochs: int):
+def _forecast(panel: pd.DataFrame, weather_now: pd.DataFrame, horizon: int,
+              model: str, epochs: int):
+    """Produce the live forecast using the requested model configuration.
+
+    ``ensemble`` blends the members the walk-forward benchmark actually scored:
+    probabilistic persistence, the GBM quantile model, and the TFT when the deep
+    stack is installed. Weights come from the fitted policy artefact, so the
+    blend the terminal shows is the blend the benchmark measured.
+    """
     baseline = run_baseline(panel, weather_now, horizon)
     if model == "baseline":
         return baseline
 
+    members = {ensemble_members.GBM: baseline}
+    try:
+        members[ensemble_members.PERSISTENCE] = run_persistence(
+            panel, weather_now, horizon)
+    except Exception as exc:
+        log.warning("Persistence member unavailable (%s).", exc)
+
+    tft_forecast = None
     try:
         from src.forecasting.tft_model import TFTForecaster, TFTConfig, torch_available
-        if not torch_available():
-            log.warning("TFT stack unavailable; using calibrated GBM baseline.")
-            return baseline
-
-        tft = TFTForecaster(TFTConfig(horizon=horizon, max_epochs=epochs))
-        tft.fit(panel, weather_now)
-        tft_fc = tft.predict_future(panel, weather_now)
-        tft_fc["model"] = "tft"
-
-        if model == "tft":
-            # Preserve complete secondary targets from the baseline.
-            secondary = baseline[[PORT_ID, "horizon_day", "predicted_delay", "predicted_throughput"]]
-            return tft_fc.drop(columns=["predicted_delay", "predicted_throughput"], errors="ignore").merge(
-                secondary, on=[PORT_ID, "horizon_day"], how="left"
-            )
-
-        wt, wb = weights_from_benchmark(FORECASTS_DIR / "benchmark_comparison.csv")
-        log.info("Adaptive ensemble weights: TFT=%.3f GBM=%.3f", wt, wb)
-        return blend_forecasts(tft_fc, baseline, wt, wb)
+        if torch_available():
+            tft = TFTForecaster(TFTConfig(horizon=horizon, max_epochs=epochs))
+            tft.fit(panel, weather_now)
+            tft_forecast = tft.predict_future(panel, weather_now)
+            tft_forecast["model"] = "tft"
+        else:
+            log.info("Deep stack not installed; the ensemble runs on "
+                     "persistence + GBM.")
     except Exception as exc:
-        log.warning("Deep/ensemble path failed (%s); using calibrated GBM baseline.", exc)
+        log.warning("TFT member unavailable (%s); the ensemble runs on "
+                    "persistence + GBM.", exc)
+
+    if model == "tft":
+        if tft_forecast is None:
+            log.warning("TFT requested but unavailable; returning the calibrated "
+                        "GBM baseline.")
+            return baseline
+        secondary = baseline[[PORT_ID, "horizon_day", "predicted_delay",
+                              "predicted_throughput"]]
+        return tft_forecast.drop(
+            columns=["predicted_delay", "predicted_throughput"], errors="ignore"
+        ).merge(secondary, on=[PORT_ID, "horizon_day"], how="left")
+
+    if tft_forecast is not None:
+        members[ensemble_members.SECOND_OPINION] = tft_forecast
+
+    if len(members) == 1:
         return baseline
+
+    policy = load_ensemble_policy(FORECASTS_DIR / "ensemble_weights.json")
+    log.info("Ensemble policy: %s", policy.describe())
+    return blend_members(members, policy, panel=panel,
+                         secondary_from=ensemble_members.GBM)
 
 
 def main() -> dict:
-    parser = argparse.ArgumentParser(description="Run the award-demo PortWatch digital twin.")
-    parser.add_argument("--source", default="auto", choices=["auto", "sample", "portwatch", "real"])
-    parser.add_argument("--model", default="ensemble", choices=["ensemble", "tft", "baseline"])
+    parser = argparse.ArgumentParser(
+        description="Run the India PortWatch predictive maritime digital twin.")
+    parser.add_argument("--source", default="auto",
+                        choices=["auto", "sample", "portwatch", "real"])
+    parser.add_argument("--model", default="ensemble",
+                        choices=["ensemble", "tft", "baseline"])
     parser.add_argument("--horizon", type=int, default=FORECAST_HORIZON_DAYS)
     parser.add_argument("--epochs", type=int, default=35)
     parser.add_argument("--days", type=int, default=300)
-    parser.add_argument("--refresh", action="store_true", help="refresh IMF PortWatch cache when network is available")
+    parser.add_argument("--refresh", action="store_true",
+                        help="refresh the IMF PortWatch cache when the network allows")
+    parser.add_argument("--benchmark", action="store_true",
+                        help="run the walk-forward benchmark and refresh the "
+                             "ensemble weighting policy before forecasting")
+    parser.add_argument("--offline", action="store_true",
+                        help="skip every network call and rely on cached data")
     args = parser.parse_args()
 
     ensure_dirs()
+    provenance.reset()
     cfg = DemoConfig(n_days=args.days, horizon=args.horizon)
 
-    section(log, "1 / LIVE DATA")
-    if args.refresh:
+    # ---------------------------------------------------------------- OBSERVE
+    section(log, "1 / OBSERVE  ·  live data acquisition")
+    if args.refresh and not args.offline:
         try:
             from app.data import portwatch as pw_fetch
             pw_fetch.fetch_all()
         except Exception as exc:
-            log.warning("Live PortWatch refresh unavailable; using last good cache: %s", exc)
+            log.warning("Live PortWatch refresh unavailable; using the last "
+                        "known-good cache: %s", exc)
     if args.source in ("auto", "sample"):
         try:
             write_sample_data(cfg)
         except Exception:
             pass
+
     bundle = load_raw_bundle(source=args.source, cfg=cfg)
     validate_bundle(bundle)
     observed = bundle["observed"]
+    observed_max = pd.to_datetime(observed[DATE], errors="coerce").max()
 
-    section(log, "2 / SPECIALIST INTELLIGENCE")
-    weather = weather_expert.run(bundle["weather_raw"])
-    news = news_expert.run(bundle["news_raw"])
+    if args.source in ("portwatch", "auto"):
+        provenance.record(
+            "Port activity (IMF PortWatch)", provenance.CACHED_LIVE,
+            f"Daily satellite-AIS port calls and trade tonnage for "
+            f"{observed[PORT_ID].nunique()} Indian ports.",
+            provider="IMF PortWatch (ArcGIS feature service)",
+            observed_at=observed_max, rows=len(observed), freshness_hours=72.0)
+    else:
+        provenance.record(
+            "Port activity (%s)" % args.source, provenance.SYNTHETIC,
+            "Offline demo bundle; not measured port activity.",
+            provider="local generator", observed_at=observed_max,
+            rows=len(observed), fallback="sample bundle")
+
+    weather_raw, weather_is_live = _live_weather(
+        observed, bundle.get("weather_raw"), args.horizon)
+
+    news_raw = bundle.get("news_raw")
+    event_catalogue: list = []
+    if not args.offline and (news_raw is None or news_raw.empty):
+        try:
+            from src.ingestion.connectors import port_events
+            events = port_events.collect_events()
+            news_raw = port_events.build_news_raw(observed[[PORT_ID, DATE]], events)
+            event_catalogue = port_events.build_event_catalogue(events)
+        except Exception as exc:
+            log.warning("Port event stream unavailable: %s", exc)
+            news_raw = pd.DataFrame(columns=[PORT_ID, DATE])
+
+    # ------------------------------------------------------------- UNDERSTAND
+    section(log, "2 / UNDERSTAND  ·  specialist intelligence")
+    weather = weather_expert.run(weather_raw)
+    weather_now = weather[weather[DATE] <= observed_max] if not weather.empty else weather
+    news = news_expert.run(news_raw)
     ops = port_ops_expert.run(bundle["port_ops_raw"], observed=observed)
     demand = trade_demand_expert.run(bundle["trade_raw"], observed[[PORT_ID, DATE]].copy())
     anomaly = anomaly_expert.run(observed, ops)
     capacity = capacity_expert.run(observed, ops)
+    arrivals = arrival_dynamics_expert.run(observed, ops)
+    disruption = disruption_expert.run(observed[[PORT_ID, DATE]])
+    weather_persistence = weather_persistence_expert.run(
+        weather_now, forward_weather=weather if weather_is_live else None)
 
     macro = None
-    try:
-        from src.ingestion.connectors import macro as macro_conn, events as events_conn
-        from src.experts import macro_expert
-        macro = macro_expert.run(macro_conn.fetch_macro_conditions(days=2000), events_conn.fetch_events())
-        macro = _align_macro(macro, observed)
-    except Exception as exc:
-        log.warning("Macro expert skipped: %s", exc)
+    if not args.offline:
+        try:
+            from src.ingestion.connectors import macro as macro_conn, events as events_conn
+            from src.experts import macro_expert
+            macro = macro_expert.run(macro_conn.fetch_macro_conditions(days=2000),
+                                     events_conn.fetch_events())
+            macro = _align_macro(macro, observed)
+        except Exception as exc:
+            log.warning("Macro expert skipped: %s", exc)
+
+    if weather_raw is not None and not weather_raw.empty:
+        _write(weather_raw, EXPERT_FEATURES_DIR / "weather_observations.csv")
 
     for name, frame in {
-        "weather_features.csv": weather,
+        "weather_features.csv": weather_now,
+        "weather_forecast_features.csv": weather,
+        "weather_persistence_features.csv": weather_persistence,
         "news_features.csv": news,
         "port_ops_features.csv": ops,
         "trade_demand_features.csv": demand,
         "anomaly_features.csv": anomaly,
         "capacity_features.csv": capacity,
+        "arrival_features.csv": arrivals,
+        "disruption_features.csv": disruption,
     }.items():
         _write(frame, EXPERT_FEATURES_DIR / name)
     if macro is not None:
         _write(macro, EXPERT_FEATURES_DIR / "macro_features.csv")
 
-    section(log, "3 / DIGITAL-TWIN STATE")
-    panel = assemble_panel(observed, weather, news, ops, demand, macro=macro)
-    panel = _fuse_specialists(panel, anomaly, capacity)
+    # -------------------------------------------------------- DIGITAL-TWIN STATE
+    section(log, "3 / DIGITAL-TWIN STATE  ·  fused panel + regimes")
+    panel = assemble_panel(observed, weather_now, news, ops, demand, macro=macro)
+    panel = _fuse_specialists(panel, anomaly, capacity, arrivals, disruption,
+                              weather_persistence)
+
+    quality = data_quality_expert.run(panel)
+    _write(quality, EXPERT_FEATURES_DIR / "data_quality_features.csv")
+    panel = _fuse_specialists(panel, quality)
     _write(panel, EXPERT_FEATURES_DIR / "merged_panel.csv")
+
+    degraded = data_quality_expert.degraded_ports(quality)
+    if degraded:
+        log.warning("Ports running on degraded inputs: %s", ", ".join(degraded))
 
     regimes = HSMMRegimeModel(seed=cfg.seed).fit_predict(panel)
     _write(regimes, REGIMES_DIR / "regimes.csv")
@@ -198,35 +352,67 @@ def main() -> dict:
                 "expected_remaining_days", "transition_risk", "regime_confidence"]
     panel_fc = panel.merge(
         regimes[[PORT_ID, DATE] + reg_cols].drop_duplicates([PORT_ID, DATE]),
-        on=[PORT_ID, DATE], how="left",
-    )
+        on=[PORT_ID, DATE], how="left")
 
-    section(log, "4 / ADAPTIVE FORECAST")
+    # ------------------------------------------------------------ MEASURE
+    if args.benchmark:
+        section(log, "4 / MEASURE  ·  walk-forward benchmark")
+        try:
+            from src.evaluation.model_benchmark import run_benchmark
+            run_benchmark(panel_fc, weather_now, horizon=args.horizon)
+        except Exception as exc:
+            log.warning("Benchmark stage failed: %s", exc)
+
+    # ------------------------------------------------------------- FORECAST
+    section(log, "5 / FORECAST  ·  adaptive ensemble")
     forecast = _forecast(panel_fc, weather, args.horizon, args.model, args.epochs)
+    forecast = _apply_quality_discount(forecast, quality)
     _write(forecast, FORECASTS_DIR / "forecast_table.csv")
 
-    section(log, "5 / ACTION + ROUTING")
-    decisions = build_decisions(forecast, weather)
-    routes = optimize_fleet(forecast)
+    # ------------------------------------------------------- DECIDE + ROUTE
+    section(log, "6 / DECIDE + ROUTE  ·  operational output")
+    decisions = build_decisions(forecast, weather_now, panel=panel_fc)
+    routes = optimize_fleet(forecast, panel=panel_fc)
     _write(decisions, FORECASTS_DIR / "decisions.csv")
     _write(high_risk_calendar(decisions), FORECASTS_DIR / "high_risk_dates.csv")
     _write(routes, FORECASTS_DIR / "route_recommendations.csv")
 
-    section(log, "6 / API CACHE")
-    try:
-        from backend.pipeline.export_award_cache import main as export_cache
-        export_cache()
-    except Exception as exc:
-        log.warning("Award cache export skipped: %s", exc)
-    try:
-        from backend.pipeline.export_support_cache import main as export_support
-        export_support()
-    except Exception as exc:
-        log.warning("Support cache export skipped: %s", exc)
+    # ---------------------------------------------------------------- EXPORT
+    section(log, "7 / EXPORT  ·  API cache + provenance")
+    provenance.save({"forecastOrigin": str(
+        pd.to_datetime(forecast["forecast_origin_date"], errors="coerce").max())})
+    from backend.pipeline.export_award_cache import main as export_cache
+    export_cache()
+    from backend.pipeline.export_support_cache import main as export_support
+    export_support(event_catalogue=event_catalogue)
 
     section(log, "READY")
-    log.info("Model: %s | ports=%d | forecast rows=%d", forecast["model"].iloc[0], forecast[PORT_ID].nunique(), len(forecast))
-    return {"forecast": forecast, "regimes": regimes, "decisions": decisions, "routes": routes}
+    log.info("Model: %s | ports=%d | forecast rows=%d | source readiness=%.2f",
+             forecast["model"].iloc[0], forecast[PORT_ID].nunique(),
+             len(forecast), provenance.readiness_score())
+    return {"forecast": forecast, "regimes": regimes, "decisions": decisions,
+            "routes": routes, "panel": panel_fc, "quality": quality}
+
+
+def _apply_quality_discount(forecast: pd.DataFrame,
+                            quality: pd.DataFrame) -> pd.DataFrame:
+    """Lower forecast confidence where the port's inputs are degraded.
+
+    A forecast built on a stale or incomplete feed is not as trustworthy as one
+    built on a fresh, complete feed, and the number on screen should say so.
+    """
+    if forecast.empty or quality is None or quality.empty:
+        return forecast
+    latest = (quality.sort_values([PORT_ID, DATE])
+              .groupby(PORT_ID, as_index=False).tail(1)
+              [[PORT_ID, "data_quality_score"]])
+    out = forecast.merge(latest, on=PORT_ID, how="left")
+    score = pd.to_numeric(out["data_quality_score"], errors="coerce").fillna(0.75)
+    # A pristine feed keeps its confidence; a fully degraded one loses a third.
+    out["confidence_score"] = (
+        pd.to_numeric(out["confidence_score"], errors="coerce")
+        * (0.67 + 0.33 * score)).clip(0.05, 0.98).round(3)
+    return out
 
 
 if __name__ == "__main__":
