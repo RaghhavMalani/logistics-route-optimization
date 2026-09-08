@@ -21,6 +21,8 @@ Written into ``data/cache/``:
 
 from __future__ import annotations
 
+import ast
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -423,6 +425,24 @@ def build_vessels(panel: pd.DataFrame) -> dict:
     }
 
 
+def _as_list(value) -> list:
+    """Normalise a cell that may be a real list or its CSV round-trip.
+
+    `optimize_fleet` returns candidate ports as a list. Read back from
+    `route_recommendations.csv` the same cell is the string "['MUNDRA', ...]",
+    and iterating that yields characters, so both forms are handled here.
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return [part.strip() for part in value.split("|") if part.strip()]
+        return list(parsed) if isinstance(parsed, (list, tuple)) else [parsed]
+    return []
+
+
 def build_fleet(routes: pd.DataFrame, forecast: pd.DataFrame) -> list[dict]:
     """Fleet board rows, straight from the route optimizer output."""
     if routes.empty:
@@ -432,16 +452,37 @@ def build_fleet(routes: pd.DataFrame, forecast: pd.DataFrame) -> list[dict]:
     for _, row in routes.iterrows():
         intended = port_registry.resolve(str(row.get("intended_port", "")))
         recommended = port_registry.resolve(str(row.get("recommended_port", "")))
+        candidate_codes = []
+        for candidate in _as_list(row.get("candidate_ports")):
+            entry = port_registry.resolve(str(candidate))
+            if entry:
+                candidate_codes.append(entry.locode)
+
         out.append({
             "id": str(row.get("vessel", "")).upper().replace(" ", "-"),
             "name": str(row.get("vessel", "")),
             "intendedPortCode": intended.locode if intended else None,
+            "intendedPortName": intended.name if intended else None,
             "recommendedPortCode": recommended.locode if recommended else None,
+            "recommendedPortName": recommended.name if recommended else None,
             "reroute": bool(row.get("reroute", False)),
             "bestArrivalDay": _opt(row.get("best_arrival_day")),
+            "intendedArrivalDay": _opt(row.get("intended_arrival_day")),
+            # The window the operator declared, not one the optimizer invented.
+            "earliestDay": _opt(row.get("earliest_day")),
+            "latestDay": _opt(row.get("latest_day")),
+            "candidatePortCodes": candidate_codes,
             "etaDeltaHours": _opt(row.get("eta_delta_hours")),
             "riskDelta": _opt(row.get("risk_delta")),
             "portWaitDeltaHours": _opt(row.get("port_wait_delta_hours")),
+            "intendedWaitHours": _opt(row.get("intended_wait_hours")),
+            "alternativeWaitHours": _opt(row.get("alternative_wait_hours")),
+            "intendedCongestionProbability": _opt(row.get("intended_congestion_prob")),
+            "alternativeCongestionProbability": _opt(
+                row.get("alternative_congestion_prob")),
+            "intendedCost": _opt(row.get("intended_total_cost")),
+            "alternativeCost": _opt(row.get("alternative_total_cost")),
+            "extraSteamingHours": _opt(row.get("extra_steaming_hours")),
             "bufferHours": _opt(row.get("recommended_buffer_hours")),
             "diversionKm": _opt(row.get("diversion_km")),
             "recommendation": str(row.get("recommendation", "")),

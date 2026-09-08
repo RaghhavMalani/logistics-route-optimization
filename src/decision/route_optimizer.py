@@ -233,6 +233,19 @@ def optimize_fleet(forecast: pd.DataFrame,
             "extra_steaming_hours": float(best["extra_steaming_hours"]),
             "intended_congestion_prob": float(intended["congestion_prob"]),
             "alternative_congestion_prob": float(best["congestion_prob"]),
+            # The declared window and the two costs the comparison turns on.
+            # These are already computed above; carrying them out of the
+            # optimizer is what lets an interface show *why* it recommended a
+            # call rather than only the verdict.
+            "earliest_day": int(v.earliest_day),
+            "latest_day": int(v.latest_day),
+            "candidate_ports": list(v.candidate_ports or []),
+            "intended_total_cost": float(intended["total_cost"]),
+            "alternative_total_cost": float(best["total_cost"]),
+            "intended_wait_hours": (float(intended_wait)
+                                    if pd.notna(intended_wait) else None),
+            "alternative_wait_hours": (float(best_wait)
+                                       if pd.notna(best_wait) else None),
             "recommendation": rec["recommendation"],
         })
     return pd.DataFrame(rows)

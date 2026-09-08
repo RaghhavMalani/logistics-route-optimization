@@ -537,16 +537,38 @@ export interface FeedAdapter {
   granularity: string;
 }
 
+/**
+ * One vessel scored by the route optimizer.
+ *
+ * There is no IMO number and no position: the routing artefact carries a
+ * declared call and an arrival window, not an AIS track, and the interface says
+ * so rather than inventing either.
+ */
 export interface FleetRow {
   id: string;
   name: string;
   intendedPortCode: string | null;
+  intendedPortName?: string | null;
   recommendedPortCode: string | null;
+  recommendedPortName?: string | null;
   reroute: boolean;
   bestArrivalDay: number | null;
+  intendedArrivalDay?: number | null;
+  /** The window the operator declared for this vessel, in horizon days. */
+  earliestDay?: number | null;
+  latestDay?: number | null;
+  candidatePortCodes?: string[];
   etaDeltaHours: number | null;
   riskDelta: number | null;
   portWaitDeltaHours: number | null;
+  intendedWaitHours?: number | null;
+  alternativeWaitHours?: number | null;
+  intendedCongestionProbability?: number | null;
+  alternativeCongestionProbability?: number | null;
+  /** Optimizer cost: predicted delay + congestion penalty + travel penalty. */
+  intendedCost?: number | null;
+  alternativeCost?: number | null;
+  extraSteamingHours?: number | null;
   bufferHours: number | null;
   diversionKm: number | null;
   recommendation: string;

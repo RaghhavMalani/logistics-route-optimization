@@ -29,6 +29,7 @@ const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   ports: true,
   vessels: true,
   weather: true,
+  stations: false,
   storms: true,
   routes: true,
   chokepoints: true,
