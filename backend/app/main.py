@@ -11,6 +11,7 @@ from backend.app.routes import (
     model,
     news,
     ports,
+    provenance,
     sar,
     scenarios,
     weather,
@@ -18,7 +19,7 @@ from backend.app.routes import (
 
 app = FastAPI(
     title="India PortWatch Backend",
-    version="0.2.0",
+    version="1.0.0",
     description="Evidence-backed API for the India PortWatch maritime digital twin.",
 )
 
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(provenance.router, prefix="/api")
 app.include_router(model.router, prefix="/api")
 app.include_router(ports.router, prefix="/api")
 app.include_router(weather.router, prefix="/api")
@@ -52,7 +54,7 @@ app.include_router(scenarios.router, prefix="/api")
 def root() -> dict:
     return {
         "service": "India PortWatch Backend",
-        "version": "0.2.0",
+        "version": "1.0.0",
         "docs": "/docs",
         "health": "/api/health",
     }
