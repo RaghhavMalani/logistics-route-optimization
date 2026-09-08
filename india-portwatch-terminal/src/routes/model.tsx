@@ -80,6 +80,7 @@ function ModelIntelligence() {
     <div className="h-full overflow-auto p-2 space-y-2">
       {/* Headline: what the benchmark actually measured. */}
       <div className="grid grid-cols-[1fr_320px] gap-2 items-start">
+        <div className="space-y-2 min-w-0">
         <Panel title="WALK-FORWARD BENCHMARK" right={benchmark?.version}>
           {benchmark?.available && summary ? (
             <div className="p-3 space-y-2">
@@ -135,6 +136,15 @@ function ModelIntelligence() {
             </div>
           )}
         </Panel>
+
+        <Panel title="INTELLIGENCE PIPELINE · EXPERTS">
+          <div className="p-2 grid grid-cols-5 gap-1.5">
+            {experts.map((node) => (
+              <PipelineCard key={node.key} node={node} />
+            ))}
+          </div>
+        </Panel>
+        </div>
 
         <Panel title="ENSEMBLE POLICY">
           {weights?.fitted ? (
@@ -372,14 +382,6 @@ function ModelIntelligence() {
       </div>
 
       {/* Pipeline nodes. */}
-      <Panel title="INTELLIGENCE PIPELINE · EXPERTS">
-        <div className="p-2 grid grid-cols-5 gap-1.5">
-          {experts.map((node) => (
-            <PipelineCard key={node.key} node={node} />
-          ))}
-        </div>
-      </Panel>
-
       <Panel title="INTELLIGENCE PIPELINE · MODELS AND DECISION">
         <div className="p-2 grid grid-cols-3 gap-1.5">
           {models.map((node) => (
