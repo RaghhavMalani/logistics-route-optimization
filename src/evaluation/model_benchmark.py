@@ -262,12 +262,23 @@ def _simplex(members: List[str], step: float = WEIGHT_STEP) -> List[Dict[str, fl
 
 def _blend_column(block: pd.DataFrame, members: List[str],
                   weights: Dict[str, float], quantile: str) -> np.ndarray:
-    blended = np.zeros(len(block), dtype=float)
-    for member in members:
-        values = pd.to_numeric(block[f"{quantile}__{member}"],
-                               errors="coerce").to_numpy(dtype=float)
-        blended = blended + weights[member] * np.nan_to_num(values)
-    return blended
+    """Weighted blend that renormalises over the members present on each row.
+
+    A member that did not produce a prediction for a row (the deep model needs
+    more history than the earliest folds have, for example) must not drag the
+    blend toward zero -- and the ensemble must still be scored on the *same*
+    rows as every baseline, or the comparison stops being apples-to-apples.
+    """
+    stack = np.column_stack([
+        pd.to_numeric(block[f"{quantile}__{member}"],
+                      errors="coerce").to_numpy(dtype=float)
+        for member in members
+    ])
+    weight_row = np.array([weights[member] for member in members], dtype=float)
+    weight_matrix = np.where(~np.isnan(stack), weight_row, 0.0)
+    totals = np.clip(weight_matrix.sum(axis=1, keepdims=True), 1e-9, None)
+    return (np.nansum(np.nan_to_num(stack) * weight_matrix, axis=1)
+            / totals[:, 0])
 
 
 def _pinball_of_blend(block: pd.DataFrame, members: List[str],
@@ -297,9 +308,12 @@ def _wide_members(predictions: pd.DataFrame, ycol: str
     if not frames:
         return pd.DataFrame(), []
 
+    # Left-join every member onto the full evaluation set so the ensemble is
+    # scored over exactly the rows the baselines are scored over. Members that
+    # are missing on a row are renormalised away at blend time.
     wide = predictions[predictions["model"] == GBM][keys + [ycol, "regime"]]
     for frame in frames:
-        wide = wide.merge(frame, on=keys, how="inner")
+        wide = wide.merge(frame, on=keys, how="left")
     return wide.dropna(subset=[ycol]).reset_index(drop=True), members
 
 
@@ -380,22 +394,23 @@ def _blend_predictions(wide: pd.DataFrame, members: List[str],
     keys = [PORT_ID, "forecast_origin_date", "target_date", "horizon_day"]
     out = wide[keys + [ycol, "regime"]].copy()
 
-    weight_matrix = np.array([
+    base_weights = np.array([
         [policy.weights_for(horizon=row.horizon_day,
                             regime=getattr(row, "regime", None),
                             port_id=getattr(row, PORT_ID)).get(m, 0.0)
          for m in members]
         for row in wide.itertuples()
     ], dtype=float)
-    weight_matrix = weight_matrix / np.clip(
-        weight_matrix.sum(axis=1, keepdims=True), 1e-9, None)
 
     for quantile in ("q10", "q50", "q90"):
         stack = np.column_stack([
             pd.to_numeric(wide[f"{quantile}__{m}"], errors="coerce").to_numpy()
             for m in members
         ])
-        out[quantile] = np.nansum(np.nan_to_num(stack) * weight_matrix, axis=1)
+        weight_matrix = np.where(~np.isnan(stack), base_weights, 0.0)
+        totals = np.clip(weight_matrix.sum(axis=1, keepdims=True), 1e-9, None)
+        out[quantile] = (np.nansum(np.nan_to_num(stack) * weight_matrix, axis=1)
+                         / totals[:, 0])
 
     offsets = out["horizon_day"].map(policy.conformal_for).astype(float).to_numpy()
     out["q10"] = np.clip(out["q10"].to_numpy() - offsets, 0.0, None)
@@ -567,7 +582,12 @@ def run_benchmark(panel: pd.DataFrame,
     best = model_table.iloc[0]
     naive_row = model_table[model_table["model"] == NAIVE]
     naive_mae = float(naive_row.iloc[0]["mae"]) if not naive_row.empty else float("nan")
-    skill = (1.0 - float(best["mae"]) / naive_mae) if naive_mae == naive_mae else None
+
+    # Skill is measured on the rows the two models share, so a member that only
+    # covers part of the evaluation set cannot flatter the headline number.
+    skill = _paired_skill(scored, ycol, str(best["model"]), NAIVE)
+    if skill is None and naive_mae == naive_mae:
+        skill = 1.0 - float(best["mae"]) / naive_mae
 
     summary = {
         "version": BENCHMARK_VERSION,
@@ -607,6 +627,27 @@ def run_benchmark(panel: pd.DataFrame,
     log.info("\n%s", model_table.to_string(index=False))
     log.info("Ensemble policy: %s", policy.describe())
     return summary
+
+
+def _paired_skill(scored: pd.DataFrame, ycol: str, model: str,
+                  reference: str) -> float | None:
+    """MAE skill of ``model`` over ``reference`` on their common rows."""
+    keys = [PORT_ID, "forecast_origin_date", "target_date", "horizon_day"]
+    left = scored[scored["model"] == model][keys + [ycol, "predicted_congestion"]]
+    right = scored[scored["model"] == reference][keys + ["predicted_congestion"]]
+    if left.empty or right.empty:
+        return None
+    paired = left.merge(right, on=keys, how="inner", suffixes=("_a", "_b"))
+    paired = paired.dropna(subset=[ycol, "predicted_congestion_a",
+                                   "predicted_congestion_b"])
+    if paired.empty:
+        return None
+    truth = paired[ycol].to_numpy(dtype=float)
+    model_mae = mae(truth, paired["predicted_congestion_a"].to_numpy(dtype=float))
+    reference_mae = mae(truth, paired["predicted_congestion_b"].to_numpy(dtype=float))
+    if not reference_mae:
+        return None
+    return round(1.0 - model_mae / reference_mae, 4)
 
 
 def _regime_lookup(panel: pd.DataFrame) -> Dict[tuple, str]:
