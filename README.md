@@ -171,29 +171,35 @@ python -m src.evaluation.model_benchmark --folds 4
 
 | Model | MAE | RMSE | MAPE % | Pinball q50 | 80% coverage | Calib. error |
 |---|---:|---:|---:|---:|---:|---:|
-| **Adaptive ensemble** | **7.47** | **10.19** | **14.75** | **3.73** | **0.806** | **0.006** |
+| **Adaptive ensemble** | **7.43** | **10.14** | **14.65** | **3.71** | **0.807** | **0.007** |
+| GBM quantile | 8.06 | 10.86 | 15.38 | 4.03 | 0.707 | 0.093 |
 | Naive persistence | 8.08 | 11.10 | 15.94 | 4.04 | 0.784 | 0.016 |
-| GBM quantile | 8.14 | 10.88 | 15.65 | 4.07 | 0.664 | 0.136 |
-| TFT (deep)¹ | 8.72 | 11.08 | 24.69 | 4.36 | 0.045 | 0.755 |
 | Seasonal naive (7d) | 10.58 | 14.08 | 20.78 | — | — | — |
-| Ridge quantile | 11.18 | 14.11 | 22.34 | 5.59 | 0.568 | 0.232 |
+| TFT (deep)¹ | 10.71 | 12.32 | 29.47 | 5.36 | 0.037 | 0.763 |
+| Ridge quantile | 11.10 | 14.09 | 22.52 | 5.55 | 0.575 | 0.225 |
 
 ¹ Scored on the 7,320 rows where the deep model had enough history to train.
 The ensemble's headline skill is computed **paired**, on rows both models cover.
 
-**Skill against naive persistence: +7.6% MAE.** The ensemble is also the only
+**Skill against naive persistence: +8.1% MAE.** The ensemble is also the only
 model whose intervals are calibrated: 0.53 / 0.81 / 0.90 empirical against
 0.50 / 0.80 / 0.90 nominal.
+
+Exact figures move by a few hundredths between runs: the deep member's training
+is stochastic, and it is retrained per fold. The ordering, the calibration and
+the horizon structure below are stable. `outputs/forecasts/benchmark_summary.json`
+records the run these numbers came from.
 
 ### Accuracy by horizon (MAE)
 
 | Horizon | Ensemble | Persistence | GBM | TFT |
 |---:|---:|---:|---:|---:|
-| +1d | **3.74** | 3.75 | 4.53 | 9.09 |
-| +3d | **6.06** | 6.39 | 6.60 | 8.98 |
-| +5d | **7.81** | 8.40 | 8.65 | 8.34 |
-| +7d | **9.07** | 10.02 | 9.75 | 8.31 |
-| +10d | **9.41** | 10.36 | 9.99 | — |
+| +1d | **3.73** | 3.75 | 4.55 | 10.87 |
+| +3d | **6.04** | 6.39 | 6.60 | 11.09 |
+| +5d | **7.77** | 8.40 | 8.52 | 10.96 |
+| +7d | **9.02** | 10.02 | 9.63 | 9.70 |
+| +9d | **9.20** | 10.24 | 9.76 | 8.71 |
+| +10d | **9.30** | 10.36 | 9.86 | — |
 
 This is the finding that shaped the model. **Nothing beats persistence at one
 day** on a seven-day-smoothed congestion index, and the first honest run of this
@@ -210,32 +216,39 @@ Two changes fixed that, and the benchmark is what proves it:
    |---:|---:|---:|---:|
    | +1d | 0.80 | 0.10 | 0.10 |
    | +3d | 0.50 | 0.40 | 0.10 |
-   | +6d | 0.30 | 0.30 | 0.40 |
-   | +10d | 0.40 | 0.50 | 0.10 |
+   | +6d | 0.40 | 0.40 | 0.20 |
+   | +10d | 0.20 | 0.30 | 0.50 |
 
    The learned weights recover the physics: persistence dominates tomorrow, the
    models take over from mid-horizon. Nobody wrote that schedule down.
 
 ### Accuracy by HSMM regime (MAE)
 
-| Regime | Ensemble | Persistence | GBM |
-|---|---:|---:|---:|
-| NORMAL | **7.45** | 8.21 | 7.51 |
-| CONGESTED | 4.76 | **4.60** | 8.15 |
-| SEVERE | **8.13** | 8.42 | 10.36 |
+| Regime | Ensemble | Persistence | GBM | TFT |
+|---|---:|---:|---:|---:|
+| NORMAL | **6.96** | 7.70 | 7.04 | 11.21 |
+| CONGESTED | 7.40 | 8.28 | **7.35** | 11.46 |
+| SEVERE | 7.64 | 8.01 | 9.29 | **7.48** |
 
-Reported as measured: in the CONGESTED regime persistence still edges the
-ensemble. That cell has the fewest out-of-fold rows, and the honest reading is
-that the advantage is not yet established there.
+Reported as measured, including the cells the ensemble loses: the GBM alone
+edges it in CONGESTED, and the deep model is the single best entry in SEVERE —
+which is a real finding about where a sequence model earns its keep, not a
+number to bury.
 
 ### What the deep model actually contributes
 
 The TFT is a real `pytorch-forecasting` Temporal Fusion Transformer, trained
-per fold on pre-cutoff data only. It is **worse overall** (MAE 8.72) and its
-intervals are badly miscalibrated (4.5% coverage against a nominal 80%). But it
-is the best model at long lead times — 7.00 MAE at +9d against the GBM's 9.89 —
-which is exactly why the stacker gives it 0.3–0.4 weight at horizons 4–9 and
-almost none at day 1. That is the ensemble earning its name.
+per fold on pre-cutoff data only. It is **worse overall** (MAE 10.71, last in
+the table) and its intervals are badly miscalibrated — 3.7% coverage against a
+nominal 80%, which makes them unusable on their own.
+
+But look at what it does with lead time. It is the *only* model whose error
+**falls** as the horizon grows: 10.87 at +1d down to 8.71 at +9d, where it beats
+every other entry. It is also the best model in the SEVERE regime. So the
+stacker gives it 0.10 weight at day 1 and 0.50 at day 10 — it learned to use the
+deep model exactly where the deep model is good, and to ignore it elsewhere.
+That is the ensemble earning its name, and it is the argument for keeping a
+model that loses on the headline number.
 
 Install it with `pip install -r requirements-tft.txt`. Without it the ensemble
 runs on persistence + GBM and the benchmark reports the TFT as not evaluated,

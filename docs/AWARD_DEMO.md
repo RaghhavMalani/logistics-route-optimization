@@ -95,7 +95,7 @@ persistence**, 80% coverage.
 
 > "Four expanding walk-forward folds, twenty-eight thousand out-of-fold
 > predictions, every model on identical folds. The ensemble beats a random walk
-> by 7.6% and is the only model with a calibrated interval — 0.806 against a
+> by 8% and is the only model with a calibrated interval — 0.807 against a
 > nominal 0.800."
 
 Switch the drilldown to **HORIZON**.
@@ -176,7 +176,7 @@ would say so.
 **"How do you know the model is any good?"**
 `python -m src.evaluation.model_benchmark --folds 4`. Expanding walk-forward,
 identical folds for every candidate, ensemble weights fitted only on
-out-of-fold predictions, scored on the same rows as the baselines. MAE 7.47
+out-of-fold predictions, scored on the same rows as the baselines. MAE 7.43
 against persistence 8.08, and calibrated intervals.
 
 **"Isn't the ensemble just tuned until it won?"**
@@ -186,11 +186,12 @@ cells where the ensemble loses — persistence wins in the CONGESTED regime, and
 that is printed in `regime_benchmark.csv`.
 
 **"Why is the TFT worse than a gradient-booster?"**
-Because at this data scale it is — 12 ports, about a year of daily history. It
-is genuinely better at long horizons (7.00 MAE at +9d against 9.89), which is
-why the stacker gives it real weight there and almost none at day 1. Its
-intervals are badly calibrated and we say so rather than hiding it behind the
-ensemble.
+Because at this data scale it is — 12 ports, about a year of daily history — and
+it is last in the table. But it is the only model whose error *falls* with lead
+time (10.87 at +1d down to 8.71 at +9d, where it beats everything else) and the
+best model in the SEVERE regime. The stacker gives it 0.10 weight at day 1 and
+0.50 at day 10. Its intervals are badly calibrated and we print that too rather
+than hiding it behind the ensemble.
 
 **"Is the scenario engine just multiplying a constant?"**
 No — that is exactly what it used to do, and it was replaced. The shock is
