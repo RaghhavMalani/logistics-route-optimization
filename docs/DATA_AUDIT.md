@@ -73,6 +73,14 @@ where the feed had nothing.
 | `affectedPorts` | **Derived** | Chokepoint events: the port's measured lane exposure. GDACS: exactly the ports the alert names. Unattributed headlines: a reduced national weight |
 | `sentiment` | **Derived** | Tone from attributed event severity, not a language model's opinion |
 
+### Alignment
+
+The event feed is current; the port panel trails it by the PortWatch publishing
+lag. Port-level news *features* are therefore keyed to the last observed panel
+day, and an event newer than that day shows in the stream and the mention counts
+but has not yet reached the model. The Event Intelligence screen prints the
+alignment date beside the feature table.
+
 ### Fixed in this cycle
 
 On the PortWatch path the news expert received an empty frame, so the

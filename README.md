@@ -409,6 +409,11 @@ These are the things a reviewer should know, stated here rather than found.
 - **IMF PortWatch publishes with a lag** of roughly a week, so the forecast
   origin trails today. The terminal shows that age on every screen instead of
   implying real-time telemetry.
+- **Events can be newer than the port panel.** GDELT and Open-Meteo are current
+  while PortWatch trails, so a headline from today appears in the event stream
+  and its mention counts but cannot yet move a forecast whose newest observation
+  is a week old. The Event Intelligence screen states the alignment date rather
+  than letting a flat risk column read as a bug.
 - **Scenario impact is a first-order elasticity model**, calibrated against
   documented real-world analogues (Ever Given 2021, Red Sea 2023–24, Hormuz's
   lack of a maritime bypass). It is a decision-support estimate and the payload

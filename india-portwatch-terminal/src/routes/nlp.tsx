@@ -60,6 +60,11 @@ function EventIntelligence() {
     chokepointCounts.set(key, (chokepointCounts.get(key) ?? 0) + 1);
   }
 
+  // The model's news features are keyed to the observed panel, which trails the
+  // event feed; the footnote below makes that lag explicit rather than letting
+  // a flat risk column read as a bug.
+  const featureDate = bundle.alerts.find((alert) => alert.ts)?.ts ?? null;
+
   const severeCount = bundle.events.filter((e) => e.severity === "severe").length;
   const meanSeverity = bundle.events.length
     ? bundle.events.reduce((sum, e) => sum + e.severityScore, 0) /
@@ -242,7 +247,12 @@ function EventIntelligence() {
             </div>
           </Panel>
 
-          <Panel title="PORT-LEVEL EVENT RISK">
+          <Panel
+            title="PORT-LEVEL EVENT RISK"
+            right={
+              featureDate ? `aligned to ${formatUtc(featureDate)}` : undefined
+            }
+          >
             <div className="overflow-auto">
               <table className="w-full text-[10px]">
                 <thead>
@@ -282,6 +292,17 @@ function EventIntelligence() {
                   The news expert produced no port-level features in this run.
                 </div>
               )}
+            </div>
+            <div className="px-2 py-1.5 text-[9px] leading-snug text-[var(--color-muted-foreground)] border-t border-[var(--color-line)]/50">
+              These features are aligned to the observed port panel, which ends
+              {featureDate ? ` ${formatUtc(featureDate)}` : ""} — the IMF
+              PortWatch feed publishes with a lag. Events newer than that date
+              appear in the stream and in the mention counts, but cannot yet
+              influence the forecast. <span className="text-[var(--color-amber)]">
+              Mentions</span> counts the current event stream;{" "}
+              <span className="text-[var(--color-amber)]">geo risk</span> and{" "}
+              <span className="text-[var(--color-amber)]">tone</span> are the
+              model's features on the last observed day.
             </div>
           </Panel>
         </div>
