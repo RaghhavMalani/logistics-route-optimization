@@ -47,6 +47,8 @@ export interface MapLabel {
   sub?: string;
   color?: string;
   emphasis?: boolean;
+  /** Secondary furniture (chokepoints): smaller, tinted, never bold. */
+  muted?: boolean;
 }
 
 export interface OperationsMapProps {
@@ -309,13 +311,18 @@ export function OperationsMap({
               onMouseLeave={() => onHover?.(null)}
               className={cn(
                 "pointer-events-auto absolute -translate-y-1/2 whitespace-nowrap px-1 text-left",
-                "text-[10.5px] leading-tight tracking-[0.02em] transition-colors",
-                label.emphasis ? "font-semibold" : "font-medium",
+                "leading-tight tracking-[0.02em] transition-colors",
+                label.muted ? "text-[9.5px] font-normal uppercase" : "text-[10.5px]",
+                label.emphasis ? "font-semibold" : label.muted ? "" : "font-medium",
               )}
               style={{
                 left: point.x + 9,
                 top: point.y,
-                color: label.emphasis ? (label.color ?? "var(--text)") : "var(--text-2)",
+                color: label.muted
+                  ? (label.color ?? "var(--text-3)")
+                  : label.emphasis
+                    ? (label.color ?? "var(--text)")
+                    : "var(--text-2)",
                 textShadow:
                   "0 0 3px #04121b, 0 0 6px #04121b, 1px 1px 0 #04121b, -1px -1px 0 #04121b",
               }}

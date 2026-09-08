@@ -60,6 +60,7 @@ function NationalRadar() {
     weather: weather.data ?? [],
     vessels: vessels.data?.vessels ?? [],
     events: news.data?.events ?? [],
+    labelChokepoints: true,
     selected,
     emphasise: useMemo(
       () => new Set(portList.slice(0, 3).map((port) => port.code)),

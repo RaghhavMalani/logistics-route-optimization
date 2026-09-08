@@ -18,6 +18,7 @@ import type {
 import type { LayerKey } from "./basemap";
 import type { MapLabel, MapLayerData } from "./OperationsMap";
 import {
+  CHOKEPOINTS,
   WEATHER_FIELDS,
   buildEvents,
   buildExposureLanes,
@@ -45,6 +46,8 @@ export interface OperationalMapInput {
   zonesFor?: string | null;
   /** Suppress the chokepoint exposure corridors (port-local views). */
   exposureLanes?: boolean;
+  /** Label the chokepoints as well as the ports. */
+  labelChokepoints?: boolean;
 }
 
 export function useOperationalMap(input: OperationalMapInput) {
@@ -58,6 +61,7 @@ export function useOperationalMap(input: OperationalMapInput) {
     extraLanes = [],
     zonesFor = null,
     exposureLanes = true,
+    labelChokepoints = false,
   } = input;
 
   const [weatherField, setWeatherField] = useState<WeatherField>("rain");
@@ -123,23 +127,38 @@ export function useOperationalMap(input: OperationalMapInput) {
     ],
   );
 
-  const labels: MapLabel[] = useMemo(
-    () =>
-      ports
-        .filter((port) => port.location)
-        .map((port) => ({
-          id: port.code,
-          lon: port.location!.lon,
-          lat: port.location!.lat,
-          text: port.short,
-          color: portColor(port.risk),
-          emphasis:
-            port.code === selected ||
-            port.risk === "severe" ||
-            emphasise?.has(port.code) === true,
-        })),
-    [emphasise, ports, selected],
-  );
+  const labels: MapLabel[] = useMemo(() => {
+    const portLabels = ports
+      .filter((port) => port.location)
+      .map((port) => ({
+        id: port.code,
+        lon: port.location!.lon,
+        lat: port.location!.lat,
+        text: port.short,
+        color: portColor(port.risk),
+        emphasis:
+          port.code === selected ||
+          port.risk === "severe" ||
+          emphasise?.has(port.code) === true,
+      }));
+
+    if (!labelChokepoints) return portLabels;
+
+    // Ports first: de-collision keeps whatever it reaches first, and a port
+    // label matters more than a chokepoint one when the two overlap.
+    return [
+      ...portLabels,
+      ...CHOKEPOINTS.map((choke) => ({
+        id: `choke:${choke.code}`,
+        lon: choke.lon,
+        lat: choke.lat,
+        text: choke.name,
+        color: "#4c9fcb",
+        emphasis: false,
+        muted: true,
+      })),
+    ];
+  }, [emphasise, labelChokepoints, ports, selected]);
 
   const counts: Partial<Record<LayerKey, number>> = {
     ports: ports.length,

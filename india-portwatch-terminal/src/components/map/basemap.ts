@@ -22,7 +22,7 @@ export const REGION_BOUNDS: [[number, number], [number, number]] = [
   [114, 44],
 ];
 
-export const INDIA_VIEW = { center: [79.5, 15.5] as [number, number], zoom: 4.05 };
+export const INDIA_VIEW = { center: [77, 15.5] as [number, number], zoom: 3.85 };
 
 function graticule(step = 10): GeoJSON.FeatureCollection {
   const lines: GeoJSON.Feature[] = [];
@@ -117,7 +117,7 @@ export function buildStyle(): StyleSpecification {
         id: "land-fill",
         type: "fill",
         source: "land",
-        paint: { "fill-color": "#111d26" },
+        paint: { "fill-color": "#16232d" },
       },
       {
         id: "land-coast",
@@ -191,10 +191,10 @@ export function buildStyle(): StyleSpecification {
         type: "circle",
         source: "chokepoints",
         paint: {
-          "circle-radius": 4.5,
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4.5, 8, 7],
           "circle-color": "#071822",
           "circle-stroke-color": ["get", "color"],
-          "circle-stroke-width": 1.4,
+          "circle-stroke-width": 1.6,
         },
       },
 
@@ -224,6 +224,34 @@ export function buildStyle(): StyleSpecification {
           "circle-color": ["get", "color"],
           "circle-stroke-color": "#04121b",
           "circle-stroke-width": 1,
+        },
+      },
+
+      /* -------------------------------------------------------- vessels -- */
+      /* AIS activity sits at the port's own coordinates, so drawing it as a
+         second dot would just cover the port symbol. It is a volume halo
+         underneath instead: area scales with daily calls, colour with queue
+         pressure. */
+      {
+        id: "vessel-mark",
+        type: "circle",
+        source: "vessels",
+        layout: { visibility: "none" },
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            ["+", 5, ["*", 1.9, ["sqrt", ["max", ["get", "calls"], 0]]]],
+            9,
+            ["+", 12, ["*", 4.4, ["sqrt", ["max", ["get", "calls"], 0]]]],
+          ],
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.12,
+          "circle-stroke-color": ["get", "color"],
+          "circle-stroke-width": 0.8,
+          "circle-stroke-opacity": 0.45,
         },
       },
 
@@ -263,20 +291,6 @@ export function buildStyle(): StyleSpecification {
         },
       },
 
-      /* -------------------------------------------------------- vessels -- */
-      {
-        id: "vessel-mark",
-        type: "circle",
-        source: "vessels",
-        layout: { visibility: "none" },
-        paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.6, 9, 5],
-          "circle-color": ["get", "color"],
-          "circle-opacity": 0.9,
-          "circle-stroke-color": "#04121b",
-          "circle-stroke-width": 0.8,
-        },
-      },
     ],
   } as StyleSpecification;
 }

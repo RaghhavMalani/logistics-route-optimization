@@ -11,7 +11,6 @@ import {
   Pill,
   formatUtc,
   riskLabel,
-  riskTone,
 } from "@/components/kit/primitives";
 import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";

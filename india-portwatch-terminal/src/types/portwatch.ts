@@ -74,6 +74,8 @@ export interface ProvenanceSource {
   fetched_at: string | null;
   age_seconds: number | null;
   ageHours: number | null;
+  /** How old this source may get before the pipeline marks it STALE. */
+  freshness_budget_hours?: number | null;
   confidence: number;
   fallback: string | null;
   rows: number | null;
@@ -90,6 +92,7 @@ export interface Provenance {
   synthetic?: string[];
   unavailable?: string[];
   sources: Record<string, ProvenanceSource>;
+  forecastOrigin?: string | null;
   cacheAgeSeconds?: number | null;
   reason?: string;
 }

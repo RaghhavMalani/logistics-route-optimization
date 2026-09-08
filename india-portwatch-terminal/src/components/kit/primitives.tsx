@@ -209,7 +209,7 @@ const STATUS_TONE: Record<DataStatus, Tone> = {
   UNAVAILABLE: "crit",
 };
 
-const STATUS_LABEL: Record<DataStatus, string> = {
+export const STATUS_LABEL: Record<DataStatus, string> = {
   LIVE: "Live",
   CACHED_LIVE: "Cached",
   STALE: "Stale",
