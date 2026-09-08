@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/services/api";
-import { Button } from "./layout";
+import { Button, Page, PageBody, PageHeader } from "./layout";
 import { Pill, type Tone } from "./primitives";
 
 export function Skeleton({ className }: { className?: string }) {
@@ -163,4 +163,43 @@ export function QueryBoundary({
   if (isLoading) return <LoadingPanel label={label ?? "Loading"} rows={rows} />;
   if (error) return <FailureState error={error} retry={retry} />;
   return <>{children}</>;
+}
+
+/**
+ * A screen that cannot show its data yet.
+ *
+ * The page keeps its title and its frame while the body carries the loading or
+ * failure state. An operator who loses a feed should still know which screen
+ * they are on and be able to navigate away -- a full-bleed error panel takes
+ * both away, which is why nothing here replaces the whole page.
+ */
+export function ScreenFallback({
+  title,
+  context,
+  isLoading,
+  error,
+  retry,
+  label,
+  hint,
+}: {
+  title: string;
+  context?: ReactNode;
+  isLoading: boolean;
+  error: unknown;
+  retry?: () => void;
+  label?: string;
+  hint?: string;
+}) {
+  return (
+    <Page>
+      <PageHeader title={title} context={context} />
+      <PageBody>
+        {error ? (
+          <FailureState error={error} retry={retry} hint={hint} />
+        ) : (
+          <LoadingPanel label={label ?? "Loading"} rows={8} />
+        )}
+      </PageBody>
+    </Page>
+  );
 }

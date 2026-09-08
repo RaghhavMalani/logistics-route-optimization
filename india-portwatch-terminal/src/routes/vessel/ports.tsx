@@ -14,7 +14,7 @@ import {
   riskLabel,
   riskTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 import { useForecast } from "@/services/hooks";
 import type { PortSnapshot } from "@/types/portwatch";
@@ -58,8 +58,18 @@ function DestinationPorts() {
   const active = ports.find((port) => port.code === activeCode) ?? null;
   const forecast = useForecast(activeCode);
 
-  if (isLoading) return <LoadingPanel label="Loading destination ports" rows={9} />;
-  if (error) return <FailureState error={error} retry={refetch} />;
+  if (isLoading || error) {
+    return (
+      <ScreenFallback
+        title="Destination Ports"
+        context={<span>Congestion and wait exposure at the ports the fleet calls</span>}
+        isLoading={isLoading}
+        error={error}
+        retry={refetch}
+        label="Loading destination ports"
+      />
+    );
+  }
 
   const weatherByCode = new Map(weather.map((signal) => [signal.portCode, signal]));
   const callsByCode = new Map<string, string[]>();

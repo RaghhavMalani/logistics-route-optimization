@@ -15,7 +15,7 @@ import {
   riskLabel,
   riskTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 import { useDecision, useForecast, usePorts, useWeather } from "@/services/hooks";
 import type { PortSnapshot } from "@/types/portwatch";
@@ -46,8 +46,18 @@ function AdminPorts() {
   const forecast = useForecast(activeCode);
   const decision = useDecision(activeCode);
 
-  if (ports.isLoading) return <LoadingPanel label="Loading the port network" rows={10} />;
-  if (ports.isError) return <FailureState error={ports.error} retry={() => void ports.refetch()} />;
+  if (ports.isLoading || ports.isError) {
+    return (
+      <ScreenFallback
+        title="Ports"
+        context={<span>Every port in the network, ranked by decision priority</span>}
+        isLoading={ports.isLoading}
+        error={ports.error}
+        retry={() => void ports.refetch()}
+        label="Loading the port network"
+      />
+    );
+  }
 
   const all = ports.data ?? [];
   const weatherByCode = new Map((weather.data ?? []).map((signal) => [signal.portCode, signal]));

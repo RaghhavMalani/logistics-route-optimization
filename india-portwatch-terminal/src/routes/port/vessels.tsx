@@ -11,7 +11,7 @@ import {
   formatUtc,
   riskTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { useFleet, useForecast, useVessels } from "@/services/hooks";
 import type { FleetRow, ForecastPoint } from "@/types/portwatch";
@@ -31,8 +31,17 @@ function PortVessels() {
   const vessels = useVessels();
   const forecast = useForecast(port?.code);
 
-  if (query.isLoading) return <LoadingPanel label="Loading arrivals" rows={8} />;
-  if (!port) return <FailureState error={new Error("No port selected.")} />;
+  if (query.isLoading || query.isError || !port) {
+    return (
+      <ScreenFallback
+        title="Vessels"
+        isLoading={query.isLoading}
+        error={query.error ?? (port ? null : new Error("No port selected."))}
+        retry={() => void query.refetch()}
+        label="Loading arrivals"
+      />
+    );
+  }
 
   const rows = forecast.data ?? [];
   const byDay = new Map(rows.map((row) => [row.day, row]));

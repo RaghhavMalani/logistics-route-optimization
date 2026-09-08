@@ -13,7 +13,7 @@ import {
   severityTone,
   type Tone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { useDecision, useFleet, useForecast, useNews } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 import type { Decision, FleetRow } from "@/types/portwatch";
@@ -107,10 +107,17 @@ function PortDecisions() {
   const forecast = useForecast(port?.code);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (query.isLoading || decision.isLoading) {
-    return <LoadingPanel label="Loading action queue" rows={8} />;
+  if (query.isLoading || decision.isLoading || query.isError || !port) {
+    return (
+      <ScreenFallback
+        title="Decisions"
+        isLoading={query.isLoading || decision.isLoading}
+        error={query.error ?? (port ? null : new Error("No port selected."))}
+        retry={() => void query.refetch()}
+        label="Loading action queue"
+      />
+    );
   }
-  if (!port) return <FailureState error={new Error("No port selected.")} />;
 
   const alerts = (news.data?.alerts ?? []).filter((alert) => alert.portCode === port.code);
   const queue = buildQueue(decision.data, alerts);

@@ -12,7 +12,7 @@ import {
   formatUtc,
   riskTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { useForecast, useRegime } from "@/services/hooks";
 import type { ForecastPoint } from "@/types/portwatch";
@@ -24,13 +24,17 @@ function PortForecast() {
   const forecast = useForecast(port?.code);
   const regime = useRegime(port?.code);
 
-  if (query.isLoading || forecast.isLoading) {
-    return <LoadingPanel label="Loading forecast" rows={10} />;
+  if (query.isLoading || forecast.isLoading || forecast.isError || !port) {
+    return (
+      <ScreenFallback
+        title="Forecast"
+        isLoading={query.isLoading || forecast.isLoading}
+        error={forecast.error ?? (port ? null : new Error("No port selected."))}
+        retry={() => void forecast.refetch()}
+        label="Loading forecast"
+      />
+    );
   }
-  if (forecast.isError) {
-    return <FailureState error={forecast.error} retry={() => void forecast.refetch()} />;
-  }
-  if (!port) return <FailureState error={new Error("No port selected.")} />;
 
   const rows = forecast.data ?? [];
   const first = rows[0] ?? null;

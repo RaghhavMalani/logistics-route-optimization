@@ -13,7 +13,7 @@ import {
   riskLabel,
   riskTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 
 export const Route = createFileRoute("/vessel/fleet")({ component: FleetBoard });
@@ -55,8 +55,18 @@ function FleetBoard() {
     });
   }, [filter, intel, search]);
 
-  if (isLoading) return <LoadingPanel label="Loading fleet" rows={9} />;
-  if (error) return <FailureState error={error} retry={refetch} />;
+  if (isLoading || error) {
+    return (
+      <ScreenFallback
+        title="Fleet"
+        context={<span>Every declared call scored against the live forecast</span>}
+        isLoading={isLoading}
+        error={error}
+        retry={refetch}
+        label="Loading fleet"
+      />
+    );
+  }
 
   const columns: Array<Column<VesselIntel>> = [
     {

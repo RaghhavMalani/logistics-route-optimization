@@ -10,7 +10,7 @@ import {
   formatUtc,
   severityTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { CHOKEPOINT_BY_CODE } from "@/components/map/layers";
 import { useNews } from "@/services/hooks";
@@ -27,11 +27,17 @@ function PortEvents() {
   const { port, query } = usePortContext();
   const news = useNews();
 
-  if (query.isLoading || news.isLoading) {
-    return <LoadingPanel label="Loading event feed" rows={8} />;
+  if (query.isLoading || news.isLoading || news.isError || !port) {
+    return (
+      <ScreenFallback
+        title="Events"
+        isLoading={query.isLoading || news.isLoading}
+        error={news.error ?? (port ? null : new Error("No port selected."))}
+        retry={() => void news.refetch()}
+        label="Loading event feed"
+      />
+    );
   }
-  if (news.isError) return <FailureState error={news.error} retry={() => void news.refetch()} />;
-  if (!port) return <FailureState error={new Error("No port selected.")} />;
 
   const bundle = news.data;
   const events = bundle?.events ?? [];

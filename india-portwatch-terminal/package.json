@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:browser": "playwright test",
+    "test:browser:ui": "playwright test --ui",
+    "qa:fixtures": "node qa/capture-fixtures.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

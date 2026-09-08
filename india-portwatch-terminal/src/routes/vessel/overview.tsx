@@ -13,7 +13,7 @@ import {
   riskTone,
   severityTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
@@ -94,8 +94,18 @@ function VesselOverview() {
     extraLanes: lanes,
   });
 
-  if (isLoading) return <LoadingPanel label="Loading fleet exposure" rows={9} />;
-  if (error) return <FailureState error={error} retry={refetch} />;
+  if (isLoading || error) {
+    return (
+      <ScreenFallback
+        title="Fleet Overview"
+        context={<span>Where the fleet is exposed right now</span>}
+        isLoading={isLoading}
+        error={error}
+        retry={refetch}
+        label="Loading fleet exposure"
+      />
+    );
+  }
 
   const reroutes = intel.filter((row) => row.vessel.reroute);
   const arriving48 = intel.filter(

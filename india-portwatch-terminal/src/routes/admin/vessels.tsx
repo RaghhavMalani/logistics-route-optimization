@@ -9,7 +9,7 @@ import {
   ProvenanceTag,
   formatUtc,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, LoadingPanel, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
@@ -51,9 +51,17 @@ function AdminVessels() {
     exposureLanes: false,
   });
 
-  if (vessels.isLoading) return <LoadingPanel label="Loading vessel activity" rows={9} />;
-  if (vessels.isError) {
-    return <FailureState error={vessels.error} retry={() => void vessels.refetch()} />;
+  if (vessels.isLoading || vessels.isError) {
+    return (
+      <ScreenFallback
+        title="Vessels"
+        context={<span>Satellite-AIS activity at the berth line, and the feeds behind it</span>}
+        isLoading={vessels.isLoading}
+        error={vessels.error}
+        retry={() => void vessels.refetch()}
+        label="Loading vessel activity"
+      />
+    );
   }
 
   const rows = vessels.data?.vessels ?? [];

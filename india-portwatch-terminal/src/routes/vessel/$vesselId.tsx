@@ -17,7 +17,7 @@ import {
   riskTone,
   severityTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
 import type { LayerKey } from "@/components/map/basemap";
@@ -105,8 +105,17 @@ function VesselDetail() {
     return [79.5, 15.5];
   }, [row]);
 
-  if (isLoading) return <LoadingPanel label="Loading vessel" rows={9} />;
-  if (error) return <FailureState error={error} retry={refetch} />;
+  if (isLoading || error) {
+    return (
+      <ScreenFallback
+        title="Vessel"
+        isLoading={isLoading}
+        error={error}
+        retry={refetch}
+        label="Loading vessel"
+      />
+    );
+  }
   if (!row) {
     return (
       <Page>

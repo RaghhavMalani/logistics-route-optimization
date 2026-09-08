@@ -5,7 +5,7 @@ import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { BarRanking, SeriesChart } from "@/components/kit/charts";
 import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
 import { KeyValue, Num, Pill, formatDate, formatUtc } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
@@ -51,13 +51,17 @@ function PortWeather() {
     [port?.location],
   );
 
-  if (query.isLoading || weather.isLoading) {
-    return <LoadingPanel label="Loading marine conditions" rows={8} />;
+  if (query.isLoading || weather.isLoading || weather.isError || !port) {
+    return (
+      <ScreenFallback
+        title="Weather"
+        isLoading={query.isLoading || weather.isLoading}
+        error={weather.error ?? (port ? null : new Error("No port selected."))}
+        retry={() => void weather.refetch()}
+        label="Loading marine conditions"
+      />
+    );
   }
-  if (weather.isError) {
-    return <FailureState error={weather.error} retry={() => void weather.refetch()} />;
-  }
-  if (!port) return <FailureState error={new Error("No port selected.")} />;
 
   const signals = weather.data ?? [];
   const signal = signals.find((entry) => entry.portCode === port.code) ?? null;

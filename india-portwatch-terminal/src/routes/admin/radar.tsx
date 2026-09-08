@@ -15,7 +15,7 @@ import {
   riskTone,
   severityTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
 import type { LayerKey } from "@/components/map/basemap";
@@ -68,9 +68,17 @@ function NationalRadar() {
     ),
   });
 
-  if (ports.isLoading) return <LoadingPanel label="Acquiring national picture" rows={10} />;
-  if (ports.isError) {
-    return <FailureState error={ports.error} retry={() => void ports.refetch()} />;
+  if (ports.isLoading || ports.isError) {
+    return (
+      <ScreenFallback
+        title="National Port Radar"
+        context={<span>Where intervention matters right now</span>}
+        isLoading={ports.isLoading}
+        error={ports.error}
+        retry={() => void ports.refetch()}
+        label="Acquiring national picture"
+      />
+    );
   }
 
   const all = ports.data ?? [];

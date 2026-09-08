@@ -12,7 +12,7 @@ import {
   formatUtc,
   riskTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { FailureState, LoadingPanel, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
@@ -101,9 +101,17 @@ function ScenarioRoom() {
     exposureLanes: false,
   });
 
-  if (catalogue.isLoading) return <LoadingPanel label="Loading scenario catalogue" rows={9} />;
-  if (catalogue.isError) {
-    return <FailureState error={catalogue.error} retry={() => void catalogue.refetch()} />;
+  if (catalogue.isLoading || catalogue.isError) {
+    return (
+      <ScreenFallback
+        title="Scenario Room"
+        context={<span>Shock propagation against the live forecast</span>}
+        isLoading={catalogue.isLoading}
+        error={catalogue.error}
+        retry={() => void catalogue.refetch()}
+        label="Loading scenario catalogue"
+      />
+    );
   }
 
   const outcome = result.data;

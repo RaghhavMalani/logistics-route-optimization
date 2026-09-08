@@ -4,7 +4,7 @@ import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { BarRanking, ColumnChart, SeriesChart } from "@/components/kit/charts";
 import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
 import { KeyValue, Num, ProvenanceTag, formatDate, formatUtc } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { useChain, useForecast } from "@/services/hooks";
 import type { PortSnapshot } from "@/types/portwatch";
@@ -28,13 +28,27 @@ function PortOperations() {
   const chain = useChain(port?.code);
   const forecast = useForecast(port?.code);
 
-  if (query.isLoading || chain.isLoading) {
-    return <LoadingPanel label="Loading operational state" rows={10} />;
-  }
-  if (query.isError) return <FailureState error={query.error} retry={() => void query.refetch()} />;
-  if (chain.isError) return <FailureState error={chain.error} retry={() => void chain.refetch()} />;
-  if (!port || !chain.data) {
-    return <FailureState error={new Error("No observed state for this port.")} />;
+  if (
+    query.isLoading ||
+    chain.isLoading ||
+    query.isError ||
+    chain.isError ||
+    !port ||
+    !chain.data
+  ) {
+    return (
+      <ScreenFallback
+        title="Operations"
+        isLoading={query.isLoading || chain.isLoading}
+        error={
+          query.error ??
+          chain.error ??
+          (port && chain.data ? null : new Error("No observed state for this port."))
+        }
+        retry={() => void chain.refetch()}
+        label="Loading operational state"
+      />
+    );
   }
 
   const state = chain.data.state;

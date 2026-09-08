@@ -14,7 +14,7 @@ import {
   riskLabel,
   riskTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
 import type { LayerKey } from "@/components/map/basemap";
@@ -64,10 +64,16 @@ function PortOverview() {
     [port?.location],
   );
 
-  if (query.isLoading) return <LoadingPanel label="Loading port digital twin" rows={10} />;
-  if (query.isError) return <FailureState error={query.error} retry={() => void query.refetch()} />;
-  if (!port) {
-    return <FailureState error={new Error("No port in the current artefact set.")} />;
+  if (query.isLoading || query.isError || !port) {
+    return (
+      <ScreenFallback
+        title="Port Overview"
+        isLoading={query.isLoading}
+        error={query.error ?? (port ? null : new Error("No port in the current artefact set."))}
+        retry={() => void query.refetch()}
+        label="Loading port digital twin"
+      />
+    );
   }
 
   const signal = (weather.data ?? []).find((entry) => entry.portCode === port.code) ?? null;

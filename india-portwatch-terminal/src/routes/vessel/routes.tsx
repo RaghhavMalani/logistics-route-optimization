@@ -12,7 +12,7 @@ import {
   formatUtc,
   riskLabel,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
 import type { LayerKey } from "@/components/map/basemap";
@@ -95,8 +95,17 @@ function RouteIntelligence() {
     return [79.5, 15.5];
   }, [active]);
 
-  if (isLoading) return <LoadingPanel label="Loading route options" rows={9} />;
-  if (error) return <FailureState error={error} retry={refetch} />;
+  if (isLoading || error) {
+    return (
+      <ScreenFallback
+        title="Route Intelligence"
+        isLoading={isLoading}
+        error={error}
+        retry={refetch}
+        label="Loading route options"
+      />
+    );
+  }
 
   if (!active) {
     return (

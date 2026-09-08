@@ -10,7 +10,7 @@ import {
   formatUtc,
   severityTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
 import { OperationsMap } from "@/components/map/OperationsMap";
@@ -64,8 +64,18 @@ function EventIntelligence() {
     );
   }, [events, search]);
 
-  if (news.isLoading) return <LoadingPanel label="Loading event feed" rows={9} />;
-  if (news.isError) return <FailureState error={news.error} retry={() => void news.refetch()} />;
+  if (news.isLoading || news.isError) {
+    return (
+      <ScreenFallback
+        title="Event Intelligence"
+        context={<span>Typed maritime shocks and the ports they measurably reach</span>}
+        isLoading={news.isLoading}
+        error={news.error}
+        retry={() => void news.refetch()}
+        label="Loading event feed"
+      />
+    );
+  }
 
   const active = events.find((event) => event.id === selectedId) ?? rows[0] ?? null;
   const summary = news.data?.summary;

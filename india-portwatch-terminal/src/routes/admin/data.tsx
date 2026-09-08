@@ -13,7 +13,7 @@ import {
   formatUtc,
   statusTone,
 } from "@/components/kit/primitives";
-import { FailureState, LoadingPanel } from "@/components/kit/states";
+import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { useHealth, useProvenance } from "@/services/hooks";
 import type { DataStatus, ProvenanceSource } from "@/types/portwatch";
@@ -37,9 +37,17 @@ function DataSources() {
     [provenance.data],
   );
 
-  if (provenance.isLoading) return <LoadingPanel label="Loading provenance" rows={9} />;
-  if (provenance.isError) {
-    return <FailureState error={provenance.error} retry={() => void provenance.refetch()} />;
+  if (provenance.isLoading || provenance.isError) {
+    return (
+      <ScreenFallback
+        title="Data Sources"
+        context={<span>Where every number on every screen came from</span>}
+        isLoading={provenance.isLoading}
+        error={provenance.error}
+        retry={() => void provenance.refetch()}
+        label="Loading provenance"
+      />
+    );
   }
 
   const counts = provenance.data?.counts ?? {};

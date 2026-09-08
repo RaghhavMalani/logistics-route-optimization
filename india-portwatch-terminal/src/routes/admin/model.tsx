@@ -20,7 +20,7 @@ import {
   formatUtc,
   statusTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { cn } from "@/lib/utils";
 import { useBenchmark, usePipeline, useProvenance } from "@/services/hooks";
@@ -153,9 +153,17 @@ function ModelIntelligence() {
     ];
   }, [feeds, pipeline.data]);
 
-  if (pipeline.isLoading) return <LoadingPanel label="Loading model artefacts" rows={10} />;
-  if (pipeline.isError) {
-    return <FailureState error={pipeline.error} retry={() => void pipeline.refetch()} />;
+  if (pipeline.isLoading || pipeline.isError) {
+    return (
+      <ScreenFallback
+        title="Model Intelligence"
+        context={<span>What the system runs, and what it measured itself at</span>}
+        isLoading={pipeline.isLoading}
+        error={pipeline.error}
+        retry={() => void pipeline.refetch()}
+        label="Loading model artefacts"
+      />
+    );
   }
 
   const bench = benchmark.data;

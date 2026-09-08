@@ -10,7 +10,7 @@ import {
   formatUtc,
   severityTone,
 } from "@/components/kit/primitives";
-import { EmptyState, FailureState, LoadingPanel } from "@/components/kit/states";
+import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 import { CHOKEPOINT_BY_CODE } from "@/components/map/layers";
 import type { NewsEvent } from "@/types/portwatch";
@@ -70,8 +70,18 @@ function FleetAlerts() {
       .sort((a, b) => (b.exposure ?? 0) - (a.exposure ?? 0));
   }, [events, intel, scope, search]);
 
-  if (isLoading) return <LoadingPanel label="Loading alerts" rows={9} />;
-  if (error) return <FailureState error={error} retry={refetch} />;
+  if (isLoading || error) {
+    return (
+      <ScreenFallback
+        title="Alerts"
+        context={<span>Events with a measured exposure to the declared calls</span>}
+        isLoading={isLoading}
+        error={error}
+        retry={refetch}
+        label="Loading alerts"
+      />
+    );
+  }
 
   const fleetPorts = new Set(
     intel.map((row) => row.vessel.intendedPortCode).filter((code): code is string => Boolean(code)),

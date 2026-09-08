@@ -10,7 +10,7 @@
  */
 
 import { Navigate, useRouterState } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { useAuth } from "./AuthProvider";
 import { ROLE_PROFILE, isRoleAllowed, type Role } from "./types";
@@ -36,9 +36,25 @@ export function RoleGuard({
   const { status, role } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
+  /**
+   * The address the visitor actually asked for.
+   *
+   * The layout stays mounted through the redirect, so by the time the guard
+   * re-renders `pathname` is already `/login` and the return address would
+   * point at the sign-in screen itself. Capture it on first render instead.
+   */
+  const requested = useRef(pathname);
+
   if (status === "restoring") return <SessionCheck label="Restoring session" />;
   if (status === "anonymous" || !role) {
-    return <Navigate to="/login" search={{ next: pathname }} replace />;
+    const next = requested.current;
+    return (
+      <Navigate
+        to="/login"
+        search={next && next !== "/" && !next.startsWith("/login") ? { next } : {}}
+        replace
+      />
+    );
   }
   if (!allow.includes(role) || !isRoleAllowed(role, pathname)) {
     return <Navigate to={ROLE_PROFILE[role].home} replace />;
