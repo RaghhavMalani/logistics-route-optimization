@@ -31,7 +31,7 @@ plausible number is worse than one that goes dark.
 - [Architecture](#architecture)
 - [Data sources and provenance](#data-sources-and-provenance)
 - [Models and accuracy](#models-and-accuracy)
-- [Screens](#screens)
+- [Workspaces and screens](#workspaces-and-screens)
 - [Run it](#run-it)
 - [Deploy it](#deploy-it)
 - [Tests and CI](#tests-and-ci)
@@ -268,18 +268,92 @@ rather than quoting a number it did not measure.
 
 ---
 
-## Screens
+## Workspaces and screens
+
+The terminal is not one dashboard. Three roles ask three different questions, so
+the product has three workspaces, and a role selects which one renders at all.
+
+| Role | Route | The question it answers |
+|---|---|---|
+| **Vessel operator** | `/vessel/*` | Where should my vessel go, when should it arrive, and what am I exposed to? |
+| **Port operator** | `/port/*` | What is happening at my port, and what do I do about it? |
+| **National command** | `/admin/*` | Where across the network does intervention matter right now? |
+
+An admin can switch workspace context from the top bar to see what the other two
+roles see. The switch changes the workspace, not their privileges, and the bar
+says so while it is active.
+
+**Vessel operator**
 
 | Screen | Question it answers |
 |---|---|
-| **National Radar** | Which port needs intervention right now, and why? |
-| **Port Cockpit** | NOW / REGIME / NEXT 24H / NEXT 10 DAYS / WHY / WHAT TO DO for one port |
-| **Model Intelligence** | How do we know? Benchmark, drilldowns, calibration, ensemble weights, full provenance |
-| **Decision Room** | What happens if Hormuz closes — and what do we do about it? |
-| **Fleet Board** | Keep the call or divert, with the ETA / risk / wait trade-off |
-| **Weather Intelligence** | Measured conditions, the risk decomposition the model used, shock vs sustained |
-| **Vessel Activity** | Measured daily port-call aggregates — and an explicit statement of what is *not* tracked |
-| **Event Intelligence** | Every headline, its source link, and the lane exposure that attributed it to a port |
+| Overview | Where is the fleet exposed right now — weather, chokepoint, port congestion? |
+| Fleet | Every declared call scored against the live forecast, filterable and sortable |
+| Vessel detail | Declared call versus the best alternative, in full, with the arrival window |
+| Routes | The same comparison as a metric-by-metric ledger, with the optimizer's cost |
+| Ports | Congestion and wait at the ports this fleet calls at |
+| Alerts | Events with a *measured* exposure to our own calls |
+
+**Port operator**
+
+| Screen | Question it answers |
+|---|---|
+| Overview | The port's operating state, on a local chart with approach geometry |
+| Operations | Is the queue building or draining? Where is the pressure coming from? |
+| Forecast | Ten days with the calibrated band, the regime, and where the members disagree |
+| Vessels | Declared calls scored against this port's own forecast, and when to schedule arrivals |
+| Weather | Measured conditions, the risk decomposition the model used, shock versus sustained |
+| Events | Shocks with a measured lane exposure to this port |
+| Decisions | The action queue: expected impact, ranked drivers, affected vessels, fallback |
+
+**National command**
+
+| Screen | Question it answers |
+|---|---|
+| National Radar | Which port needs intervention right now, and why? |
+| Ports | Every port ranked by decision priority |
+| Vessels | Satellite-AIS activity at the berth line, and the feeds behind it |
+| Model Intelligence | How do we know? Pipeline, walk-forward bench, drilldowns, calibration, ensemble policy |
+| Scenario Room | What happens if Hormuz closes — and what do we do about it? |
+| Intelligence | Every headline, its source link, and the lane exposure that attributed it to a port |
+| Data Sources | Where every number on every screen came from, and how old it is |
+| System | Service state, artefact inventory, role scopes |
+
+### Access
+
+Roles are enforced by two components, `RoleGuard` and `PublicOnly`, so there is
+one place that answers "may this person see this screen?". The auth layer is an
+adapter seam with two implementations:
+
+- **Demo** (default) selects a role against a published account list compiled
+  into the client bundle. It performs no security function, and the sign-in
+  screen says exactly that.
+- **Production** is the slot a real identity provider fills. Until it is wired
+  it refuses every sign-in with `not_configured` rather than falling through to
+  the demo path — an auth layer that silently degrades to "everyone is an admin"
+  is worse than none. Select it with `VITE_PORTWATCH_AUTH_MODE=production`.
+
+Demo accounts (password `portwatch`): `vessel@portwatch.demo`,
+`port@portwatch.demo`, `admin@portwatch.demo`.
+
+### The map
+
+MapLibre GL draws the chart, and the basemap ships in the repository: coastline
+and national boundaries are Natural Earth 1:50m, clipped to the Indian Ocean
+theatre by `scripts/build_basemap.py` — about 190 KB. There is no tile service,
+so the chart draws on a closed network.
+
+Weather is a selectable field over the coast: the per-port Open-Meteo
+observations interpolated onto a 0.25° grid by inverse distance with a 420 km
+cutoff, and the legend says so in those words. A field the artefact does not
+carry — significant wave height, in most runs — is shown struck through rather
+than silently dropped, so *calm* cannot be confused with *not measured*. The
+field carries a `maxzoom`, because past that zoom a cell is wider than the
+harbour under it and would imply a resolution thirteen stations do not have.
+
+Corridors are measured, not decorative: a chokepoint connects to a port only
+where the event feed reported an exposure for that pair, and the line weight is
+that exposure.
 
 ---
 
@@ -383,8 +457,11 @@ docker compose --profile live up -d refresher
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v   # 87 tests
 python scripts/verify_artefacts.py                        # artefact coherence gate
-python scripts/ui_smoke.py --base-url http://localhost:5173
-cd india-portwatch-terminal && npx tsc --noEmit && npm run build
+
+cd india-portwatch-terminal
+npm run typecheck
+npm run build
+npm run test:browser                                      # 61 cases x 2 viewports
 ```
 
 The suite covers anomaly spike detection and its leakage safety, capacity and
@@ -396,13 +473,27 @@ saving), scenario propagation and exposure ordering, provenance state
 transitions, the port registry, and the full API contract in both its ready and
 degraded forms.
 
-`scripts/ui_smoke.py` drives all eight screens at 1920×1080, 1440×900 and
-1366×768, failing on console errors, failed requests or horizontal overflow, and
-captures a screenshot of each.
+`npm run test:browser` drives the **production** build — it builds with the
+node-server preset and serves the same server-rendered bundle that ships, rather
+than the dev server with its extra instrumentation — and replays a recorded API
+from `qa/fixtures`, so a run needs no backend and no network. Sixty-one cases
+run at 1920×1080 and at 1366×768, the smallest supported operating resolution:
+
+- **routes** — every screen for the role that owns it, asserting the heading,
+  zero console errors, zero failed requests and zero horizontal page overflow,
+  plus the nine legacy address redirects;
+- **guards** — anonymous visitors reach nothing but sign-in, a vessel operator
+  typing an admin address does not arrive, a port operator is locked to their
+  facility while an admin may switch, and sign-in, refusal and sign-out work;
+- **degraded** — with every API call refused, each workspace keeps its heading
+  and its rail, names the outage and prints the command that restores it.
+
+Re-record the fixtures against a running backend with `npm run qa:fixtures`.
 
 CI (`.github/workflows/award-ci.yml`) compiles every module, runs the pipeline
 end to end **with no network**, runs the benchmark, verifies the artefacts, runs
-the test suite, and typechecks and builds the terminal.
+the Python suite, typechecks and builds the terminal, and runs the browser
+regression suite against the production build.
 
 ---
 

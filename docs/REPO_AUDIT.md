@@ -111,8 +111,12 @@ from the static table regardless of what the API said. Deleted.
 |---|---|
 | `live_refresh.py` | Long-running refresh loop; replaces the cache only after a successful run |
 | `verify_artefacts.py` | The gate between "the pipeline exited zero" and "the terminal can be trusted" |
-| `ui_smoke.py` | Drives all eight screens at three viewports, failing on console errors, failed requests or horizontal overflow |
+| `build_basemap.py` | Clips Natural Earth to the Indian Ocean theatre; regenerates the terminal's bundled coastline |
 | `download_nasa_weather.py`, `preprocess_weather.py`, `explore_weather.py` | Historical weather preparation for the research track |
+
+Browser smoke testing moved into the terminal itself as a Playwright suite
+(`india-portwatch-terminal/qa/`), which drives the production build across the
+three roles rather than a single anonymous session.
 
 ---
 
