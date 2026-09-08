@@ -89,6 +89,10 @@ export function buildStyle(): StyleSpecification {
         id: "wx-cells",
         type: "fill",
         source: "wxfield",
+        // The field is a 0.25 degree interpolation of 13 stations. Drawn past
+        // this zoom each cell is wider than the harbour under it, which would
+        // imply a resolution the observations do not have.
+        maxzoom: 7,
         layout: { visibility: "none" },
         paint: {
           "fill-color": ["get", "color"],
@@ -102,6 +106,7 @@ export function buildStyle(): StyleSpecification {
         id: "wx-cell-edge",
         type: "line",
         source: "wxfield",
+        maxzoom: 7,
         layout: { visibility: "none" },
         filter: ["==", ["get", "band"], 4],
         paint: { "line-color": ["get", "color"], "line-width": 0.6, "line-opacity": 0.55 },
@@ -280,7 +285,8 @@ export function buildStyle(): StyleSpecification {
 export const LAYER_GROUPS = {
   ports: ["port-halo", "port-mark", "port-core"],
   vessels: ["vessel-mark"],
-  weather: ["wx-cells", "wx-cell-edge", "wx-station"],
+  weather: ["wx-cells", "wx-cell-edge"],
+  stations: ["wx-station"],
   storms: ["storm-area", "storm-edge"],
   routes: ["lane-line"],
   chokepoints: ["chokepoint-mark"],

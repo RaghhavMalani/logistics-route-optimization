@@ -17,8 +17,8 @@ export interface Column<T> {
   align?: "left" | "right" | "center";
   /** Fixed pixel width; omit to let the column take remaining space. */
   width?: number;
-  /** Returning null sorts the row to the bottom in either direction. */
-  sort?: (row: T) => number | string | null;
+  /** Returning null or undefined sorts the row to the bottom either way. */
+  sort?: (row: T) => number | string | null | undefined;
   render: (row: T) => ReactNode;
   hint?: string;
 }

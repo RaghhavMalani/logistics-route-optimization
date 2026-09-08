@@ -8,7 +8,7 @@
  *
  * The weather field is the one derived construction, and it is stated as such
  * wherever it is drawn: an inverse-distance interpolation of the per-port
- * Open-Meteo observations onto a 0.35° grid, cut off 420 km from the nearest
+ * Open-Meteo observations onto a 0.25° grid, cut off 420 km from the nearest
  * station so the field never extends past the stations that support it.
  */
 
@@ -212,7 +212,52 @@ export function bandOf(spec: FieldSpec, value: number): number {
   return spec.bands.length - 1;
 }
 
-const GRID_STEP = 0.35;
+function hexToRgb(hex: string): [number, number, number] {
+  const value = parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function mix(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = hexToRgb(a);
+  const [br, bg, bb] = hexToRgb(b);
+  const channel = (x: number, y: number) => Math.round(x + (y - x) * t);
+  return `rgb(${channel(ar, br)}, ${channel(ag, bg)}, ${channel(ab, bb)})`;
+}
+
+/**
+ * Continuous colour across the ramp.
+ *
+ * Snapping each cell to a band colour turns the field into a visible quilt at
+ * mid zoom, which reads as an artefact of the grid rather than as weather.
+ * Interpolating between the two neighbouring band colours keeps the legend's
+ * meaning while letting the field vary smoothly.
+ */
+export function rampColor(spec: FieldSpec, value: number): { color: string; intensity: number } {
+  const bands = spec.bands;
+  const first = bands[0];
+  const last = bands[bands.length - 1];
+
+  if (value <= first) {
+    const t = Math.max(0, value / Math.max(first, 1e-9));
+    return { color: mix(spec.colors[0], spec.colors[1] ?? spec.colors[0], t * 0.5), intensity: t * 0.5 };
+  }
+  if (value >= last) {
+    return { color: spec.colors[spec.colors.length - 1], intensity: 1 };
+  }
+  for (let i = 1; i < bands.length; i += 1) {
+    if (value <= bands[i]) {
+      const span = bands[i] - bands[i - 1] || 1;
+      const t = (value - bands[i - 1]) / span;
+      return {
+        color: mix(spec.colors[i - 1], spec.colors[i], t),
+        intensity: (i - 1 + t) / (bands.length - 1),
+      };
+    }
+  }
+  return { color: spec.colors[spec.colors.length - 1], intensity: 1 };
+}
+
+const GRID_STEP = 0.25;
 const MAX_STATION_KM = 420;
 
 export interface WeatherFieldResult {
@@ -295,20 +340,20 @@ export function buildWeatherField(
 
       const value = weighted / weights;
       maxValue = Math.max(maxValue, value);
-      const band = bandOf(spec, value);
-      // Below the first band the reading is "no meaningful signal"; drawing it
-      // would wash the whole coast in colour and say nothing.
-      if (spec.inverted ? band >= spec.bands.length - 1 : band === 0 && value < spec.bands[0] * 0.5) {
-        continue;
-      }
-      const intensity = spec.inverted ? spec.bands.length - 1 - band : band;
+      const { color, intensity } = rampColor(spec, value);
+      const hazard = spec.inverted ? 1 - intensity : intensity;
+      // Below a tenth of the first band the reading is "no meaningful signal";
+      // drawing it would wash the whole coast in colour and say nothing.
+      if (hazard < 0.06) continue;
       features.push({
         type: "Feature",
         properties: {
           value,
-          band: intensity,
-          color: spec.colors[band],
-          opacity: 0.1 + Math.min(4, intensity) * 0.075,
+          band: Math.round(hazard * (spec.bands.length - 1)),
+          color,
+          // Capped low: the field is context under the operational marks, and
+          // it must never make the coastline or a port harder to read.
+          opacity: 0.1 + Math.min(0.28, hazard * 0.36),
         },
         geometry: {
           type: "Polygon",
@@ -337,7 +382,7 @@ export function buildWeatherField(
           name: station.port.name,
           value: station.value,
           label: spec.format(station.value),
-          color: spec.colors[bandOf(spec, station.value)],
+          color: rampColor(spec, station.value).color,
         },
         geometry: {
           type: "Point",

@@ -571,7 +571,7 @@ export function ColumnChart({
   const max = Math.max(...values, threshold ?? 0) * 1.12 || 1;
   return (
     <div className={cn("w-full", className)}>
-      <div className="relative flex items-end gap-[3px]" style={{ height }}>
+      <div className="relative flex items-end justify-center gap-[3px]" style={{ height }}>
         {threshold != null ? (
           <div
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[var(--warn)]/70"
@@ -582,6 +582,7 @@ export function ColumnChart({
           <div
             key={`${point.label}-${index}`}
             className="group relative flex-1"
+            style={{ maxWidth: 30 }}
             title={`${point.label} · ${point.value?.toFixed(1) ?? "n/a"}`}
           >
             <div

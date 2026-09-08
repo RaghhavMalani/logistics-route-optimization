@@ -145,6 +145,7 @@ export function useOperationalMap(input: OperationalMapInput) {
     ports: ports.length,
     vessels: vessels.length,
     weather: field.covered,
+    stations: field.covered,
     storms: storms.count,
     routes: exposure.lanes.length + extraLanes.length,
     chokepoints: exposure.chokepoints.features.length,
@@ -154,7 +155,7 @@ export function useOperationalMap(input: OperationalMapInput) {
   const spec = WEATHER_FIELDS[weatherField];
   const weatherNote =
     field.covered > 0
-      ? `${spec.label} interpolated from ${field.covered} port stations (inverse distance, 420 km cutoff, 0.35° cells).` +
+      ? `${spec.label} interpolated from ${field.covered} port stations (inverse distance, 420 km cutoff, 0.25° cells).` +
         (field.missing.length
           ? ` ${field.missing.length} station${field.missing.length === 1 ? "" : "s"} carry no ${spec.label.toLowerCase()} reading.`
           : "")
