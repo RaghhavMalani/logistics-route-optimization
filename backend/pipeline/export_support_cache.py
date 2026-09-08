@@ -1,3 +1,18 @@
+"""Export the weather and event caches the terminal renders.
+
+The previous version of this exporter reverse-engineered physical weather values
+out of risk scores -- ``windKnots = 8 + wind_risk * 28`` -- and presented the
+result as measurement. This version publishes the measured Open-Meteo values the
+weather expert actually consumed, alongside the risk decomposition, and marks a
+field ``null`` when the observation genuinely does not exist.
+
+Written into ``data/cache/``:
+
+    weather_by_port.json       measured conditions + risk decomposition per port
+    weather_intelligence.json  national marine synthesis
+    news_bundle.json           traceable maritime events and port alerts
+"""
+
 from __future__ import annotations
 
 import json
@@ -5,272 +20,287 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.utils import port_registry
 
 ROOT = Path(__file__).resolve().parents[2]
-
-FEATURES_PATH = ROOT / "data" / "processed" / "features_daily.csv"
-RAW_NEWS_PATH = ROOT / "data" / "raw" / "maritime_news_preprocessed.csv"
-FORECAST_CACHE_PATH = ROOT / "data" / "cache" / "forecast_by_port.json"
-
+EXPERT_DIR = ROOT / "outputs" / "expert_features"
+FORECAST_DIR = ROOT / "outputs" / "forecasts"
 CACHE_DIR = ROOT / "data" / "cache"
+
+OBSERVATIONS_PATH = EXPERT_DIR / "weather_observations.csv"
+WEATHER_FEATURES_PATH = EXPERT_DIR / "weather_features.csv"
+WEATHER_FORECAST_PATH = EXPERT_DIR / "weather_forecast_features.csv"
+PERSISTENCE_PATH = EXPERT_DIR / "weather_persistence_features.csv"
+NEWS_FEATURES_PATH = EXPERT_DIR / "news_features.csv"
+DECISION_PATH = FORECAST_DIR / "decisions.csv"
+
 WEATHER_BY_PORT_PATH = CACHE_DIR / "weather_by_port.json"
 WEATHER_INTEL_PATH = CACHE_DIR / "weather_intelligence.json"
 NEWS_BUNDLE_PATH = CACHE_DIR / "news_bundle.json"
 
 
-PORT_NAMES = {
-    "INMAA": "Chennai",
-    "INNSA": "JNPT / Nhava Sheva",
-    "INMUN": "Mundra",
-    "INCOK": "Cochin",
-    "INHAL": "Haldia",
-    "INHZR": "Hazira",
-    "INIXY": "Deendayal / Kandla",
-    "INKAT": "Kattupalli",
-    "INKRI": "Krishnapatnam",
-    "INCCU": "Kolkata",
-    "INNML": "New Mangalore",
-    "INTUT": "Tuticorin",
-    "INVTZ": "Visakhapatnam",
-}
+def _read(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path)
+    except (OSError, pd.errors.EmptyDataError):
+        return pd.DataFrame()
 
 
-def clip01(value: float) -> float:
-    return max(0.0, min(1.0, float(value)))
+def _write(path: Path, payload) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, default=str)
+    print(f"Wrote {path}")
 
 
-def severity_from_risk(value: float) -> str:
-    if value >= 0.75:
-        return "severe"
-    if value >= 0.55:
-        return "elevated"
-    if value >= 0.35:
-        return "watch"
-    return "normal"
+def _opt(value, digits: int | None = None):
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(result):
+        return None
+    return round(result, digits) if digits is not None else result
 
 
-def load_features() -> pd.DataFrame:
-    if not FEATURES_PATH.exists():
-        raise FileNotFoundError(
-            f"{FEATURES_PATH} not found. Run build_features.py first."
-        )
-
-    df = pd.read_csv(FEATURES_PATH)
-    df["date"] = pd.to_datetime(df["date"])
-    return df
+def _iso(value) -> str | None:
+    parsed = pd.to_datetime(value, errors="coerce")
+    return None if pd.isna(parsed) else parsed.isoformat()
 
 
-def load_forecast_cache() -> dict:
-    if not FORECAST_CACHE_PATH.exists():
-        return {}
-
-    with open(FORECAST_CACHE_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def top_tft_risk_ports(limit: int = 5) -> list[str]:
-    cache = load_forecast_cache()
-    scores = []
-
-    for port_code, rows in cache.items():
-        if not rows:
-            continue
-        peak = max(float(r.get("congestionIndex", 0.0)) for r in rows)
-        scores.append((port_code, peak))
-
-    scores.sort(key=lambda x: x[1], reverse=True)
-    return [code for code, _ in scores[:limit]]
+def _latest_per_port(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty or "date" not in frame:
+        return frame
+    out = frame.copy()
+    out["date"] = pd.to_datetime(out["date"], errors="coerce")
+    return out.sort_values(["port_id", "date"]).groupby("port_id", as_index=False).tail(1)
 
 
-def build_weather_cache(features: pd.DataFrame) -> tuple[dict, dict]:
-    latest = (
-        features.sort_values("date")
-        .groupby("port_code", as_index=False)
-        .tail(1)
-    )
+def _sea_state(wave_height: float | None) -> str | None:
+    if wave_height is None:
+        return None
+    if wave_height >= 2.5:
+        return "Rough"
+    if wave_height >= 1.25:
+        return "Moderate"
+    return "Slight"
+
+
+def _advisory(impact: float | None, regime: str | None) -> str:
+    if impact is None:
+        return "No measured marine weather for this port in the current run."
+    if regime == "PERSISTENT":
+        return ("Sustained weather disruption: plan multi-day berth windows and "
+                "stagger arrivals rather than absorbing a single bad shift.")
+    if impact >= 0.6:
+        return "High weather impact: confirm safe-berthing windows and pilotage."
+    if impact >= 0.35:
+        return "Moderate weather impact: monitor pilotage and crane operations."
+    return "Weather risk normal: continue standard monitoring."
+
+
+# ---------------------------------------------------------------------------
+def build_weather_cache() -> tuple[dict, dict]:
+    """Measured conditions plus the risk decomposition the model actually used."""
+    observations = _latest_per_port(_read(OBSERVATIONS_PATH))
+    features = _latest_per_port(_read(WEATHER_FEATURES_PATH))
+    persistence = _latest_per_port(_read(PERSISTENCE_PATH))
+    forecast = _read(WEATHER_FORECAST_PATH)
+
+    if features.empty:
+        return {}, {"available": False,
+                    "reason": "No weather features were produced in this run."}
+
+    obs_by_port = {str(r["port_id"]): r for _, r in observations.iterrows()}
+    pers_by_port = {str(r["port_id"]): r for _, r in persistence.iterrows()}
+
+    forward_by_port: dict[str, list] = {}
+    if not forecast.empty and "WxImpactIndex" in forecast:
+        f = forecast.copy()
+        f["date"] = pd.to_datetime(f["date"], errors="coerce")
+        cutoff = pd.Timestamp.utcnow().normalize().tz_localize(None)
+        upcoming = f[f["date"] > cutoff].sort_values("date")
+        for port_id, group in upcoming.groupby("port_id"):
+            forward_by_port[str(port_id)] = [
+                {"date": _iso(d), "impact": _opt(v, 3)}
+                for d, v in zip(group["date"].head(10), group["WxImpactIndex"].head(10))
+            ]
 
     weather_by_port: dict[str, dict] = {}
+    for _, row in features.iterrows():
+        port = port_registry.resolve(str(row["port_id"]))
+        if port is None:
+            continue
+        obs = obs_by_port.get(str(row["port_id"]))
+        pers = pers_by_port.get(str(row["port_id"]))
 
-    for _, row in latest.iterrows():
-        code = str(row["port_code"]).upper()
+        wave = _opt(obs.get("wave_height") if obs is not None else None, 2)
+        impact = _opt(row.get("WxImpactIndex"), 3)
+        regime = str(pers.get("weather_regime")) if pers is not None else None
 
-        wind_risk = clip01(row.get("wind_risk", 0.0))
-        rain_risk = clip01(row.get("rain_risk", 0.0))
-        wave_risk = clip01(row.get("wave_risk", 0.0))
-        storm_risk = clip01(row.get("storm_risk", 0.0))
-        confidence = clip01(row.get("weather_confidence", 0.75))
+        weather_by_port[port.locode] = {
+            "portCode": port.locode,
+            "name": port.name,
+            "observedAt": _iso(row.get("date")),
 
-        impact = max(wind_risk, rain_risk, wave_risk, storm_risk)
+            # Measured values. A null here means the feed did not carry it.
+            "windKnots": _opt(obs.get("wind_speed") if obs is not None else None, 1),
+            "gustKnots": _opt(obs.get("wind_gust") if obs is not None else None, 1),
+            "rainfallMm24h": _opt(obs.get("rainfall") if obs is not None else None, 1),
+            "waveHeightM": wave,
+            "visibilityKm": _opt(obs.get("visibility") if obs is not None else None, 1),
+            "seaState": _sea_state(wave),
 
-        weather_by_port[code] = {
-            "portCode": code,
-            "timestamp": pd.to_datetime(row["date"]).strftime("%Y-%m-%d"),
-            "windKnots": round(8 + wind_risk * 28, 1),
-            "gustKnots": round(12 + wind_risk * 36, 1),
-            "windDirection": "WNW" if wind_risk >= 0.5 else "SW",
-            "rainfallMm24h": round(rain_risk * 80, 1),
-            "precipRateMmH": round(rain_risk * 8, 1),
-            "waveHeightM": round(0.5 + wave_risk * 3.5, 1),
-            "visibilityKm": round(max(2.0, 12.0 - rain_risk * 8.0), 1),
-            "cycloneRisk7d": round(storm_risk, 3),
-            "seaState": "Rough" if wave_risk >= 0.65 else "Moderate" if wave_risk >= 0.35 else "Calm",
-            "impactScore": round(impact, 3),
-            "persistenceScore": round((wind_risk + rain_risk + wave_risk) / 3, 3),
-            "shockSigma": round(storm_risk, 3),
-            "advisory": (
-                "Weather risk elevated; monitor pilotage and berth windows."
-                if impact >= 0.45
-                else "Weather risk normal; continue standard monitoring."
-            ),
-            "confidence": round(confidence, 3),
-            "dataSource": "data/processed/features_daily.csv",
+            # Risk decomposition consumed by the model.
+            "windRisk": _opt(row.get("wind_risk"), 3),
+            "rainRisk": _opt(row.get("rain_risk"), 3),
+            "waveRisk": _opt(row.get("wave_risk"), 3),
+            "stormRisk": _opt(row.get("storm_risk"), 3),
+            "impactScore": impact,
+            "confidence": _opt(row.get("weather_confidence"), 3),
+
+            # Shock vs sustained disruption.
+            "weatherRegime": regime,
+            "shockScore": _opt(pers.get("weather_shock") if pers is not None else None, 3),
+            "persistenceScore": _opt(pers.get("weather_persistence") if pers is not None else None, 3),
+            "forwardLoad": _opt(pers.get("weather_forward_load") if pers is not None else None, 3),
+            "forecast": forward_by_port.get(str(row["port_id"]), []),
+
+            "advisory": _advisory(impact, regime),
+            "dataSource": "Open-Meteo (surface + marine) with GDACS storm flags",
         }
 
-    mean_wind = latest["wind_risk"].mean()
-    mean_rain = latest["rain_risk"].mean()
-    mean_wave = latest["wave_risk"].mean()
-    mean_storm = latest["storm_risk"].mean()
+    intelligence = _build_intelligence(features, persistence, observations,
+                                       weather_by_port)
+    return weather_by_port, intelligence
 
-    weather_intelligence = {
-        "monsoon": {
-            "status": "ACTIVE" if latest["is_monsoon"].max() == 1 else "INACTIVE",
-            "risk": severity_from_risk(float(mean_rain)),
-            "description": "Derived from processed weather risk features used by the forecasting pipeline.",
-        },
-        "cyclone": {
-            "probability72h": round(float(mean_storm), 3),
-            "riskWindow": "Feature-derived operational watch window",
-        },
-        "swell": {
-            "heightM": round(0.5 + float(mean_wave) * 3.5, 1),
-            "direction": "WNW",
-        },
-        "operationalImpact": {
-            "pilotage": "restricted windows possible" if mean_storm >= 0.4 else "normal",
-            "berthProductivity": f"{round(-15 * float(mean_wave), 1)}%",
-            "outerAnchorage": "moderate queue pressure" if mean_wind >= 0.4 else "normal",
-        },
-        "dataSource": "data/processed/features_daily.csv",
+
+def _build_intelligence(features: pd.DataFrame, persistence: pd.DataFrame,
+                        observations: pd.DataFrame, by_port: dict) -> dict:
+    def mean(frame: pd.DataFrame, column: str) -> float | None:
+        if frame.empty or column not in frame:
+            return None
+        return _opt(pd.to_numeric(frame[column], errors="coerce").mean(), 3)
+
+    persistent_ports = []
+    if not persistence.empty and "weather_regime" in persistence:
+        for _, row in persistence.iterrows():
+            if str(row.get("weather_regime")) == "PERSISTENT":
+                port = port_registry.resolve(str(row["port_id"]))
+                if port:
+                    persistent_ports.append(port.locode)
+
+    worst = max(by_port.values(), key=lambda p: p.get("impactScore") or 0.0,
+                default=None)
+    return {
+        "available": True,
+        "observedAt": _iso(features["date"].max()) if "date" in features else None,
+        "meanImpact": mean(features, "WxImpactIndex"),
+        "meanWindRisk": mean(features, "wind_risk"),
+        "meanRainRisk": mean(features, "rain_risk"),
+        "meanWaveRisk": mean(features, "wave_risk"),
+        "meanStormRisk": mean(features, "storm_risk"),
+        "meanWindKnots": mean(observations, "wind_speed"),
+        "meanWaveHeightM": mean(observations, "wave_height"),
+        "persistentPorts": sorted(set(persistent_ports)),
+        "highestImpactPort": (worst or {}).get("portCode"),
+        "highestImpactScore": (worst or {}).get("impactScore"),
+        "portsCovered": len(by_port),
+        "dataSource": "Open-Meteo (surface + marine) with GDACS storm flags",
     }
 
-    return weather_by_port, weather_intelligence
 
-
-def build_news_cache(features: pd.DataFrame) -> dict:
-    top_ports = top_tft_risk_ports(limit=5) or ["INMAA", "INNSA", "INMUN"]
-
-    if RAW_NEWS_PATH.exists():
-        news = pd.read_csv(RAW_NEWS_PATH)
-        news["Date"] = pd.to_datetime(news["Date"])
-        news = news.sort_values("Date").tail(8)
-    else:
-        news = pd.DataFrame()
+# ---------------------------------------------------------------------------
+def build_news_cache(event_catalogue: list[dict] | None = None) -> dict:
+    """Traceable maritime events plus the port alerts the model actually raised."""
+    catalogue = list(event_catalogue or [])
+    news_features = _latest_per_port(_read(NEWS_FEATURES_PATH))
+    decisions = _read(DECISION_PATH)
 
     events = []
-
-    for idx, row in enumerate(news.itertuples(index=False), start=1):
-        date = pd.to_datetime(getattr(row, "Date"))
-        sentiment = float(getattr(row, "sentiment"))
-        rolling = float(getattr(row, "sentiment_rolling14", sentiment))
-
-        risk_score = clip01(((-sentiment) + 2.5) / 5.0)
-        severity = severity_from_risk(risk_score)
-
-        affected = top_ports[:3] if risk_score >= 0.45 else top_ports[:2]
-
-        events.append(
-            {
-                "id": f"NLP-{date.strftime('%Y%m%d')}-{idx}",
-                "timestamp": date.strftime("%Y-%m-%d"),
-                "source": "Historical maritime sentiment aggregate",
-                "tag": "NLP",
-                "entity": "NATIONAL_MARITIME",
-                "severity": severity,
-                "sentiment": round(sentiment, 3),
-                "rollingSentiment14": round(rolling, 3),
-                "text": (
-                    f"Daily maritime news sentiment index={sentiment:.2f}; "
-                    f"rolling14={rolling:.2f}. Affected ports are selected from current TFT risk ranking."
-                ),
-                "affectedPorts": affected,
-                "confidence": 0.76,
-                "dataSource": "data/raw/maritime_news_preprocessed.csv",
-            }
-        )
-
-    if not events:
-        latest = (
-            features.sort_values("date")
-            .groupby("port_code", as_index=False)
-            .tail(1)
-        )
-        risk = float(latest["news_sentiment_score"].mean())
-        events.append(
-            {
-                "id": "NLP-FEATURE-LATEST",
-                "timestamp": pd.to_datetime(latest["date"].max()).strftime("%Y-%m-%d"),
-                "source": "Processed NLP risk feature",
-                "tag": "NLP",
-                "entity": "NATIONAL_MARITIME",
-                "severity": severity_from_risk(risk),
-                "sentiment": round(1 - 2 * risk, 3),
-                "text": "News risk derived from processed feature table.",
-                "affectedPorts": top_ports[:3],
-                "confidence": 0.72,
-                "dataSource": "data/processed/features_daily.csv",
-            }
-        )
+    for item in catalogue:
+        events.append({
+            "id": item.get("id"),
+            "timestamp": item.get("timestamp"),
+            "title": item.get("title"),
+            "source": item.get("source"),
+            "url": item.get("url"),
+            "tag": str(item.get("shockType", "event")).upper(),
+            "entity": item.get("chokepointName") or "MARITIME",
+            "chokepoint": item.get("chokepoint"),
+            "severity": item.get("severityLabel"),
+            "severityScore": item.get("severity"),
+            "affectedPorts": [p["portCode"] for p in item.get("affectedPorts", [])],
+            "exposure": item.get("affectedPorts", []),
+            "dataSource": "GDELT DOC 2.0 + GDACS via IMF PortWatch",
+        })
 
     alerts = []
-    for idx, code in enumerate(top_ports[:5], start=1):
-        alerts.append(
-            {
-                "id": f"AL-TFT-{idx:03d}",
-                "portCode": code,
-                "severity": "severe" if idx <= 2 else "watch",
-                "text": f"{PORT_NAMES.get(code, code)} is among top TFT-ranked risk ports; review ETA buffer.",
-                "ts": "TFT",
-                "dataSource": "data/cache/forecast_by_port.json",
-            }
-        )
+    if not decisions.empty and "priority_score" in decisions:
+        ranked = (decisions.sort_values("priority_score", ascending=False)
+                  .drop_duplicates("port_id").head(8))
+        for index, row in enumerate(ranked.itertuples(), start=1):
+            port = port_registry.resolve(str(row.port_id))
+            if port is None:
+                continue
+            alerts.append({
+                "id": f"AL-{port.locode}-{index:02d}",
+                "portCode": port.locode,
+                "severity": str(getattr(row, "severity", "normal")),
+                "text": f"{port.short}: {getattr(row, 'operational_adjustment', '')}",
+                "action": str(getattr(row, "action_code", "MONITOR")),
+                "priority": _opt(getattr(row, "priority_score", None), 3),
+                "confidence": _opt(getattr(row, "decision_confidence", None), 3),
+                "ts": _iso(getattr(row, "target_date", None)),
+                "dataSource": "outputs/forecasts/decisions.csv",
+            })
+
+    sentiment = []
+    for _, row in news_features.iterrows():
+        port = port_registry.resolve(str(row["port_id"]))
+        if port is None:
+            continue
+        mentions = sum(1 for event in events
+                       if port.locode in event.get("affectedPorts", []))
+        sentiment.append({
+            "entity": port.locode,
+            "mentions": mentions,
+            "riskScore": _opt(row.get("geo_risk_score"), 3),
+            "sentiment": _opt(row.get("news_sentiment_score"), 3),
+            "eventSpike": _opt(row.get("event_spike_score"), 3),
+            "confidence": _opt(row.get("news_confidence"), 3),
+        })
 
     return {
         "events": events,
         "alerts": alerts,
+        "sentiment": sentiment,
         "summary": {
             "totalEvents": len(events),
             "totalAlerts": len(alerts),
-            "negativeEvents": sum(1 for e in events if float(e["sentiment"]) < 0),
-            "averageConfidence": round(
-                sum(float(e["confidence"]) for e in events) / len(events), 3
-            ),
-            "dataSource": "raw news sentiment + TFT risk ranking",
+            "severeEvents": sum(1 for e in events if e["severity"] == "severe"),
+            "eventsAvailable": bool(events),
+            "dataSource": ("GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+                           if events else
+                           "No event feed reached this run; alerts are model-derived only."),
         },
     }
 
 
-def write_json(path: Path, data) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, default=str)
-    print(f"Wrote {path}")
+def main(event_catalogue: list[dict] | None = None) -> None:
+    weather_by_port, intelligence = build_weather_cache()
+    news_bundle = build_news_cache(event_catalogue)
 
+    _write(WEATHER_BY_PORT_PATH, weather_by_port)
+    _write(WEATHER_INTEL_PATH, intelligence)
+    _write(NEWS_BUNDLE_PATH, news_bundle)
 
-def main() -> None:
-    features = load_features()
-
-    weather_by_port, weather_intelligence = build_weather_cache(features)
-    news_bundle = build_news_cache(features)
-
-    write_json(WEATHER_BY_PORT_PATH, weather_by_port)
-    write_json(WEATHER_INTEL_PATH, weather_intelligence)
-    write_json(NEWS_BUNDLE_PATH, news_bundle)
-
-    print()
-    print("Support cache export complete.")
-    print(f"Weather ports: {len(weather_by_port)}")
-    print(f"News events: {len(news_bundle['events'])}")
-    print(f"News alerts: {len(news_bundle['alerts'])}")
+    print(f"Support cache export complete. "
+          f"Weather ports: {len(weather_by_port)} | "
+          f"News events: {len(news_bundle['events'])} | "
+          f"Alerts: {len(news_bundle['alerts'])}")
 
 
 if __name__ == "__main__":

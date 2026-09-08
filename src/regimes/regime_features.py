@@ -29,6 +29,12 @@ HSMM_FEATURES = [
     # macro / conditions signals (prices, currency, inflation, live news) -> the
     # HSMM now infers regimes from economic conditions, not just port ops.
     "oil_stress", "fx_stress", "inflation_stress", "news_stress",
+    # specialist agents -- these are first-class regime evidence, not display
+    # decoration: a capacity squeeze or an arrival burst is precisely the kind
+    # of state change a semi-Markov model should be able to latch onto.
+    "capacity_pressure", "queue_momentum", "anomaly_score",
+    "arrival_clustering", "berth_pressure", "disruption_pressure",
+    "weather_persistence",
 ]
 
 # Neutral fill values used when a feature is missing.
@@ -38,6 +44,9 @@ _NEUTRAL = {
     "vessel_density": 0.0, "throughput": 0.0, "utilization": 0.5,
     "oil_stress": 0.5, "fx_stress": 0.5, "inflation_stress": 0.5,
     "news_stress": 0.0,
+    "capacity_pressure": 0.5, "queue_momentum": 0.5, "anomaly_score": 0.0,
+    "arrival_clustering": 0.0, "berth_pressure": 0.0,
+    "disruption_pressure": 0.0, "weather_persistence": 0.0,
 }
 
 
