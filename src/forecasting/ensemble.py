@@ -79,14 +79,21 @@ def blend_forecasts(
             out[col] = wt * joined[tft_col] + wb * joined[gbm_col]
         elif tft_col in joined:
             out[col] = joined[tft_col]
+        elif gbm_col in joined:
+            out[col] = joined[gbm_col]
+        elif col in joined:
+            out[col] = joined[col]
 
     # The current TFT path delegates secondary targets to the GBM, so preserve
     # those complete estimates instead of pretending to have two independent
-    # secondary models.
+    # secondary models. Pandas only suffixes overlapping columns; a GBM-only
+    # secondary target therefore remains unsuffixed after the merge.
     for col in ("predicted_delay", "predicted_throughput"):
         gbm_col, tft_col = f"{col}_gbm", f"{col}_tft"
         if gbm_col in joined:
             out[col] = joined[gbm_col]
+        elif col in joined:
+            out[col] = joined[col]
         elif tft_col in joined:
             out[col] = joined[tft_col]
 
@@ -94,8 +101,14 @@ def blend_forecasts(
     out[["q10", "q50", "q90"]] = quantiles
     out["predicted_congestion"] = out["q50"]
 
-    tft_conf = joined.get("confidence_score_tft", pd.Series(0.75, index=joined.index))
-    gbm_conf = joined.get("confidence_score_gbm", pd.Series(0.70, index=joined.index))
+    tft_conf = joined.get(
+        "confidence_score_tft",
+        joined.get("confidence_score", pd.Series(0.75, index=joined.index)),
+    )
+    gbm_conf = joined.get(
+        "confidence_score_gbm",
+        joined.get("confidence_score", pd.Series(0.70, index=joined.index)),
+    )
     disagreement = ((joined["q50_tft"] - joined["q50_gbm"]).abs() / 35.0).clip(0, 1)
     agreement_discount = 1.0 - 0.30 * disagreement
     out["confidence_score"] = (
