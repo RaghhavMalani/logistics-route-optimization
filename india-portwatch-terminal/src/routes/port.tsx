@@ -1,1049 +1,650 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Chip, Sparkline, Bar } from "@/components/terminal/ui";
+import type { ReactNode } from "react";
 import {
-  fetchDecisionRecommendation,
-  fetchForecastForPort,
-  fetchHSMMRegime,
-  fetchModelPipelineStatuses,
-} from "@/services/model";
-import { fetchNewsEvents } from "@/services/news";
-import { fetchPorts, fetchPortSnapshot } from "@/services/ports";
-import { getMarineWeatherIntelligence } from "@/services/weatherService";
-import { fetchWeatherSignal } from "@/services/weather";
+  Bar,
+  Chip,
+  ErrorState,
+  Loading,
+  Metric,
+  MetricRow,
+  Panel,
+  ProvenanceChip,
+  Sparkline,
+  Value,
+  formatDate,
+  formatUtc,
+  riskLabel,
+  riskTone,
+} from "@/components/terminal/ui";
+import { fetchChain, fetchPorts, fetchWeatherForPort } from "@/services/portwatch";
+import type { ChainStage, ForecastPoint } from "@/types/portwatch";
 
 export const Route = createFileRoute("/port")({
   validateSearch: (search: Record<string, unknown>) => ({
     port: typeof search.port === "string" ? search.port : "INMAA",
   }),
-  component: PortPage,
+  component: PortCockpit,
 });
 
-
-
-function PortPage() {
-  const { port } = Route.useSearch();
-  const selectedPortCode = port || "INMAA";
-  const navigate = useNavigate({ from: "/port" });
+/**
+ * Port cockpit -- the digital twin of a single port, arranged the way an
+ * operator asks the questions:
+ *
+ *   NOW              what is happening at the berth line right now
+ *   REGIME           what state the port is in, and how long it usually lasts
+ *   NEXT 24H / 10D   what the model expects, with its uncertainty band
+ *   WHY              the evidence chain from raw signal to decision
+ *   WHAT TO DO       the action, its expected benefit and its fallback
+ */
+function PortCockpit() {
+  const { port: portCode } = Route.useSearch();
+  const navigate = useNavigate();
 
   const portsQuery = useQuery({
     queryKey: ["ports"],
     queryFn: fetchPorts,
-    staleTime: 60_000,
-  });
-
-  const availablePorts = portsQuery.data ?? [];
-
-  const handlePortChange = (nextPort: string) => {
-    navigate({
-      search: (prev) => ({
-        ...prev,
-        port: nextPort,
-      }),
-    });
-  };
-
-  const portQuery = useQuery({
-    queryKey: ["port", selectedPortCode],
-    queryFn: () => fetchPortSnapshot(selectedPortCode),
     staleTime: 30_000,
   });
-
-  const chn = portQuery.data;
-  const activePortCode = chn?.code ?? selectedPortCode;
-
+  const chainQuery = useQuery({
+    queryKey: ["chain", portCode],
+    queryFn: () => fetchChain(portCode),
+    staleTime: 30_000,
+    retry: 1,
+  });
   const weatherQuery = useQuery({
-    queryKey: ["weather", activePortCode],
-    queryFn: () => fetchWeatherSignal(activePortCode),
-    enabled: Boolean(chn),
-    staleTime: 30_000,
-  });
-
-  const regimeQuery = useQuery({
-    queryKey: ["regime", activePortCode],
-    queryFn: () => fetchHSMMRegime(activePortCode),
-    enabled: Boolean(chn),
-    staleTime: 30_000,
-  });
-
-  const forecastQuery = useQuery({
-    queryKey: ["forecast", activePortCode],
-    queryFn: () => fetchForecastForPort(activePortCode),
-    enabled: Boolean(chn),
-    staleTime: 30_000,
-  });
-
-  const recommendationQuery = useQuery({
-    queryKey: ["decision", activePortCode],
-    queryFn: () => fetchDecisionRecommendation(activePortCode),
-    enabled: Boolean(chn),
-    staleTime: 30_000,
-  });
-
-  const expertsQuery = useQuery({
-    queryKey: ["model-pipeline"],
-    queryFn: fetchModelPipelineStatuses,
+    queryKey: ["weather", portCode],
+    queryFn: () => fetchWeatherForPort(portCode),
     staleTime: 60_000,
+    retry: 0,
   });
 
-  const newsQuery = useQuery({
-    queryKey: ["news-events"],
-    queryFn: fetchNewsEvents,
-    staleTime: 30_000,
-  });
-
-  if (
-    portQuery.isLoading ||
-    weatherQuery.isLoading ||
-    regimeQuery.isLoading ||
-    forecastQuery.isLoading ||
-    recommendationQuery.isLoading ||
-    expertsQuery.isLoading ||
-    newsQuery.isLoading
-  ) {
-    return (
-      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
-        LOADING LIVE PORT COCKPIT...
-      </div>
-    );
+  if (chainQuery.isLoading || portsQuery.isLoading) {
+    return <Loading label="LOADING PORT DIGITAL TWIN" />;
+  }
+  if (chainQuery.isError || !chainQuery.data) {
+    return <ErrorState error={chainQuery.error} />;
   }
 
-  if (
-    portQuery.isError ||
-    weatherQuery.isError ||
-    regimeQuery.isError ||
-    forecastQuery.isError ||
-    recommendationQuery.isError ||
-    expertsQuery.isError ||
-    newsQuery.isError ||
-    !chn ||
-    !weatherQuery.data ||
-    !regimeQuery.data ||
-    !forecastQuery.data ||
-    !recommendationQuery.data ||
-    !expertsQuery.data
-  ) {
-    return (
-      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
-        PORT COCKPIT API UNAVAILABLE
-      </div>
-    );
-  }
-
+  const chain = chainQuery.data;
+  const state = chain.state;
+  const regime = chain.regime;
+  const decision = chain.decision;
+  const forecast = chain.forecast;
   const weather = weatherQuery.data;
-  const marine = getMarineWeatherIntelligence();
-  const regime = regimeQuery.data;
-  const forecastDays = forecastQuery.data;
-  const recommendation = recommendationQuery.data;
-  const experts = expertsQuery.data;
-  const newsEvents = newsQuery.data ?? [];
-  const newsForPort = newsEvents.filter((event) =>
-    event.affectedPorts.includes(chn.code),
+  const ports = portsQuery.data ?? [];
+  const snapshot = ports.find((p) => p.code === chain.portCode);
+
+  const day1 = forecast[0];
+  const day2 = forecast[1];
+  const horizonPeak = forecast.reduce<ForecastPoint | null>(
+    (peak, row) => (!peak || row.congestionIndex > peak.congestionIndex ? row : peak),
+    null,
   );
-  const portName = chn.name.toUpperCase();
-  const riskTone =
-    chn.risk === "severe" ? "red" : chn.risk === "congested" ? "amber" : "mint";
-  const severityLabel =
-    chn.risk === "severe"
-      ? "SEVERE"
-      : chn.risk === "congested"
-        ? "HIGH"
-        : "NORMAL";
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="min-h-full p-3 space-y-3">
-        {/* PAGE HEADER */}
-        <div className="grid grid-cols-[1.4fr_1fr_0.9fr_1fr_1fr_1.1fr_1.1fr] gap-2 items-stretch">
-          <div className="panel px-4 py-3 col-span-1">
-            <div className="text-[9px] tracking-[0.24em] text-[var(--color-muted-foreground)]">
-              PORT OPERATIONS COCKPIT FOR
-            </div>
-            <div className="text-[32px] leading-none tracking-[0.06em] text-[var(--color-foreground)] font-semibold">
-              {portName}
-            </div>
-            <div className="text-[9px] tracking-[0.24em] text-[var(--color-muted-foreground)] mt-1">
-              {chn.authority.toUpperCase()}
-            </div>
+    <div className="h-full grid grid-rows-[auto_1fr] gap-2 p-2 overflow-hidden">
+      {/* Header: identity, risk, freshness, and the port switcher. */}
+      <div className="panel px-3 py-2 flex items-center gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[16px] text-[var(--color-foreground)] truncate">
+              {chain.name}
+            </span>
+            <span className="text-[10px] text-[var(--color-muted-foreground)]">
+              {chain.portCode}
+            </span>
+            {snapshot && (
+              <Chip tone={riskTone(snapshot.risk)}>{riskLabel(snapshot.risk)}</Chip>
+            )}
           </div>
-          <HdrField
-            label="CURRENT PORT AUTHORITY"
-            value={chn.authority}
-            sub={`${chn.location.lat.toFixed(4)}° N, ${chn.location.lon.toFixed(4)}° E`}
-          />
-          <HdrField
-            label="CURRENT REGIME"
-            chip={<Chip tone={riskTone}>{severityLabel}</Chip>}
-          />
-          <HdrField
-            label="FORECAST ORIGIN"
-            value="07 MAY 2025"
-            sub="03:00 UTC"
-          />
-          <HdrField
-            label="MODEL CONFIDENCE"
-            chip={<Chip tone="mint">HIGH</Chip>}
-            sub={`${Math.round(chn.confidence * 100)}%`}
-          />
-          <div className="panel p-4">
-            <div className="text-[10px] tracking-[0.35em] text-[var(--color-muted-foreground)] mb-2">
-              SELECT PORT
-            </div>
-            <select
-              value={selectedPortCode}
-              onChange={(event) => handlePortChange(event.target.value)}
-              className="w-full bg-transparent text-[13px] text-[var(--color-foreground)] uppercase tracking-wider outline-none"
-            >
-              {availablePorts.map((portOption) => (
-                <option
-                  key={portOption.portCode}
-                  value={portOption.portCode}
-                >
-                  {portOption.name ?? portOption.portCode}
-                </option>
-              ))}
-            </select>
-          </div>
-          <HdrField
-            label="LAST UPDATED"
-            value="07 May 2025 06:15 UTC"
-            chip={<Chip tone="mint">● LIVE</Chip>}
-          />
-        </div>
-
-        {/* TOP KPI STRIP */}
-        <div className="grid grid-cols-7 gap-2">
-          <Kpi
-            label="SEVERITY"
-            big={severityLabel}
-            tone={riskTone}
-            sub="HIGH IMPACT"
-          />
-          <Kpi
-            label={`${portName} PORT CONGESTION`}
-            big={(chn.congestion * 100).toFixed(1)}
-            tone={riskTone}
-            sub="Index (0-100)"
-            spark={[45, 50, 58, 64, 68, 72, 75, chn.congestion * 100]}
-            sparkTone={riskTone}
-          />
-          <Kpi
-            label="PEAK DELAY (P95)"
-            big={`${chn.delayHours.toFixed(1)} h`}
-            tone={riskTone}
-            sub="(next 24h)"
-            spark={[
-              8,
-              9,
-              10,
-              11,
-              12,
-              Math.max(12, chn.delayHours - 1),
-              chn.delayHours,
-            ]}
-            sparkTone={riskTone}
-          />
-          <Kpi
-            label="THROUGHPUT (27D)"
-            big={chn.throughput.toLocaleString()}
-            tone="cyan"
-            sub="TEU proxy"
-            spark={[
-              chn.throughput * 0.86,
-              chn.throughput * 0.9,
-              chn.throughput * 0.93,
-              chn.throughput,
-            ]}
-            sparkTone="cyan"
-          />
-          <Kpi
-            label="TRANSITION RISK"
-            big={`${Math.round(regime.transitionRisk24h * 100)}%`}
-            tone="amber"
-            sub="(12h Horizon)"
-            spark={[42, 48, 54, 58, 60, 62, regime.transitionRisk24h * 100]}
-            sparkTone="amber"
-          />
-          <Kpi
-            label="CONFIDENCE"
-            big={`${Math.round(chn.confidence * 100)}%`}
-            tone="mint"
-            sub="Model Confidence"
-            spark={[85, 88, 90, 91, 92, 93, chn.confidence * 100]}
-            sparkTone="mint"
-          />
-          <div className="panel px-3 py-2 flex flex-col justify-between">
-            <div>
-              <div className="label-xs">RECOMMENDATION ({portName})</div>
-              <div className="mt-1 text-[11px] text-[var(--color-foreground)] leading-snug">
-                <span className="text-[var(--color-amber)]">
-                  {recommendation.title}.
-                </span>{" "}
-                {recommendation.actions.slice(0, 3).join(". ")}.
-              </div>
-            </div>
-            <button className="mt-1 self-end text-[var(--color-cyan)] text-[16px]">
-              ›
-            </button>
+          <div className="text-[9px] text-[var(--color-muted-foreground)]">
+            {snapshot?.authority ?? "Port authority not in registry"}
           </div>
         </div>
 
-        {/* AI OPERATIONAL BRIEFING STRIP */}
-        <div className="panel px-3 py-2 flex items-center gap-4 text-[11px]">
-          <span className="text-[var(--color-cyan)] flex items-center gap-2 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-cyan)] animate-blink" />
-            AI OPERATIONAL BRIEFING
-          </span>
-          <span className="text-[var(--color-foreground)] flex-1">
-            {chn.name} congestion is {severityLabel.toLowerCase()}. Peak
-            congestion is expected in the next 48h with {weather.windKnots} kt
-            wind and {weather.seaState.toLowerCase()} sea state affecting
-            pilotage and cargo ops.
-          </span>
-          <div className="flex items-center gap-3 text-[10px] text-[var(--color-mint)]">
-            <span>● Activate congestion protocol</span>
-            <span>● Prioritize berth allocation</span>
-            <span>● Stagger arrivals</span>
-            <span>● Advise vessels to slow steam</span>
-          </div>
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <ProvenanceChip
+            status={state.dataStatus}
+            ageHours={state.dataAgeHours}
+            detail={`Observed ${formatUtc(state.observedAt)}`}
+          />
           <span className="text-[9px] text-[var(--color-muted-foreground)]">
-            Generated by India PortWatch AI · {recommendation.timestamp}
+            OBSERVED {formatUtc(state.observedAt)} · ORIGIN{" "}
+            {formatUtc(day1?.originDate ?? null)} · MODEL{" "}
+            <span className="text-[var(--color-cyan)]">{day1?.source ?? "n/a"}</span>
           </span>
+          <select
+            aria-label="Select port"
+            value={chain.portCode}
+            onChange={(event) =>
+              navigate({ to: "/port", search: { port: event.target.value } })
+            }
+            className="border border-[var(--color-line-strong)] bg-[oklch(0.10_0.02_240)] px-2 py-1 text-[10px] tracking-[0.1em] text-[var(--color-foreground)] outline-none"
+          >
+            {ports.map((port) => (
+              <option key={port.code} value={port.code}>
+                {port.name}
+              </option>
+            ))}
+          </select>
         </div>
+      </div>
 
-        {/* MID GRID: twin | hsmm | weather */}
-        <div
-          className="grid grid-cols-[1.6fr_0.9fr_1.1fr] gap-2"
-          style={{ minHeight: 380 }}
-        >
-          {/* MODEL-BACKED CONTEXT */}
-          <div className="panel flex flex-col">
-            <div className="panel-header">
-              <span>MODEL-BACKED PORT CONTEXT — {portName}</span>
-              <span>BACKEND OUTPUT</span>
+      <div className="min-h-0 grid grid-cols-[300px_1fr_320px] gap-2">
+        {/* ------------------------------------------------------------ NOW */}
+        <div className="min-h-0 grid grid-rows-[auto_auto_1fr] gap-2">
+          <Panel title="NOW · OBSERVED" right={state.dataStatus}>
+            <div className="p-2 grid grid-cols-2 gap-1.5">
+              <Metric
+                label="CONGESTION"
+                value={state.observedCongestionIndex?.toFixed(1) ?? "n/a"}
+                tone={
+                  (state.observedCongestionIndex ?? 0) >= 65
+                    ? "red"
+                    : (state.observedCongestionIndex ?? 0) >= 50
+                      ? "amber"
+                      : "mint"
+                }
+                sub="0-100 pressure index"
+              />
+              <Metric
+                label="BERTH WAIT"
+                value={state.delayHours?.toFixed(1) ?? "n/a"}
+                unit="h"
+                tone="amber"
+                sub="proxy from call pressure"
+              />
             </div>
-
-            <div className="p-4 space-y-4 text-[12px] leading-relaxed">
-              <div>
-                <div className="text-[10px] tracking-[0.32em] text-[var(--color-muted-foreground)] mb-1">
-                  CURRENT DEMO MODE
-                </div>
-                <div className="text-[var(--color-foreground)]">
-                  This cockpit is showing backend model outputs for{" "}
-                  <span className="text-[var(--color-cyan)]">{portName}</span>.
-                  The satellite/AIS digital-twin layer is hidden until real
-                  satellite-derived vessel features are integrated.
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="panel p-3">
-                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
-                    MODEL FLOW
-                  </div>
-                  <div className="mt-2 text-[var(--color-mint)]">
-                    Features → HSMM regime → TFT forecast → Decision layer
-                  </div>
-                </div>
-
-                <div className="panel p-3">
-                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
-                    SELECTED PORT
-                  </div>
-                  <div className="mt-2 text-[var(--color-cyan)] text-[18px] font-semibold">
-                    {portName}
-                  </div>
-                </div>
-
-                <div className="panel p-3">
-                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
-                    CURRENT SEVERITY
-                  </div>
-                  <div className="mt-2 text-[var(--color-amber)] text-[18px] font-semibold">
-                    {severityLabel}
-                  </div>
-                </div>
-
-                <div className="panel p-3">
-                  <div className="text-[10px] tracking-[0.25em] text-[var(--color-muted-foreground)]">
-                    FORECAST HORIZON
-                  </div>
-                  <div className="mt-2 text-[var(--color-mint)] text-[18px] font-semibold">
-                    10 days
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-[10px] text-[var(--color-muted-foreground)] border-t border-[var(--color-line)] pt-3">
-                Planned satellite/AIS features: detected vessels, anchorage density,
-                berth queue proxy, SAR confidence, AIS mismatch count, and route
-                deviation.
-              </div>
+            <div className="px-3 pb-2">
+              <MetricRow label="Daily port calls">
+                <Value value={state.vesselCalls} digits={1} />
+              </MetricRow>
+              <MetricRow label="Queue buildup (anchorage)">
+                <Value value={state.anchorageCount} digits={1} />
+              </MetricRow>
+              <MetricRow label="Throughput">
+                <Value value={state.throughputTonnes} digits={0} unit=" t" />
+              </MetricRow>
+              <MetricRow label="Utilization">
+                <Value value={state.utilization} digits={0} scale={100} unit="%" />
+              </MetricRow>
+              <MetricRow label="AIS confidence">
+                <Value value={state.aisConfidence} digits={2} />
+              </MetricRow>
             </div>
-          </div>
+          </Panel>
 
-          {/* DATA READINESS */}
-          <div className="panel flex flex-col">
-            <div className="panel-header">
-              <span>DATA READINESS</span>
-              <span>REVIEW SAFE</span>
-            </div>
-            <div className="p-4 space-y-3 text-[11px]">
-              {[
-                ["HSMM regime", "model output", "mint"],
-                ["TFT forecast", "model output", "mint"],
-                ["Decision recommendation", "backend logic", "amber"],
-                ["Weather", "backend cache", "mint"],
-                ["News/NLP", "backend cache", "mint"],
-                ["Satellite/AIS", "planned extension", "amber"],
-              ].map(([label, status, tone]) => (
-                <div
-                  key={label}
-                  className="grid grid-cols-[150px_1fr] gap-2 items-center"
-                >
-                  <span className="text-[var(--color-cyan)]">{label}</span>
-                  <Chip tone={tone as any}>{status}</Chip>
+          <Panel title="SPECIALIST PRESSURE">
+            <div className="p-3 space-y-2">
+              {(
+                [
+                  ["Queue pressure", state.queuePressure],
+                  ["Capacity pressure", state.capacityPressure],
+                  ["Berth pressure", state.berthPressure],
+                  ["Arrival clustering", state.arrivalClustering],
+                  ["Anomaly score", state.anomalyScore],
+                  ["Disruption pressure", state.disruptionPressure],
+                  ["Weather impact", state.weatherImpact],
+                  ["Data quality", state.dataQuality],
+                ] as Array<[string, number | null | undefined]>
+              ).map(([label, value]) => (
+                <div key={label} className="space-y-1">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-[var(--color-muted-foreground)]">
+                      {label}
+                    </span>
+                    <Value value={value} digits={2} />
+                  </div>
+                  <Bar
+                    value={value ?? 0}
+                    tone={
+                      label === "Data quality"
+                        ? (value ?? 1) >= 0.75
+                          ? "mint"
+                          : "amber"
+                        : (value ?? 0) >= 0.7
+                          ? "red"
+                          : (value ?? 0) >= 0.45
+                            ? "amber"
+                            : "cyan"
+                    }
+                  />
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          {/* HSMM + weather column */}
-          <div className="grid grid-rows-2 gap-2">
-            <div className="panel">
-              <div className="panel-header">
-                <span>HSMM REGIME INTELLIGENCE ({portName})</span>
-              </div>
-              <div className="p-3 space-y-2 text-[11px]">
-                {[
-                  ["Normal", regime.probabilities.normal * 100, "mint"],
-                  ["Congested", regime.probabilities.congested * 100, "amber"],
-                  ["Severe", regime.probabilities.severe * 100, "red"],
-                ].map(([l, v, t]) => (
-                  <div key={l as string}>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-[var(--color-foreground)]">
-                        {l}
-                      </span>
-                      <span
-                        className={
-                          t === "red"
-                            ? "text-[var(--color-red)]"
-                            : t === "amber"
-                              ? "text-[var(--color-amber)]"
-                              : "text-[var(--color-mint)]"
-                        }
-                      >
-                        {Math.round(v as number)}%
-                      </span>
-                    </div>
-                    <div className="h-1 bg-[var(--color-panel-2)]">
-                      <div
-                        className="h-full"
-                        style={{
-                          width: `${v}%`,
-                          background:
-                            t === "red"
-                              ? "var(--color-red)"
-                              : t === "amber"
-                                ? "var(--color-amber)"
-                                : "var(--color-mint)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-                <div className="pt-2 border-t border-[var(--color-line)] space-y-1 text-[10px]">
-                  <Row k="Days in State" v={regime.daysInState.toFixed(1)} />
-                  <Row
-                    k="Expected remaining"
-                    v={`${regime.expectedRemainingDays.toFixed(1)} day`}
-                  />
-                  <Row
-                    k="Transition risk (24h)"
-                    v={
-                      <>
-                        <span className="text-[var(--color-foreground)]">
-                          {Math.round(regime.transitionRisk24h * 100)}%
-                        </span>{" "}
-                        <Chip
-                          tone={
-                            regime.transitionRisk24h > 0.55 ? "red" : "amber"
-                          }
-                        >
-                          HIGH
-                        </Chip>
-                      </>
-                    }
-                  />
-                  <Row
-                    k="State confidence"
-                    v={
-                      <>
-                        <span className="text-[var(--color-foreground)]">
-                          {Math.round(regime.confidence * 100)}%
-                        </span>{" "}
-                        <Chip tone="red">HIGH</Chip>
-                      </>
-                    }
-                  />
-                </div>
+          <Panel title="OBSERVED HISTORY · 14 DAYS">
+            <div className="p-3">
+              <Sparkline
+                data={state.congestionHistory.map((point) => point.value)}
+                tone="cyan"
+                height={54}
+                fill
+              />
+              <div className="mt-1 flex justify-between text-[9px] text-[var(--color-muted-foreground)]">
+                <span>{formatDate(state.congestionHistory[0]?.date ?? null)}</span>
+                <span>
+                  {formatDate(
+                    state.congestionHistory[state.congestionHistory.length - 1]?.date ??
+                      null,
+                  )}
+                </span>
               </div>
             </div>
-            <div className="panel">
-              <div className="panel-header">
-                <span>WEATHER INTELLIGENCE · {portName} COASTAL OUTLOOK</span>
+          </Panel>
+        </div>
+
+        {/* ---------------------------------------------------- FORECAST + WHY */}
+        <div className="min-h-0 grid grid-rows-[auto_1fr_auto] gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <Metric
+              label="NEXT 24H · CONGESTION"
+              value={day1?.congestionIndex.toFixed(1) ?? "n/a"}
+              tone={
+                (day1?.congestionIndex ?? 0) >= 65
+                  ? "red"
+                  : (day1?.congestionIndex ?? 0) >= 50
+                    ? "amber"
+                    : "mint"
+              }
+              sub={
+                day1
+                  ? `80% band ${day1.q10.toFixed(0)}–${day1.q90.toFixed(0)} · conf ${(day1.confidence * 100).toFixed(0)}%`
+                  : "no forecast"
+              }
+            />
+            <Metric
+              label="NEXT 48H"
+              value={day2?.congestionIndex.toFixed(1) ?? "n/a"}
+              tone="cyan"
+              sub={
+                day2
+                  ? `wait ${day2.delayHoursP50.toFixed(1)}h · band ${day2.intervalWidth.toFixed(0)}`
+                  : "no forecast"
+              }
+            />
+            <Metric
+              label="10-DAY PEAK"
+              value={horizonPeak?.congestionIndex.toFixed(1) ?? "n/a"}
+              tone="amber"
+              sub={
+                horizonPeak
+                  ? `day ${horizonPeak.day} (${horizonPeak.dateLabel}) · ${horizonPeak.severity}`
+                  : "no forecast"
+              }
+            />
+          </div>
+
+          <Panel
+            title="10-DAY QUANTILE FORECAST"
+            right={
+              day1
+                ? `${day1.source}${day1.conformalOffset != null ? ` · conformal ±${day1.conformalOffset.toFixed(2)}` : ""}`
+                : undefined
+            }
+          >
+            <div className="p-2 h-full flex flex-col gap-2 min-h-0">
+              <ForecastBands forecast={forecast} />
+              <div className="overflow-auto">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="label-xs text-left border-b border-[var(--color-line)]">
+                      <th className="py-1 font-normal">DAY</th>
+                      <th className="py-1 font-normal">DATE</th>
+                      <th className="py-1 font-normal text-right">Q10</th>
+                      <th className="py-1 font-normal text-right">Q50</th>
+                      <th className="py-1 font-normal text-right">Q90</th>
+                      <th className="py-1 font-normal text-right">WAIT</th>
+                      <th className="py-1 font-normal text-right">CONF</th>
+                      <th className="py-1 font-normal text-right">DISAGREE</th>
+                      <th className="py-1 font-normal text-right">SEV</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forecast.map((row) => (
+                      <tr
+                        key={row.day}
+                        className="border-b border-[var(--color-line)]/30"
+                      >
+                        <td className="py-[3px] tabular-nums">+{row.day}</td>
+                        <td className="py-[3px] text-[var(--color-muted-foreground)]">
+                          {row.dateLabel}
+                        </td>
+                        <td className="py-[3px] text-right tabular-nums text-[var(--color-muted-foreground)]">
+                          {row.q10.toFixed(1)}
+                        </td>
+                        <td className="py-[3px] text-right tabular-nums text-[var(--color-foreground)]">
+                          {row.q50.toFixed(1)}
+                        </td>
+                        <td className="py-[3px] text-right tabular-nums text-[var(--color-muted-foreground)]">
+                          {row.q90.toFixed(1)}
+                        </td>
+                        <td className="py-[3px] text-right tabular-nums">
+                          {row.delayHoursP50.toFixed(1)}h
+                        </td>
+                        <td className="py-[3px] text-right tabular-nums text-[var(--color-cyan)]">
+                          {(row.confidence * 100).toFixed(0)}%
+                        </td>
+                        <td className="py-[3px] text-right tabular-nums text-[var(--color-purple)]">
+                          <Value value={row.modelDisagreement} digits={2} />
+                        </td>
+                        <td className="py-[3px] text-right">
+                          <Chip tone={severityTone(row.severity)}>{row.severity}</Chip>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="p-3 grid grid-cols-3 gap-x-3 gap-y-2 text-[10px]">
-                <WxCell
-                  l="WIND (10m)"
-                  v={`${weather.windKnots} kt`}
-                  sub={weather.windDirection}
-                  tone="amber"
+            </div>
+          </Panel>
+
+          <Panel title="WHY · RAW SIGNAL → EXPERT → REGIME → FORECAST → DECISION">
+            <div className="p-2 grid grid-cols-5 gap-1.5">
+              {chain.stages.map((stage, index) => (
+                <ChainCard
+                  key={stage.stage}
+                  stage={stage}
+                  isLast={index === chain.stages.length - 1}
                 />
-                <WxCell l="GUSTS" v={`${weather.gustKnots} kt`} tone="red" />
-                <WxCell
-                  l="RAINFALL (24h)"
-                  v={`${weather.rainfallMm24h} mm`}
-                  sub={`${weather.precipRateMmH} mm/h`}
-                  tone="cyan"
-                />
-                <WxCell
-                  l="WAVE HEIGHT"
-                  v={`${weather.waveHeightM} m`}
-                  sub={`${marine.swell.direction} swell`}
-                  tone="amber"
-                />
-                <WxCell l="SEA STATE" v={weather.seaState} />
-                <WxCell
-                  l="VISIBILITY"
-                  v={`${weather.visibilityKm} km`}
-                  sub={weather.visibilityKm < 8 ? "Reduced in squalls" : "Usable"}
-                  tone={weather.visibilityKm < 8 ? "amber" : "mint"}
-                />
-                <div className="col-span-3 mt-1 border-t border-[var(--color-line)] pt-2">
-                  <div className="label-xs mb-1">CYCLONE / MONSOON OPERATIONAL CONTEXT</div>
-                  <div className="grid grid-cols-3 gap-2 text-[10px]">
-                    <div>
-                      <div className="text-[var(--color-muted-foreground)]">
-                        SW Monsoon
-                      </div>
-                      <div className="text-[var(--color-amber)]">Active surge</div>
-                    </div>
-                    <div>
-                      <div className="text-[var(--color-muted-foreground)]">
-                        Cyclone Risk (7D)
-                      </div>
-                      <div className="text-[var(--color-red)]">
-                        {Math.round(marine.cyclone.probability72h * 100)}% · {marine.cyclone.riskWindow}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[var(--color-muted-foreground)]">
-                        Next Tide
-                      </div>
-                      <div className="text-[var(--color-foreground)]">
-                        07:42 · flood +0.8m
-                      </div>
-                    </div>
-                  </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        {/* ------------------------------------------------ REGIME + DECISION */}
+        <div className="min-h-0 grid grid-rows-[auto_auto_1fr] gap-2">
+          <Panel
+            title="HSMM REGIME"
+            right={regime ? `conf ${(regime.confidence * 100).toFixed(0)}%` : undefined}
+          >
+            {regime ? (
+              <div className="p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[15px] text-[var(--color-foreground)]">
+                    {regime.state}
+                  </span>
+                  <ProvenanceChip
+                    status={regime.dataStatus}
+                    ageHours={regime.dataAgeHours}
+                  />
                 </div>
-                <div className="col-span-3 border-t border-[var(--color-line)] pt-2">
-                  <div className="grid grid-cols-[1fr_1fr_1fr] gap-2">
-                    <WxOut k="pilotage_window" v="22:00-04:00Z" tone="red" />
-                    <WxOut k="outer_band_eta" v="T+18h" />
-                    <WxOut k="berth_productivity" v="-18%" tone="red" />
-                  </div>
-                  <div className="mt-2 text-[10px] leading-relaxed text-[var(--color-foreground)]">
-                    Outer Bay rain bands and {marine.swell.heightM}m {marine.swell.direction} swell are holding deep-draft entries outside the inner harbor. Slow steaming and berth resequencing explain the elevated anchorage queue.
-                  </div>
+                <div className="space-y-1.5">
+                  {(
+                    [
+                      ["p(normal)", regime.probabilities.normal, "mint"],
+                      ["p(congested)", regime.probabilities.congested, "amber"],
+                      ["p(severe)", regime.probabilities.severe, "red"],
+                    ] as const
+                  ).map(([label, value, tone]) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-[var(--color-muted-foreground)]">
+                          {label}
+                        </span>
+                        <span className="tabular-nums">{value.toFixed(3)}</span>
+                      </div>
+                      <Bar value={value} tone={tone} />
+                    </div>
+                  ))}
                 </div>
-                <div className="col-span-3 mt-1 border-t border-[var(--color-line)] pt-2">
-                  <div className="label-xs mb-1">WEATHER MODULE OUTPUTS</div>
-                  <div className="grid grid-cols-3 gap-2 text-[10px]">
-                    <WxOut
-                      k="weather_raw_score"
-                      v={weather.impactScore.toFixed(2)}
-                    />
-                    <WxOut
-                      k="weather_impact_score"
-                      v={weather.impactScore.toFixed(2)}
-                    />
-                    <WxOut
-                      k="weather_persistence"
-                      v="SW_MONSOON_ACTIVE"
+                <div className="pt-1">
+                  <MetricRow label="Days in state">
+                    <Value value={regime.daysInState} digits={1} />
+                  </MetricRow>
+                  <MetricRow label="Expected remaining">
+                    <Value value={regime.expectedRemainingDays} digits={1} unit="d" />
+                  </MetricRow>
+                  <MetricRow label="Transition risk 24h">
+                    <Value value={regime.transitionRisk24h} digits={3} />
+                  </MetricRow>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                No regime state for this port in the current run.
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="MARINE WEATHER" right={weather?.weatherRegime ?? undefined}>
+            {weather ? (
+              <div className="p-3">
+                <MetricRow label="Wind / gust">
+                  <Value value={weather.windKnots} digits={1} unit="kn" />
+                  <span className="text-[var(--color-muted-foreground)]"> / </span>
+                  <Value value={weather.gustKnots} digits={1} unit="kn" />
+                </MetricRow>
+                <MetricRow label="Wave height">
+                  <Value value={weather.waveHeightM} digits={2} unit="m" />
+                </MetricRow>
+                <MetricRow label="Rain 24h">
+                  <Value value={weather.rainfallMm24h} digits={1} unit="mm" />
+                </MetricRow>
+                <MetricRow label="Impact index">
+                  <Value value={weather.impactScore} digits={3} />
+                </MetricRow>
+                <MetricRow label="Shock / persistence">
+                  <Value value={weather.shockScore} digits={2} />
+                  <span className="text-[var(--color-muted-foreground)]"> / </span>
+                  <Value value={weather.persistenceScore} digits={2} />
+                </MetricRow>
+                <div className="mt-2 text-[9px] leading-snug text-[var(--color-muted-foreground)]">
+                  {weather.advisory}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                No measured marine weather for this port in the current run.
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="WHAT SHOULD WE DO">
+            {decision ? (
+              <div className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[13px] text-[var(--color-foreground)] leading-tight">
+                    {decision.title}
+                  </span>
+                  <Chip tone={riskTone(decision.severity)}>
+                    {decision.severity.toUpperCase()}
+                  </Chip>
+                </div>
+                <div className="text-[10px] text-[var(--color-cyan)]">
+                  {decision.action} · {decision.target}
+                </div>
+                <div className="text-[11px] leading-relaxed text-[var(--color-foreground)]">
+                  {decision.actions.join(" ")}
+                </div>
+
+                <div className="pt-1">
+                  <MetricRow label="Expected delay saved">
+                    <Value
+                      value={decision.expectedDelaySavedHours}
+                      digits={1}
+                      unit="h"
                       tone="mint"
                     />
-                    <WxOut
-                      k="weather_shock"
-                      v={weather.shockSigma.toFixed(2)}
-                    />
-                    <WxOut
-                      k="weather_hsmm_input"
-                      v={weather.impactScore.toFixed(2)}
-                      tone="red"
-                    />
-                    <WxOut
-                      k="weather_tft_covariate"
-                      v={weather.persistenceScore.toFixed(2)}
-                    />
-                  </div>
+                  </MetricRow>
+                  <MetricRow label="Congestion probability">
+                    <Value value={decision.congestionProbability} digits={2} />
+                  </MetricRow>
+                  <MetricRow label="Decision confidence">
+                    <Value value={decision.confidence} digits={2} tone="cyan" />
+                  </MetricRow>
+                  <MetricRow label="Uncertainty">
+                    <Value value={decision.uncertainty} digits={2} tone="purple" />
+                  </MetricRow>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* 10-DAY FORECAST TIMELINE */}
-        <div className="panel">
-          <div className="panel-header">
-            <span>10-DAY FORECAST TIMELINE · {portName} PORT</span>
-          </div>
-          <div className="p-2 grid grid-cols-10 gap-1.5">
-            {forecastDays.map((d, i) => {
-              const tone =
-                d.severity === "SEVERE"
-                  ? "red"
-                  : d.severity === "HIGH"
-                    ? "amber"
-                    : d.severity === "MOD"
-                      ? "cyan"
-                      : "mint";
-              const bg =
-                tone === "red"
-                  ? "var(--color-red)"
-                  : tone === "amber"
-                    ? "var(--color-amber)"
-                    : tone === "cyan"
-                      ? "var(--color-cyan)"
-                      : "var(--color-mint)";
-              return (
-                <div
-                  key={i}
-                  className="panel p-2 flex flex-col gap-1"
-                  style={{ animation: `fade-in .5s ease-out ${i * 60}ms both` }}
-                >
-                  <div className="flex justify-between items-center text-[9px]">
-                    <span className="text-[var(--color-muted-foreground)]">
-                      DAY {d.day} · {d.dateLabel}
-                    </span>
-                    <span
-                      className="px-1 border"
-                      style={{ borderColor: bg, color: bg }}
-                    >
-                      {d.severity}
-                    </span>
-                  </div>
-                  <div className="text-[16px] tabular-nums text-[var(--color-foreground)] leading-none">
-                    {d.congestionIndex}
-                  </div>
-                  <div className="text-[9px] text-[var(--color-muted-foreground)]">
-                    (±{d.uncertaintyBandHours}h)
-                  </div>
-                  <div className="flex items-center justify-between text-[9px]">
-                    <span className="text-[var(--color-cyan)]">☁</span>
-                    {d.weatherProbability > 0 && (
-                      <span className="text-[var(--color-red)] tabular-nums">
-                        {Math.round(d.weatherProbability * 100)}%
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className="h-0.5"
-                    style={{ background: bg, opacity: 0.7 }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* BOTTOM: DRIVERS · EXPERT CHAIN · NEWS */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="panel">
-            <div className="panel-header">
-              <span>BACKEND FORECAST SIGNALS · {portName}</span>
-              <span>MODEL INPUTS</span>
-            </div>
-            <div className="p-2 space-y-2 text-[11px]">
-              {[
-                ["HSMM regime", regime.regimeLabel ?? regime.regime ?? "available", "mint"],
-                ["TFT forecast", `${forecastDays.length} horizon points`, "mint"],
-                ["Weather risk", `${Math.round((weather.riskScore ?? weather.weatherProbability ?? 0) * 100)}%`, "amber"],
-                ["Decision layer", recommendation.severity ?? severityLabel, "amber"],
-              ].map(([label, value, tone]) => (
-                <div
-                  key={label}
-                  className="grid grid-cols-[120px_1fr_58px] items-center gap-2"
-                >
-                  <span className="text-[var(--color-cyan)]">{label}</span>
-                  <span className="text-[var(--color-foreground)]">{value}</span>
-                  <Chip tone={tone as any}>backend</Chip>
-                </div>
-              ))}
-              <div className="text-[9px] text-[var(--color-muted-foreground)] pt-1 border-t border-[var(--color-line)]/60">
-                ⓘ This panel summarizes backend/cache signals used in the cockpit.
-                Detailed feature attribution is planned as a future SHAP/attention
-                explanation layer.
-              </div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-header">
-              <span>PIPELINE MODULES · {portName}</span>
-              <span>STATUS</span>
-            </div>
-            <div className="p-2 space-y-1.5 text-[11px]">
-              {[
-                ["Feature Builder", "daily port-level feature table", "mint"],
-                ["HSMM Regime", "regime probabilities before TFT", "mint"],
-                ["TFT Forecast", "q10/q50/q90 congestion forecast", "mint"],
-                ["Decision Layer", "rule-based operational recommendation", "amber"],
-                ["Satellite/AIS", "planned extension", "amber"],
-              ].map(([name, detail, tone]) => (
-                <div
-                  key={name}
-                  className="grid grid-cols-[120px_1fr_60px] gap-2 items-center"
-                >
-                  <span className="text-[var(--color-foreground)]">{name}</span>
-                  <span className="text-[10px] text-[var(--color-muted-foreground)]">
-                    {detail}
-                  </span>
-                  <Chip tone={tone as any}>{tone === "mint" ? "done" : "next"}</Chip>
-                </div>
-              ))}
-              <div className="text-[9px] text-[var(--color-muted-foreground)] pt-1 border-t border-[var(--color-line)]/60">
-                ⓘ This is a pipeline status view, not a fabricated expert-confidence
-                output.
-              </div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-header">
-              <span>NEWS INTELLIGENCE · THIS PORT ({portName})</span>
-              <span>Impact · Confidence</span>
-            </div>
-            <div className="p-2 space-y-2 text-[11px]">
-              {newsForPort.length ? (
-                newsForPort.slice(0, 4).map((event, i) => (
-                  <div
-                    key={event.id}
-                    className="grid grid-cols-[14px_1fr_54px_44px] gap-2"
-                  >
-                    <span className="text-[var(--color-cyan)] tabular-nums">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[var(--color-foreground)] font-medium">
-                          {event.tag}
-                        </span>
-                        <Chip
-                          tone={
-                            event.severity === "severe"
-                              ? "red"
-                              : event.severity === "normal"
-                                ? "mint"
-                                : "amber"
-                          }
-                        >
-                          {event.severity}
-                        </Chip>
+                {decision.topDrivers.length > 0 && (
+                  <div className="pt-1">
+                    <div className="label-xs mb-1">TOP CONTRIBUTING FACTORS</div>
+                    {decision.topDrivers.map((driver) => (
+                      <div key={driver.factor} className="mb-1">
+                        <div className="flex justify-between text-[9px]">
+                          <span className="text-[var(--color-muted-foreground)]">
+                            {driver.factor}
+                          </span>
+                          <Value value={driver.contribution} digits={3} />
+                        </div>
+                        <Bar
+                          value={(driver.contribution ?? 0) / 0.3}
+                          tone="amber"
+                        />
                       </div>
-                      <div className="text-[10px] text-[var(--color-foreground)]">
-                        {event.text}
-                      </div>
-                      <div className="text-[9px] text-[var(--color-muted-foreground)]">
-                        {event.source} · {event.timestamp}Z
-                      </div>
-                    </div>
-                    <span className="text-right text-[10px] text-[var(--color-foreground)] self-start">
-                      {event.sentiment < -0.2 ? "High" : "Medium"}
-                    </span>
-                    <span className="text-right tabular-nums text-[10px] text-[var(--color-cyan)] self-start">
-                      {event.confidence.toFixed(2)}
-                    </span>
+                    ))}
                   </div>
-                ))
-              ) : (
-                <div className="text-[10px] text-[var(--color-muted-foreground)] leading-relaxed">
-                  No backend news events are currently mapped to this port.
-                  The News/NLP page still shows the full backend historical
-                  sentiment cache.
+                )}
+
+                <div className="pt-1 text-[9px] leading-snug text-[var(--color-muted-foreground)]">
+                  <div className="text-[var(--color-foreground)]">
+                    {decision.expectedImpact}
+                  </div>
+                  <div className="mt-1">{decision.rationale}</div>
+                  <div className="mt-1">
+                    <span className="text-[var(--color-amber)]">Fallback:</span>{" "}
+                    {decision.alternativeAction}
+                  </div>
                 </div>
-              )}
-              <div className="text-[9px] text-[var(--color-muted-foreground)] pt-1 border-t border-[var(--color-line)]/60">
-                ⓘ This panel uses backend news-cache events only. It does not fall
-                back to local mock news.
               </div>
-            </div>
-          </div>
+            ) : (
+              <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                No decision produced for this port in the current run.
+              </div>
+            )}
+          </Panel>
         </div>
       </div>
     </div>
   );
 }
 
-type HarborVesselMeta = {
-  readonly id: string;
-  readonly x: number;
-  readonly y: number;
-  readonly heading: number;
-  readonly color: string;
-  readonly label: string;
-  readonly status: string;
-};
+function severityTone(severity: string) {
+  switch (severity) {
+    case "SEVERE":
+      return "red" as const;
+    case "HIGH":
+      return "amber" as const;
+    case "MOD":
+      return "cyan" as const;
+    default:
+      return "mint" as const;
+  }
+}
 
-function HarborVessel({
-  vessel,
-  berth,
-  anchored,
-  underway,
-  service,
-}: {
-  vessel: HarborVesselMeta;
-  berth?: boolean;
-  anchored?: boolean;
-  underway?: boolean;
-  service?: boolean;
-}) {
-  const scale = service ? 0.74 : berth ? 0.92 : 0.82;
-  const hull =
-    vessel.label === "TUG" || vessel.label === "SRV"
-      ? "M 0 -7 C 4 -4 5 3 2 7 L 0 9 L -2 7 C -5 3 -4 -4 0 -7 Z"
-      : "M 0 -10 C 6 -6 7 5 3 10 L 0 12 L -3 10 C -7 5 -6 -6 0 -10 Z";
+function ChainCard({ stage, isLast }: { stage: ChainStage; isLast: boolean }) {
+  const entries = Object.entries(stage.metrics).filter(
+    ([, value]) => value !== null && value !== undefined,
+  );
+  return (
+    <div className="panel p-2 relative min-w-0">
+      <div className="flex items-center justify-between gap-1">
+        <span className="label-xs truncate">{stage.stage}</span>
+        {stage.confidence != null && (
+          <span className="text-[9px] tabular-nums text-[var(--color-cyan)]">
+            {(stage.confidence * 100).toFixed(0)}%
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 text-[9px] text-[var(--color-muted-foreground)] leading-snug line-clamp-2">
+        {stage.label}
+      </div>
+      <div className="mt-1 space-y-[2px]">
+        {entries.slice(0, 4).map(([key, value]) => (
+          <div key={key} className="flex justify-between gap-1 text-[9px]">
+            <span className="text-[var(--color-muted-foreground)] truncate">
+              {humanise(key)}
+            </span>
+            <span className="tabular-nums text-[var(--color-foreground)] shrink-0">
+              {typeof value === "number" ? value.toFixed(2) : String(value)}
+            </span>
+          </div>
+        ))}
+        {!entries.length && (
+          <div className="text-[9px] text-[var(--color-muted-foreground)]">
+            not produced
+          </div>
+        )}
+      </div>
+      {!isLast && (
+        <span className="absolute -right-[9px] top-1/2 -translate-y-1/2 text-[var(--color-cyan)] text-[10px]">
+          ▶
+        </span>
+      )}
+    </div>
+  );
+}
+
+function humanise(key: string): string {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
+}
+
+/** Fan chart of the q10/q50/q90 band across the forecast horizon. */
+function ForecastBands({ forecast }: { forecast: ForecastPoint[] }): ReactNode {
+  if (forecast.length < 2) {
+    return (
+      <div className="h-[120px] grid place-items-center text-[10px] text-[var(--color-muted-foreground)]">
+        Not enough forecast rows to draw a band.
+      </div>
+    );
+  }
+  const width = 100;
+  const height = 120;
+  const values = forecast.flatMap((row) => [row.q10, row.q90]);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const x = (index: number) => (index / (forecast.length - 1)) * width;
+  const y = (value: number) => height - ((value - min) / span) * (height - 12) - 6;
+
+  const upper = forecast.map((row, i) => `${x(i).toFixed(1)},${y(row.q90).toFixed(1)}`);
+  const lower = forecast
+    .map((row, i) => `${x(i).toFixed(1)},${y(row.q10).toFixed(1)}`)
+    .reverse();
+  const median = forecast.map((row, i) => `${x(i).toFixed(1)},${y(row.q50).toFixed(1)}`);
 
   return (
-    <g
-      transform={`translate(${vessel.x} ${vessel.y}) rotate(${vessel.heading}) scale(${scale})`}
-      style={{ animation: anchored || service ? "vessel-drift 5.8s ease-in-out infinite" : undefined }}
-    >
-      <title>
-        {vessel.id} · {vessel.label} · {vessel.status}
-      </title>
-      {anchored && (
-        <circle
-          r="16"
-          fill="none"
-          stroke={vessel.color}
-          strokeWidth="0.45"
-          strokeDasharray="2 5"
-          opacity="0.35"
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="w-full"
+        style={{ height }}
+      >
+        <polygon
+          points={[...upper, ...lower].join(" ")}
+          fill="var(--color-cyan)"
+          opacity={0.14}
         />
-      )}
-      {(underway || service) && (
+        <polyline
+          points={median.join(" ")}
+          fill="none"
+          stroke="var(--color-cyan)"
+          strokeWidth={1.4}
+        />
         <line
           x1="0"
-          y1="14"
-          x2="0"
-          y2="28"
-          stroke={vessel.color}
-          strokeWidth="0.7"
-          strokeDasharray="2 4"
-          opacity="0.45"
+          x2={width}
+          y1={y(50)}
+          y2={y(50)}
+          stroke="var(--color-amber)"
+          strokeDasharray="3 3"
+          strokeWidth={0.6}
+          opacity={0.7}
         />
-      )}
-      {berth && (
-        <line
-          x1="-11"
-          y1="0"
-          x2="-21"
-          y2="0"
-          stroke={vessel.color}
-          strokeWidth="0.55"
-          strokeDasharray="1 3"
-          opacity="0.48"
-        />
-      )}
-      <path
-        d={hull}
-        fill={vessel.color}
-        opacity="0.98"
-        stroke="#020711"
-        strokeWidth="0.72"
-        filter="url(#vShip)"
-      />
-      <path
-        d="M -2.8 -1.8 H 2.8 M -2.4 2 H 2.4 M 0 -6 V 7"
-        stroke="#07111d"
-        strokeWidth="0.72"
-        strokeLinecap="round"
-        opacity="0.75"
-      />
-    </g>
-  );
-}
-
-function HdrField({
-  label,
-  value,
-  sub,
-  chip,
-}: {
-  label: string;
-  value?: string;
-  sub?: string;
-  chip?: React.ReactNode;
-}) {
-  return (
-    <div className="panel px-3 py-2 flex flex-col justify-center min-h-[68px]">
-      <div className="text-[9px] tracking-[0.2em] text-[var(--color-muted-foreground)]">
-        {label}
+      </svg>
+      <div className="flex justify-between text-[9px] text-[var(--color-muted-foreground)]">
+        <span>{forecast[0].dateLabel}</span>
+        <span className="text-[var(--color-amber)]">congestion threshold 50</span>
+        <span>{forecast[forecast.length - 1].dateLabel}</span>
       </div>
-      {chip ? (
-        <div className="mt-1">{chip}</div>
-      ) : (
-        value && (
-          <div className="text-[12px] text-[var(--color-foreground)] mt-0.5">
-            {value}
-          </div>
-        )
-      )}
-      {sub && (
-        <div className="text-[9px] text-[var(--color-muted-foreground)] mt-0.5">
-          {sub}
-        </div>
-      )}
     </div>
-  );
-}
-
-function Kpi({
-  label,
-  big,
-  tone,
-  sub,
-  spark,
-  sparkTone,
-}: {
-  label: string;
-  big: string;
-  tone: "red" | "amber" | "cyan" | "mint";
-  sub?: string;
-  spark?: number[];
-  sparkTone?: "red" | "amber" | "cyan" | "mint";
-}) {
-  const c =
-    tone === "red"
-      ? "text-[var(--color-red)] glow-red"
-      : tone === "amber"
-        ? "text-[var(--color-amber)] glow-amber"
-        : tone === "cyan"
-          ? "text-[var(--color-cyan)]"
-          : "text-[var(--color-mint)]";
-  const accent =
-    tone === "red"
-      ? "var(--color-red)"
-      : tone === "amber"
-        ? "var(--color-amber)"
-        : tone === "cyan"
-          ? "var(--color-cyan)"
-          : "var(--color-mint)";
-  return (
-    <div className="panel relative px-3 py-2.5 flex flex-col gap-1.5 overflow-hidden">
-      <span
-        className="absolute left-0 top-0 bottom-0 w-[2px]"
-        style={{
-          background: `linear-gradient(180deg, ${accent}, transparent)`,
-          opacity: 0.8,
-        }}
-      />
-      <div className="label-xs">{label}</div>
-      <div
-        className={`text-[22px] leading-none tabular-nums font-semibold ${c}`}
-      >
-        {big}
-      </div>
-      {sub && (
-        <div className="text-[9px] text-[var(--color-muted-foreground)]">
-          {sub}
-        </div>
-      )}
-      {spark && (
-        <div className="-mx-1">
-          <Sparkline data={spark} tone={sparkTone || "cyan"} height={20} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Row({ k, v }: { k: string; v: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between border-b border-[var(--color-line)]/50 pb-1">
-      <span className="text-[var(--color-muted-foreground)]">{k}</span>
-      <span className="flex items-center gap-1">{v}</span>
-    </div>
-  );
-}
-
-function WxCell({
-  l,
-  v,
-  sub,
-  tone,
-}: {
-  l: string;
-  v: string;
-  sub?: string;
-  tone?: "mint" | "amber" | "red" | "cyan";
-}) {
-  const c =
-    tone === "mint"
-      ? "text-[var(--color-mint)]"
-      : tone === "amber"
-        ? "text-[var(--color-amber)]"
-        : tone === "red"
-          ? "text-[var(--color-red)]"
-          : "text-[var(--color-foreground)]";
-  return (
-    <div>
-      <div className="text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
-        {l}
-      </div>
-      <div className={`text-[14px] tabular-nums ${c}`}>{v}</div>
-      {sub && (
-        <div className="text-[9px] text-[var(--color-muted-foreground)]">
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function WxOut({
-  k,
-  v,
-  tone,
-}: {
-  k: string;
-  v: string;
-  tone?: "mint" | "red";
-}) {
-  const c =
-    tone === "mint"
-      ? "text-[var(--color-mint)]"
-      : tone === "red"
-        ? "text-[var(--color-red)]"
-        : "text-[var(--color-foreground)]";
-  return (
-    <div>
-      <div className="text-[9px] text-[var(--color-muted-foreground)]">{k}</div>
-      <div className={`text-[11px] tabular-nums ${c}`}>{v}</div>
-    </div>
-  );
-}
-
-function LegendPill({ c, t }: { c: string; t: string }) {
-  return (
-    <span className="flex items-center gap-1 text-[var(--color-muted-foreground)]">
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ background: c, boxShadow: `0 0 4px ${c}` }}
-      />
-      {t}
-    </span>
   );
 }

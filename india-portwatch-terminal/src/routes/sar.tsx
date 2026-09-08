@@ -1,351 +1,270 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Panel, Metric, Chip, Bar } from "@/components/terminal/ui";
-import { getPortSnapshot } from "@/services/portService";
-import { fetchPortSnapshot } from "@/services/ports";
-import { getSARSignal } from "@/services/sarService";
-import { fetchSARSignal } from "@/services/sar";
+import {
+  Bar,
+  Chip,
+  ErrorState,
+  Loading,
+  Metric,
+  MetricRow,
+  Panel,
+  ProvenanceChip,
+  Value,
+  formatUtc,
+} from "@/components/terminal/ui";
+import {
+  fetchFeedAdapters,
+  fetchPorts,
+  fetchVessels,
+} from "@/services/portwatch";
 
 export const Route = createFileRoute("/sar")({
   validateSearch: (search: Record<string, unknown>) => ({
     port: typeof search.port === "string" ? search.port : "INMAA",
   }),
-  component: SarPage,
+  component: VesselActivityScreen,
 });
 
-function SarPage() {
-  const { port: portQuery } = Route.useSearch();
-  const portDataQuery = useQuery({
-    queryKey: ["port", portQuery],
-    queryFn: () => fetchPortSnapshot(portQuery),
-    initialData: () => getPortSnapshot(portQuery),
-    staleTime: 30_000,
+/**
+ * Vessel activity. This deployment has no per-vessel AIS licence and no SAR
+ * scene ingestion, so the screen does not draw individual ships. It shows what
+ * is actually measured -- daily satellite-AIS port-call aggregates from IMF
+ * PortWatch and the queue buildup derived from each port's own baseline -- and
+ * reports the unwired feeds as unavailable rather than filling them in.
+ */
+function VesselActivityScreen() {
+  const { port: portCode } = Route.useSearch();
+  const navigate = useNavigate();
+
+  const vesselsQuery = useQuery({
+    queryKey: ["vessels"],
+    queryFn: fetchVessels,
+    staleTime: 60_000,
   });
-  const port = portDataQuery.data;
-  const sarQuery = useQuery({
-    queryKey: ["sar", port.code],
-    queryFn: () => fetchSARSignal(port.code),
-    initialData: () => getSARSignal(port.code),
-    staleTime: 30_000,
+  const adaptersQuery = useQuery({
+    queryKey: ["feed-adapters"],
+    queryFn: fetchFeedAdapters,
+    staleTime: 120_000,
   });
-  const sar = sarQuery.data;
+  const portsQuery = useQuery({
+    queryKey: ["ports"],
+    queryFn: fetchPorts,
+    staleTime: 60_000,
+  });
+
+  if (vesselsQuery.isLoading) return <Loading label="LOADING VESSEL ACTIVITY" />;
+  if (vesselsQuery.isError || !vesselsQuery.data) {
+    return <ErrorState error={vesselsQuery.error} />;
+  }
+
+  const bundle = vesselsQuery.data;
+  const adapters = adaptersQuery.data ?? [];
+  const ports = portsQuery.data ?? [];
+  const ranked = [...bundle.vessels].sort(
+    (a, b) => b.queuePressure - a.queuePressure,
+  );
+  const selected =
+    ranked.find((row) => row.portCode === portCode) ?? ranked[0] ?? null;
+  const selectedPort = ports.find((p) => p.code === selected?.portCode);
+
+  const totalCalls = bundle.vessels.reduce(
+    (sum, row) => sum + (row.dailyPortCalls ?? 0),
+    0,
+  );
+  const totalQueue = bundle.vessels.reduce(
+    (sum, row) => sum + (row.queueBuildup ?? 0),
+    0,
+  );
 
   return (
-    <div className="h-full grid grid-cols-1 grid-rows-[auto_1fr] gap-2">
-      <div className="grid grid-cols-6 gap-2">
+    <div className="h-full grid grid-rows-[auto_1fr] gap-2 p-2 overflow-hidden">
+      <div className="grid grid-cols-4 gap-2">
         <Metric
-          label="SCENE"
-          value={sar.sceneId}
+          label="DAILY PORT CALLS"
+          value={totalCalls.toFixed(0)}
           tone="cyan"
-          sub="Sentinel-1A · GRD"
+          sub={`across ${bundle.vessels.length} ports`}
         />
         <Metric
-          label="VESSEL DETECT."
-          value={sar.vesselDetections}
-          tone="mint"
-          sub={`Δ vs prev +${Math.max(0, sar.vesselDetections - 49)}`}
-        />
-        <Metric
-          label="ANCHORAGE"
-          value={sar.anchorageCount}
+          label="QUEUE BUILDUP"
+          value={totalQueue.toFixed(1)}
           tone="amber"
-          sub={port.name}
+          sub="calls above each port's own baseline"
         />
         <Metric
-          label="CHANGE SCORE"
-          value={sar.changeScore.toFixed(2)}
-          tone="amber"
-          sub="vs T-1"
+          label="HIGHEST QUEUE PRESSURE"
+          value={ranked[0]?.queuePressure.toFixed(2) ?? "n/a"}
+          tone="red"
+          sub={ranked[0]?.name ?? "no data"}
         />
         <Metric
-          label="SAR CONFIDENCE"
-          value={sar.confidence.toFixed(2)}
-          tone="cyan"
-          sub="cloud N/A"
-        />
-        <Metric
-          label="AIS FALLBACK"
-          value="ARMED"
+          label="OBSERVED"
+          value={formatUtc(bundle.observedAt)}
           tone="mint"
-          sub={`${sar.sarOnly} vessels`}
+          sub="latest satellite-AIS day"
         />
       </div>
 
-      <div className="min-h-0 grid grid-cols-[1fr_300px] gap-2">
-        <Panel
-          title={`SAR PROXY · ${port.name.toUpperCase()} · S1A IW · VV+VH · GEE MODE`}
-        >
-          <div className="relative w-full h-full bg-[oklch(0.10_0.02_240)] overflow-hidden pw-sar-scene">
-            {/* SAR raster look */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `
-                radial-gradient(circle at 30% 45%, oklch(0.35 0.05 220 / 0.7) 0%, transparent 25%),
-                radial-gradient(circle at 70% 30%, oklch(0.30 0.04 220 / 0.6) 0%, transparent 30%),
-                radial-gradient(circle at 55% 70%, oklch(0.25 0.03 220 / 0.5) 0%, transparent 35%),
-                repeating-linear-gradient(0deg, oklch(0.14 0.02 240) 0px, oklch(0.14 0.02 240) 1px, oklch(0.18 0.03 240 / 0.6) 1px, oklch(0.18 0.03 240 / 0.6) 2px),
-                repeating-linear-gradient(90deg, oklch(0.14 0.02 240) 0px, oklch(0.14 0.02 240) 1px, oklch(0.16 0.03 240 / 0.4) 1px, oklch(0.16 0.03 240 / 0.4) 2px)
-              `,
-              }}
-            />
-            <div className="absolute inset-0 scanlines opacity-80" />
-            <div className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-[oklch(0.82_0.18_195_/_0.08)] to-transparent animate-sar-sweep" />
-            <svg
-              viewBox="0 0 1000 620"
-              preserveAspectRatio="xMidYMid slice"
-              className="absolute inset-0 w-full h-full"
-            >
-              <defs>
-                <filter
-                  id="sarGlow"
-                  x="-80%"
-                  y="-80%"
-                  width="260%"
-                  height="260%"
-                >
-                  <feGaussianBlur stdDeviation="2.2" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <filter id="sarNoise">
-                  <feTurbulence
-                    baseFrequency="0.88"
-                    numOctaves="3"
-                    seed="12"
-                    type="fractalNoise"
-                  />
-                  <feColorMatrix type="saturate" values="0" />
-                  <feComponentTransfer>
-                    <feFuncA type="table" tableValues="0 0.2" />
-                  </feComponentTransfer>
-                </filter>
-                <radialGradient id="sarConfidence" cx="50%" cy="50%" r="50%">
-                  <stop offset="0" stopColor="oklch(0.82 0.18 195 / 0.24)" />
-                  <stop offset="100%" stopColor="oklch(0.82 0.18 195 / 0)" />
-                </radialGradient>
-              </defs>
-              <rect
-                width="1000"
-                height="620"
-                filter="url(#sarNoise)"
-                opacity="0.55"
-              />
-              <ellipse
-                cx="500"
-                cy="380"
-                rx="210"
-                ry="150"
-                fill="url(#sarConfidence)"
-              />
-              {/* Coastline */}
-              <path
-                d="M 0 80 Q 200 60 380 120 Q 520 180 620 240 Q 720 300 820 380 L 1000 420 L 1000 0 L 0 0 Z"
-                fill="oklch(0.22 0.04 220 / 0.9)"
-                stroke="oklch(0.82 0.18 195 / 0.6)"
-                strokeWidth="1"
-              />
-              {/* Anchorage rings */}
-              <g
-                transform="translate(500 380)"
-                fill="none"
-                stroke="oklch(0.82 0.18 75 / 0.7)"
-              >
-                <circle r="90" strokeDasharray="4 4" />
-                <circle r="150" strokeDasharray="2 6" />
-                <text
-                  x="0"
-                  y="-96"
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="var(--color-amber)"
-                >
-                  ANCHORAGE Q · {sar.anchorageCount}
-                </text>
-              </g>
-              {/* Bright vessel detections */}
-              {Array.from({ length: sar.vesselDetections }).map((_, i) => {
-                const cx = 200 + ((i * 137) % 700);
-                const cy = 200 + ((i * 89) % 380);
-                const rot = (i * 41) % 180;
-                const confidence = 0.46 + ((i * 13) % 50) / 100;
-                return (
-                  <g
-                    key={i}
-                    transform={`translate(${cx} ${cy}) rotate(${rot})`}
-                    filter="url(#sarGlow)"
+      <div className="min-h-0 grid grid-cols-[1.2fr_1fr] gap-2">
+        <Panel title="PORT ACTIVITY · MEASURED DAILY AGGREGATES">
+          <div className="overflow-auto">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr className="label-xs text-left border-b border-[var(--color-line)]">
+                  <th className="py-1.5 px-2 font-normal">PORT</th>
+                  <th className="py-1.5 px-2 font-normal text-right">CALLS/DAY</th>
+                  <th className="py-1.5 px-2 font-normal text-right">QUEUE BUILDUP</th>
+                  <th className="py-1.5 px-2 font-normal">QUEUE PRESSURE</th>
+                  <th className="py-1.5 px-2 font-normal text-right">CONF</th>
+                  <th className="py-1.5 px-2 font-normal">OBSERVED</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.map((row) => (
+                  <tr
+                    key={row.portCode}
+                    onClick={() =>
+                      navigate({ to: "/sar", search: { port: row.portCode } })
+                    }
+                    className={`border-b border-[var(--color-line)]/30 cursor-pointer ${
+                      row.portCode === selected?.portCode
+                        ? "bg-[var(--color-cyan)]/6"
+                        : "hover:bg-[var(--color-cyan)]/4"
+                    }`}
                   >
-                    <ellipse
-                      cx="0"
-                      cy="0"
-                      rx={i % 5 === 0 ? 8 : 5}
-                      ry="2.2"
-                      fill={i % 9 === 0 ? "#ffb347" : "oklch(0.98 0.05 200)"}
-                      opacity={confidence}
-                    />
-                    <circle
-                      r="8"
-                      fill="none"
-                      stroke="oklch(0.82 0.18 195 / 0.5)"
-                      strokeWidth="0.5"
-                    />
-                  </g>
-                );
-              })}
-              {/* Queue zone highlight */}
-              <path
-                d="M 380 300 C 470 278 586 292 642 362 C 606 452 496 504 384 468 C 348 396 344 338 380 300 Z"
-                fill="oklch(0.82 0.18 75 / 0.05)"
-                stroke="oklch(0.82 0.18 75 / 0.62)"
-                strokeDasharray="3 5"
-              />
-              <text x="390" y="315" fontSize="9" fill="var(--color-amber)">
-                QUEUE ZONE · CH-A
-              </text>
-              <g stroke="oklch(0.82 0.18 195 / 0.22)" strokeWidth="0.5">
-                {Array.from({ length: 9 }).map((_, i) => (
-                  <line
-                    key={`v-${i}`}
-                    x1={120 + i * 92}
-                    y1="0"
-                    x2={120 + i * 92}
-                    y2="620"
-                    strokeDasharray="2 9"
-                  />
+                    <td className="py-1 px-2 truncate">{row.name}</td>
+                    <td className="py-1 px-2 text-right tabular-nums">
+                      {row.dailyPortCalls.toFixed(1)}
+                    </td>
+                    <td className="py-1 px-2 text-right tabular-nums text-[var(--color-amber)]">
+                      {row.queueBuildup.toFixed(1)}
+                    </td>
+                    <td className="py-1 px-2 w-[130px]">
+                      <div className="flex items-center gap-2">
+                        <Bar
+                          value={row.queuePressure}
+                          tone={
+                            row.queuePressure >= 0.7
+                              ? "red"
+                              : row.queuePressure >= 0.5
+                                ? "amber"
+                                : "cyan"
+                          }
+                        />
+                        <span className="tabular-nums text-[9px] w-8 text-right">
+                          {row.queuePressure.toFixed(2)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-1 px-2 text-right tabular-nums text-[var(--color-cyan)]">
+                      <Value value={row.confidence} digits={2} />
+                    </td>
+                    <td className="py-1 px-2 text-[var(--color-muted-foreground)]">
+                      {formatUtc(row.observedAt)}
+                    </td>
+                  </tr>
                 ))}
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <line
-                    key={`h-${i}`}
-                    x1="0"
-                    y1={90 + i * 86}
-                    x2="1000"
-                    y2={90 + i * 86}
-                    strokeDasharray="2 9"
-                  />
-                ))}
-              </g>
-
-              {/* Reticles */}
-              {[
-                [40, 40],
-                [960, 40],
-                [40, 580],
-                [960, 580],
-              ].map(([x, y], i) => (
-                <g
-                  key={i}
-                  stroke="var(--color-cyan)"
-                  strokeWidth="0.8"
-                  opacity="0.6"
-                >
-                  <line x1={x - 10} y1={y} x2={x + 10} y2={y} />
-                  <line x1={x} y1={y - 10} x2={x} y2={y + 10} />
-                </g>
-              ))}
-            </svg>
-            <div className="absolute top-2 left-2 text-[9px] tracking-widest text-[var(--color-cyan)] bg-[var(--color-background)]/70 border border-[var(--color-line)] px-2 py-1">
-              SENTINEL-1A · IW · 10m · VV+VH · {sar.timestamp}
-            </div>
-            <div className="absolute bottom-2 right-2 text-[9px] tracking-widest text-[var(--color-muted-foreground)] bg-[var(--color-background)]/70 border border-[var(--color-line)] px-2 py-1">
-              GEE · SAR-PROXY · ESA COPERNICUS
-            </div>
+              </tbody>
+            </table>
           </div>
         </Panel>
 
-        <div className="flex flex-col gap-2 min-h-0">
-          <Panel title="DETECTIONS · SUMMARY">
-            <div className="p-3 space-y-2 text-[11px]">
-              <div className="flex justify-between">
-                <span className="text-[var(--color-muted-foreground)]">
-                  CONT
-                </span>
-                <span className="tabular-nums text-[var(--color-cyan)]">
-                  {Math.round(sar.vesselDetections * 0.38)}
-                </span>
+        <div className="min-h-0 grid grid-rows-[auto_auto_1fr] gap-2">
+          {selected && (
+            <Panel title={`${selected.name.toUpperCase()} · ACTIVITY DETAIL`}>
+              <div className="p-3">
+                <MetricRow label="Daily port calls (7d mean)">
+                  <span className="tabular-nums">
+                    {selected.dailyPortCalls.toFixed(2)}
+                  </span>
+                </MetricRow>
+                <MetricRow label="Calls above baseline">
+                  <span className="tabular-nums text-[var(--color-amber)]">
+                    {selected.queueBuildup.toFixed(2)}
+                  </span>
+                </MetricRow>
+                <MetricRow label="Queue pressure (0-1)">
+                  <span className="tabular-nums">
+                    {selected.queuePressure.toFixed(3)}
+                  </span>
+                </MetricRow>
+                <MetricRow label="Feed confidence">
+                  <Value value={selected.confidence} digits={2} tone="cyan" />
+                </MetricRow>
+                {selectedPort && (
+                  <>
+                    <MetricRow label="Observed congestion">
+                      <Value
+                        value={selectedPort.observedCongestionIndex}
+                        digits={1}
+                      />
+                    </MetricRow>
+                    <MetricRow label="Day-1 forecast">
+                      <span className="tabular-nums">
+                        {selectedPort.congestionIndex.toFixed(1)}
+                      </span>
+                    </MetricRow>
+                  </>
+                )}
+                <div className="mt-2 text-[9px] leading-snug text-[var(--color-muted-foreground)]">
+                  {selected.basis}
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-muted-foreground)]">
-                  TANKER
-                </span>
-                <span className="tabular-nums text-[var(--color-amber)]">
-                  {Math.round(sar.vesselDetections * 0.29)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-muted-foreground)]">
-                  BULK
-                </span>
-                <span className="tabular-nums text-[var(--color-mint)]">
-                  {Math.round(sar.vesselDetections * 0.24)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-muted-foreground)]">
-                  UNCLASSIFIED
-                </span>
-                <span className="tabular-nums text-[var(--color-purple)]">
-                  {Math.round(sar.vesselDetections * 0.09)}
-                </span>
-              </div>
-              <div className="border-t border-[var(--color-line)] pt-2 label-xs">
-                CHANGE vs T-1
-              </div>
-              <Bar value={sar.changeScore} tone="amber" />
-              <div className="text-[10px] text-[var(--color-muted-foreground)]">
-                +{Math.max(0, sar.vesselDetections - 49)} vessels · queue
-                expansion detected NE quadrant
-              </div>
+            </Panel>
+          )}
+
+          <Panel title="FEED ADAPTERS">
+            <div className="p-2 space-y-2">
+              {adapters.map((adapter) => (
+                <div
+                  key={adapter.key}
+                  className="border-b border-[var(--color-line)]/30 pb-2 last:border-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-[var(--color-foreground)] truncate">
+                      {adapter.name}
+                    </span>
+                    <ProvenanceChip
+                      status={adapter.status}
+                      ageHours={adapter.ageHours}
+                      detail={adapter.detail}
+                    />
+                  </div>
+                  <div className="text-[9px] text-[var(--color-muted-foreground)] leading-snug">
+                    {adapter.provider} · {adapter.granularity}
+                    {adapter.observedAt && ` · ${formatUtc(adapter.observedAt)}`}
+                  </div>
+                  <div className="text-[9px] leading-snug text-[var(--color-muted-foreground)] mt-0.5">
+                    {adapter.detail}
+                  </div>
+                </div>
+              ))}
+              {!adapters.length && (
+                <div className="text-[10px] text-[var(--color-muted-foreground)]">
+                  No feed adapters reported.
+                </div>
+              )}
             </div>
           </Panel>
-          <Panel title="AIS FALLBACK · GAP FILL">
-            <div className="p-3 text-[11px] space-y-1.5">
-              <div className="flex justify-between">
-                <span>AIS ACTIVE</span>
-                <Chip tone="mint">{sar.aisActive}</Chip>
-              </div>
-              <div className="flex justify-between">
-                <span>SAR-ONLY</span>
-                <Chip tone="amber">{sar.sarOnly}</Chip>
-              </div>
-              <div className="flex justify-between">
-                <span>DARK VESSELS</span>
-                <Chip tone="red">{sar.darkVessels}</Chip>
-              </div>
-              <div className="text-[10px] text-[var(--color-muted-foreground)] pt-2">
-                Dark-vessel candidates flagged for enrichment via next
-                Sentinel-2 pass (T+04:12h).
-              </div>
-            </div>
-          </Panel>
-          <Panel title="SAR / AIS FUSION SCORE" className="flex-1">
-            <div className="p-3 space-y-2 text-[11px]">
-              <div className="flex justify-between">
-                <span>Cross-match rate</span>
-                <span className="tabular-nums text-[var(--color-mint)]">
-                  {Math.round(sar.crossMatchRate * 100)}%
+
+          <Panel title="WHAT THIS SCREEN IS NOT">
+            <div className="p-3 text-[10px] leading-relaxed text-[var(--color-muted-foreground)] space-y-2">
+              <p>
+                <Chip tone="amber">SCOPE</Chip> This deployment measures
+                <span className="text-[var(--color-foreground)]">
+                  {" "}
+                  daily port-call aggregates
                 </span>
-              </div>
-              <Bar value={sar.crossMatchRate} tone="mint" />
-              <div className="flex justify-between">
-                <span>Bounding IoU</span>
-                <span className="tabular-nums text-[var(--color-cyan)]">
-                  {sar.boundingIou.toFixed(2)}
-                </span>
-              </div>
-              <Bar value={sar.boundingIou} tone="cyan" />
-              <div className="flex justify-between">
-                <span>Heading agreement</span>
-                <span className="tabular-nums text-[var(--color-cyan)]">
-                  {sar.headingAgreement.toFixed(2)}
-                </span>
-              </div>
-              <Bar value={sar.headingAgreement} tone="cyan" />
-              <div className="text-[10px] text-[var(--color-muted-foreground)] pt-2">
-                Fusion → HSMM proxy channel{" "}
-                <span className="text-[var(--color-cyan)]">sar_ais_fused</span>
-              </div>
+                , not individual vessel tracks. Every number above is an
+                aggregate over a port-day.
+              </p>
+              <p>
+                Per-vessel AIS positions require a commercial feed, and
+                Sentinel-1 SAR detection requires scene ingestion and a detector
+                — neither is wired here, so neither is drawn. The adapters panel
+                reports both as unavailable rather than showing placeholder
+                contacts.
+              </p>
             </div>
           </Panel>
         </div>

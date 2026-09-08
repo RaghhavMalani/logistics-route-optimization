@@ -1,319 +1,290 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Panel, Chip, Bar } from "@/components/terminal/ui";
-import { fetchNewsBundle, fetchNewsEventsForEntity } from "@/services/news";
+import {
+  Bar,
+  Chip,
+  ErrorState,
+  Loading,
+  Metric,
+  Panel,
+  Value,
+  formatUtc,
+  riskTone,
+} from "@/components/terminal/ui";
+import { fetchNews } from "@/services/portwatch";
 
 export const Route = createFileRoute("/nlp")({
   validateSearch: (search: Record<string, unknown>) => ({
-    entity: typeof search.entity === "string" ? search.entity : "HORMUZ",
+    entity: typeof search.entity === "string" ? search.entity : "ALL",
   }),
-  component: NlpPage,
+  component: EventIntelligence,
 });
 
-function NlpPage() {
+/**
+ * Event intelligence. Each row is a document -- a GDELT article or a GDACS
+ * disaster alert -- with the ports it was attributed to and the lane exposure
+ * that justified the attribution. Every headline links back to its source, so
+ * nothing on this screen is an unverifiable claim.
+ */
+function EventIntelligence() {
   const { entity } = Route.useSearch();
-  const normalizedEntity = entity.toUpperCase();
+  const navigate = useNavigate();
 
-  const focusedQuery = useQuery({
-    queryKey: ["news-entity", normalizedEntity],
-    queryFn: () => fetchNewsEventsForEntity(normalizedEntity),
-    staleTime: 30_000,
+  const newsQuery = useQuery({
+    queryKey: ["news"],
+    queryFn: fetchNews,
+    staleTime: 60_000,
   });
 
-  const newsBundleQuery = useQuery({
-    queryKey: ["news-bundle"],
-    queryFn: fetchNewsBundle,
-    staleTime: 30_000,
-  });
-
-  if (focusedQuery.isLoading || newsBundleQuery.isLoading) {
-    return (
-      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
-        LOADING BACKEND NLP FEED...
-      </div>
-    );
+  if (newsQuery.isLoading) return <Loading label="LOADING EVENT STREAM" />;
+  if (newsQuery.isError || !newsQuery.data) {
+    return <ErrorState error={newsQuery.error} />;
   }
 
-  if (
-    focusedQuery.isError ||
-    newsBundleQuery.isError ||
-    !focusedQuery.data ||
-    !newsBundleQuery.data
-  ) {
-    return (
-      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
-        NEWS API UNAVAILABLE
-      </div>
-    );
+  const bundle = newsQuery.data;
+  const filter = entity.toUpperCase();
+  const events =
+    filter === "ALL"
+      ? bundle.events
+      : bundle.events.filter(
+          (event) =>
+            event.chokepoint?.toUpperCase().includes(filter) ||
+            event.entity.toUpperCase().includes(filter) ||
+            event.title.toUpperCase().includes(filter) ||
+            event.affectedPorts.some((code) => code.toUpperCase() === filter),
+        );
+
+  const chokepointCounts = new Map<string, number>();
+  for (const event of bundle.events) {
+    const key = event.chokepoint ?? "UNATTRIBUTED";
+    chokepointCounts.set(key, (chokepointCounts.get(key) ?? 0) + 1);
   }
 
-  const events = newsBundleQuery.data.events ?? [];
-  const entityEvents = focusedQuery.data ?? [];
-  const focusedEvents = entityEvents.length
-    ? entityEvents
-    : events.filter(
-        (event) =>
-          event.entity.includes(normalizedEntity) ||
-          event.tag.includes(normalizedEntity),
-      );
-  const feedEvents = focusedEvents.length
-    ? [
-        ...focusedEvents,
-        ...events.filter((event) => !focusedEvents.includes(event)),
-      ]
-    : events;
-  const entities = newsBundleQuery.data.sentiment ?? [];
-  const alerts = newsBundleQuery.data.alerts ?? [];
-  const summary = newsBundleQuery.data.summary ?? {};
-  const sourceLabel =
-    summary.dataSource ??
-    events[0]?.dataSource ??
-    "data/cache/news_bundle.json";
-
-  const avgSentiment = events.length
-    ? events.reduce((total, event) => total + Number(event.sentiment ?? 0), 0) /
-      events.length
+  const severeCount = bundle.events.filter((e) => e.severity === "severe").length;
+  const meanSeverity = bundle.events.length
+    ? bundle.events.reduce((sum, e) => sum + e.severityScore, 0) /
+      bundle.events.length
     : 0;
 
-  const dominantEntities = entities
-    .slice(0, 3)
-    .map((entity) => entity.entity)
-    .join(", ");
-
-  const stopWords = new Set([
-    "daily",
-    "maritime",
-    "news",
-    "sentiment",
-    "index",
-    "rolling14",
-    "affected",
-    "ports",
-    "selected",
-    "from",
-    "current",
-    "risk",
-    "ranking",
-    "backend",
-    "cache",
-    "historical",
-    "aggregate",
-  ]);
-
-  const derivedKeywords = Array.from(
-    new Set(
-      feedEvents.flatMap((event) =>
-        `${event.tag} ${event.entity} ${event.text}`
-          .toLowerCase()
-          .split(/[^a-z0-9]+/)
-          .filter((word) => word.length > 3 && !stopWords.has(word)),
-      ),
-    ),
-  ).slice(0, 12);
-
-  const keywordPulse = derivedKeywords.length
-    ? derivedKeywords
-    : ["no-keywords-from-backend"];
-
-  const timelineSource = feedEvents.length ? feedEvents : events;
-  const timelinePoints =
-    timelineSource.length > 1
-      ? timelineSource
-          .slice(0, 24)
-          .map((event, index, arr) => {
-            const x = (index * 240) / Math.max(arr.length - 1, 1);
-            const sentiment = Math.max(
-              -1.5,
-              Math.min(1.5, Number(event.sentiment ?? 0)),
-            );
-            const y = 40 - (sentiment / 1.5) * 28;
-            return `${x},${y}`;
-          })
-          .join(" ")
-      : "0,40 240,40";
-
   return (
-    <div className="h-full grid grid-cols-[1.4fr_1fr_1fr] gap-2">
-      <Panel
-        title={`NLP FEED · ${normalizedEntity} · BACKEND NEWS CACHE`}
-      >
-        <div className="p-2 space-y-2">
-          {feedEvents.map((n, i) => (
-            <div key={`${n.id}-${i}`} className="panel p-2">
-              <div className="flex items-center justify-between text-[9px] tracking-widest text-[var(--color-muted-foreground)]">
-                <div className="flex items-center gap-2">
-                  <span className="tabular-nums">{n.timestamp}Z</span>
-                  <Chip
-                    tone={
-                      n.severity === "severe"
-                        ? "red"
-                        : n.severity === "elevated"
-                          ? "amber"
-                          : "amber"
-                    }
-                  >
-                    {n.tag}
-                  </Chip>
-                  <span>{n.source}</span>
-                </div>
-                <span>
-                  SENT {n.sentiment >= 0 ? "+" : ""}
-                  {n.sentiment.toFixed(2)}
-                </span>
-              </div>
-              <div className="text-[11px] text-[var(--color-foreground)] leading-snug mt-1">
-                {n.text}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Panel>
+    <div className="h-full grid grid-rows-[auto_1fr] gap-2 p-2 overflow-hidden">
+      <div className="grid grid-cols-4 gap-2">
+        <Metric
+          label="ATTRIBUTED EVENTS"
+          value={bundle.summary.totalEvents}
+          tone="cyan"
+          sub={bundle.summary.dataSource}
+        />
+        <Metric
+          label="SEVERE EVENTS"
+          value={severeCount}
+          tone="red"
+          sub="severity >= 0.75"
+        />
+        <Metric
+          label="MEAN SEVERITY"
+          value={meanSeverity.toFixed(2)}
+          tone="amber"
+          sub="0-1, decays with recency in the model"
+        />
+        <Metric
+          label="PORT ALERTS"
+          value={bundle.summary.totalAlerts}
+          tone="purple"
+          sub="raised by the decision engine"
+        />
+      </div>
 
-      <div className="grid grid-rows-2 gap-2 min-h-0">
-        <Panel title="ENTITY SALIENCE">
-          <div className="p-3 space-y-1.5 text-[11px]">
-            {entities.map((e) => (
-              <div
-                key={e.entity}
-                className="grid grid-cols-[80px_1fr_46px] items-center gap-2"
-              >
-                <span className="text-[var(--color-cyan)]">{e.entity}</span>
-                <Bar
-                  value={e.mentions / 50}
-                  tone={
-                    e.sentiment < -0.2
-                      ? "red"
-                      : e.sentiment < 0
-                        ? "amber"
-                        : "mint"
-                  }
-                />
-                <span
-                  className={
-                    "text-right tabular-nums " +
-                    (e.sentiment < -0.2
-                      ? "text-[var(--color-red)]"
-                      : e.sentiment < 0
-                        ? "text-[var(--color-amber)]"
-                        : "text-[var(--color-mint)]")
-                  }
+      <div className="min-h-0 grid grid-cols-[1.5fr_1fr] gap-2">
+        <Panel
+          title="EVENT STREAM"
+          right={
+            <span className="flex items-center gap-1">
+              {["ALL", "HORMUZ", "SUEZ", "BAB_EL_MANDEB", "MALACCA"].map((key) => (
+                <button
+                  key={key}
+                  onClick={() => navigate({ to: "/nlp", search: { entity: key } })}
+                  className={`px-1.5 py-[1px] border text-[9px] tracking-widest ${
+                    filter === key
+                      ? "border-[var(--color-cyan)] text-[var(--color-cyan)]"
+                      : "border-[var(--color-line-strong)] text-[var(--color-muted-foreground)]"
+                  }`}
                 >
-                  {e.sentiment >= 0 ? "+" : ""}
-                  {e.sentiment.toFixed(2)}
-                </span>
+                  {key === "BAB_EL_MANDEB" ? "BAB" : key}
+                </button>
+              ))}
+            </span>
+          }
+          bodyClassName="overflow-auto"
+        >
+          <div className="divide-y divide-[var(--color-line)]/30">
+            {events.map((event) => (
+              <div key={event.id} className="p-2.5">
+                <div className="flex items-start gap-2">
+                  <Chip tone={riskTone(event.severity)}>{event.tag}</Chip>
+                  <a
+                    href={event.url || undefined}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-[11px] leading-snug text-[var(--color-foreground)] hover:text-[var(--color-cyan)] hover:underline flex-1"
+                  >
+                    {event.title}
+                  </a>
+                  <span className="text-[9px] tabular-nums text-[var(--color-muted-foreground)] shrink-0">
+                    {event.severityScore.toFixed(2)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[9px] text-[var(--color-muted-foreground)] flex-wrap">
+                  <span>{event.source}</span>
+                  <span>·</span>
+                  <span>{formatUtc(event.timestamp)}</span>
+                  {event.chokepointName && (
+                    <>
+                      <span>·</span>
+                      <span className="text-[var(--color-cyan)]">
+                        {event.chokepointName}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {event.exposure.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {event.exposure.slice(0, 6).map((port) => (
+                      <button
+                        key={port.portCode}
+                        onClick={() =>
+                          navigate({ to: "/port", search: { port: port.portCode } })
+                        }
+                        title={`Lane exposure ${port.exposure.toFixed(2)}`}
+                        className="px-1.5 py-[1px] border border-[var(--color-line-strong)] text-[9px] tracking-widest text-[var(--color-muted-foreground)] hover:text-[var(--color-cyan)] hover:border-[var(--color-cyan)]/60"
+                      >
+                        {port.name}
+                        <span className="ml-1 tabular-nums text-[var(--color-cyan)]">
+                          {port.exposure.toFixed(2)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
-          </div>
-        </Panel>
-        <Panel title="BACKEND ENTITY LINKS">
-          <div className="p-3 space-y-2 text-[10px]">
-            {entities.length ? (
-              entities.slice(0, 6).map((entity, index) => (
-                <div
-                  key={entity.entity}
-                  className="panel px-2 py-1.5 flex items-center justify-between"
-                >
-                  <span className="text-[var(--color-cyan)]">
-                    #{index + 1} {entity.entity}
-                  </span>
-                  <span className="tabular-nums text-[var(--color-muted-foreground)]">
-                    {entity.mentions} mentions ·{" "}
-                    {entity.sentiment >= 0 ? "+" : ""}
-                    {entity.sentiment.toFixed(2)}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="text-[var(--color-muted-foreground)]">
-                No entity sentiment returned by backend.
+            {!events.length && (
+              <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                {bundle.summary.eventsAvailable
+                  ? `No events matched "${filter}".`
+                  : bundle.summary.dataSource}
               </div>
             )}
           </div>
         </Panel>
-      </div>
 
-      <div className="grid grid-rows-[auto_1fr_auto] gap-2 min-h-0">
-        <Panel title="SENTIMENT TIMELINE · 24H">
-          <div className="p-3">
-            <svg viewBox="0 0 240 80" className="w-full h-24">
-              <line
-                x1="0"
-                y1="40"
-                x2="240"
-                y2="40"
-                stroke="var(--color-line-strong)"
-                strokeDasharray="2 3"
-              />
-              <polyline
-                points={timelinePoints}
-                fill="none"
-                stroke="var(--color-red)"
-                strokeWidth="1.4"
-              />
-            </svg>
-            <div className="flex justify-between text-[9px] text-[var(--color-muted-foreground)] tabular-nums">
-              <span>-24h</span>
-              <span>NOW</span>
+        <div className="min-h-0 grid grid-rows-[auto_auto_1fr] gap-2">
+          <Panel title="ATTRIBUTION BY LANE">
+            <div className="p-3 space-y-2">
+              {Array.from(chokepointCounts.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(([key, count]) => (
+                  <div key={key}>
+                    <div className="flex justify-between text-[10px]">
+                      <span
+                        className={
+                          key === "UNATTRIBUTED"
+                            ? "text-[var(--color-muted-foreground)]"
+                            : "text-[var(--color-foreground)]"
+                        }
+                      >
+                        {key === "UNATTRIBUTED" ? "No lane attribution" : key}
+                      </span>
+                      <span className="tabular-nums">{count}</span>
+                    </div>
+                    <Bar
+                      value={count / Math.max(bundle.events.length, 1)}
+                      tone={key === "UNATTRIBUTED" ? "muted" : "cyan"}
+                    />
+                  </div>
+                ))}
+              <div className="text-[9px] leading-snug text-[var(--color-muted-foreground)] pt-1">
+                A chokepoint event reaches a port in proportion to that port's
+                measured lane exposure. An unattributed headline enters at a
+                reduced national weight instead of hitting every berth equally.
+              </div>
             </div>
-          </div>
-        </Panel>
-        <Panel title="BACKEND NLP CACHE · SUMMARY">
-          <div className="p-3 text-[11px] leading-relaxed space-y-2">
-            <p>
-              Source:{" "}
-              <span className="text-[var(--color-cyan)]">
-                {sourceLabel}
-              </span>
-              .
-            </p>
-            <p>
-              Loaded{" "}
-              <span className="text-[var(--color-cyan)] tabular-nums">
-                {events.length}
-              </span>{" "}
-              historical sentiment events and{" "}
-              <span className="text-[var(--color-cyan)] tabular-nums">
-                {alerts.length}
-              </span>{" "}
-              TFT-linked alerts from the backend cache.
-            </p>
-            <p>
-              Dominant backend entities:{" "}
-              <span className="text-[var(--color-amber)]">
-                {dominantEntities || "none returned"}
-              </span>
-              .
-            </p>
-            <p>
-              Mean displayed sentiment:{" "}
-              <span
-                className={
-                  avgSentiment < -0.2
-                    ? "text-[var(--color-red)]"
-                    : avgSentiment < 0
-                      ? "text-[var(--color-amber)]"
-                      : "text-[var(--color-mint)]"
-                }
-              >
-                {avgSentiment >= 0 ? "+" : ""}
-                {avgSentiment.toFixed(2)}
-              </span>
-              . This page is showing backend cache signals, not live articles.
-            </p>
-          </div>
-        </Panel>
-        <Panel title="KEYWORD PULSE">
-          <div className="p-3 flex flex-wrap gap-1.5 text-[10px]">
-            {keywordPulse.map((k) => (
-              <span
-                key={k}
-                className="border border-[var(--color-line-strong)] px-1.5 py-0.5 text-[var(--color-muted-foreground)]"
-              >
-                {k}
-              </span>
-            ))}
-          </div>
-        </Panel>
+          </Panel>
+
+          <Panel title="PORT ALERTS · DECISION ENGINE">
+            <div className="p-2 space-y-1">
+              {bundle.alerts.map((alert) => (
+                <button
+                  key={alert.id}
+                  onClick={() =>
+                    navigate({ to: "/port", search: { port: alert.portCode } })
+                  }
+                  className="w-full text-left grid grid-cols-[58px_1fr] items-start gap-2 px-1 py-1 text-[10px] hover:bg-[var(--color-cyan)]/5"
+                >
+                  <Chip tone={riskTone(alert.severity)}>
+                    {alert.severity.toUpperCase()}
+                  </Chip>
+                  <span className="leading-snug">
+                    {alert.text}
+                    <span className="block text-[9px] text-[var(--color-muted-foreground)]">
+                      {alert.action} · priority{" "}
+                      <Value value={alert.priority} digits={2} /> · confidence{" "}
+                      <Value value={alert.confidence} digits={2} />
+                    </span>
+                  </span>
+                </button>
+              ))}
+              {!bundle.alerts.length && (
+                <div className="text-[10px] text-[var(--color-muted-foreground)]">
+                  No port alerts were raised in this run.
+                </div>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="PORT-LEVEL EVENT RISK">
+            <div className="overflow-auto">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="label-xs text-left border-b border-[var(--color-line)]">
+                    <th className="py-1.5 px-2 font-normal">PORT</th>
+                    <th className="py-1.5 px-2 font-normal text-right">MENTIONS</th>
+                    <th className="py-1.5 px-2 font-normal text-right">GEO RISK</th>
+                    <th className="py-1.5 px-2 font-normal text-right">TONE</th>
+                    <th className="py-1.5 px-2 font-normal text-right">CONF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bundle.sentiment.map((row) => (
+                    <tr
+                      key={row.entity}
+                      className="border-b border-[var(--color-line)]/30"
+                    >
+                      <td className="py-1 px-2">{row.entity}</td>
+                      <td className="py-1 px-2 text-right tabular-nums">
+                        {row.mentions}
+                      </td>
+                      <td className="py-1 px-2 text-right tabular-nums">
+                        <Value value={row.riskScore} digits={3} />
+                      </td>
+                      <td className="py-1 px-2 text-right tabular-nums">
+                        <Value value={row.sentiment} digits={3} />
+                      </td>
+                      <td className="py-1 px-2 text-right tabular-nums text-[var(--color-cyan)]">
+                        <Value value={row.confidence} digits={2} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!bundle.sentiment.length && (
+                <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                  The news expert produced no port-level features in this run.
+                </div>
+              )}
+            </div>
+          </Panel>
+        </div>
       </div>
     </div>
   );

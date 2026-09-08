@@ -230,6 +230,7 @@ def build_news_cache(event_catalogue: list[dict] | None = None) -> dict:
             "tag": str(item.get("shockType", "event")).upper(),
             "entity": item.get("chokepointName") or "MARITIME",
             "chokepoint": item.get("chokepoint"),
+            "chokepointName": item.get("chokepointName"),
             "severity": item.get("severityLabel"),
             "severityScore": item.get("severity"),
             "affectedPorts": [p["portCode"] for p in item.get("affectedPorts", [])],

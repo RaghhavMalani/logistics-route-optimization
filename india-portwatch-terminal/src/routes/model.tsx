@@ -1,277 +1,623 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Panel, Chip, Bar, Sparkline } from "@/components/terminal/ui";
-import { fetchPortSnapshot } from "@/services/ports";
-import { listGatingWeights } from "@/services/modelService";
-import { fetchModelPipelineStatuses } from "@/services/model";
+import { useState } from "react";
+import {
+  Bar,
+  Chip,
+  ErrorState,
+  Loading,
+  Panel,
+  ProvenanceChip,
+  Value,
+  formatUtc,
+} from "@/components/terminal/ui";
+import {
+  fetchBenchmark,
+  fetchPipeline,
+  fetchProvenance,
+} from "@/services/portwatch";
+import type { Benchmark, BenchmarkRow, PipelineNode } from "@/types/portwatch";
 
 export const Route = createFileRoute("/model")({
   validateSearch: (search: Record<string, unknown>) => ({
     port: typeof search.port === "string" ? search.port : "INMAA",
   }),
-  component: ModelPage,
+  component: ModelIntelligence,
 });
 
-const sparks = [
-  [0.3, 0.4, 0.5, 0.55, 0.6, 0.62, 0.65, 0.71],
-  [0.5, 0.6, 0.62, 0.55, 0.5, 0.52, 0.58, 0.63],
-  [0.4, 0.42, 0.48, 0.5, 0.55, 0.53, 0.56, 0.58],
-  [0.3, 0.32, 0.35, 0.4, 0.42, 0.44, 0.44, 0.44],
-  [0.4, 0.5, 0.6, 0.65, 0.7, 0.72, 0.75, 0.77],
-  [0.5, 0.55, 0.6, 0.62, 0.65, 0.68, 0.7, 0.69],
-  [0.4, 0.5, 0.55, 0.6, 0.65, 0.7, 0.72, 0.74],
-];
+type Drilldown = "horizon" | "port" | "regime";
 
-function ModelPage() {
-  const { port: portQuery } = Route.useSearch();
-  const portDataQuery = useQuery({
-    queryKey: ["port", portQuery],
-    queryFn: () => fetchPortSnapshot(portQuery),
-    staleTime: 30_000,
-  });
+/**
+ * Model Intelligence. Everything here is read from artefacts the walk-forward
+ * benchmark wrote; there are no illustrative numbers, no invented latency
+ * counters and no model cards describing architectures this system does not
+ * run. If the benchmark has not been executed, the screen says so and prints
+ * the command that produces it.
+ */
+function ModelIntelligence() {
+  const [drilldown, setDrilldown] = useState<Drilldown>("horizon");
 
   const pipelineQuery = useQuery({
     queryKey: ["model-pipeline"],
-    queryFn: fetchModelPipelineStatuses,
+    queryFn: fetchPipeline,
+    staleTime: 60_000,
+  });
+  const benchmarkQuery = useQuery({
+    queryKey: ["benchmark"],
+    queryFn: fetchBenchmark,
+    staleTime: 120_000,
+  });
+  const provenanceQuery = useQuery({
+    queryKey: ["provenance"],
+    queryFn: fetchProvenance,
     staleTime: 60_000,
   });
 
-  if (portDataQuery.isLoading || pipelineQuery.isLoading) {
-    return (
-      <div className="h-full grid place-items-center text-[var(--color-cyan)] text-[12px] tracking-[0.2em]">
-        LOADING LIVE MODEL OUTPUTS...
-      </div>
-    );
+  if (pipelineQuery.isLoading) return <Loading label="LOADING MODEL ARTEFACTS" />;
+  if (pipelineQuery.isError || !pipelineQuery.data) {
+    return <ErrorState error={pipelineQuery.error} />;
   }
 
-  if (
-    portDataQuery.isError ||
-    pipelineQuery.isError ||
-    !portDataQuery.data ||
-    !pipelineQuery.data
-  ) {
-    return (
-      <div className="h-full grid place-items-center text-[var(--color-red)] text-[12px] tracking-[0.2em]">
-        MODEL API UNAVAILABLE
-      </div>
-    );
-  }
-
-  const port = portDataQuery.data;
   const pipeline = pipelineQuery.data;
-  const gatingWeights = listGatingWeights();
+  const benchmark = benchmarkQuery.data;
+  const provenance = provenanceQuery.data;
+  const summary = benchmark?.summary;
+  const weights = benchmark?.ensembleWeights;
+
+  const experts = pipeline.filter((node) => node.kind !== "model" && node.kind !== "decision");
+  const models = pipeline.filter((node) => node.kind === "model" || node.kind === "decision");
+
+  const drilldownRows: BenchmarkRow[] =
+    (drilldown === "horizon"
+      ? benchmark?.byHorizon
+      : drilldown === "port"
+        ? benchmark?.byPort
+        : benchmark?.byRegime) ?? [];
+  const drilldownKey =
+    drilldown === "horizon" ? "horizon_day" : drilldown === "port" ? "port_id" : "regime";
 
   return (
-    <div className="h-full grid grid-rows-[auto_1fr_auto] gap-2">
-      <Panel
-        title={`AI PIPELINE · ${port.name.toUpperCase()} · WEATHER → NEWS/NLP → SAR/AIS → DEMAND → HSMM → TFT → DECISION`}
-      >
-        <div className="p-3 flex items-stretch gap-2">
-          {pipeline.map((s, i) => (
-            <div key={s.key} className="flex-1 panel p-2 relative">
-              <div className="flex items-center justify-between">
-                <span className="label-xs">{s.key}</span>
-                <Chip
-                  tone={
-                    s.confidence > 0.85
-                      ? "mint"
-                      : s.confidence > 0.7
-                        ? "cyan"
-                        : "amber"
+    <div className="h-full overflow-auto p-2 space-y-2">
+      {/* Headline: what the benchmark actually measured. */}
+      <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
+        <Panel title="WALK-FORWARD BENCHMARK" right={benchmark?.version}>
+          {benchmark?.available && summary ? (
+            <div className="p-3 space-y-2">
+              <div className="grid grid-cols-4 gap-2">
+                <HeadlineStat
+                  label="LEADING MODEL"
+                  value={summary.bestModel}
+                  tone="mint"
+                />
+                <HeadlineStat
+                  label="MAE"
+                  value={summary.bestMae.toFixed(3)}
+                  tone="cyan"
+                  sub={`naive ${summary.naiveMae.toFixed(3)}`}
+                />
+                <HeadlineStat
+                  label="SKILL VS NAIVE"
+                  value={
+                    summary.skillVsNaive == null
+                      ? "n/a"
+                      : `${(summary.skillVsNaive * 100).toFixed(1)}%`
                   }
-                >
-                  {(s.confidence * 100).toFixed(0)}%
-                </Chip>
+                  tone={
+                    (summary.skillVsNaive ?? 0) > 0 ? "mint" : "amber"
+                  }
+                  sub="lower MAE is better"
+                />
+                <HeadlineStat
+                  label="80% COVERAGE"
+                  value={
+                    summary.bestCoverage80 == null
+                      ? "n/a"
+                      : summary.bestCoverage80.toFixed(3)
+                  }
+                  tone="cyan"
+                  sub="nominal 0.800"
+                />
               </div>
-              <div className="text-[11px] text-[var(--color-foreground)] mt-1">
-                {s.name}
+              <div className="text-[9px] leading-snug text-[var(--color-muted-foreground)]">
+                {summary.folds} expanding walk-forward folds ·{" "}
+                {summary.testRows.toLocaleString()} out-of-fold predictions ·
+                target {benchmark.target} · horizon {benchmark.horizonDays}d ·
+                generated {formatUtc(benchmark.generatedAt ?? null)}
+                {summary.tftEvaluated
+                  ? " · deep TFT evaluated on the same folds"
+                  : " · deep TFT not installed in this environment, so it is not scored"}
+                . {benchmark.protocol}
               </div>
-              <Sparkline
-                data={sparks[i]}
-                tone={s.score > 0.7 ? "red" : s.score > 0.5 ? "amber" : "mint"}
-                height={28}
-              />
-              <div className="mt-1 text-[9px] text-[var(--color-muted-foreground)]">
-                {s.effectOnForecast}
-              </div>
-              {i < pipeline.length - 1 && (
-                <span className="absolute -right-[10px] top-1/2 -translate-y-1/2 text-[var(--color-cyan)] animate-blink">
-                  ▶
-                </span>
-              )}
             </div>
+          ) : (
+            <div className="p-3 text-[10px] leading-relaxed text-[var(--color-muted-foreground)]">
+              <div className="text-[var(--color-amber)] mb-1">
+                No benchmark artefacts in this deployment.
+              </div>
+              {benchmark?.reason ??
+                "Run `python run_award_demo.py --source portwatch --benchmark` to produce them."}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="ENSEMBLE POLICY" className="w-[300px]">
+          {weights?.fitted ? (
+            <div className="p-3 space-y-2">
+              <div className="space-y-1">
+                {Object.entries(weights.globalWeights).map(([member, value]) => (
+                  <div key={member}>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-[var(--color-muted-foreground)]">
+                        {member}
+                      </span>
+                      <span className="tabular-nums">{(value * 100).toFixed(0)}%</span>
+                    </div>
+                    <Bar value={value} tone="cyan" />
+                  </div>
+                ))}
+              </div>
+              <div className="text-[9px] leading-snug text-[var(--color-muted-foreground)]">
+                {weights.source}
+              </div>
+              <div className="pt-1 border-t border-[var(--color-line)]/50">
+                <div className="label-xs mb-1">WEIGHT BY HORIZON</div>
+                <div className="overflow-x-auto">
+                  <table className="text-[9px] w-full">
+                    <thead>
+                      <tr className="text-[var(--color-muted-foreground)]">
+                        <th className="text-left font-normal">H</th>
+                        {weights.members.map((member) => (
+                          <th key={member} className="text-right font-normal">
+                            {member.slice(0, 6)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(weights.byHorizon).map(([horizon, row]) => (
+                        <tr key={horizon}>
+                          <td className="tabular-nums">{horizon}</td>
+                          {weights.members.map((member) => (
+                            <td
+                              key={member}
+                              className="text-right tabular-nums"
+                              style={{
+                                color:
+                                  (row[member] ?? 0) >= 0.5
+                                    ? "var(--color-cyan)"
+                                    : undefined,
+                              }}
+                            >
+                              {((row[member] ?? 0) * 100).toFixed(0)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+              The ensemble is running on an explicit equal weighting because no
+              fitted policy artefact exists yet.
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      {/* Model comparison table. */}
+      <Panel
+        title="MODEL COMPARISON · IDENTICAL FOLDS, IDENTICAL SUPERVISED FRAME"
+        right={summary ? `${summary.folds} folds` : undefined}
+      >
+        {benchmark?.models?.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr className="label-xs text-left border-b border-[var(--color-line)]">
+                  <th className="py-1.5 px-2 font-normal">MODEL</th>
+                  <th className="py-1.5 px-2 font-normal text-right">MAE</th>
+                  <th className="py-1.5 px-2 font-normal text-right">RMSE</th>
+                  <th className="py-1.5 px-2 font-normal text-right">MAPE %</th>
+                  <th className="py-1.5 px-2 font-normal text-right">PINBALL Q10</th>
+                  <th className="py-1.5 px-2 font-normal text-right">PINBALL Q50</th>
+                  <th className="py-1.5 px-2 font-normal text-right">PINBALL Q90</th>
+                  <th className="py-1.5 px-2 font-normal text-right">80% COVERAGE</th>
+                  <th className="py-1.5 px-2 font-normal text-right">BAND WIDTH</th>
+                  <th className="py-1.5 px-2 font-normal text-right">CALIB ERR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {benchmark.models.map((row) => {
+                  const isLeader = row.model === summary?.bestModel;
+                  return (
+                    <tr
+                      key={row.model}
+                      className={`border-b border-[var(--color-line)]/30 ${
+                        isLeader ? "bg-[var(--color-mint)]/5" : ""
+                      }`}
+                    >
+                      <td className="py-1.5 px-2">
+                        <span
+                          className={
+                            isLeader ? "text-[var(--color-mint)]" : undefined
+                          }
+                        >
+                          {row.model}
+                        </span>
+                        {isLeader && (
+                          <Chip tone="mint">
+                            <span className="ml-1">LEADER</span>
+                          </Chip>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        {row.mae.toFixed(3)}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        {row.rmse.toFixed(3)}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        {row.mape_pct.toFixed(2)}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        <Value value={row.pinball_q10} digits={3} />
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        <Value value={row.pinball_q50} digits={3} />
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        <Value value={row.pinball_q90} digits={3} />
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        <CoverageCell value={row.coverage_80pct} />
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        <Value value={row.interval_width} digits={2} />
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums">
+                        <Value value={row.calibration_error} digits={3} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+            No model comparison artefact available.
+          </div>
+        )}
+      </Panel>
+
+      <div className="grid grid-cols-[1.35fr_1fr] gap-2">
+        <Panel
+          title="ACCURACY DRILLDOWN"
+          right={
+            <span className="flex gap-1">
+              {(["horizon", "port", "regime"] as const).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setDrilldown(option)}
+                  className={`px-1.5 py-[1px] border text-[9px] tracking-widest uppercase ${
+                    drilldown === option
+                      ? "border-[var(--color-cyan)] text-[var(--color-cyan)]"
+                      : "border-[var(--color-line-strong)] text-[var(--color-muted-foreground)]"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </span>
+          }
+        >
+          {drilldownRows.length ? (
+            <DrilldownTable rows={drilldownRows} groupKey={drilldownKey} />
+          ) : (
+            <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+              No {drilldown} breakdown artefact available.
+            </div>
+          )}
+        </Panel>
+
+        <div className="grid grid-rows-2 gap-2 min-h-0">
+          <Panel title="INTERVAL CALIBRATION · NOMINAL VS EMPIRICAL">
+            {benchmark?.calibration ? (
+              <CalibrationTable calibration={benchmark.calibration} />
+            ) : (
+              <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                No calibration artefact available.
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="SOURCE PROVENANCE">
+            {provenance?.sources && Object.keys(provenance.sources).length ? (
+              <div className="p-2 space-y-1.5">
+                {Object.values(provenance.sources).map((source) => (
+                  <div
+                    key={source.source}
+                    className="border-b border-[var(--color-line)]/30 pb-1.5 last:border-0"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-[var(--color-foreground)] truncate">
+                        {source.source}
+                      </span>
+                      <ProvenanceChip
+                        status={source.status}
+                        ageHours={source.ageHours}
+                        detail={source.detail}
+                      />
+                    </div>
+                    <div className="text-[9px] text-[var(--color-muted-foreground)] leading-snug">
+                      {source.provider}
+                      {source.rows != null && ` · ${source.rows.toLocaleString()} rows`}
+                      {source.observed_at &&
+                        ` · observed ${formatUtc(source.observed_at)}`}
+                    </div>
+                    {source.fallback && (
+                      <div className="text-[9px] text-[var(--color-amber)]">
+                        fallback: {source.fallback}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-3 text-[10px] text-[var(--color-muted-foreground)]">
+                {provenance?.reason ?? "No provenance record for this run."}
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      {/* Pipeline nodes. */}
+      <Panel title="INTELLIGENCE PIPELINE · EXPERTS">
+        <div className="p-2 grid grid-cols-5 gap-1.5">
+          {experts.map((node) => (
+            <PipelineCard key={node.key} node={node} />
           ))}
         </div>
       </Panel>
 
-      <div className="min-h-0 grid grid-cols-[1.4fr_1fr] gap-2">
-        <Panel title="EXPERT CHAIN · INPUT → EFFECT">
-          <div className="p-2">
-            <div className="grid grid-cols-[70px_1fr_1fr_60px_50px_80px] gap-2 label-xs px-1 pb-1 border-b border-[var(--color-line)]">
-              <span>MODULE</span>
-              <span>INPUT SIGNAL</span>
-              <span>EFFECT ON FORECAST</span>
-              <span className="text-right">SCORE</span>
-              <span className="text-right">CONF</span>
-              <span className="text-right">TS</span>
-            </div>
-            {pipeline.map((step) => (
-              <div
-                key={step.key}
-                className="grid grid-cols-[70px_1fr_1fr_60px_50px_80px] gap-2 items-center px-1 py-1.5 border-b border-[var(--color-line)]/40 text-[10px]"
-              >
-                <Chip
-                  tone={
-                    step.key === "DEC"
-                      ? "cyan"
-                      : step.key === "HSMM"
-                        ? "amber"
-                        : step.key === "TFT"
-                          ? "cyan"
-                          : "muted"
-                  }
-                >
-                  {step.key}
-                </Chip>
-                <span className="text-[var(--color-foreground)]">
-                  {step.inputSignal}
-                </span>
-                <span className="text-[var(--color-muted-foreground)]">
-                  {step.effectOnForecast}
-                </span>
-                <span className="text-right tabular-nums">
-                  {step.score.toFixed(2)}
-                </span>
-                <span className="text-right tabular-nums text-[var(--color-cyan)]">
-                  {step.confidence.toFixed(2)}
-                </span>
-                <span className="text-right tabular-nums text-[var(--color-muted-foreground)]">
-                  {step.timestamp}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-
-        <div className="grid grid-rows-2 gap-2 min-h-0">
-          <Panel title="MoE GATING WEIGHTS">
-            <div className="p-3 space-y-1.5 text-[11px]">
-              {gatingWeights.map(({ key, value }) => (
-                <div
-                  key={key}
-                  className="grid grid-cols-[54px_1fr_40px] items-center gap-2"
-                >
-                  <span className="text-[var(--color-cyan)]">{key}</span>
-                  <Bar value={value} tone="cyan" />
-                  <span className="text-right tabular-nums">
-                    {(value * 100).toFixed(0)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Panel>
-          <Panel title="MODEL CARDS">
-            <div className="p-3 text-[10px] space-y-1.5">
-              <ModelCard
-                n="tft-fusion-v4.2"
-                p={["horizon=10d", "quantile=[.1,.5,.9]", "params=18.4M"]}
-              />
-              <ModelCard
-                n="hsmm-regime-v3.1"
-                p={["states=4", "dwell=Weibull", "fit=EM"]}
-              />
-              <ModelCard
-                n="sar-detector-v2"
-                p={["backbone=YOLO-v8", "mAP=0.81", "cloud-inv"]}
-              />
-              <ModelCard
-                n="nlp-tone-v1.3"
-                p={["encoder=xlm-r", "gdelt+reuters", "sent=[-1,+1]"]}
-              />
-            </div>
-          </Panel>
+      <Panel title="INTELLIGENCE PIPELINE · MODELS AND DECISION">
+        <div className="p-2 grid grid-cols-3 gap-1.5">
+          {models.map((node) => (
+            <PipelineCard key={node.key} node={node} wide />
+          ))}
         </div>
-      </div>
+      </Panel>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-4 gap-2">
-        <MiniModel
-          label="INFER LATENCY"
-          value="182"
-          unit="ms"
-          tone="mint"
-          data={[210, 200, 195, 190, 188, 185, 182]}
-        />
-        <MiniModel
-          label="THROUGHPUT"
-          value="1.2k"
-          unit="req/s"
-          tone="cyan"
-          data={[0.9, 1.0, 1.05, 1.1, 1.15, 1.18, 1.2]}
-        />
-        <MiniModel
-          label="DRIFT (PSI)"
-          value="0.09"
-          tone="amber"
-          data={[0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09]}
-        />
-        <MiniModel
-          label="ENSEMBLE CONF."
-          value="0.86"
-          tone="cyan"
-          data={[0.78, 0.8, 0.82, 0.83, 0.85, 0.86, 0.86]}
-        />
-      </div>
-    </div>
-  );
-}
-function ModelCard({ n, p }: { n: string; p: string[] }) {
-  return (
-    <div className="panel px-2 py-1.5">
-      <div className="flex justify-between">
-        <span className="text-[var(--color-cyan)]">{n}</span>
-        <Chip tone="mint">HEALTHY</Chip>
-      </div>
-      <div className="text-[9px] text-[var(--color-muted-foreground)] flex flex-wrap gap-2 mt-0.5">
-        {p.map((x) => (
-          <span key={x}>{x}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-function MiniModel({
+function HeadlineStat({
   label,
   value,
-  unit,
   tone,
-  data,
+  sub,
 }: {
   label: string;
   value: string;
-  unit?: string;
-  tone: "cyan" | "mint" | "amber" | "red";
-  data: number[];
+  tone: "cyan" | "mint" | "amber";
+  sub?: string;
 }) {
-  const toneCls: Record<string, string> = {
-    cyan: "text-[var(--color-cyan)]",
-    mint: "text-[var(--color-mint)]",
-    amber: "text-[var(--color-amber)]",
-    red: "text-[var(--color-red)]",
-  };
   return (
-    <div className="panel px-3 py-2">
-      <div className="flex justify-between items-baseline">
-        <span className="label-xs">{label}</span>
-        <span className={"text-[16px] tabular-nums " + toneCls[tone]}>
-          {value}
-          {unit && (
-            <span className="text-[10px] text-[var(--color-muted-foreground)] ml-1">
-              {unit}
-            </span>
-          )}
+    <div className="panel px-2.5 py-2">
+      <div className="label-xs">{label}</div>
+      <div
+        className="text-[16px] leading-tight tabular-nums truncate"
+        style={{ color: `var(--color-${tone})` }}
+        title={value}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div className="text-[9px] text-[var(--color-muted-foreground)]">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+function CoverageCell({ value }: { value: number | null | undefined }) {
+  if (value == null) return <Value value={null} />;
+  const error = Math.abs(value - 0.8);
+  const tone = error <= 0.03 ? "mint" : error <= 0.08 ? "amber" : "red";
+  return (
+    <span style={{ color: `var(--color-${tone})` }}>{value.toFixed(3)}</span>
+  );
+}
+
+function DrilldownTable({
+  rows,
+  groupKey,
+}: {
+  rows: BenchmarkRow[];
+  groupKey: string;
+}) {
+  const models = Array.from(new Set(rows.map((row) => row.model)));
+  const groups = Array.from(
+    new Set(rows.map((row) => String(row[groupKey as keyof BenchmarkRow] ?? ""))),
+  ).sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+  const lookup = new Map(
+    rows.map((row) => [
+      `${row.model}|${String(row[groupKey as keyof BenchmarkRow] ?? "")}`,
+      row,
+    ]),
+  );
+
+  return (
+    <div className="overflow-auto">
+      <table className="w-full text-[10px]">
+        <thead>
+          <tr className="label-xs text-left border-b border-[var(--color-line)]">
+            <th className="py-1.5 px-2 font-normal">
+              {groupKey === "horizon_day"
+                ? "HORIZON"
+                : groupKey === "port_id"
+                  ? "PORT"
+                  : "REGIME"}
+            </th>
+            {models.map((model) => (
+              <th key={model} className="py-1.5 px-2 font-normal text-right">
+                {model.replace(" quantile", "").replace(" (deep)", "")}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group) => {
+            const cells = models.map((model) => lookup.get(`${model}|${group}`));
+            const best = cells.reduce<number | null>(
+              (min, cell) =>
+                cell && (min == null || cell.mae < min) ? cell.mae : min,
+              null,
+            );
+            return (
+              <tr key={group} className="border-b border-[var(--color-line)]/30">
+                <td className="py-1 px-2 text-[var(--color-muted-foreground)]">
+                  {groupKey === "horizon_day" ? `+${group}d` : group}
+                </td>
+                {cells.map((cell, index) => (
+                  <td
+                    key={models[index]}
+                    className="py-1 px-2 text-right tabular-nums"
+                    style={{
+                      color:
+                        cell && best != null && cell.mae === best
+                          ? "var(--color-mint)"
+                          : undefined,
+                    }}
+                  >
+                    {cell ? cell.mae.toFixed(2) : "—"}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="px-2 py-1 text-[9px] text-[var(--color-muted-foreground)]">
+        Mean absolute error; the lowest value in each row is highlighted.
+      </div>
+    </div>
+  );
+}
+
+function CalibrationTable({
+  calibration,
+}: {
+  calibration: NonNullable<Benchmark["calibration"]>;
+}) {
+  const models = Object.keys(calibration.models);
+  return (
+    <div className="overflow-auto">
+      <table className="w-full text-[10px]">
+        <thead>
+          <tr className="label-xs text-left border-b border-[var(--color-line)]">
+            <th className="py-1.5 px-2 font-normal">MODEL</th>
+            {calibration.levels.map((level) => (
+              <th key={level} className="py-1.5 px-2 font-normal text-right">
+                {(level * 100).toFixed(0)}%
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {models.map((model) => (
+            <tr key={model} className="border-b border-[var(--color-line)]/30">
+              <td className="py-1 px-2 truncate max-w-[130px]" title={model}>
+                {model}
+              </td>
+              {calibration.models[model].map((entry) => {
+                const tone =
+                  entry.error <= 0.03
+                    ? "mint"
+                    : entry.error <= 0.08
+                      ? "amber"
+                      : "red";
+                return (
+                  <td
+                    key={entry.nominal}
+                    className="py-1 px-2 text-right tabular-nums"
+                    style={{ color: `var(--color-${tone})` }}
+                    title={`error ${entry.error.toFixed(3)} · mean width ${entry.meanWidth.toFixed(1)}`}
+                  >
+                    {entry.empirical.toFixed(3)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="px-2 py-1 text-[9px] text-[var(--color-muted-foreground)]">
+        Empirical coverage against the nominal level. A well-calibrated model
+        sits on the header value.
+      </div>
+    </div>
+  );
+}
+
+function PipelineCard({ node, wide }: { node: PipelineNode; wide?: boolean }) {
+  const tone =
+    node.score == null
+      ? "muted"
+      : node.score > 0.7
+        ? "red"
+        : node.score > 0.45
+          ? "amber"
+          : "mint";
+  return (
+    <div
+      className={`panel p-2 min-w-0 ${node.available ? "" : "opacity-60"}`}
+      title={node.artefact}
+    >
+      <div className="flex items-center justify-between gap-1">
+        <span className="label-xs truncate">{node.key}</span>
+        <ProvenanceChip status={node.dataStatus} />
+      </div>
+      <div className="mt-0.5 text-[10px] text-[var(--color-foreground)] truncate">
+        {node.name}
+      </div>
+      <div className="mt-1 flex items-baseline justify-between text-[10px]">
+        <span className="text-[var(--color-muted-foreground)]">signal</span>
+        <span
+          className="tabular-nums"
+          style={{ color: `var(--color-${tone === "muted" ? "muted-foreground" : tone})` }}
+        >
+          {node.score == null ? "n/a" : node.score.toFixed(3)}
         </span>
       </div>
-      <Sparkline data={data} tone={tone} height={22} />
+      <Bar value={node.score ?? 0} tone={tone === "muted" ? "muted" : tone} />
+      <div className="mt-1 flex items-baseline justify-between text-[9px]">
+        <span className="text-[var(--color-muted-foreground)]">confidence</span>
+        <span className="tabular-nums text-[var(--color-cyan)]">
+          {node.confidence == null ? "n/a" : node.confidence.toFixed(2)}
+        </span>
+      </div>
+      <div className="mt-1 text-[9px] leading-snug text-[var(--color-muted-foreground)]">
+        {node.inputSignal}
+      </div>
+      <div
+        className={`mt-1 text-[9px] leading-snug text-[var(--color-foreground)]/80 ${wide ? "" : "line-clamp-2"}`}
+      >
+        {node.effectOnForecast}
+      </div>
+      <div className="mt-1 pt-1 border-t border-[var(--color-line)]/40 text-[8px] text-[var(--color-muted-foreground)]">
+        {node.rows.toLocaleString()} rows
+        {node.observedAt && ` · ${formatUtc(node.observedAt)}`}
+        {node.modelCard && ` · ${node.modelCard}`}
+      </div>
     </div>
   );
 }

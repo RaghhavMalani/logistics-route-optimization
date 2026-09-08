@@ -5,22 +5,12 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from "react";
 import blackMarbleWorldUrl from "@/assets/nasa-black-marble-world.jpg";
-import type { PortOperationalSnapshot } from "@/services/portService";
+import { TONE_HEX, formatAge, riskLabel, riskTone } from "@/components/terminal/ui";
 import type {
-  Chokepoint,
-  ChokepointRoute,
-  SARSignal,
-  VesselProxy,
+  PortSnapshot,
+  VesselActivity,
   WeatherSignal,
 } from "@/types/portwatch";
-
-interface MapAlert {
-  id: string;
-  portCode: string;
-  severity: string;
-  text: string;
-  ts: string;
-}
 
 interface ViewTransform {
   x: number;
@@ -35,7 +25,16 @@ interface DragState {
   startY: number;
   originX: number;
   originY: number;
+  moved: boolean;
 }
+
+/** Chokepoints drawn on the national radar, with their exposed Indian coast. */
+const CHOKEPOINTS = [
+  { code: "HORMUZ", name: "Strait of Hormuz", lat: 26.6, lon: 56.3 },
+  { code: "BAB_EL_MANDEB", name: "Bab-el-Mandeb", lat: 12.6, lon: 43.3 },
+  { code: "SUEZ", name: "Suez Canal", lat: 30.0, lon: 32.55 },
+  { code: "MALACCA", name: "Strait of Malacca", lat: 2.5, lon: 101.0 },
+] as const;
 
 const INDIA_CENTER: [number, number] = [78.9, 20.6];
 const INITIAL_SCALE = 1.68;
@@ -54,13 +53,10 @@ function lonLatToMercatorPoint(
 ) {
   const constrainedLat = clamp(latitude, -MERCATOR_LAT_LIMIT, MERCATOR_LAT_LIMIT);
   const latRad = (constrainedLat * Math.PI) / 180;
-
   return {
     x: ((longitude + 180) / 360) * size,
     y:
-      ((1 -
-        Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) /
-        2) *
+      ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) *
       size,
   };
 }
@@ -76,22 +72,16 @@ function keepImageInReach(
 ): ViewTransform {
   const visibleMargin = 96;
   const imageSize = transform.baseSize * transform.scale;
-  const minX = visibleMargin - imageSize;
-  const maxX = width - visibleMargin;
-  const minY = visibleMargin - imageSize;
-  const maxY = height - visibleMargin;
-
   return {
     ...transform,
-    x: clamp(transform.x, minX, maxX),
-    y: clamp(transform.y, minY, maxY),
+    x: clamp(transform.x, visibleMargin - imageSize, width - visibleMargin),
+    y: clamp(transform.y, visibleMargin - imageSize, height - visibleMargin),
   };
 }
 
 function getIndiaView(width: number, height: number): ViewTransform {
   const baseSize = getBaseSize(width, height);
   const indiaPoint = lonLatToMercatorPoint(INDIA_CENTER, baseSize);
-
   return keepImageInReach(
     {
       baseSize,
@@ -104,27 +94,30 @@ function getIndiaView(width: number, height: number): ViewTransform {
   );
 }
 
-export function MaritimeMap(props: {
-  ports: PortOperationalSnapshot[];
-  vessels: VesselProxy[];
-  chokepoints: Chokepoint[];
-  routes: ChokepointRoute[];
-  alerts: readonly MapAlert[];
-  weatherSignals: WeatherSignal[];
-  sarSignals: SARSignal[];
+export function MaritimeMap({
+  ports,
+  vessels,
+  weather,
+  selectedPort,
+  highlightedPorts,
+  onPortSelect,
+}: {
+  ports: PortSnapshot[];
+  vessels: VesselActivity[];
+  weather: WeatherSignal[];
+  selectedPort?: string | null;
+  highlightedPorts?: string[];
   onPortSelect: (portCode: string) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const hasInteractedRef = useRef(false);
   const [view, setView] = useState<ViewTransform>(EMPTY_VIEW);
+  const [hovered, setHovered] = useState<string | null>(null);
 
   const getViewportSize = useCallback(() => {
     const rect = viewportRef.current?.getBoundingClientRect();
-    return {
-      width: rect?.width ?? 0,
-      height: rect?.height ?? 0,
-    };
+    return { width: rect?.width ?? 0, height: rect?.height ?? 0 };
   }, []);
 
   useEffect(() => {
@@ -134,12 +127,10 @@ export function MaritimeMap(props: {
     const updateSize = () => {
       const { width, height } = getViewportSize();
       if (!width || !height) return;
-
       setView((current) => {
         if (!hasInteractedRef.current || current.baseSize <= 1) {
           return getIndiaView(width, height);
         }
-
         const nextBaseSize = getBaseSize(width, height);
         const ratio = nextBaseSize / current.baseSize;
         return keepImageInReach(
@@ -158,13 +149,11 @@ export function MaritimeMap(props: {
     updateSize();
     const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(viewport);
-
     return () => resizeObserver.disconnect();
   }, [getViewportSize]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
-
     hasInteractedRef.current = true;
     dragRef.current = {
       pointerId: event.pointerId,
@@ -172,6 +161,7 @@ export function MaritimeMap(props: {
       startY: event.clientY,
       originX: view.x,
       originY: view.y,
+      moved: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -179,7 +169,7 @@ export function MaritimeMap(props: {
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-
+    drag.moved = true;
     const { width, height } = getViewportSize();
     setView((current) =>
       keepImageInReach(
@@ -195,10 +185,7 @@ export function MaritimeMap(props: {
   };
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) {
-      dragRef.current = null;
-    }
-
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -207,20 +194,16 @@ export function MaritimeMap(props: {
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     hasInteractedRef.current = true;
-
     const viewport = viewportRef.current;
     if (!viewport) return;
-
     const rect = viewport.getBoundingClientRect();
     const cursorX = event.clientX - rect.left;
     const cursorY = event.clientY - rect.top;
     const zoomFactor = Math.exp(-event.deltaY * 0.0012);
-
     setView((current) => {
       const nextScale = clamp(current.scale * zoomFactor, MIN_SCALE, MAX_SCALE);
       const worldX = (cursorX - current.x) / current.scale;
       const worldY = (cursorY - current.y) / current.scale;
-
       return keepImageInReach(
         {
           ...current,
@@ -234,12 +217,15 @@ export function MaritimeMap(props: {
     });
   };
 
-  const zoomAroundPoint = (factor: number, cx: number, cy: number) => {
+  const zoomAroundCentre = (factor: number) => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
     setView((current) => {
       const nextScale = clamp(current.scale * factor, MIN_SCALE, MAX_SCALE);
       const worldX = (cx - current.x) / current.scale;
       const worldY = (cy - current.y) / current.scale;
-
       return keepImageInReach(
         {
           ...current,
@@ -247,22 +233,10 @@ export function MaritimeMap(props: {
           x: cx - worldX * nextScale,
           y: cy - worldY * nextScale,
         },
-        viewportRef.current?.getBoundingClientRect().width ?? 0,
-        viewportRef.current?.getBoundingClientRect().height ?? 0,
+        rect.width,
+        rect.height,
       );
     });
-  };
-
-  const zoomIn = () => {
-    const rect = viewportRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    zoomAroundPoint(1.2, rect.width / 2, rect.height / 2);
-  };
-
-  const zoomOut = () => {
-    const rect = viewportRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    zoomAroundPoint(1 / 1.2, rect.width / 2, rect.height / 2);
   };
 
   const resetToIndia = () => {
@@ -270,6 +244,11 @@ export function MaritimeMap(props: {
     if (!width || !height) return;
     hasInteractedRef.current = false;
     setView(getIndiaView(width, height));
+  };
+
+  const project = (lon: number, lat: number) => {
+    const point = lonLatToMercatorPoint([lon, lat], view.baseSize);
+    return { left: view.x + point.x * view.scale, top: view.y + point.y * view.scale };
   };
 
   const imageStyle: CSSProperties = {
@@ -283,10 +262,15 @@ export function MaritimeMap(props: {
     filter: "brightness(1.42) contrast(1.28) saturate(1.08)",
   };
 
+  const weatherByPort = new Map(weather.map((w) => [w.portCode, w]));
+  const vesselByPort = new Map(vessels.map((v) => [v.portCode, v]));
+  const highlighted = new Set(highlightedPorts ?? []);
+  const hoveredPort = ports.find((port) => port.code === hovered) ?? null;
+
   return (
     <div
       ref={viewportRef}
-      aria-label="NASA Black Marble world image map"
+      aria-label="National maritime radar"
       className="absolute inset-0 overflow-hidden bg-black"
       role="application"
       onDoubleClick={resetToIndia}
@@ -306,95 +290,194 @@ export function MaritimeMap(props: {
         style={imageStyle}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,transparent_55%,oklch(0_0_0/0.28)_100%)]" />
-      {/* Port markers (positioned in world coordinates so they follow pans/zoom) */}
-      {/* Only show the main Indian ports the project focuses on */}
-      {(() => {
-        const target = [
-          "Mumbai",
-          "JNPT",
-          "Kandla",
-          "Mormugao",
-          "New Mangalore",
-          "Kochi",
-          "Tuticorin",
-          "Chennai",
-          "Ennore",
-          "Visakhapatnam",
-          "Paradip",
-          "Kolkata",
-          "Haldia",
-          "Port Blair",
-          "Dhamra",
-          "Krishnapatnam",
-          "Hazira",
-          "Mundra",
-        ].map((s) => s.toLowerCase().replace(/[_\s]+/g, " "));
 
-        function norm(s: string) {
-          return s.toLowerCase().replace(/[_\s]+/g, " ");
-        }
-
-        return props.ports
-          .filter((port) => {
-            const n = norm(port.name);
-            const short = norm(port.short ?? "");
-            return (
-              target.some((t) => n.includes(t) || short.includes(t) || port.code.toLowerCase().includes(t.replace(/ /g, "")))
-            );
-          })
-          .map((port) => {
-        const pt = lonLatToMercatorPoint([port.location.lon, port.location.lat], view.baseSize);
-        const left = view.x + pt.x * view.scale;
-        const top = view.y + pt.y * view.scale;
-        const markerStyle: CSSProperties = {
-          position: "absolute",
-          left: 0,
-          top: 0,
-          transform: `translate3d(${left}px, ${top}px, 0)`,
-          transformOrigin: "0 0",
-          pointerEvents: "auto",
-        };
-
-        return (
-          <div key={port.code} style={markerStyle} className="group pointer-events-auto">
-            <button
-              title={port.name}
-              onClick={() => props.onPortSelect(port.code)}
-              className="rounded-full bg-[var(--color-red)] border border-white/10 shadow-sm twinkle"
-              style={{ width: 6, height: 6 }}
+      {/* Sea lanes from the exposed coast to each chokepoint. */}
+      <svg className="pointer-events-none absolute inset-0 h-full w-full">
+        {CHOKEPOINTS.map((choke) => {
+          const target = project(choke.lon, choke.lat);
+          const anchorPort =
+            ports.find((p) =>
+              choke.code === "MALACCA" ? p.coast === "east" : p.coast === "west",
+            ) ?? ports[0];
+          if (!anchorPort?.location) return null;
+          const origin = project(anchorPort.location.lon, anchorPort.location.lat);
+          const midX = (origin.left + target.left) / 2;
+          const midY = (origin.top + target.top) / 2 - 40;
+          return (
+            <path
+              key={choke.code}
+              d={`M ${origin.left} ${origin.top} Q ${midX} ${midY} ${target.left} ${target.top}`}
+              fill="none"
+              stroke="var(--color-cyan)"
+              strokeOpacity={0.22}
+              strokeWidth={1}
+              strokeDasharray="4 5"
             />
-            <span className="marker-tooltip absolute left-3 -top-1 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100">
-              {port.name}
+          );
+        })}
+      </svg>
+
+      {/* Chokepoint nodes. */}
+      {CHOKEPOINTS.map((choke) => {
+        const { left, top } = project(choke.lon, choke.lat);
+        return (
+          <div
+            key={choke.code}
+            className="pointer-events-none absolute"
+            style={{ transform: `translate3d(${left - 4}px, ${top - 4}px, 0)` }}
+          >
+            <div className="h-2 w-2 rotate-45 border border-[var(--color-cyan)]/70 bg-[var(--color-cyan)]/20" />
+            <span className="absolute left-3 -top-1 whitespace-nowrap text-[8px] tracking-[0.14em] text-[var(--color-cyan)]/70">
+              {choke.name.toUpperCase()}
             </span>
           </div>
         );
-      });
-    })()
-      }
+      })}
 
-      {/* Zoom controls */}
-      <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
-        <button
-          aria-label="Zoom in"
-          onClick={zoomIn}
-          className="w-8 h-8 rounded bg-[oklch(0.12_0.02_240)]/80 flex items-center justify-center text-[var(--color-foreground)] border border-[var(--color-line)]"
+      {/* Port markers, coloured and sized by the model's own risk assessment. */}
+      {ports.map((port) => {
+        if (!port.location) return null;
+        const { left, top } = project(port.location.lon, port.location.lat);
+        const tone = riskTone(port.risk);
+        const isSelected = selectedPort === port.code;
+        const isHighlighted = highlighted.has(port.code);
+        const size = port.risk === "severe" ? 9 : port.risk === "congested" ? 7 : 5;
+        return (
+          <div
+            key={port.code}
+            className="group absolute pointer-events-auto"
+            style={{ transform: `translate3d(${left}px, ${top}px, 0)` }}
+            onMouseEnter={() => setHovered(port.code)}
+            onMouseLeave={() => setHovered((c) => (c === port.code ? null : c))}
+          >
+            {(isSelected || isHighlighted || port.risk === "severe") && (
+              <span
+                className="absolute rounded-full"
+                style={{
+                  left: -(size + 6) / 2 + size / 2,
+                  top: -(size + 6) / 2 + size / 2,
+                  width: size + 6,
+                  height: size + 6,
+                  border: `1px solid ${TONE_HEX[tone]}`,
+                  opacity: 0.55,
+                }}
+              />
+            )}
+            <button
+              type="button"
+              aria-label={`${port.name} — ${riskLabel(port.risk)}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPortSelect(port.code);
+              }}
+              className="rounded-full border border-black/30 shadow-sm"
+              style={{
+                width: size,
+                height: size,
+                background: TONE_HEX[tone],
+                transform: `translate(${-size / 2}px, ${-size / 2}px)`,
+              }}
+            />
+            <span className="absolute left-2.5 -top-2 whitespace-nowrap text-[8px] tracking-[0.12em] text-white/70 opacity-0 transition-opacity group-hover:opacity-100">
+              {port.short}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Compact operational tooltip for the hovered port. */}
+      {hoveredPort?.location && (
+        <div
+          className="pointer-events-none absolute z-30 w-[212px] border border-[var(--color-line-strong)] bg-[oklch(0.09_0.02_240_/_0.96)] p-2 shadow-xl"
+          style={(() => {
+            const { left, top } = project(
+              hoveredPort.location.lon,
+              hoveredPort.location.lat,
+            );
+            return { left: Math.min(left + 14, (getViewportSize().width || 800) - 226), top: Math.max(top - 60, 8) };
+          })()}
         >
-          +
-        </button>
-        <button
-          aria-label="Zoom out"
-          onClick={zoomOut}
-          className="w-8 h-8 rounded bg-[oklch(0.12_0.02_240)]/80 flex items-center justify-center text-[var(--color-foreground)] border border-[var(--color-line)]"
-        >
-          −
-        </button>
-        <button
-          aria-label="Reset to India"
-          onClick={resetToIndia}
-          className="w-8 h-8 rounded bg-[oklch(0.12_0.02_240)]/80 flex items-center justify-center text-[var(--color-foreground)] border border-[var(--color-line)]"
-        >
-          ⤢
-        </button>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-semibold text-[var(--color-foreground)] truncate">
+              {hoveredPort.name}
+            </span>
+            <span
+              className="text-[9px] tracking-widest"
+              style={{ color: TONE_HEX[riskTone(hoveredPort.risk)] }}
+            >
+              {riskLabel(hoveredPort.risk)}
+            </span>
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-[2px] text-[9px]">
+            <span className="text-[var(--color-muted-foreground)]">Observed</span>
+            <span className="text-right tabular-nums">
+              {hoveredPort.observedCongestionIndex?.toFixed(1) ?? "n/a"}
+            </span>
+            <span className="text-[var(--color-muted-foreground)]">Day 1 fc</span>
+            <span className="text-right tabular-nums">
+              {hoveredPort.congestionIndex.toFixed(1)}
+            </span>
+            <span className="text-[var(--color-muted-foreground)]">Wait</span>
+            <span className="text-right tabular-nums">
+              {hoveredPort.delayHours.toFixed(1)}h
+            </span>
+            <span className="text-[var(--color-muted-foreground)]">Calls/day</span>
+            <span className="text-right tabular-nums">
+              {vesselByPort.get(hoveredPort.code)?.dailyPortCalls?.toFixed(1) ??
+                hoveredPort.vesselCalls?.toFixed(1) ??
+                "n/a"}
+            </span>
+            <span className="text-[var(--color-muted-foreground)]">Wx impact</span>
+            <span className="text-right tabular-nums">
+              {weatherByPort.get(hoveredPort.code)?.impactScore?.toFixed(2) ?? "n/a"}
+            </span>
+            <span className="text-[var(--color-muted-foreground)]">Regime</span>
+            <span className="text-right">{hoveredPort.regime}</span>
+            <span className="text-[var(--color-muted-foreground)]">Data</span>
+            <span className="text-right">
+              {hoveredPort.dataStatus}
+              {hoveredPort.dataAgeHours != null &&
+                ` · ${formatAge(hoveredPort.dataAgeHours)}`}
+            </span>
+          </div>
+          <div className="mt-1 border-t border-[var(--color-line)]/60 pt-1 text-[8px] text-[var(--color-cyan)]">
+            Click to open the port cockpit
+          </div>
+        </div>
+      )}
+
+      <div className="absolute right-3 top-3 z-20 flex flex-col gap-1.5">
+        {[
+          { label: "+", action: () => zoomAroundCentre(1.2), title: "Zoom in" },
+          { label: "−", action: () => zoomAroundCentre(1 / 1.2), title: "Zoom out" },
+          { label: "⤢", action: resetToIndia, title: "Reset to India" },
+        ].map((control) => (
+          <button
+            key={control.title}
+            aria-label={control.title}
+            title={control.title}
+            onClick={control.action}
+            className="h-7 w-7 rounded-sm border border-[var(--color-line)] bg-[oklch(0.12_0.02_240)]/85 text-[var(--color-foreground)]"
+          >
+            {control.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-3 border border-[var(--color-line)] bg-[oklch(0.09_0.02_240_/_0.9)] px-2 py-1 text-[8px] tracking-[0.14em]">
+        {(["severe", "congested", "normal"] as const).map((risk) => (
+          <span key={risk} className="flex items-center gap-1">
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: TONE_HEX[riskTone(risk)] }}
+            />
+            {riskLabel(risk)}
+          </span>
+        ))}
+        <span className="flex items-center gap-1 text-[var(--color-cyan)]">
+          <span className="h-1.5 w-1.5 rotate-45 border border-[var(--color-cyan)]" />
+          CHOKEPOINT
+        </span>
       </div>
     </div>
   );
