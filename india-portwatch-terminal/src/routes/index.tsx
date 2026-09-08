@@ -249,7 +249,7 @@ function RadarPage() {
 
           {/* The five-second answer. */}
           {lead && (
-            <div className="absolute left-3 bottom-3 w-[420px] border border-[var(--color-line-strong)] bg-[oklch(0.09_0.02_240_/_0.94)] shadow-xl">
+            <div className="absolute left-3 bottom-3 w-[440px] max-w-[calc(100%-24px)] border border-[var(--color-line-strong)] bg-[oklch(0.09_0.02_240_/_0.94)] shadow-xl">
               <div className="px-3 py-1.5 border-b border-[var(--color-line)] flex items-center justify-between">
                 <span className="label-xs">WHO NEEDS INTERVENTION</span>
                 <ProvenanceChip
@@ -497,12 +497,14 @@ function RadarPage() {
           sub={vessels.basis}
         />
         <BottomStat
-          n={weather.filter((w) => (w.impactScore ?? 0) >= 0.35).length}
-          label="PORTS UNDER WEATHER LOAD"
+          n={Number(
+            Math.max(0, ...weather.map((w) => w.impactScore ?? 0)).toFixed(2),
+          )}
+          label="PEAK WEATHER IMPACT"
           tone="purple"
           sub={
             weather.length
-              ? `${weather.length} ports with measured marine weather`
+              ? `${weather.filter((w) => (w.impactScore ?? 0) >= 0.35).length} of ${weather.length} ports above the 0.35 watch level`
               : "No marine weather in this run"
           }
         />

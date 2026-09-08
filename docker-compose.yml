@@ -1,22 +1,90 @@
-# Infrastructure for the production-style path of the forecasting system:
-#   * PostgreSQL  -> the Data Storage Layer
-#   * Zookeeper + Kafka -> the real-time streaming bus
+# India PortWatch -- a complete local system.
 #
-# Quick start:
-#   docker compose up -d
-#   $env:DATABASE_URL = "postgresql+psycopg2://logistics:logistics@localhost:5432/logistics"   # PowerShell
-#   $env:KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-#   python run_demo.py --store --stream
+#   docker compose up --build
 #
-# Without Docker, the code falls back automatically to SQLite + an in-memory bus,
-# so everything still runs.
-
-version: "3.8"
+# starts three services that together give you a working digital twin:
+#
+#   pipeline   runs the intelligence pipeline once, then exits. The API and the
+#              terminal read the artefacts it writes.
+#   api        FastAPI over those artefacts, on http://localhost:8000
+#   terminal   the operator UI, on http://localhost:3000
+#
+# Add the refresher profile to keep the twin current:
+#
+#   docker compose --profile live up -d refresher
+#
+# The optional storage/streaming profile (PostgreSQL + Kafka) backs the
+# production path of the research pipeline; the system runs without it, falling
+# back to SQLite and an in-memory bus.
+#
+#   docker compose --profile infra up -d
 
 services:
+  pipeline:
+    build: .
+    image: india-portwatch/pipeline
+    container_name: portwatch_pipeline
+    command: >
+      python run_award_demo.py
+      --source ${PORTWATCH_SOURCE:-portwatch}
+      --model ${PORTWATCH_MODEL:-ensemble}
+      --benchmark
+    environment:
+      PORTWATCH_CHOKEPOINTS_URL: ${PORTWATCH_CHOKEPOINTS_URL:-}
+    volumes:
+      - artefacts:/app/outputs
+      - cache:/app/data/cache
+
+  api:
+    build: .
+    image: india-portwatch/pipeline
+    container_name: portwatch_api
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      # Set to the exact deployed frontend origin in production.
+      PORTWATCH_CORS_REGEX: ${PORTWATCH_CORS_REGEX:-https?://(localhost|127\.0\.0\.1)(:\d+)?}
+    ports:
+      - "8000:8000"
+    volumes:
+      - artefacts:/app/outputs
+      - cache:/app/data/cache
+    depends_on:
+      pipeline:
+        condition: service_completed_successfully
+
+  terminal:
+    build:
+      context: ./india-portwatch-terminal
+      args:
+        VITE_PORTWATCH_API_BASE: ${VITE_PORTWATCH_API_BASE:-http://localhost:8000/api}
+    image: india-portwatch/terminal
+    container_name: portwatch_terminal
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  # Keeps the artefacts current on a fixed cadence.
+  refresher:
+    build: .
+    image: india-portwatch/pipeline
+    container_name: portwatch_refresher
+    profiles: ["live"]
+    command: >
+      python scripts/live_refresh.py
+      --interval-minutes ${PORTWATCH_REFRESH_MINUTES:-30}
+      --source ${PORTWATCH_SOURCE:-portwatch}
+      --model ${PORTWATCH_MODEL:-ensemble}
+    volumes:
+      - artefacts:/app/outputs
+      - cache:/app/data/cache
+    depends_on:
+      - api
+
   postgres:
     image: postgres:16
-    container_name: logistics_postgres
+    container_name: portwatch_postgres
+    profiles: ["infra"]
     environment:
       POSTGRES_USER: logistics
       POSTGRES_PASSWORD: logistics
@@ -33,14 +101,16 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
-    container_name: logistics_zookeeper
+    container_name: portwatch_zookeeper
+    profiles: ["infra"]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
-    container_name: logistics_kafka
+    container_name: portwatch_kafka
+    profiles: ["infra"]
     depends_on:
       - zookeeper
     ports:
@@ -54,4 +124,6 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
 volumes:
+  artefacts:
+  cache:
   pgdata:

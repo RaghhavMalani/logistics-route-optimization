@@ -11,7 +11,7 @@ const RAIL = [
   { key: "Port Cockpit", to: "/port", icon: "port" },
   { key: "Decision Room", to: "/sim", icon: "sim" },
   { key: "Fleet Board", to: "/fleet", icon: "fleet" },
-  { key: "Model Intelligence", to: "/model", icon: "model" },
+  { key: "Model Intel", to: "/model", icon: "model" },
   { key: "Weather Intel", to: "/wx", icon: "wx" },
   { key: "Vessel Activity", to: "/sar", icon: "sar" },
   { key: "Events / NLP", to: "/nlp", icon: "nlp" },

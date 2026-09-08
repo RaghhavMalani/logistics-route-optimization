@@ -108,22 +108,40 @@ def _live_weather(observed: pd.DataFrame, storm_source: pd.DataFrame | None,
     return storm_source, False
 
 
-def _fuse_specialists(panel: pd.DataFrame, *extras: pd.DataFrame) -> pd.DataFrame:
-    """Merge specialist outputs into the panel and fuse them into ops signals.
+def _merge_features(panel: pd.DataFrame, *extras: pd.DataFrame) -> pd.DataFrame:
+    """Left-join specialist outputs onto the panel, once, without duplicates.
 
-    Specialist columns stay visible for explainability *and* are folded into the
-    queue/utilization signals so the established model schema benefits without a
-    schema break. The pre-fusion values are kept as ``*_raw`` so the fusion is
-    auditable rather than hidden.
+    Merging the same frame twice would silently produce ``capacity_pressure_x``
+    and ``capacity_pressure_y`` and leave the real column name absent -- which
+    is exactly how specialist signals stop reaching the model while still
+    appearing on a dashboard. Columns already present are skipped so the join
+    can never suffix.
     """
     out = panel.copy()
+    out[DATE] = pd.to_datetime(out[DATE], errors="coerce")
+
     for extra in extras:
-        if extra is not None and not extra.empty:
-            cols = [c for c in extra.columns if c not in (PORT_ID, DATE)]
-            frame = extra[[PORT_ID, DATE] + cols].drop_duplicates([PORT_ID, DATE]).copy()
-            frame[DATE] = pd.to_datetime(frame[DATE], errors="coerce")
-            out[DATE] = pd.to_datetime(out[DATE], errors="coerce")
-            out = out.merge(frame, on=[PORT_ID, DATE], how="left")
+        if extra is None or extra.empty:
+            continue
+        new_cols = [c for c in extra.columns
+                    if c not in (PORT_ID, DATE) and c not in out.columns]
+        if not new_cols:
+            continue
+        frame = extra[[PORT_ID, DATE] + new_cols].drop_duplicates([PORT_ID, DATE]).copy()
+        frame[DATE] = pd.to_datetime(frame[DATE], errors="coerce")
+        out = out.merge(frame, on=[PORT_ID, DATE], how="left")
+    return out
+
+
+def _fuse_operational_signals(panel: pd.DataFrame) -> pd.DataFrame:
+    """Fold the specialist signals into the queue/utilization inputs.
+
+    The specialist columns stay visible for explainability *and* are blended
+    into the two operational signals the established model schema is built
+    around, so the agents change the forecast rather than only the dashboard.
+    The pre-fusion values are retained as ``*_raw`` so the fusion is auditable.
+    """
+    out = panel.copy()
 
     def unit(column: str, default: float) -> pd.Series:
         if column not in out.columns:
@@ -333,14 +351,28 @@ def main() -> dict:
 
     # -------------------------------------------------------- DIGITAL-TWIN STATE
     section(log, "3 / DIGITAL-TWIN STATE  ·  fused panel + regimes")
-    panel = assemble_panel(observed, weather_now, news, ops, demand, macro=macro)
-    panel = _fuse_specialists(panel, anomaly, capacity, arrivals, disruption,
-                              weather_persistence)
+    panel = assemble_panel(
+        observed, weather_now, news, ops, demand, macro=macro,
+        extras=[anomaly, capacity, arrivals, disruption, weather_persistence])
 
+    # Data quality is assessed on the merged inputs, then joined back before the
+    # operational fusion so the forecaster sees every specialist column exactly
+    # once, under its own name.
     quality = data_quality_expert.run(panel)
     _write(quality, EXPERT_FEATURES_DIR / "data_quality_features.csv")
-    panel = _fuse_specialists(panel, quality)
+    panel = _fuse_operational_signals(_merge_features(panel, quality))
     _write(panel, EXPERT_FEATURES_DIR / "merged_panel.csv")
+
+    missing = [column for column in
+               ("capacity_pressure", "anomaly_score", "berth_pressure",
+                "arrival_clustering", "disruption_pressure", "weather_persistence",
+                "data_quality_score")
+               if column not in panel.columns]
+    if missing:
+        raise RuntimeError(
+            "Specialist signals missing from the merged panel: "
+            + ", ".join(missing)
+            + ". The forecaster would silently run without them.")
 
     degraded = data_quality_expert.degraded_ports(quality)
     if degraded:

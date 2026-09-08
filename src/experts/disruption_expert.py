@@ -43,16 +43,25 @@ _OUT_COLS = [PORT_ID, DATE, "disruption_exposure", "disruption_pressure",
              "disruption_lead_chokepoint", "disruption_confidence"]
 
 
+#: Distinctive token per chokepoint. Matching on the first word of the display
+#: name would be wrong: the PortWatch feed carries "Strait of Hormuz",
+#: "Malacca Strait", "Bosporus Strait" and "Gibraltar Strait", so a "strait"
+#: prefix match folds four different waterways into one.
+_CHOKEPOINT_TOKENS = (
+    ("HORMUZ", "hormuz"),
+    ("BAB_EL_MANDEB", "bab el-mandeb"),
+    ("BAB_EL_MANDEB", "bab-el-mandeb"),
+    ("BAB_EL_MANDEB", "bab el mandeb"),
+    ("SUEZ", "suez"),
+    ("MALACCA", "malacca"),
+    ("PANAMA", "panama"),
+    ("GOOD_HOPE", "good hope"),
+)
+
+
 def _match_chokepoint(name: str) -> str | None:
     key = (name or "").lower()
-    for cid, meta in CHOKEPOINTS.items():
-        label = meta["name"].lower()
-        head = label.split()[0]
-        if head and head in key:
-            return cid
-    for cid, token in (("HORMUZ", "hormuz"), ("BAB_EL_MANDEB", "bab"),
-                       ("SUEZ", "suez"), ("MALACCA", "malacca"),
-                       ("PANAMA", "panama"), ("GOOD_HOPE", "good hope")):
+    for cid, token in _CHOKEPOINT_TOKENS:
         if token in key:
             return cid
     return None

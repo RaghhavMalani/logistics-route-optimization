@@ -464,7 +464,7 @@ export function MaritimeMap({
         ))}
       </div>
 
-      <div className="absolute bottom-3 left-3 z-20 flex items-center gap-3 border border-[var(--color-line)] bg-[oklch(0.09_0.02_240_/_0.9)] px-2 py-1 text-[8px] tracking-[0.14em]">
+      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-3 border border-[var(--color-line)] bg-[oklch(0.09_0.02_240_/_0.9)] px-2 py-1 text-[8px] tracking-[0.14em]">
         {(["severe", "congested", "normal"] as const).map((risk) => (
           <span key={risk} className="flex items-center gap-1">
             <span

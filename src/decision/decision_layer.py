@@ -56,6 +56,17 @@ MAX_SLOW_STEAM_HOURS = 36.0
 MAX_SLOW_STEAM_KNOTS = 3.5
 MIN_SLOW_STEAM_KNOTS = 0.8
 
+#: Re-timing a call is an operational instruction, not a schedule rewrite. A
+#: shift beyond three days is a commercial decision, so the engine publishes an
+#: ETA buffer instead of pretending a berth window can move by nine days.
+MAX_HOLD_HOURS = 72.0
+
+#: Diverting a call between major ports is expensive and disruptive. It is only
+#: advised when the modelled waiting saving clearly exceeds the extra steaming
+#: it costs, with margin.
+MIN_DIVERT_SAVING_HOURS = 12.0
+DIVERT_MARGIN = 1.5
+
 #: Data quality below this means the recommendation is advisory only.
 QUALITY_FLOOR = 0.55
 
@@ -109,7 +120,8 @@ ACTIONS: Dict[str, Action] = {
     "DIVERT_PORT": Action(
         "DIVERT_PORT", "Evaluate an alternative port call",
         "Evaluate diverting to {alternative_port}: expected wait is "
-        "{alt_saving:.0f}h lower on the same arrival window",
+        "{alt_saving:.0f}h lower against {alt_steaming_hours:.0f}h of extra "
+        "steaming on the same arrival window",
         "Keep the intended port and publish an extended ETA buffer"),
     "MONITOR_DISAGREEMENT": Action(
         "MONITOR_DISAGREEMENT", "Observe only -- models disagree",
@@ -216,9 +228,13 @@ def _select_action(context: Dict[str, float]) -> Action:
     if context["disagreement"] >= DISAGREEMENT_HOLD and context["prob"] < 0.75:
         return ACTIONS["MONITOR_DISAGREEMENT"]
 
-    if context["alt_saving"] >= 6.0 and context["prob"] >= 0.55:
+    if (context["alt_saving"] >= MIN_DIVERT_SAVING_HOURS
+            and context["prob"] >= 0.6
+            and context["alt_saving"]
+            >= DIVERT_MARGIN * context["alt_steaming_hours"]):
         return ACTIONS["DIVERT_PORT"]
-    if context["shift_hours"] >= 12.0 and context["prob"] >= 0.5:
+    if (12.0 <= context["shift_hours"] <= MAX_HOLD_HOURS
+            and context["prob"] >= 0.5):
         # Absorbing the wait at sea beats waiting at anchorage, but only when
         # the speed reduction is something a master can actually execute.
         executable = (context["shift_hours"] <= MAX_SLOW_STEAM_HOURS
@@ -320,6 +336,7 @@ def build_decisions(forecast: pd.DataFrame,
             "shift_hours": shift_hours,
             "slow_knots": slow_steam_knots(shift_hours),
             "alt_saving": float(alt.get("saving_hours", 0.0)),
+            "alt_steaming_hours": float(alt.get("steaming_hours", 0.0)),
             "alternative_port": alt.get("port_name", ""),
             "capacity": state.get("capacity_pressure", 0.0),
             "queue_momentum": state.get("queue_momentum", 0.0),
@@ -407,11 +424,12 @@ def _expected_impact(code: str, context: Dict, delay_saved: float) -> Dict:
                      f"expected berth wait."),
         }
     if code == "DIVERT_PORT":
-        hours = round(float(context["alt_saving"]), 1)
-        return {"hours": hours,
-                "text": (f"Calling {context['alternative_port']} instead is "
-                         f"expected to cut waiting time by about {hours:.1f}h "
-                         f"before steaming cost.")}
+        net = float(context["alt_saving"]) - float(context["alt_steaming_hours"])
+        return {"hours": round(net, 1),
+                "text": (f"Calling {context['alternative_port']} instead saves "
+                         f"about {context['alt_saving']:.1f}h of waiting against "
+                         f"{context['alt_steaming_hours']:.1f}h of extra steaming "
+                         f"-- a net {net:.1f}h.")}
     if code == "ETA_BUFFER":
         return {"hours": round(float(context["buffer_hours"]), 1),
                 "text": (f"A {context['buffer_hours']:.0f}h published buffer covers "
@@ -494,7 +512,13 @@ def _best_windows(forecast: pd.DataFrame, threshold: float) -> Dict[str, Dict]:
 
 
 def _alternative_ports(forecast: pd.DataFrame, threshold: float) -> Dict[str, Dict]:
-    """For each port, the nearest lower-wait alternative on the same coast."""
+    """Best same-coast alternative per port, net of the diversion it costs.
+
+    Candidates are ranked by *net* benefit -- waiting saved minus the extra
+    steaming needed to reach them -- so a marginally quieter port on the far
+    side of the coast never wins on paper.
+    """
+    from src.decision.route_optimizer import AVG_SPEED_KMPH, haversine_km
     from src.utils import port_registry
 
     summaries = {}
@@ -503,11 +527,14 @@ def _alternative_ports(forecast: pd.DataFrame, threshold: float) -> Dict[str, Di
         delay = delay.fillna(pd.to_numeric(group["q50"], errors="coerce") * 0.2)
         summaries[str(port_id)] = float(delay.mean())
 
+    empty = {"saving_hours": 0.0, "steaming_hours": 0.0, "port_name": ""}
     out: Dict[str, Dict] = {}
     for port_id, own_delay in summaries.items():
         port = port_registry.resolve(port_id)
         if port is None:
+            out[port_id] = dict(empty)
             continue
+
         candidates = []
         for other_id, other_delay in summaries.items():
             if other_id == port_id:
@@ -516,14 +543,20 @@ def _alternative_ports(forecast: pd.DataFrame, threshold: float) -> Dict[str, Di
             if other is None or other.coast != port.coast:
                 continue
             saving = own_delay - other_delay
-            if saving > 0:
-                candidates.append((saving, other))
+            if saving <= 0:
+                continue
+            distance_km = haversine_km((port.lat, port.lon), (other.lat, other.lon))
+            steaming_hours = distance_km / AVG_SPEED_KMPH
+            candidates.append((saving - steaming_hours, saving, steaming_hours, other))
+
         if not candidates:
-            out[port_id] = {"saving_hours": 0.0, "port_name": ""}
+            out[port_id] = dict(empty)
             continue
+
         candidates.sort(key=lambda item: item[0], reverse=True)
-        saving, best = candidates[0]
+        _, saving, steaming_hours, best = candidates[0]
         out[port_id] = {"saving_hours": round(float(saving), 2),
+                        "steaming_hours": round(float(steaming_hours), 2),
                         "port_name": best.short, "port_id": best.model_id}
     return out
 
