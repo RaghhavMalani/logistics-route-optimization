@@ -1,43 +1,71 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  HeadContent,
   Outlet,
+  Scripts,
   createRootRouteWithContext,
   useRouter,
-  HeadContent,
-  Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
-import appCss from "../styles.css?url";
+import { AuthProvider } from "@/auth/AuthProvider";
+import { Button } from "@/components/kit/layout";
+import { Pill } from "@/components/kit/primitives";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { TerminalShell } from "@/components/terminal/Shell";
+import appCss from "../styles.css?url";
 
-function NotFoundComponent() {
+function Centered({ children }: { children: ReactNode }) {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background">
-      <div className="panel px-6 py-5 text-center">
-        <div className="label-xs mb-2">SIGNAL LOST</div>
-        <div className="text-2xl text-[var(--color-red)] glow-red">404 · ROUTE NOT ACQUIRED</div>
-        <a href="/" className="mt-3 inline-block text-[11px] tracking-widest text-[var(--color-cyan)] border border-[var(--color-cyan)]/50 px-3 py-1">▸ RETURN TO RADAR</a>
+    <div className="fixed inset-0 grid place-items-center bg-[var(--bg)] p-6">
+      <div className="w-full max-w-[420px] rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)] p-5">
+        {children}
       </div>
     </div>
   );
 }
 
+function NotFoundComponent() {
+  return (
+    <Centered>
+      <div className="mb-2 flex items-center gap-2">
+        <Pill tone="warn">Route not found</Pill>
+      </div>
+      <p className="text-[12.5px] leading-relaxed text-[var(--text-3)]">
+        No screen is registered at this address. Sign in to reach your workspace.
+      </p>
+      <a
+        href="/login"
+        className="mt-3 inline-block rounded-[2px] border border-[var(--line-strong)] px-2.5 py-[5px] text-[11.5px] text-[var(--text-2)] hover:text-[var(--text)]"
+      >
+        Go to sign-in
+      </a>
+    </Centered>
+  );
+}
+
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
   const router = useRouter();
   useEffect(() => {
+    console.error(error);
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background">
-      <div className="panel px-6 py-5 max-w-md">
-        <div className="label-xs mb-1">SYSTEM FAULT</div>
-        <div className="text-[var(--color-red)] mb-3">{error.message}</div>
-        <button onClick={() => { router.invalidate(); reset(); }} className="text-[11px] tracking-widest text-[var(--color-cyan)] border border-[var(--color-cyan)]/50 px-3 py-1">▸ RETRY</button>
+    <Centered>
+      <div className="mb-2 flex items-center gap-2">
+        <Pill tone="crit">Interface fault</Pill>
       </div>
-    </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-[var(--text-2)]">{error.message}</p>
+      <Button
+        variant="default"
+        onClick={() => {
+          void router.invalidate();
+          reset();
+        }}
+      >
+        Reload this view
+      </Button>
+    </Centered>
   );
 }
 
@@ -46,11 +74,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "India PortWatch — AI Maritime Command Terminal" },
-      { name: "description", content: "Bloomberg-grade AI maritime command terminal for India's port network: radar, port ops, weather, SAR, NLP, model pipeline, decision simulation and fleet management." },
+      { title: "India PortWatch — Maritime Operations Intelligence" },
+      {
+        name: "description",
+        content:
+          "Predictive maritime digital twin and operations intelligence for Indian ports: national command radar, port digital twin, vessel routing, forecasting and provenance.",
+      },
       { name: "author", content: "India PortWatch" },
-      { property: "og:title", content: "India PortWatch — AI Maritime Command" },
-      { property: "og:description", content: "AI-driven maritime command terminal for India's port network." },
+      { property: "og:title", content: "India PortWatch" },
+      {
+        property: "og:description",
+        content: "Predictive maritime operations intelligence for Indian ports.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -59,7 +94,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -70,7 +108,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
@@ -86,9 +124,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <TerminalShell>
+      <AuthProvider>
         <Outlet />
-      </TerminalShell>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
