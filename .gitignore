@@ -23,6 +23,13 @@ work/
 india-portwatch-terminal/node_modules/
 india-portwatch-terminal/.output/
 india-portwatch-terminal/.wrangler/
+india-portwatch-terminal/.tanstack/
+india-portwatch-terminal/qa/shots/
+india-portwatch-terminal/test-results/
+india-portwatch-terminal/playwright-report/
+
+# --- Local agent/editor scratch ---
+.claude/
 
 # --- Local secrets / environment ---
 .env

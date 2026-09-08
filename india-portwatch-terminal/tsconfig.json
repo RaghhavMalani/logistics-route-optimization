@@ -5,7 +5,8 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "geojson"],
+    "resolveJsonModule": true,
 
     /* Bundler mode */
     "moduleResolution": "Bundler",
