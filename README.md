@@ -287,7 +287,7 @@ says so while it is active.
 
 | Screen | Question it answers |
 |---|---|
-| Overview | Where is the fleet exposed right now — weather, chokepoint, port congestion? |
+| Overview | The bridge: own ship on the chart, the traffic around it, the passage and its weather |
 | Fleet | Every declared call scored against the live forecast, filterable and sortable |
 | Vessel detail | Declared call versus the best alternative, in full, with the arrival window |
 | Routes | The same comparison as a metric-by-metric ledger, with the optimizer's cost |
@@ -298,7 +298,7 @@ says so while it is active.
 
 | Screen | Question it answers |
 |---|---|
-| Overview | The port's operating state, on a local chart with approach geometry |
+| Overview | The cockpit: every vessel in the approach, the arrival sequence, the berth queue |
 | Operations | Is the queue building or draining? Where is the pressure coming from? |
 | Forecast | Ten days with the calibrated band, the regime, and where the members disagree |
 | Vessels | Declared calls scored against this port's own forecast, and when to schedule arrivals |
@@ -310,7 +310,7 @@ says so while it is active.
 
 | Screen | Question it answers |
 |---|---|
-| National Radar | Which port needs intervention right now, and why? |
+| National Command | The live maritime picture: traffic, weather, corridors, and where intervention matters |
 | Ports | Every port ranked by decision priority |
 | Vessels | Satellite-AIS activity at the berth line, and the feeds behind it |
 | Model Intelligence | How do we know? Pipeline, walk-forward bench, drilldowns, calibration, ensemble policy |
@@ -343,17 +343,47 @@ and national boundaries are Natural Earth 1:50m, clipped to the Indian Ocean
 theatre by `scripts/build_basemap.py` — about 190 KB. There is no tile service,
 so the chart draws on a closed network.
 
-Weather is a selectable field over the coast: the per-port Open-Meteo
-observations interpolated onto a 0.25° grid by inverse distance with a 420 km
-cutoff, and the legend says so in those words. A field the artefact does not
-carry — significant wave height, in most runs — is shown struck through rather
-than silently dropped, so *calm* cannot be confused with *not measured*. The
-field carries a `maxzoom`, because past that zoom a cell is wider than the
-harbour under it and would imply a resolution thirteen stations do not have.
+**Routing.** Nothing on the chart is a straight line between two ports.
+`scripts/build-sea-routes.mjs` rasterises those same land polygons onto a 0.1°
+grid and runs A\* over the water cells with a penalty that keeps a passage
+offshore instead of scraping a headland. Two corrections a raster that coarse
+cannot make for itself are declared in the script: the Suez channel is carved
+open, and Adam's Bridge with the Pamban Pass is closed, so traffic rounds Sri
+Lanka the way it actually does. 312 legs between every Indian port and every
+gateway are precomputed and committed, so routing costs a map lookup at runtime.
+The builder validates every leg before writing it, the water mask ships too, and
+`qa/tests/routing.spec.ts` re-checks both the catalogue and the geometry the
+running application draws. Routes are labelled non-navigational wherever they
+appear: they carry no depth, traffic separation or notice-to-mariners data.
+
+**Traffic.** This deployment has no per-vessel AIS licence, so the traffic layer
+declares itself `SIMULATED_TRAFFIC` in the status line and in every inspector.
+Around 800 vessels move along the route catalogue under a deterministic replay
+engine: a voyage is a closed-form function of a seed and the clock, so two runs
+agree exactly and scrubbing backwards is as exact as running forwards. Density
+is driven by the artefacts — a port with eighteen daily calls and high queue
+pressure gets more ships at anchor than one with five. `TrafficSource` is the
+seam a real provider replaces; nothing that draws knows which kind it got.
+
+**Weather.** The composite is on by default, not a variable to select.
+Precipitation is a raster the GPU resamples; wind is a particle flow; storm
+cells are drawn wherever a port carries a storm flag. The interpolation is
+inverse-cube with a 320 km cutoff and a fade over the last third, because
+thirteen coastal stations cannot speak for half an ocean — past the cutoff the
+field stops, which is what keeps *calm* distinguishable from *not observed*.
+Surface values at the observation instant are measured; values away from it are
+scaled by the model's daily impact forecast and labelled DERIVED; wind direction
+is monsoon climatology and labelled MODELLED; significant wave height stays
+UNAVAILABLE.
+
+**Time.** One control, two clocks. TRAFFIC is the replay position and rate.
+WEATHER is an offset into the forecast series, and moving it moves the
+precipitation sheet, the wind, the storm cells and the predicted vessel
+positions together.
 
 Corridors are measured, not decorative: a chokepoint connects to a port only
-where the event feed reported an exposure for that pair, and the line weight is
-that exposure.
+where the event feed reported an exposure for that pair, the line weight is that
+exposure, and the line follows the water-only graph.
 
 ---
 
@@ -461,10 +491,22 @@ python scripts/verify_artefacts.py                        # artefact coherence g
 cd india-portwatch-terminal
 npm run typecheck
 npm run build
-npm run test:browser                                      # 61 cases x 2 viewports
+npm run test:browser                                      # 85 cases x 2 viewports
 ```
 
-The suite covers anomaly spike detection and its leakage safety, capacity and
+The browser suite drives the production build, not the dev server. Alongside
+every screen at both supported resolutions, it asserts the properties this
+product claims about its chart: that every leg in the routing catalogue and
+every line the running map draws stays on water, that named passages have the
+shape a mariner would recognise (JNPA to Cochin hugs the west coast, Chennai to
+Singapore leaves through Malacca, Cochin to Chennai rounds Sri Lanka rather than
+Adam's Bridge), that the fleet is a fleet and not a handful, that a class filter
+removes that class from the GL source, that isolating a selection hides the
+rest, that scrubbing to +24h produces predicted positions and marks the weather
+as derived, that wave height is reported UNAVAILABLE rather than substituted,
+and that the traffic source is declared as a simulated replay.
+
+The Python suite covers anomaly spike detection and its leakage safety, capacity and
 queue momentum, arrival clustering, disruption propagation ordering, weather
 shock vs persistence, data-quality degradation, quantile monotonicity, conformal
 coverage, walk-forward fold construction, stacking weights, decision bounds
@@ -476,7 +518,7 @@ degraded forms.
 `npm run test:browser` drives the **production** build — it builds with the
 node-server preset and serves the same server-rendered bundle that ships, rather
 than the dev server with its extra instrumentation — and replays a recorded API
-from `qa/fixtures`, so a run needs no backend and no network. Sixty-one cases
+from `qa/fixtures`, so a run needs no backend and no network. Eighty-five cases
 run at 1920×1080 and at 1366×768, the smallest supported operating resolution:
 
 - **routes** — every screen for the role that owns it, asserting the heading,
@@ -486,7 +528,13 @@ run at 1920×1080 and at 1366×768, the smallest supported operating resolution:
   typing an admin address does not arrive, a port operator is locked to their
   facility while an admin may switch, and sign-in, refusal and sign-out work;
 - **degraded** — with every API call refused, each workspace keeps its heading
-  and its rail, names the outage and prints the command that restores it.
+  and its rail, names the outage and prints the command that restores it; and a
+  port whose artefacts are absent from the run reports them missing rather than
+  drawing a zero;
+- **routing** — the whole route catalogue and the geometry the running map
+  actually draws, checked against the same water mask the router was built on;
+- **traffic** — fleet population, class filtering, search, selection, isolation,
+  the replay transport, forecast scrubbing and the port arrival sequence.
 
 Re-record the fixtures against a running backend with `npm run qa:fixtures`.
 
@@ -507,9 +555,30 @@ These are the things a reviewer should know, stated here rather than found.
   port-authority dwell data would replace it directly.
 - **Congestion is a pressure index, not a queue count.** It is calls against
   baseline on a 0–100 scale, where 50 is normal and 100 is roughly double.
-- **No per-vessel tracking.** The map shows daily port-call aggregates. Per-vessel
-  AIS needs a commercial feed and Sentinel-1 SAR needs scene ingestion; both are
-  reported `UNAVAILABLE` rather than simulated.
+- **The vessel traffic is simulated, and says so.** Per-vessel AIS needs a
+  commercial licence this deployment does not have, and Sentinel-1 SAR needs
+  scene ingestion that is not wired. The measured feed is the IMF PortWatch
+  daily port-call aggregate, and that is what the Vessels screen tabulates.
+  Everything that *moves* on the chart — around 800 ships with names, speeds,
+  courses, destinations and ETAs — is generated by the replay engine and is
+  declared `SIMULATED_TRAFFIC` in the status line, in every inspector and in
+  every hover card. No vessel on the map is a real ship, no identifier is a
+  real IMO number, and no operator name belongs to a real company. Wiring a
+  provider is a new implementation of `TrafficSource`; a deployment that
+  configures one and cannot reach it reports `UNAVAILABLE` rather than falling
+  back to generated positions.
+- **Route geometry is a visualisation, not a passage plan.** The water-only
+  graph guarantees a route stays off land at 0.1° resolution. It carries no
+  depth, no traffic-separation scheme, no seasonal routeing and no notice to
+  mariners, and every surface that draws one says `NON-NAVIGATIONAL`.
+- **Wind direction is climatology.** The Open-Meteo extract carries wind speed
+  but no direction. The flow animation uses a monsoon climatology for direction
+  and is labelled `MODELLED` wherever it appears; the speed under it is
+  measured. Significant wave height is `UNAVAILABLE` in every run to date.
+- **The berth queue is a model of a queue.** Service times are class envelopes
+  scaled to the berth count, utilisation and daily calls the feed measured, and
+  the starting backlog is the wait the pipeline already forecast. There is no
+  per-call berth log to fit against, and the panel that shows it says so.
 - **IMF PortWatch publishes with a lag** of roughly a week, so the forecast
   origin trails today. The terminal shows that age on every screen instead of
   implying real-time telemetry.
