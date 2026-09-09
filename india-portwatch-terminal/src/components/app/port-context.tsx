@@ -24,7 +24,7 @@ export function usePortContext() {
     ports,
     port,
     portCode: port?.code ?? portCode,
-    locked: session?.user.role === "PORT_OPERATOR",
+    locked: session?.user.role === "PORT_AUTHORITY",
     setPortCode,
   };
 }

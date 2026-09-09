@@ -6,7 +6,7 @@
  *   demoAdapter        Local role selection with published credentials. It
  *                      performs NO security function whatsoever -- the account
  *                      list and its passwords are in this file and shipped to
- *                      the browser. It exists so the three workspaces can be
+ *                      the browser. It exists so the four workspaces can be
  *                      demonstrated, and it says so on the sign-in screen.
  *
  *   productionAdapter  The seam for a real identity provider (OIDC, the port
@@ -21,6 +21,7 @@
 
 import {
   AuthError,
+  normaliseRole,
   type AuthAdapter,
   type AuthMode,
   type Credentials,
@@ -33,12 +34,20 @@ const SESSION_HOURS = 12;
 
 interface DemoAccount {
   password: string;
-  user: Omit<User, "id"> & { id: string };
+  user: User;
 }
+
+/** The fictional carrier the company and vessel accounts belong to. */
+export const DEMO_COMPANY_ID = "portwatch-demo-shipping";
+export const DEMO_COMPANY_NAME = "PortWatch Demo Shipping";
 
 /**
  * Published demo accounts. Anyone reading the bundle can see these; that is
  * intended, and it is why this adapter must never be used to protect anything.
+ *
+ * The company and the vessel accounts share an organisation on purpose: they are
+ * the same carrier at two altitudes, and the advisory workflow needs both to
+ * resolve to the same recipient organisation.
  */
 export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
   "vessel@portwatch.demo": {
@@ -48,8 +57,26 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
       email: "vessel@portwatch.demo",
       displayName: "R. Nayar",
       role: "VESSEL_OPERATOR",
-      organisation: "Konkan Line — Fleet Operations",
+      organisation: DEMO_COMPANY_NAME,
       portCode: null,
+      companyId: DEMO_COMPANY_ID,
+      vesselIds: ["PWD-001"],
+    },
+  },
+  "company@portwatch.demo": {
+    password: "portwatch",
+    user: {
+      id: "demo-company",
+      email: "company@portwatch.demo",
+      displayName: "M. Fernandes",
+      role: "SHIPPING_COMPANY",
+      organisation: DEMO_COMPANY_NAME,
+      portCode: null,
+      companyId: DEMO_COMPANY_ID,
+      // Empty means "every vessel this organisation owns": the advisory store
+      // falls back to matching on organisation, which is what a fleet desk
+      // actually has authority over.
+      vesselIds: [],
     },
   },
   "port@portwatch.demo": {
@@ -58,9 +85,11 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
       id: "demo-port",
       email: "port@portwatch.demo",
       displayName: "S. Iyer",
-      role: "PORT_OPERATOR",
+      role: "PORT_AUTHORITY",
       organisation: "Chennai Port Authority — Control Room",
       portCode: "INMAA",
+      companyId: null,
+      vesselIds: [],
     },
   },
   "admin@portwatch.demo": {
@@ -69,9 +98,11 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
       id: "demo-admin",
       email: "admin@portwatch.demo",
       displayName: "A. Deshmukh",
-      role: "ADMIN",
+      role: "NATIONAL_ADMIN",
       organisation: "National Maritime Operations Centre",
       portCode: null,
+      companyId: null,
+      vesselIds: [],
     },
   },
 };
@@ -121,7 +152,14 @@ export const demoAdapter: AuthAdapter = {
   async restore(session: Session): Promise<Session | null> {
     if (session.mode !== "demo" || expired(session)) return null;
     const account = DEMO_ACCOUNTS[session.user.email];
-    return account ? { ...session, user: account.user } : null;
+    // The account record is the authority, not the stored copy: a session
+    // written before the role model changed restores with today's shape rather
+    // than carrying a stale role into the guards.
+    if (account) return { ...session, user: account.user };
+
+    // No matching account, but the role may still be a recognisable legacy one.
+    const role = normaliseRole(session.user.role as unknown as string);
+    return role ? { ...session, user: { ...session.user, role } } : null;
   },
 };
 

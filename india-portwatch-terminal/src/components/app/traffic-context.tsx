@@ -37,12 +37,23 @@ export type ReplayRate = (typeof REPLAY_RATES)[number];
 /** Forecast steps the timeline offers, in hours ahead of the traffic clock. */
 export const FORECAST_STEPS = [0, 3, 6, 12, 24, 48, 72] as const;
 
+/**
+ * How fast the weather cursor advances when it is playing, in forecast hours
+ * per wall second. At 6, a 72-hour forecast plays through in twelve seconds --
+ * fast enough to read as animation, slow enough to see a cell move.
+ */
+export const WEATHER_PLAY_RATE = 6;
+
 interface ClockStore {
   at: number;
   epoch: number;
   playing: boolean;
   rate: ReplayRate;
   offsetHours: number;
+  /** Whether the forecast cursor is animating. Independent of the replay. */
+  weatherPlaying: boolean;
+  /** Upper bound of the forecast series, in hours. Set once it is known. */
+  maxOffsetHours: number;
   listeners: Set<() => void>;
 }
 
@@ -55,10 +66,15 @@ export interface TrafficClock {
   forecastAt(): number;
   playing(): boolean;
   rate(): ReplayRate;
+  /** True while the forecast cursor is animating forward. */
+  weatherPlaying(): boolean;
+  maxOffsetHours(): number;
   subscribe(listener: () => void): () => void;
   setPlaying(next: boolean): void;
   setRate(next: ReplayRate): void;
   setOffsetHours(next: number): void;
+  setWeatherPlaying(next: boolean): void;
+  setMaxOffsetHours(next: number): void;
   seek(at: number): void;
   reset(): void;
 }
@@ -70,6 +86,8 @@ function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } 
     playing: true,
     rate: 60,
     offsetHours: 0,
+    weatherPlaying: false,
+    maxOffsetHours: 72,
     listeners: new Set(),
   };
   const emit = () => {
@@ -82,6 +100,8 @@ function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } 
     forecastAt: () => store.at + store.offsetHours * 3_600_000,
     playing: () => store.playing,
     rate: () => store.rate,
+    weatherPlaying: () => store.weatherPlaying,
+    maxOffsetHours: () => store.maxOffsetHours,
     subscribe: (listener) => {
       store.listeners.add(listener);
       return () => store.listeners.delete(listener);
@@ -95,7 +115,20 @@ function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } 
       emit();
     },
     setOffsetHours: (next) => {
-      store.offsetHours = next;
+      store.offsetHours = Math.max(0, Math.min(store.maxOffsetHours, next));
+      emit();
+    },
+    setWeatherPlaying: (next) => {
+      store.weatherPlaying = next;
+      // Restarting from the end would sit on a still frame, so wrap first.
+      if (next && store.offsetHours >= store.maxOffsetHours) store.offsetHours = 0;
+      emit();
+    },
+    setMaxOffsetHours: (next) => {
+      store.maxOffsetHours = Math.max(1, next);
+      if (store.offsetHours > store.maxOffsetHours) {
+        store.offsetHours = store.maxOffsetHours;
+      }
       emit();
     },
     seek: (at) => {
@@ -105,6 +138,7 @@ function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } 
     reset: () => {
       store.at = store.epoch;
       store.offsetHours = 0;
+      store.weatherPlaying = false;
       emit();
     },
   };
@@ -196,8 +230,29 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
     const tick = (time: number) => {
       const delta = time - last;
       last = time;
+      let changed = false;
+
       if (state.store.playing) {
         state.store.at += delta * state.store.rate;
+        changed = true;
+      }
+
+      if (state.store.weatherPlaying) {
+        // The forecast cursor runs on its own clock. Tying it to the replay
+        // rate would make a 240x traffic replay skip the whole forecast in a
+        // frame, which is the opposite of what the control is for.
+        const next = state.store.offsetHours + (delta / 1000) * WEATHER_PLAY_RATE;
+        if (next >= state.store.maxOffsetHours) {
+          // Loop rather than stop: an animation that halts on the last frame
+          // looks broken, and the operator has a pause button.
+          state.store.offsetHours = 0;
+        } else {
+          state.store.offsetHours = next;
+        }
+        changed = true;
+      }
+
+      if (changed) {
         for (const listener of state.store.listeners) listener();
       }
       frame = requestAnimationFrame(tick);
@@ -272,45 +327,51 @@ export function useClockState(): {
   playing: boolean;
   rate: ReplayRate;
   offsetHours: number;
+  weatherPlaying: boolean;
+  maxOffsetHours: number;
   at: number;
   epoch: number;
 } {
   const { clock } = useTraffic();
-  const [state, setState] = useState(() => ({
-    playing: clock.playing(),
-    rate: clock.rate(),
-    offsetHours: clock.offsetHours(),
-    at: clock.now(),
-    epoch: clock.epoch(),
-  }));
+  const read = useCallback(
+    () => ({
+      playing: clock.playing(),
+      rate: clock.rate(),
+      offsetHours: clock.offsetHours(),
+      weatherPlaying: clock.weatherPlaying(),
+      maxOffsetHours: clock.maxOffsetHours(),
+      at: clock.now(),
+      epoch: clock.epoch(),
+    }),
+    [clock],
+  );
+  const [state, setState] = useState(read);
   useEffect(() => {
     let last = 0;
     return clock.subscribe(() => {
       const time = performance.now();
-      const next = {
-        playing: clock.playing(),
-        rate: clock.rate(),
-        offsetHours: clock.offsetHours(),
-        at: clock.now(),
-        epoch: clock.epoch(),
-      };
+      const next = read();
       // Control changes must land immediately; the clock reading can wait.
+      // While the forecast cursor is animating it is throttled the same way, so
+      // a playing timeline costs the same reconciler work as a ticking replay.
       setState((prev) => {
         if (
           prev.playing !== next.playing ||
           prev.rate !== next.rate ||
-          prev.offsetHours !== next.offsetHours ||
-          prev.epoch !== next.epoch
+          prev.weatherPlaying !== next.weatherPlaying ||
+          prev.maxOffsetHours !== next.maxOffsetHours ||
+          prev.epoch !== next.epoch ||
+          (!next.weatherPlaying && prev.offsetHours !== next.offsetHours)
         ) {
           last = time;
           return next;
         }
-        if (time - last < 500) return prev;
+        if (time - last < 320) return prev;
         last = time;
         return next;
       });
     });
-  }, [clock]);
+  }, [clock, read]);
   return state;
 }
 

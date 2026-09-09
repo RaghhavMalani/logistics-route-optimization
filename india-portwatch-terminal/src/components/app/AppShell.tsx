@@ -127,7 +127,7 @@ function ContextCrumb() {
       <span className="truncate font-medium uppercase tracking-[0.06em] text-[var(--text-2)]">
         {profile.label}
       </span>
-      {profile.role === "PORT_OPERATOR" && port ? (
+      {profile.role === "PORT_AUTHORITY" && port ? (
         <>
           <span className="text-[var(--text-3)]">/</span>
           <span className="truncate uppercase tracking-[0.06em] text-[var(--text-2)]">
@@ -143,7 +143,7 @@ function ContextCrumb() {
 function RoleSwitcher() {
   const { role, viewAs, setViewAs } = useAuth();
   const navigate = useNavigate();
-  if (role !== "ADMIN") return null;
+  if (role !== "NATIONAL_ADMIN") return null;
 
   return (
     <Menu
@@ -152,7 +152,7 @@ function RoleSwitcher() {
       label={
         <span className="flex items-center gap-1.5">
           <span className="eyebrow text-[9px]">View as</span>
-          <span className="font-medium">{ROLE_PROFILE[viewAs ?? "ADMIN"].label}</span>
+          <span className="font-medium">{ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}</span>
         </span>
       }
     >
@@ -160,7 +160,7 @@ function RoleSwitcher() {
         <div className="p-1">
           {ROLES.map((option: Role) => {
             const profile = ROLE_PROFILE[option];
-            const active = (viewAs ?? "ADMIN") === option;
+            const active = (viewAs ?? "NATIONAL_ADMIN") === option;
             return (
               <button
                 key={option}
