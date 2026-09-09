@@ -8,6 +8,7 @@
  * than eleven times over.
  */
 
+import { useMemo } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 import {
@@ -139,3 +140,37 @@ export const useChain = (code: string | null | undefined): UseQueryResult<Intell
 
 export const useScenarios = (): UseQueryResult<ScenarioDefinition[]> =>
   useQuery({ queryKey: ["scenarios"], queryFn: fetchScenarios, ...ARTEFACT });
+
+/**
+ * Port snapshots with the registry's physical particulars merged in.
+ *
+ * `/ports` serves observed and forecast state; berth count, capacity index and
+ * connectivity live on `/ports/registry` because they are properties of the
+ * facility rather than of the run. Anything that reasons about capacity -- the
+ * berth queue, the traffic engine's harbour population -- needs both, and
+ * merging them once here stops each caller inventing a default berth count.
+ */
+export function useEnrichedPorts(): {
+  ports: PortSnapshot[];
+  query: UseQueryResult<PortSnapshot[]>;
+} {
+  const query = usePorts();
+  const registry = usePortRegistry();
+
+  const ports = useMemo(() => {
+    const snapshots = query.data ?? [];
+    const byCode = new Map((registry.data ?? []).map((entry) => [entry.code, entry]));
+    if (!byCode.size) return snapshots;
+    return snapshots.map((port) => {
+      const entry = byCode.get(port.code);
+      if (!entry) return port;
+      return {
+        ...port,
+        berthCount: port.berthCount ?? entry.berthCount,
+        capacityIndex: port.capacityIndex ?? entry.capacityIndex,
+      };
+    });
+  }, [query.data, registry.data]);
+
+  return { ports, query };
+}
