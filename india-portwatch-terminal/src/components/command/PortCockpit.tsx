@@ -462,11 +462,19 @@ export function PortWeatherPanel({
 export function PortSummary({
   port,
   traffic,
+  plan,
   decision,
+  decisionMissing = false,
+  onSelect,
 }: {
   port: PortSnapshot;
   traffic: PortTraffic;
+  /** The berth queue, so the state tab can carry the next few arrivals. */
+  plan?: ArrivalPlan | null;
   decision?: Decision | null;
+  /** The decision artefact 404'd for this port in this run. */
+  decisionMissing?: boolean;
+  onSelect?: (id: string) => void;
 }) {
   const counts: Array<[string, number, NavStatus]> = [
     ["Inbound", traffic.inbound.length, "inbound"],
@@ -530,6 +538,56 @@ export function PortSummary({
           />
         </div>
       </PanelSection>
+
+      {plan && plan.slots.length ? (
+        <PanelSection title="Next arrivals" right={`${plan.slots.length} in 48h`}>
+          <ul className="space-y-[1px]">
+            {plan.slots.slice(0, 6).map((slot) => (
+              <li key={slot.fix.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect?.(slot.fix.id)}
+                  className="grid w-full grid-cols-[38px_1fr_42px] items-baseline gap-2 rounded-[2px] px-1 py-[2px] text-left hover:bg-[var(--panel-2)]"
+                >
+                  <span className="num text-[10.5px] text-[var(--text-2)]">
+                    {clockZ(slot.etaMs)}
+                  </span>
+                  <span className="min-w-0 truncate text-[10.5px] text-[var(--text)]">
+                    <span
+                      aria-hidden
+                      className="mr-1 inline-block h-[6px] w-[6px] rounded-[1px] align-middle"
+                      style={{ background: VESSEL_CLASSES[slot.fix.vesselClass].color }}
+                    />
+                    {slot.fix.name}
+                  </span>
+                  <span
+                    className={cn(
+                      "num text-right text-[10px]",
+                      slot.waitHours >= 6
+                        ? "text-[var(--crit)]"
+                        : slot.waitHours >= 2
+                          ? "text-[var(--warn)]"
+                          : "text-[var(--text-3)]",
+                    )}
+                  >
+                    {slot.waitHours.toFixed(1)}h
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </PanelSection>
+      ) : null}
+
+      {!decision && decisionMissing ? (
+        <PanelSection title="Decision queue" right="unavailable">
+          <p className="text-[10.5px] leading-snug text-[var(--text-3)]">
+            <span className="text-[var(--crit)]">Artefact not in this run.</span> The pipeline
+            exported no decision for {port.name}, so there is nothing to act on here — not an
+            empty queue, a missing one.
+          </p>
+        </PanelSection>
+      ) : null}
 
       {decision ? (
         <PanelSection title="Decision queue" right={decision.severity}>

@@ -46,7 +46,7 @@ export const Route = createFileRoute("/port/overview")({ component: PortCockpitS
 type Tab = "state" | "arrivals" | "weather";
 
 function PortCockpitScreen() {
-  const { port, query, locked } = usePortContext();
+  const { port, query } = usePortContext();
   const workspace = useWorkspaceMap({
     zonesFor: port?.code ?? null,
     initialSelectedPort: port?.code ?? null,
@@ -62,6 +62,9 @@ function PortCockpitScreen() {
   const [boardOpen, setBoardOpen] = useState(
     () => typeof window !== "undefined" && window.innerWidth >= 1600,
   );
+  // A narrower frame holds less sea at the same scale, so it pulls back rather
+  // than showing a harbour with three ships in it.
+  const wide = typeof window === "undefined" || window.innerWidth >= 1600;
   const boardHeight = boardOpen ? 210 : 26;
   const bottomStack = boardHeight + 62;
 
@@ -141,7 +144,7 @@ function PortCockpitScreen() {
         vesselFilter={workspace.vesselFilter}
         pinnedIds={localIds}
         labels={workspace.labels}
-        view={{ center: centre, zoom: 7.3 }}
+        view={{ center: centre, zoom: wide ? 7.3 : 6.9 }}
         focus={workspace.focus}
         selectedVesselId={workspace.selectedVesselId}
         onSelectVessel={workspace.setSelectedVesselId}
@@ -160,12 +163,7 @@ function PortCockpitScreen() {
 
             <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] flex items-center gap-2">
               <div className="pointer-events-auto flex items-center gap-2 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-[4px] backdrop-blur-[3px]">
-                <span className="eyebrow text-[9px]">Facility</span>
-                {locked ? (
-                  <span className="num text-[11px] text-[var(--text)]">{port.name}</span>
-                ) : (
-                  <PortSwitcher className="w-[168px]" />
-                )}
+                <PortSwitcher className="w-[168px]" />
               </div>
             </div>
 
@@ -219,7 +217,10 @@ function PortCockpitScreen() {
                         <PortSummary
                           port={port}
                           traffic={traffic}
+                          plan={plan}
                           decision={decision.data ?? null}
+                          decisionMissing={decision.isError}
+                          onSelect={workspace.setSelectedVesselId}
                         />
                       ) : null}
                       {tab === "arrivals" && plan ? (

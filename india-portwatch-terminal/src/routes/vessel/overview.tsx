@@ -46,6 +46,9 @@ function VesselBridge() {
   const fixes = useFixes(1);
   const at = useTrafficTick(1);
   const [following, setFollowing] = useState(true);
+  // The follow camera pulls back on a narrower frame for the same reason the
+  // port view does: the point is the traffic around the ship, not the ship.
+  const followZoom = typeof window === "undefined" || window.innerWidth >= 1600 ? 7 : 6.4;
 
   const owned = useMemo(() => fixes.filter((fix) => fix.owned), [fixes]);
 
@@ -132,7 +135,7 @@ function VesselBridge() {
           following && selectedFix
             ? {
                 center: [selectedFix.lon, selectedFix.lat],
-                zoom: 7,
+                zoom: followZoom,
                 token: Math.floor(at / 5000),
               }
             : workspace.focus
@@ -237,7 +240,7 @@ function VesselBridge() {
                   ) : (
                     <PanelSection title="Contacts">
                       <ul className="space-y-[2px]">
-                        {contacts.map((contact) => (
+                        {contacts.slice(0, 6).map((contact) => (
                           <li key={contact.fix.id}>
                             <button
                               type="button"
