@@ -1,0 +1,163 @@
+/**
+ * The time control: one bar, two clocks.
+ *
+ * TRAFFIC is the replay clock -- where the fleet is right now, and how fast the
+ * replay is running. WEATHER is an offset from the forecast series, and moving
+ * it moves the precipitation sheet, the wind, the storm cells and the predicted
+ * fleet positions together. Keeping both on one bar is the point: a digital twin
+ * with two independent time cursors is a lie waiting to happen.
+ *
+ * The strip under the scrubber is the national mean weather impact across the
+ * forecast series, so the operator can see where the weather is going before
+ * dragging to it.
+ */
+
+import { Pause, Play, RotateCcw } from "lucide-react";
+
+import { REPLAY_RATES, useClockState, useTraffic, type ReplayRate } from "@/components/app/traffic-context";
+import type { WeatherTimeline } from "@/lib/maritime/weather-model";
+import { cn } from "@/lib/utils";
+
+const STEPS = [0, 3, 6, 12, 24, 48, 72];
+
+function clockLabel(ms: number): string {
+  const date = new Date(ms);
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
+    date.getUTCMonth()
+  ];
+  return `${day} ${month} ${String(date.getUTCHours()).padStart(2, "0")}:${String(
+    date.getUTCMinutes(),
+  ).padStart(2, "0")}Z`;
+}
+
+export function TimeTransport({
+  timeline,
+  weatherAt,
+  className,
+}: {
+  timeline: WeatherTimeline;
+  weatherAt: number;
+  className?: string;
+}) {
+  const { clock } = useTraffic();
+  const state = useClockState();
+
+  const maxHours = timeline.available
+    ? Math.max(24, Math.round((timeline.to - timeline.from) / 3_600_000))
+    : 72;
+
+  const peak = Math.max(0.001, ...timeline.meanImpact);
+
+  return (
+    <div
+      className={cn(
+        "pointer-events-auto flex items-center gap-3 rounded-[3px] border border-[var(--line-strong)]",
+        "bg-[var(--panel)]/95 px-2.5 py-1.5 backdrop-blur-[3px] shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
+        className,
+      )}
+    >
+      {/* ------------------------------------------------------- traffic -- */}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          aria-label={state.playing ? "Pause replay" : "Play replay"}
+          onClick={() => clock.setPlaying(!state.playing)}
+          className="grid h-[22px] w-[22px] place-items-center rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] text-[var(--text-2)] hover:text-[var(--text)]"
+        >
+          {state.playing ? <Pause size={11} /> : <Play size={11} />}
+        </button>
+        <button
+          type="button"
+          aria-label="Reset replay to the forecast origin"
+          title="Reset replay to the forecast origin"
+          onClick={() => clock.reset()}
+          className="grid h-[22px] w-[22px] place-items-center rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] text-[var(--text-3)] hover:text-[var(--text)]"
+        >
+          <RotateCcw size={11} />
+        </button>
+      </div>
+
+      <div className="shrink-0 leading-none">
+        <div className="eyebrow text-[8.5px]">Traffic</div>
+        <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">{clockLabel(state.at)}</div>
+      </div>
+
+      <div className="flex shrink-0 overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
+        {REPLAY_RATES.map((rate: ReplayRate) => (
+          <button
+            key={rate}
+            type="button"
+            aria-pressed={state.rate === rate}
+            onClick={() => clock.setRate(rate)}
+            className={cn(
+              "num px-1.5 py-[2px] text-[10px] transition-colors",
+              state.rate === rate
+                ? "bg-[var(--panel-4)] text-[var(--text)]"
+                : "text-[var(--text-3)] hover:bg-[var(--panel-3)] hover:text-[var(--text-2)]",
+            )}
+          >
+            ×{rate}
+          </button>
+        ))}
+      </div>
+
+      <span className="h-6 w-px shrink-0 bg-[var(--line)]" />
+
+      {/* ------------------------------------------------------- weather -- */}
+      <div className="shrink-0 leading-none">
+        <div className="eyebrow text-[8.5px]">Weather</div>
+        <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
+          <span data-testid="weather-offset">
+            {state.offsetHours === 0 ? "NOW" : `+${state.offsetHours}H`}
+          </span>
+          <span className="ml-1.5 text-[10px] text-[var(--text-3)]">{clockLabel(weatherAt)}</span>
+        </div>
+      </div>
+
+      <div className="relative min-w-[180px] flex-1">
+        {/* The forecast's own shape, so the scrubber is worth dragging. */}
+        <div className="flex h-[16px] items-end gap-[1px]" aria-hidden>
+          {timeline.meanImpact.map((value, index) => (
+            <span
+              key={index}
+              className="flex-1 rounded-[1px] bg-[var(--info)]/35"
+              style={{ height: `${Math.max(8, (value / peak) * 100)}%` }}
+            />
+          ))}
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={maxHours}
+          step={1}
+          value={state.offsetHours}
+          aria-label="Forecast lead time in hours"
+          onChange={(event) => clock.setOffsetHours(Number(event.target.value))}
+          className="pw-scrub mt-1 w-full"
+        />
+        <div className="mt-[1px] flex justify-between">
+          {STEPS.filter((step) => step <= maxHours).map((step) => (
+            <button
+              key={step}
+              type="button"
+              onClick={() => clock.setOffsetHours(step)}
+              className={cn(
+                "num text-[9px] transition-colors",
+                state.offsetHours === step
+                  ? "text-[var(--info)]"
+                  : "text-[var(--text-3)] hover:text-[var(--text-2)]",
+              )}
+            >
+              {step === 0 ? "NOW" : `+${step}h`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!timeline.available ? (
+        <span className="shrink-0 text-[9.5px] text-[var(--crit)]">Forecast unavailable</span>
+      ) : null}
+    </div>
+  );
+}
