@@ -22,9 +22,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  // Every screen creates a WebGL context; too many at once starves the
-  // software renderer and turns real assertions into timeouts.
-  workers: process.env.CI ? 2 : 3,
+  // Every screen creates a WebGL context and runs an eight hundred vessel
+  // animation loop; too many at once starves the software renderer and turns
+  // real assertions into timeouts.
+  workers: 2,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
 
   use: {

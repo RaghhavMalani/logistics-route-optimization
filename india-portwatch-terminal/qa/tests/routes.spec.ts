@@ -22,7 +22,7 @@ interface Screen {
 
 const SCREENS: Record<Role, Screen[]> = {
   VESSEL_OPERATOR: [
-    { path: "/vessel/overview", heading: "Fleet Overview" },
+    { path: "/vessel/overview", heading: "Fleet Bridge" },
     { path: "/vessel/fleet", heading: "Fleet" },
     { path: "/vessel/MV-KONKAN", heading: "MV Konkan" },
     { path: "/vessel/routes", heading: "Route Intelligence" },
@@ -30,7 +30,7 @@ const SCREENS: Record<Role, Screen[]> = {
     { path: "/vessel/alerts", heading: "Alerts" },
   ],
   PORT_OPERATOR: [
-    { path: "/port/overview", heading: "Chennai" },
+    { path: "/port/overview", heading: "Chennai Port Control" },
     { path: "/port/operations", heading: "Operations" },
     { path: "/port/forecast", heading: "Forecast" },
     { path: "/port/vessels", heading: "Vessels" },
@@ -39,7 +39,7 @@ const SCREENS: Record<Role, Screen[]> = {
     { path: "/port/decisions", heading: "Decisions" },
   ],
   ADMIN: [
-    { path: "/admin/radar", heading: "National Port Radar" },
+    { path: "/admin/radar", heading: "National Command" },
     { path: "/admin/ports", heading: "Ports" },
     { path: "/admin/vessels", heading: "Vessels" },
     { path: "/admin/model", heading: "Model Intelligence" },
