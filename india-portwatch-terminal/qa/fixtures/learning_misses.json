@@ -1,0 +1,1 @@
+{"misses":[],"resolvedCount":0,"attributionAvailable":0,"method":"The error of a weighted blend decomposes exactly: the observation minus the prediction equals the sum over contributors of weight times that contributor's own residual. Shares are that identity, not an estimate. Where a prediction carried no per-contributor signals, no attribution is produced."}

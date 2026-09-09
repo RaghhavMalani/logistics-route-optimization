@@ -82,6 +82,33 @@ class AuthorisationError(AdvisoryError):
     """The actor is not permitted to do this. Distinct from an illegal transition."""
 
 
+#: Characters an HTTP header cannot carry, and what the terminal folds them to.
+_FOLD = {
+    "‐": "-", "‑": "-", "‒": "-", "–": "-",
+    "—": "-", "―": "-",
+    "‘": "'", "’": "'", "“": '"', "”": '"',
+}
+
+
+def ascii_fold(value: Optional[str]) -> str:
+    """Normalise a name the way an HTTP header forces the client to.
+
+    Header values are ISO-8859-1, so a non-ASCII character makes the browser's
+    `fetch` reject the request before it is sent. The terminal therefore folds
+    dashes and quotes to ASCII and drops anything else before putting an
+    organisation name in a header -- see `asciiHeader` in the auth types.
+
+    That means a port authority arriving over the wire as "Chennai Port
+    Authority - Control Room" has to still match the em-dashed name in the
+    register, or the recipient check fails on a punctuation mark. Both sides
+    fold, so both sides agree.
+    """
+    if not value:
+        return ""
+    folded = "".join(_FOLD.get(c, c) for c in value)
+    return "".join(c for c in folded if 0x20 <= ord(c) <= 0x7E).strip()
+
+
 class Principal:
     """Who is acting, and what they are entitled to act on.
 
@@ -137,7 +164,9 @@ class Principal:
             return
         if self.vessel_ids and advisory.recipient_vessel_id in self.vessel_ids:
             return
-        if self.organisation and advisory.recipient_organisation == self.organisation:
+        if self.organisation and ascii_fold(advisory.recipient_organisation) == ascii_fold(
+            self.organisation
+        ):
             return
         raise AuthorisationError(
             f"{self.actor} is not the recipient of {advisory.advisory_id}"
@@ -152,8 +181,11 @@ class Principal:
             return False
         return (
             advisory.recipient_vessel_id in self.vessel_ids
-            or (self.organisation is not None
-                and advisory.recipient_organisation == self.organisation)
+            or (
+                self.organisation is not None
+                and ascii_fold(advisory.recipient_organisation)
+                == ascii_fold(self.organisation)
+            )
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -405,6 +437,7 @@ __all__ = [
     "AdvisoryStore",
     "AuthorisationError",
     "Principal",
+    "ascii_fold",
     "get_advisory_store",
     "reset_default_store",
 ]

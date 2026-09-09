@@ -1,0 +1,1 @@
+{"weights":[],"changedCount":0,"contributors":[],"method":"Fitted from resolved rows only, behind an explicit leakage barrier, and shrunk toward 1.0 in proportion to how little evidence a context has. Weights move at most 0.12 per update and are clamped to 0.35-1.60."}

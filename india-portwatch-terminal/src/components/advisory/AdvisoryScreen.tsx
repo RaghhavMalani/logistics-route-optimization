@@ -8,14 +8,16 @@
  * as, so a reader can see the scope rather than infer it.
  */
 
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { AdvisoryCard, advisoryLabel, advisoryTone } from "@/components/advisory/AdvisoryPanels";
-import { Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import { Button, Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
+import { generateAdvisories } from "@/services/portwatch-os";
 import { useAdvisories, useAdvisoryPolicy } from "@/services/os-hooks";
 import type { AdvisoryState } from "@/types/portwatch-os";
 
@@ -41,13 +43,29 @@ export function AdvisoryScreen({
   context: string;
   side: "issuer" | "recipient";
 }) {
-  const { identityHeaders, session } = useAuth();
+  const { identityHeaders } = useAuth();
   const { portCode } = useWorkspace();
   const scope = side === "issuer" ? { portCode } : {};
   const query = useAdvisories(identityHeaders, scope);
   const policy = useAdvisoryPolicy();
   const [filter, setFilter] = useState("open");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  /**
+   * Ask the decision engine for drafts.
+   *
+   * The controller pulls rather than the engine pushing. A queue that filled
+   * itself would be one more thing to dismiss; a controller asking "what would
+   * you recommend right now?" is a decision they made.
+   */
+  const generate = useMutation({
+    mutationFn: () => generateAdvisories(identityHeaders, portCode),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["advisories"] });
+      setFilter("open");
+    },
+  });
 
   const filters = side === "issuer" ? ISSUER_FILTERS : RECIPIENT_FILTERS;
   const active = filters.find((f) => f.key === filter) ?? filters[0];
@@ -97,7 +115,17 @@ export function AdvisoryScreen({
           </span>
         }
         actions={
-          <div className="flex overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
+          <>
+            {side === "issuer" ? (
+              <Button
+                variant="default"
+                disabled={generate.isPending}
+                onClick={() => generate.mutate()}
+              >
+                {generate.isPending ? "Running the twin…" : "Draft from the engine"}
+              </Button>
+            ) : null}
+            <div className="flex overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
             {filters.map((option) => {
               const count = all.filter((a) => option.states.includes(a.state)).length;
               return (
@@ -118,9 +146,23 @@ export function AdvisoryScreen({
                 </button>
               );
             })}
-          </div>
+            </div>
+          </>
         }
       />
+
+      {generate.data ? (
+        <div className="shrink-0 border-b border-[var(--line)] bg-[var(--panel-2)]/50 px-4 py-1.5">
+          <p className="text-[10.5px] leading-snug text-[var(--text-2)]">
+            The engine considered {generate.data.callsThatWaited} calls that waited and
+            drafted {generate.data.created.length}
+            {generate.data.refused.length
+              ? `; the Critic refused ${generate.data.refused.length}: ${generate.data.refused[0].reasons[0]}`
+              : ""}
+            . {generate.data.note}
+          </p>
+        </div>
+      ) : null}
 
       <PageBody>
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">

@@ -170,6 +170,28 @@ export function isRoleAllowed(role: Role, pathname: string): boolean {
 }
 
 /**
+ * Make a value safe to put in an HTTP header.
+ *
+ * Header values are ISO-8859-1. A non-ASCII character makes `fetch` throw
+ * before the request is sent -- no network entry, no error status, just a
+ * rejected promise -- and the demo port authority is literally called
+ * "Chennai Port Authority — Control Room", em-dash included. Any real Indian
+ * port authority or carrier name could carry one too.
+ *
+ * Dashes and quotes are folded to their ASCII equivalents so a name stays
+ * readable; anything else non-ASCII is dropped. The server applies the same
+ * normalisation before comparing, so a folded name still matches.
+ */
+export function asciiHeader(value: string): string {
+  return value
+    .replace(/[‐-―]/g, "-")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[^ -~]/g, "")
+    .trim();
+}
+
+/**
  * Identity headers for the advisory API.
  *
  * Built here rather than at each call site so there is one place that decides
@@ -183,13 +205,13 @@ export function advisoryHeaders(user: User | null): Record<string, string> {
   const party = ROLE_PROFILE[user.role].advisoryParty;
   if (!party) return {};
   const headers: Record<string, string> = {
-    "X-PortWatch-Actor": user.displayName,
+    "X-PortWatch-Actor": asciiHeader(user.displayName),
     "X-PortWatch-Role": user.role,
   };
-  if (user.portCode) headers["X-PortWatch-Port"] = user.portCode;
-  if (user.organisation) headers["X-PortWatch-Org"] = user.organisation;
+  if (user.portCode) headers["X-PortWatch-Port"] = asciiHeader(user.portCode);
+  if (user.organisation) headers["X-PortWatch-Org"] = asciiHeader(user.organisation);
   if (user.vesselIds.length) {
-    headers["X-PortWatch-Vessels"] = user.vesselIds.join(",");
+    headers["X-PortWatch-Vessels"] = asciiHeader(user.vesselIds.join(","));
   }
   if (user.role === "NATIONAL_ADMIN") headers["X-PortWatch-Admin"] = "true";
   return headers;

@@ -14,6 +14,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { AgentConsole } from "@/components/agent/AgentConsole";
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
 import { PortSummary } from "@/components/command/PortCockpit";
 import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
@@ -141,6 +142,12 @@ function NationalRadar() {
             <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
               <MaritimeSearch ports={workspace.ports} onPick={onPick} />
               <TrafficFilters workspace={workspace} />
+            </div>
+
+            {/* The command surface. Collapsed to a strip so the chart stays the
+                product; it expands over the map and closes again. */}
+            <div className="pointer-events-none absolute right-[352px] top-2.5 z-30">
+              <AgentConsole />
             </div>
 
             {/* ------------------------------------------------- bottom left -- */}

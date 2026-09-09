@@ -27,6 +27,7 @@ import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { useWorkspace } from "@/auth/AuthProvider";
+import { AgentConsole } from "@/components/agent/AgentConsole";
 import { useFixes } from "@/components/app/traffic-context";
 import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
 import { TimeTransport } from "@/components/command/TimeTransport";
@@ -180,6 +181,14 @@ function FleetCommand() {
     [risk.data?.rows, selectedVessel],
   );
 
+  // Hoisted above the loading early-return. Called from inside the JSX it sat
+  // after that return, so the loading render and the loaded render disagreed on
+  // how many hooks had run.
+  const ownedIds = useMemo(
+    () => new Set(fixes.filter((fix) => fix.owned).map((fix) => fix.id)),
+    [fixes],
+  );
+
   if (fleet.isLoading || fleet.isError) {
     return (
       <ScreenFallback
@@ -211,10 +220,7 @@ function FleetCommand() {
         vesselFilter={workspace.vesselFilter}
         // Company hulls at full weight, everything else dimmed but present: a
         // fleet desk needs to see its own ships in traffic, not in isolation.
-        focusIds={useMemo(
-          () => new Set(fixes.filter((f) => f.owned).map((f) => f.id)),
-          [fixes],
-        )}
+        focusIds={ownedIds}
         labels={workspace.labels}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
@@ -229,6 +235,10 @@ function FleetCommand() {
 
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
               <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+            </div>
+
+            <div className="pointer-events-none absolute right-[372px] top-2.5 z-30">
+              <AgentConsole />
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[372px] z-20">

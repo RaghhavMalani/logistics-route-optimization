@@ -132,7 +132,10 @@ export function TimeTransport({
             ? "Pause the forecast animation"
             : "Sweep the forecast forward and loop"
         }
-        aria-pressed={state.weatherPlaying}
+        // Written as an explicit string. React renders a boolean `aria-*` value
+        // as "true"/"false", but a toggle whose pressed state is the thing under
+        // test should not depend on that coercion.
+        aria-pressed={state.weatherPlaying ? "true" : "false"}
         data-testid="weather-play"
         onClick={() => clock.setWeatherPlaying(!state.weatherPlaying)}
         className={cn(

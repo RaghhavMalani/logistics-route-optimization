@@ -264,6 +264,166 @@ def create_advisory(
     return advisory.to_dict()
 
 
+@router.post("/advisories/generate")
+def generate_advisories(
+    payload: Dict[str, Any] = Body(default={}),
+    actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    admin: Optional[str] = Header(None, alias="X-PortWatch-Admin"),
+) -> Dict[str, Any]:
+    """Draft advisories from the decision engine, for a controller to review.
+
+    This is the *left* end of the human-in-the-loop workflow: the twin is run
+    forward, the vessels that would wait longest are identified, the Critic
+    reviews each recommendation, and a draft is raised. Nothing here is visible
+    to a vessel, and nothing here can issue.
+
+    The arithmetic comes from the simulator. A recommendation whose recommended
+    arrival shift the Critic rejects is not drafted at all -- it is returned in
+    ``refused`` with the reason, because a controller should be able to see what
+    the engine considered and discarded.
+    """
+    acting = principal_from_request(
+        actor, role, header_port, None, None,
+        is_admin=(admin or "").lower() in ("1", "true", "yes"),
+    )
+    if acting.role != ISSUER:
+        raise HTTPException(
+            status_code=403, detail="Only a port authority may raise advisories."
+        )
+
+    port_code = str(payload.get("portCode") or header_port or "")
+    if not port_code:
+        raise HTTPException(status_code=400, detail="A port is required.")
+
+    from backend.app.routes.company import resolve_company
+    from backend.app.routes.port_twin import build_state_for
+    from src.portwatch_os.agents.critic import Critic, Recommendation
+    from src.portwatch_os.twin.policies import GreedyPolicy
+    from src.portwatch_os.twin.simulation import SimulationConfig, simulate
+
+    state = build_state_for(port_code)
+    result = simulate(
+        state, GreedyPolicy(),
+        SimulationConfig(horizon_hours=24.0, record_trace=False),
+        snapshot_hours=(),
+    )
+    final = result.final_state
+    record = port_registry.resolve(port_code)
+    profile = resolve_company(None)
+    fleet = profile.vessels if profile else []
+
+    # The calls that actually waited. Anything under an hour is not worth an
+    # advisory: the schedule buffer absorbs it and a controller's attention is
+    # the scarce resource here.
+    waited = sorted(
+        (c for c in final.calls if c.wait_hours >= 1.0),
+        key=lambda c: -c.wait_hours,
+    )[: int(payload.get("limit") or 4)]
+
+    critic = Critic()
+    created: List[Dict[str, Any]] = []
+    refused: List[Dict[str, Any]] = []
+    store = get_advisory_store()
+
+    for index, call in enumerate(waited):
+        # Half the observed wait, capped at the advisory envelope. Arriving
+        # later than the berth frees buys nothing, so the recommendation never
+        # exceeds the wait it is removing.
+        shift = round(min(call.wait_hours * 0.5, 12.0), 1)
+        vessel = fleet[index % len(fleet)] if fleet else None
+
+        recommendation = Recommendation(
+            kind="arrival_advisory",
+            subject=vessel.vessel_id if vessel else call.vessel_id,
+            action="restagger_arrival",
+            values={
+                "arrivalShiftHours": shift,
+                "simulatedWaitHours": round(call.wait_hours, 1),
+            },
+            expected_impact={"waitHoursSaved": shift},
+            confidence=0.72,
+            evidence_tools=["portwatch.port_twin.simulate"],
+            evidence={
+                "violations": result.violations,
+                "rejectedActions": result.rejected_actions,
+            },
+            reason=(
+                f"The twin simulates {call.wait_hours:.1f} h at anchor for this call "
+                f"under the greedy berth policy."
+            ),
+        )
+        verdict = critic.review(recommendation)
+        if verdict.verdict == "REJECTED":
+            refused.append({
+                "vesselId": recommendation.subject,
+                "reasons": verdict.reasons,
+                "checks": verdict.to_dict()["failedChecks"],
+            })
+            continue
+
+        created_at = utc_now()
+        advisory = Advisory(
+            advisory_id=Advisory.make_id(
+                port_code,
+                vessel.vessel_id if vessel else call.vessel_id,
+                "arrival_window",
+                created_at,
+            ),
+            kind="arrival_window",
+            port_code=(record.locode if record else port_code),
+            issuer="PortWatch decision engine",
+            issuer_organisation=(record.authority if record else port_code),
+            recipient_vessel_id=vessel.vessel_id if vessel else call.vessel_id,
+            recipient_vessel_name=vessel.name if vessel else call.name,
+            recipient_organisation=(profile.name if profile else "Unknown operator"),
+            created_at=created_at,
+            recommendation={
+                # The advisory kind requires an instant, not a simulation hour:
+                # a master reads a time, and the twin's hour axis is internal.
+                "recommendedArrival": _instant(final.epoch, call.eta_hour + shift),
+                "currentEta": _instant(final.epoch, call.eta_hour),
+                "recommendedArrivalShiftHours": shift,
+                "berth": call.berth_id or "to be assigned",
+            },
+            reason=(
+                f"{call.name} is simulated to wait {call.wait_hours:.1f} h at anchor "
+                f"under the current berth plan. Arriving {shift:.1f} h later removes "
+                f"about {shift:.1f} h of that wait without moving the berth window."
+            ),
+            model_confidence=verdict.adjusted_confidence,
+            evidence={
+                "simulatedWaitHours": round(call.wait_hours, 1),
+                "expectedWaitReductionHours": shift,
+                "berthUtilisation": result.metrics.get("berthUtilisation"),
+                "queueLength": result.metrics.get("queueLength"),
+            },
+            critic_verdict=verdict.verdict,
+            critic_reasons=verdict.reasons + verdict.qualifications,
+            valid_until=_default_validity(),
+        )
+        try:
+            store.create(advisory, principal=acting)
+        except (AdvisoryError, AuthorisationError) as exc:
+            refused.append({"vesselId": advisory.recipient_vessel_id, "reasons": [str(exc)]})
+            continue
+        created.append(advisory.to_dict())
+
+    return {
+        "portCode": port_code,
+        "created": created,
+        "refused": refused,
+        "callsConsidered": len(final.calls),
+        "callsThatWaited": len([c for c in final.calls if c.wait_hours >= 1.0]),
+        "note": (
+            "Drafts only. Every one is invisible to its recipient until a named "
+            "controller reviews and issues it. The arrival shifts come from the "
+            "twin simulation; the Critic reviewed each before it was drafted."
+        ),
+    }
+
+
 @router.post("/advisories/{advisory_id}/transition")
 def transition_advisory(
     advisory_id: str,
@@ -333,6 +493,26 @@ def advisory_audit(advisory_id: str) -> Dict[str, Any]:
         }
     except AdvisoryError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+def _instant(epoch: Optional[str], hour: float) -> str:
+    """Turn a simulation hour into a UTC instant a master can read.
+
+    The twin counts hours from the observed snapshot. Every advisory that names
+    a time has to name a real one, so the epoch is carried through rather than
+    the hour being shown raw.
+    """
+    base = None
+    if epoch:
+        try:
+            base = datetime.fromisoformat(str(epoch).replace("Z", "+00:00"))
+        except ValueError:
+            base = None
+    if base is None:
+        base = datetime.now(timezone.utc)
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=timezone.utc)
+    return (base + timedelta(hours=float(hour))).isoformat(timespec="seconds")
 
 
 def _default_validity() -> str:

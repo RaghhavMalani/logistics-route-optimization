@@ -16,32 +16,55 @@ import { test as base, type BrowserContext, type Page } from "@playwright/test";
 
 const FIXTURES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 
-export type Role = "VESSEL_OPERATOR" | "PORT_OPERATOR" | "ADMIN";
+export type Role =
+  | "VESSEL_OPERATOR"
+  | "SHIPPING_COMPANY"
+  | "PORT_AUTHORITY"
+  | "NATIONAL_ADMIN";
+
+const DEMO_COMPANY_ID = "portwatch-demo-shipping";
+const DEMO_COMPANY_NAME = "PortWatch Demo Shipping";
 
 export const ACCOUNTS: Record<Role, Record<string, unknown>> = {
-  ADMIN: {
+  NATIONAL_ADMIN: {
     id: "demo-admin",
     email: "admin@portwatch.demo",
     displayName: "A. Deshmukh",
-    role: "ADMIN",
+    role: "NATIONAL_ADMIN",
     organisation: "National Maritime Operations Centre",
     portCode: null,
+    companyId: null,
+    vesselIds: [],
   },
-  PORT_OPERATOR: {
+  PORT_AUTHORITY: {
     id: "demo-port",
     email: "port@portwatch.demo",
     displayName: "S. Iyer",
-    role: "PORT_OPERATOR",
+    role: "PORT_AUTHORITY",
     organisation: "Chennai Port Authority — Control Room",
     portCode: "INMAA",
+    companyId: null,
+    vesselIds: [],
+  },
+  SHIPPING_COMPANY: {
+    id: "demo-company",
+    email: "company@portwatch.demo",
+    displayName: "M. Fernandes",
+    role: "SHIPPING_COMPANY",
+    organisation: DEMO_COMPANY_NAME,
+    portCode: null,
+    companyId: DEMO_COMPANY_ID,
+    vesselIds: [],
   },
   VESSEL_OPERATOR: {
     id: "demo-vessel",
     email: "vessel@portwatch.demo",
     displayName: "R. Nayar",
     role: "VESSEL_OPERATOR",
-    organisation: "Konkan Line — Fleet Operations",
+    organisation: DEMO_COMPANY_NAME,
     portCode: null,
+    companyId: DEMO_COMPANY_ID,
+    vesselIds: ["PWD-001"],
   },
 };
 
@@ -51,15 +74,44 @@ function fixtureFor(pathname: string): string | null {
   return fs.existsSync(file) ? file : null;
 }
 
+/**
+ * POST routes the suite replays.
+ *
+ * An agent run is a POST with a body, and recording one response per question
+ * would make the fixture set a transcript. One recorded run is enough to assert
+ * that the console renders a trace, a critic verdict and an agent chain -- which
+ * is what the interface test is about.
+ */
+const POST_FIXTURES: Array<[RegExp, string]> = [
+  [/\/scenarios\/simulate$/, "scenarios_simulate.json"],
+  [/\/agents\/run$/, "agents_run.json"],
+  [/\/learning\/run$/, "learning_run.json"],
+];
+
 /** Replay the recorded API. Anything not recorded answers 404, as the real one would. */
 export async function mockApi(context: BrowserContext): Promise<void> {
   await context.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
 
-    if (request.method() === "POST" && url.pathname.endsWith("/scenarios/simulate")) {
-      const body = fs.readFileSync(path.join(FIXTURES, "scenarios_simulate.json"), "utf8");
-      await route.fulfill({ status: 200, contentType: "application/json", body });
+    if (request.method() === "POST") {
+      const match = POST_FIXTURES.find(([pattern]) => pattern.test(url.pathname));
+      const file = match ? path.join(FIXTURES, match[1]) : null;
+      if (file && fs.existsSync(file)) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: fs.readFileSync(file, "utf8"),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: `No POST fixture recorded for ${url.pathname}`,
+        }),
+      });
       return;
     }
 

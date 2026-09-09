@@ -12,6 +12,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
+import { AgentConsole } from "@/components/agent/AgentConsole";
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
 import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
 import { TimeTransport } from "@/components/command/TimeTransport";
@@ -150,6 +151,10 @@ function VesselBridge() {
                 placeholder="Search traffic or port"
               />
               <TrafficFilters workspace={workspace} />
+            </div>
+
+            <div className="pointer-events-none absolute right-2.5 top-2.5 z-30">
+              <AgentConsole />
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">

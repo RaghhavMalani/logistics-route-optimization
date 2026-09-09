@@ -176,6 +176,16 @@ export const fetchAdvisories = (
   return getJson<AdvisoryList>(`/advisories${suffix ? `?${suffix}` : ""}`, headers);
 };
 
+export const generateAdvisories = (
+  headers: Record<string, string>,
+  portCode: string,
+): Promise<{
+  created: unknown[];
+  refused: Array<{ vesselId: string; reasons: string[] }>;
+  callsThatWaited: number;
+  note: string;
+}> => postJson("/advisories/generate", { portCode }, headers);
+
 export const createAdvisory = (
   headers: Record<string, string>,
   payload: Record<string, unknown>,
