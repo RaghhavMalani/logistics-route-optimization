@@ -1,20 +1,25 @@
-# Core prototype dependencies (lightweight, runs anywhere).
-# The full pipeline + baseline quantile forecaster only needs these.
-pandas>=1.5
+# India PortWatch -- core runtime.
+# Everything the pipeline, the API and the test suite need. The deep-learning
+# stack is deliberately optional: the adaptive ensemble runs on persistence +
+# the GBM quantile model without it, and the benchmark reports the TFT as
+# not evaluated rather than pretending otherwise.
+
+# --- data + modelling -------------------------------------------------------
+pandas>=2.0
 numpy>=1.23
-scikit-learn>=1.1
+scikit-learn>=1.4
+hmmlearn>=0.3          # HSMM backend; falls back to a GaussianMixture if absent
 
-# --- Optional ---------------------------------------------------------------
-# HSMM: if hmmlearn is installed the regime model uses a GaussianHMM;
-# otherwise it transparently falls back to a GaussianMixture. Uncomment to use.
-# hmmlearn>=0.3
+# --- live connectors --------------------------------------------------------
+requests>=2.31         # IMF PortWatch, Open-Meteo, GDELT, FRED
 
-# Dashboard (optional UI): streamlit run src/dashboard/app.py
-# streamlit>=1.20
+# --- API --------------------------------------------------------------------
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+httpx>=0.27            # required by fastapi.testclient
 
-# Plotting (benchmark/importance charts + notebooks):
-# matplotlib>=3.6
-
-# --- Feature stacks (install as needed) -------------------------------------
-# Dashboard + storage + streaming + plots:  pip install -r requirements-extras.txt
-# Real Temporal Fusion Transformer:         pip install -r requirements-tft.txt
+# --- Optional feature stacks ------------------------------------------------
+# Real Temporal Fusion Transformer:  pip install -r requirements-tft.txt
+# Dashboard / storage / plots:       pip install -r requirements-extras.txt
+# Browser UI smoke test:             pip install playwright && playwright install chromium

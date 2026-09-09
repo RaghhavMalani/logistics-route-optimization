@@ -80,6 +80,15 @@ _ORIGIN_FEATURES = [
     "conflict_risk", "event_spike_score",
     "queue_proxy", "turnaround_proxy", "vessel_density", "avg_speed_near_port",
     "anchorage_count", "demand_pressure", "trade_trend", "utilization",
+    # specialist agents -- wired directly into the forecaster's feature space so
+    # capacity, anomaly, arrival-dynamics, disruption and weather-persistence
+    # evidence changes the forecast itself, not just the dashboard.
+    "capacity_pressure", "queue_momentum", "throughput_stress",
+    "anomaly_score", "congestion_anomaly", "delay_anomaly",
+    "arrival_acceleration", "arrival_clustering", "anchorage_buildup",
+    "berth_pressure", "disruption_exposure", "disruption_pressure",
+    "weather_shock", "weather_persistence", "weather_forward_load",
+    "data_quality_score", "specialist_stress",
     # macro / conditions (oil, currency, inflation, live news) -> the forecast
     # itself now reacts to economic conditions, not just the regime label.
     "oil_stress", "fx_stress", "inflation_stress", "news_stress",

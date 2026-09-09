@@ -16,11 +16,27 @@ _FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
 _DATEFMT = "%H:%M:%S"
 
 
+def _utf8_stream():
+    """A stdout that will not die on a non-Latin-1 character.
+
+    Windows consoles default to cp1252, and a third-party library logging an
+    emoji is enough to fill the run with logging tracebacks that look like
+    pipeline failures. Reconfiguring the stream to UTF-8 with replacement makes
+    the output boring instead of alarming.
+    """
+    stream = sys.stdout
+    try:
+        stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+    return stream
+
+
 def _configure_root(level: int = logging.INFO) -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
-    handler = logging.StreamHandler(stream=sys.stdout)
+    handler = logging.StreamHandler(stream=_utf8_stream())
     handler.setFormatter(logging.Formatter(_FORMAT, datefmt=_DATEFMT))
     root = logging.getLogger()
     root.handlers.clear()

@@ -135,12 +135,34 @@ def run(port_ops_raw: pd.DataFrame | None,
     have_portwatch = (not have_ais and port_ops_raw is not None
                       and not port_ops_raw.empty
                       and all(c in port_ops_raw.columns for c in _PORTWATCH_COLS))
-    provenance.record(
-        "AIS / vessel activity",
-        provenance.LIVE if have_portwatch else provenance.SYNTHETIC,
-        "IMF PortWatch satellite-AIS daily feed" if have_portwatch else
-        "AIS-like sample" if have_ais else
-        "proxy from congestion; wire GEE Sentinel-1 to go real")
+    latest_observation = None
+    if port_ops_raw is not None and not port_ops_raw.empty and DATE in port_ops_raw:
+        latest_observation = pd.to_datetime(
+            port_ops_raw[DATE], errors="coerce").max()
+
+    if have_portwatch:
+        provenance.record(
+            "AIS / vessel activity", provenance.CACHED_LIVE,
+            "Measured daily port calls and trade tonnage per Indian port.",
+            provider="IMF PortWatch (satellite-AIS)",
+            observed_at=latest_observation,
+            rows=len(port_ops_raw),
+            fallback=None)
+    elif have_ais:
+        provenance.record(
+            "AIS / vessel activity", provenance.SYNTHETIC,
+            "AIS-like sample bundle used for the offline demo.",
+            provider="local sample generator",
+            observed_at=latest_observation,
+            rows=len(port_ops_raw),
+            fallback="sample bundle")
+    else:
+        provenance.record(
+            "AIS / vessel activity", provenance.SYNTHETIC,
+            "No AIS feed available; vessel activity is imputed from observed "
+            "congestion and reported at low confidence.",
+            provider="derived proxy",
+            fallback="congestion-derived proxy")
 
     if have_ais:
         log.info("Port-ops expert: using REAL/sample AIS-like data.")

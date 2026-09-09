@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:browser": "playwright test",
+    "test:browser:ui": "playwright test --ui",
+    "qa:fixtures": "node qa/capture-fixtures.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -69,6 +73,8 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.7.0",
+    "@playwright/test": "^1.63.0",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

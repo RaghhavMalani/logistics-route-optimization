@@ -1,416 +1,412 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/**
+ * India PortWatch — operations design system.
+ *
+ * The rules this file encodes, because they are what separates an operations
+ * console from a dashboard:
+ *
+ *   1. One ground, three surfaces. Panels are separated by a hairline, not by
+ *      a drop shadow, and never nest more than one level deep.
+ *   2. Sans-serif for language, mono for measurement. Coordinates, timestamps,
+ *      identifiers and model output are tabular mono; everything a person
+ *      reads as a sentence is not.
+ *   3. Colour carries state, never decoration. Five status hues, each used for
+ *      exactly one meaning, at one saturation. No glow, no gradients on data.
+ *   4. Radius stays between 2 and 4px. Anything rounder reads as consumer.
+ */
 
 @theme inline {
-  --font-sans:
-    "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo,
-    monospace;
-  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --radius-sm: 2px;
   --radius-md: 3px;
   --radius-lg: 4px;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-panel: var(--panel);
-  --color-panel-2: var(--panel-2);
+  --radius-xl: 4px;
+
+  --color-bg: var(--bg);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-surface: var(--panel);
+  --color-surface-2: var(--panel-2);
+  --color-surface-3: var(--panel-3);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-cyan: var(--cyan);
-  --color-mint: var(--mint);
-  --color-amber: var(--amber);
-  --color-red: var(--red);
-  --color-purple: var(--purple);
-  --color-blue-deep: var(--blue-deep);
-  --color-sea: var(--sea);
-  --color-land: var(--land);
-  --color-coast: var(--coast);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --color-ok: var(--ok);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-crit: var(--crit);
+  --color-unc: var(--unc);
+
+  /* shadcn/radix surface aliases, so the primitive components stay usable. */
   --color-card: var(--panel);
-  --color-card-foreground: var(--foreground);
-  --color-popover: var(--panel);
-  --color-popover-foreground: var(--foreground);
-  --color-secondary: var(--panel-2);
-  --color-secondary-foreground: var(--foreground);
-  --color-accent: var(--panel-2);
-  --color-accent-foreground: var(--foreground);
-  --color-destructive: var(--red);
-  --color-destructive-foreground: var(--foreground);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--panel-2);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--info);
+  --color-primary-foreground: #04121b;
+  --color-secondary: var(--panel-3);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--panel-2);
+  --color-muted-foreground: var(--text-3);
+  --color-accent: var(--panel-3);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--crit);
+  --color-destructive-foreground: #ffffff;
   --color-border: var(--line);
-  --color-input: var(--line);
-  --color-ring: var(--cyan);
+  --color-input: var(--line-strong);
+  --color-ring: var(--info);
+  --color-sidebar: var(--panel);
+  --color-sidebar-foreground: var(--text-2);
+  --color-sidebar-primary: var(--info);
+  --color-sidebar-primary-foreground: #04121b;
+  --color-sidebar-accent: var(--panel-3);
+  --color-sidebar-accent-foreground: var(--text);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--info);
+  --color-chart-1: var(--info);
+  --color-chart-2: var(--ok);
+  --color-chart-3: var(--warn);
+  --color-chart-4: var(--crit);
+  --color-chart-5: var(--unc);
 }
 
 :root {
-  --background: oklch(0.14 0.02 240);
-  --foreground: oklch(0.94 0.02 200);
-  --panel: oklch(0.18 0.025 240);
-  --panel-2: oklch(0.22 0.03 240);
-  --line: oklch(0.3 0.03 240);
-  --line-strong: oklch(0.4 0.05 220);
-  --muted: oklch(0.22 0.025 240);
-  --muted-foreground: oklch(0.65 0.03 220);
-  --primary: oklch(0.82 0.18 190);
-  --primary-foreground: oklch(0.1 0.02 240);
-  --cyan: oklch(0.82 0.18 195);
-  --mint: oklch(0.86 0.19 155);
-  --amber: oklch(0.82 0.18 75);
-  --red: oklch(0.68 0.24 25);
-  --purple: oklch(0.68 0.2 305);
-  --blue-deep: oklch(0.28 0.09 245);
-  --sea: oklch(0.16 0.04 240);
-  --land: oklch(0.24 0.03 220);
-  --coast: oklch(0.55 0.09 195);
-  --radius: 3px;
-  --sidebar: var(--panel);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--cyan);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: var(--panel-2);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--line);
-  --sidebar-ring: var(--cyan);
-  --chart-1: var(--cyan);
-  --chart-2: var(--mint);
-  --chart-3: var(--amber);
-  --chart-4: var(--red);
-  --chart-5: var(--purple);
-  --popover: var(--panel);
-  --popover-foreground: var(--foreground);
-  --card: var(--panel);
-  --card-foreground: var(--foreground);
-  --primary-foreground: oklch(0.1 0.02 240);
-  --secondary: var(--panel-2);
-  --secondary-foreground: var(--foreground);
-  --accent: var(--panel-2);
-  --accent-foreground: var(--foreground);
-  --destructive: var(--red);
-  --destructive-foreground: var(--foreground);
-  --border: var(--line);
-  --input: var(--line);
-  --ring: var(--cyan);
-}
-
-.dark {
   color-scheme: dark;
+
+  /* ---------------------------------------------------------- surfaces -- */
+  --bg: #071017;
+  --bg-deep: #050c12;
+  --panel: #0e1821;
+  --panel-2: #101c26;
+  --panel-3: #14212c;
+  --panel-4: #1a2a36;
+  --line: #1b2b38;
+  --line-strong: #294050;
+
+  /* ------------------------------------------------------------- text --- */
+  --text: #dde7ee;
+  --text-2: #9cb0c0;
+  --text-3: #6a8093;
+
+  /* ----------------------------------------------------------- status --- */
+  --ok: #56b28d;
+  --info: #4c9fcb;
+  --warn: #d3a02f;
+  --crit: #d05a4c;
+  --unc: #8a7fc4;
+
+  --ok-dim: #1a3830;
+  --info-dim: #123243;
+  --warn-dim: #3a2f14;
+  --crit-dim: #3a1e1c;
+  --unc-dim: #262146;
+
+  /* ---------------------------------------------------------- geometry -- */
+  --radius: 3px;
+  --nav-w: 196px;
+  --nav-w-compact: 46px;
+  /* Chrome is deliberately thin: this is a map product, and every pixel the
+     shell keeps is a pixel of ocean the operator does not get. */
+  --topbar-h: 38px;
+  --status-h: 24px;
+
+  /* map palette — a working nautical chart, not a satellite photograph */
+  --sea: #061520;
+  --sea-deep: #04101a;
+  --land: #0d1720;
+  --land-line: #4d7f9b;
+  --graticule: #10222d;
+
+  /* vessel classes. Colour is class here, not state: state is the glyph. */
+  --ship-container: #57a9d8;
+  --ship-tanker: #cf8b4a;
+  --ship-bulk: #93b062;
+  --ship-lng: #9d86d6;
+  --ship-roro: #57b3a5;
+  --ship-cargo: #93a7b8;
+  --ship-passenger: #d5758f;
+  --ship-service: #7a8fa1;
 }
 
 @layer base {
+  * {
+    border-color: var(--line);
+  }
+
   html,
   body,
   #root {
     height: 100%;
   }
-  * {
-    border-color: var(--color-line);
-  }
+
   body {
-    background: radial-gradient(
-      circle at 20% 10%,
-      oklch(0.18 0.05 240) 0%,
-      oklch(0.1 0.02 240) 60%,
-      oklch(0.08 0.015 240) 100%
-    );
-    color: var(--color-foreground);
+    background: var(--bg);
+    color: var(--text);
     font-family: var(--font-sans);
-    font-size: 12px;
-    line-height: 1.35;
-    letter-spacing: 0.01em;
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
     overflow: hidden;
   }
+
+  ::selection {
+    background: color-mix(in srgb, var(--info) 32%, transparent);
+  }
+
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 9px;
+    height: 9px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-line);
+    background: var(--line-strong);
     border-radius: 2px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-line-strong);
+    background: #35505f;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--info);
+    outline-offset: 1px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
   }
 }
 
+/* ------------------------------------------------------------- surfaces -- */
+
 @utility panel {
-  background: linear-gradient(
-    180deg,
-    oklch(0.19 0.03 240) 0%,
-    oklch(0.16 0.025 240) 100%
-  );
-  border: 1px solid var(--color-line);
-  border-radius: 3px;
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 0.03),
-    0 2px 12px oklch(0 0 0 / 0.4);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
-@utility panel-header {
+@utility panel-flat {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+@utility panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--color-line);
-  background: linear-gradient(
-    180deg,
-    oklch(0.24 0.03 240) 0%,
-    oklch(0.2 0.03 240) 100%
-  );
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------- typography -- */
+
+@utility eyebrow {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-muted-foreground);
+  color: var(--text-3);
 }
 
-@utility label-xs {
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-muted-foreground);
-  font-weight: 600;
-}
-
-@utility num-lg {
-  font-family: var(--font-sans);
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--color-foreground);
+@utility num {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
 }
 
-@utility glow-cyan {
-  text-shadow: 0 0 8px oklch(0.82 0.18 195 / 0.6);
-}
-@utility glow-amber {
-  text-shadow: 0 0 8px oklch(0.82 0.18 75 / 0.6);
-}
-@utility glow-red {
-  text-shadow: 0 0 10px oklch(0.68 0.24 25 / 0.7);
+@utility metric-xl {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
 }
 
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.8);
+@utility metric-lg {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* --------------------------------------------------------------- tables -- */
+
+@utility data-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------ animation -- */
+
+@keyframes pw-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pw-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pw-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
     opacity: 0.9;
   }
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
 }
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-@keyframes dash-flow {
+
+@keyframes pw-lane-flow {
   to {
-    stroke-dashoffset: -40;
-  }
-}
-@keyframes sweep {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-@keyframes ticker {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-@keyframes vessel-drift {
-  0% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(2px, -1px);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
-}
-@keyframes halo-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.12);
-    opacity: 0.85;
-  }
-}
-@keyframes vessel-track {
-  0% {
-    stroke-dashoffset: 0;
-    opacity: 0;
-  }
-  20% {
-    opacity: 0.6;
-  }
-  100% {
-    stroke-dashoffset: -80;
-    opacity: 0;
-  }
-}
-@keyframes cyclone-cloud-pulse {
-  0%,
-  100% {
-    opacity: 0.42;
-    transform: scale(0.98);
-  }
-  50% {
-    opacity: 0.62;
-    transform: scale(1.03);
-  }
-}
-@keyframes impact-rise {
-  0% {
-    transform: translateY(6px);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-@keyframes scenario-flash {
-  0% {
-    box-shadow: 0 0 0 0 var(--color-cyan);
-  }
-  100% {
-    box-shadow: 0 0 0 6px transparent;
+    stroke-dashoffset: -24;
   }
 }
 
-@keyframes twinkle {
-  0% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.85); }
-  100% { opacity: 1; transform: scale(1); }
+.pw-fade {
+  animation: pw-fade 0.18s ease-out both;
 }
 
-.twinkle {
-  animation: twinkle 1.6s ease-in-out infinite;
+.pw-breathe {
+  animation: pw-breathe 2.6s ease-in-out infinite;
 }
 
-.marker-tooltip {
-  background: rgba(10, 10, 12, 0.9);
-  color: var(--color-foreground);
-  padding: 4px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-}
-
-.animate-blink {
-  animation: blink 1.4s ease-in-out infinite;
-}
-.animate-dash {
-  stroke-dasharray: 4 6;
-  animation: dash-flow 2s linear infinite;
-}
-.animate-pulse-ring {
-  animation: pulse-ring 2.4s ease-out infinite;
-  transform-origin: center;
-}
-.animate-ticker {
-  animation: ticker 60s linear infinite;
-}
-.animate-sweep {
-  animation: sweep 8s linear infinite;
-  transform-origin: center;
-}
-.animate-drift {
-  animation: vessel-drift 4s ease-in-out infinite;
-}
-.animate-halo {
-  animation: halo-breathe 4.2s ease-in-out infinite;
-  transform-origin: center;
-  transform-box: fill-box;
-}
-.animate-impact {
-  animation: impact-rise 0.5s ease-out both;
-}
-
-/* Ship silhouette utility — bow + hull + wake */
-.ship-shape {
-  d: path("M -6 -1.6 L 3.5 -1.6 L 6 0 L 3.5 1.6 L -6 1.6 Z");
-}
-.label-halo {
-  paint-order: stroke;
-  stroke: oklch(0.08 0.02 240 / 0.9);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
-
-.grid-bg {
-  background-image:
-    linear-gradient(oklch(0.3 0.03 240 / 0.25) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.3 0.03 240 / 0.25) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-.scanlines {
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent 0,
-    transparent 2px,
-    oklch(1 0 0 / 0.015) 2px,
-    oklch(1 0 0 / 0.015) 3px
+.pw-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--panel-2) 0%,
+    var(--panel-3) 40%,
+    var(--panel-2) 80%
   );
+  background-size: 200% 100%;
+  animation: pw-shimmer 1.5s linear infinite;
+  border-radius: 2px;
 }
 
-.pw-maplibre-map {
-  background: oklch(0.05 0.02 240);
+@media (prefers-reduced-motion: reduce) {
+  .pw-fade,
+  .pw-breathe,
+  .pw-skeleton {
+    animation: none;
+  }
 }
-.pw-maplibre-map canvas {
+
+
+/* ------------------------------------------------------------- scrubber -- */
+
+/**
+ * The forecast scrubber.
+ *
+ * Native range input, restyled rather than replaced: it keeps keyboard control,
+ * the correct pointer capture and screen-reader semantics, all of which a div
+ * with a drag handler would have to reimplement badly.
+ */
+.pw-scrub {
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel-3);
   outline: none;
-  filter: brightness(1.22) contrast(1.32) saturate(1.04);
+  cursor: pointer;
 }
+
+.pw-scrub::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--info);
+  border: 1px solid #06121a;
+  cursor: grab;
+}
+
+.pw-scrub::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--info);
+  border: 1px solid #06121a;
+  cursor: grab;
+}
+
+.pw-scrub:focus-visible::-webkit-slider-thumb {
+  outline: 1px solid var(--info);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ map -- */
+
+.pw-map {
+  background: var(--sea-deep);
+}
+
+.pw-map canvas {
+  outline: none;
+}
+
 .maplibregl-map {
   font-family: var(--font-sans);
 }
-.maplibregl-ctrl-bottom-left,
-.maplibregl-ctrl-bottom-right {
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
   display: none;
 }
-.pw-sar-scene {
-  box-shadow:
-    inset 0 0 70px oklch(0 0 0 / 0.72),
-    inset 0 0 0 1px oklch(0.82 0.18 195 / 0.08);
+
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-top-right,
+.maplibregl-ctrl-top-left {
+  display: none;
 }
-.animate-sar-sweep {
-  animation: sar-sweep 5.8s ease-in-out infinite;
-  mix-blend-mode: screen;
+
+.maplibregl-canvas-container.maplibregl-interactive {
+  cursor: crosshair;
 }
-@keyframes sar-sweep {
-  0% {
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-  28% {
-    opacity: 0.8;
-  }
-  100% {
-    transform: translateX(330%);
-    opacity: 0;
-  }
+
+.maplibregl-canvas-container.maplibregl-interactive:active {
+  cursor: grabbing;
 }

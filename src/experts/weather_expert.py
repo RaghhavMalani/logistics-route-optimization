@@ -52,8 +52,11 @@ def _compute_risks(df: pd.DataFrame) -> pd.DataFrame:
 
     if "wave_height" in out and out["wave_height"].notna().any():
         out["wave_risk"] = to_risk(out["wave_height"], _WAVE_CENTER, _WAVE_SCALE)
+        # The marine endpoint does not cover every port-day (the reanalysis
+        # archive carries no wave field at all), so fill the gaps per row with
+        # the wind-derived proxy rather than leaving NaNs the models cannot use.
+        out["wave_risk"] = out["wave_risk"].fillna(out["wind_risk"])
     else:
-        # Fall back to a wind-derived wave proxy when wave data is missing.
         out["wave_risk"] = out["wind_risk"]
 
     # Storm risk blends an explicit storm flag with a low-visibility signal.
@@ -77,7 +80,9 @@ def _compute_risks(df: pd.DataFrame) -> pd.DataFrame:
     out["weather_confidence"] = row_confidence(df, inputs) if inputs else 0.5
 
     for c in ["wind_risk", "rain_risk", "wave_risk", "storm_risk"]:
-        out[c] = out[c].round(4)
+        # A missing physical input means "no measured risk", not "unknown number
+        # that crashes the model"; the drop is recorded in weather_confidence.
+        out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0.0).round(4)
     return out
 
 

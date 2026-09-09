@@ -1,0 +1,1 @@
+{"available":true,"observedAt":"2026-08-28T00:00:00","meanImpact":0.14,"meanWindRisk":0.107,"meanRainRisk":0.183,"meanWaveRisk":0.277,"meanStormRisk":0.009,"meanWindKnots":6.932,"meanWaveHeightM":null,"persistentPorts":[],"highestImpactPort":"INMRM","highestImpactScore":0.211,"portsCovered":13,"dataSource":"Open-Meteo (surface + marine) with GDACS storm flags"}

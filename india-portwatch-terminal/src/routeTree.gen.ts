@@ -10,22 +10,59 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as FleetRouteImport } from './routes/fleet'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ModelRouteImport } from './routes/model'
 import { Route as NlpRouteImport } from './routes/nlp'
-import { Route as PortRouteImport } from './routes/port'
+import { Route as PortRouteRouteImport } from './routes/port/route'
 import { Route as SarRouteImport } from './routes/sar'
 import { Route as SimRouteImport } from './routes/sim'
+import { Route as VesselRouteRouteImport } from './routes/vessel/route'
 import { Route as WxRouteImport } from './routes/wx'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminDataRouteImport } from './routes/admin/data'
+import { Route as AdminIntelligenceRouteImport } from './routes/admin/intelligence'
+import { Route as AdminModelRouteImport } from './routes/admin/model'
+import { Route as AdminPortsRouteImport } from './routes/admin/ports'
+import { Route as AdminRadarRouteImport } from './routes/admin/radar'
+import { Route as AdminScenariosRouteImport } from './routes/admin/scenarios'
+import { Route as AdminSystemRouteImport } from './routes/admin/system'
+import { Route as AdminVesselsRouteImport } from './routes/admin/vessels'
+import { Route as PortIndexRouteImport } from './routes/port/index'
+import { Route as PortDecisionsRouteImport } from './routes/port/decisions'
+import { Route as PortEventsRouteImport } from './routes/port/events'
+import { Route as PortForecastRouteImport } from './routes/port/forecast'
+import { Route as PortOperationsRouteImport } from './routes/port/operations'
+import { Route as PortOverviewRouteImport } from './routes/port/overview'
+import { Route as PortVesselsRouteImport } from './routes/port/vessels'
+import { Route as PortWeatherRouteImport } from './routes/port/weather'
+import { Route as VesselIndexRouteImport } from './routes/vessel/index'
+import { Route as VesselVesselIdRouteImport } from './routes/vessel/$vesselId'
+import { Route as VesselAlertsRouteImport } from './routes/vessel/alerts'
+import { Route as VesselFleetRouteImport } from './routes/vessel/fleet'
+import { Route as VesselOverviewRouteImport } from './routes/vessel/overview'
+import { Route as VesselPortsRouteImport } from './routes/vessel/ports'
+import { Route as VesselRoutesRouteImport } from './routes/vessel/routes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FleetRoute = FleetRouteImport.update({
   id: '/fleet',
   path: '/fleet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelRoute = ModelRouteImport.update({
@@ -38,7 +75,7 @@ const NlpRoute = NlpRouteImport.update({
   path: '/nlp',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortRoute = PortRouteImport.update({
+const PortRouteRoute = PortRouteRouteImport.update({
   id: '/port',
   path: '/port',
   getParentRoute: () => rootRouteImport,
@@ -53,67 +90,366 @@ const SimRoute = SimRouteImport.update({
   path: '/sim',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VesselRouteRoute = VesselRouteRouteImport.update({
+  id: '/vessel',
+  path: '/vessel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WxRoute = WxRouteImport.update({
   id: '/wx',
   path: '/wx',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminDataRoute = AdminDataRouteImport.update({
+  id: '/data',
+  path: '/data',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminIntelligenceRoute = AdminIntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminModelRoute = AdminModelRouteImport.update({
+  id: '/model',
+  path: '/model',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminPortsRoute = AdminPortsRouteImport.update({
+  id: '/ports',
+  path: '/ports',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminRadarRoute = AdminRadarRouteImport.update({
+  id: '/radar',
+  path: '/radar',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminScenariosRoute = AdminScenariosRouteImport.update({
+  id: '/scenarios',
+  path: '/scenarios',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminSystemRoute = AdminSystemRouteImport.update({
+  id: '/system',
+  path: '/system',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminVesselsRoute = AdminVesselsRouteImport.update({
+  id: '/vessels',
+  path: '/vessels',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const PortIndexRoute = PortIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortDecisionsRoute = PortDecisionsRouteImport.update({
+  id: '/decisions',
+  path: '/decisions',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortEventsRoute = PortEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortForecastRoute = PortForecastRouteImport.update({
+  id: '/forecast',
+  path: '/forecast',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortOperationsRoute = PortOperationsRouteImport.update({
+  id: '/operations',
+  path: '/operations',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortOverviewRoute = PortOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortVesselsRoute = PortVesselsRouteImport.update({
+  id: '/vessels',
+  path: '/vessels',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const PortWeatherRoute = PortWeatherRouteImport.update({
+  id: '/weather',
+  path: '/weather',
+  getParentRoute: () => PortRouteRoute,
+} as any)
+const VesselIndexRoute = VesselIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
+const VesselVesselIdRoute = VesselVesselIdRouteImport.update({
+  id: '/$vesselId',
+  path: '/$vesselId',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
+const VesselAlertsRoute = VesselAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
+const VesselFleetRoute = VesselFleetRouteImport.update({
+  id: '/fleet',
+  path: '/fleet',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
+const VesselOverviewRoute = VesselOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
+const VesselPortsRoute = VesselPortsRouteImport.update({
+  id: '/ports',
+  path: '/ports',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
+const VesselRoutesRoute = VesselRoutesRouteImport.update({
+  id: '/routes',
+  path: '/routes',
+  getParentRoute: () => VesselRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/port': typeof PortRouteRouteWithChildren
+  '/vessel': typeof VesselRouteRouteWithChildren
   '/fleet': typeof FleetRoute
+  '/login': typeof LoginRoute
   '/model': typeof ModelRoute
   '/nlp': typeof NlpRoute
-  '/port': typeof PortRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
   '/wx': typeof WxRoute
+  '/admin/data': typeof AdminDataRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/model': typeof AdminModelRoute
+  '/admin/ports': typeof AdminPortsRoute
+  '/admin/radar': typeof AdminRadarRoute
+  '/admin/scenarios': typeof AdminScenariosRoute
+  '/admin/system': typeof AdminSystemRoute
+  '/admin/vessels': typeof AdminVesselsRoute
+  '/port/decisions': typeof PortDecisionsRoute
+  '/port/events': typeof PortEventsRoute
+  '/port/forecast': typeof PortForecastRoute
+  '/port/operations': typeof PortOperationsRoute
+  '/port/overview': typeof PortOverviewRoute
+  '/port/vessels': typeof PortVesselsRoute
+  '/port/weather': typeof PortWeatherRoute
+  '/vessel/$vesselId': typeof VesselVesselIdRoute
+  '/vessel/alerts': typeof VesselAlertsRoute
+  '/vessel/fleet': typeof VesselFleetRoute
+  '/vessel/overview': typeof VesselOverviewRoute
+  '/vessel/ports': typeof VesselPortsRoute
+  '/vessel/routes': typeof VesselRoutesRoute
+  '/admin/': typeof AdminIndexRoute
+  '/port/': typeof PortIndexRoute
+  '/vessel/': typeof VesselIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/fleet': typeof FleetRoute
+  '/login': typeof LoginRoute
   '/model': typeof ModelRoute
   '/nlp': typeof NlpRoute
-  '/port': typeof PortRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
   '/wx': typeof WxRoute
+  '/admin/data': typeof AdminDataRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/model': typeof AdminModelRoute
+  '/admin/ports': typeof AdminPortsRoute
+  '/admin/radar': typeof AdminRadarRoute
+  '/admin/scenarios': typeof AdminScenariosRoute
+  '/admin/system': typeof AdminSystemRoute
+  '/admin/vessels': typeof AdminVesselsRoute
+  '/port/decisions': typeof PortDecisionsRoute
+  '/port/events': typeof PortEventsRoute
+  '/port/forecast': typeof PortForecastRoute
+  '/port/operations': typeof PortOperationsRoute
+  '/port/overview': typeof PortOverviewRoute
+  '/port/vessels': typeof PortVesselsRoute
+  '/port/weather': typeof PortWeatherRoute
+  '/vessel/$vesselId': typeof VesselVesselIdRoute
+  '/vessel/alerts': typeof VesselAlertsRoute
+  '/vessel/fleet': typeof VesselFleetRoute
+  '/vessel/overview': typeof VesselOverviewRoute
+  '/vessel/ports': typeof VesselPortsRoute
+  '/vessel/routes': typeof VesselRoutesRoute
+  '/admin': typeof AdminIndexRoute
+  '/port': typeof PortIndexRoute
+  '/vessel': typeof VesselIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
+  '/port': typeof PortRouteRouteWithChildren
+  '/vessel': typeof VesselRouteRouteWithChildren
   '/fleet': typeof FleetRoute
+  '/login': typeof LoginRoute
   '/model': typeof ModelRoute
   '/nlp': typeof NlpRoute
-  '/port': typeof PortRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
   '/wx': typeof WxRoute
+  '/admin/data': typeof AdminDataRoute
+  '/admin/intelligence': typeof AdminIntelligenceRoute
+  '/admin/model': typeof AdminModelRoute
+  '/admin/ports': typeof AdminPortsRoute
+  '/admin/radar': typeof AdminRadarRoute
+  '/admin/scenarios': typeof AdminScenariosRoute
+  '/admin/system': typeof AdminSystemRoute
+  '/admin/vessels': typeof AdminVesselsRoute
+  '/port/decisions': typeof PortDecisionsRoute
+  '/port/events': typeof PortEventsRoute
+  '/port/forecast': typeof PortForecastRoute
+  '/port/operations': typeof PortOperationsRoute
+  '/port/overview': typeof PortOverviewRoute
+  '/port/vessels': typeof PortVesselsRoute
+  '/port/weather': typeof PortWeatherRoute
+  '/vessel/$vesselId': typeof VesselVesselIdRoute
+  '/vessel/alerts': typeof VesselAlertsRoute
+  '/vessel/fleet': typeof VesselFleetRoute
+  '/vessel/overview': typeof VesselOverviewRoute
+  '/vessel/ports': typeof VesselPortsRoute
+  '/vessel/routes': typeof VesselRoutesRoute
+  '/admin/': typeof AdminIndexRoute
+  '/port/': typeof PortIndexRoute
+  '/vessel/': typeof VesselIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/fleet' | '/model' | '/nlp' | '/port' | '/sar' | '/sim' | '/wx'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/fleet' | '/model' | '/nlp' | '/port' | '/sar' | '/sim' | '/wx'
-  id:
-    | '__root__'
     | '/'
+    | '/admin'
+    | '/port'
+    | '/vessel'
     | '/fleet'
+    | '/login'
     | '/model'
     | '/nlp'
-    | '/port'
     | '/sar'
     | '/sim'
     | '/wx'
+    | '/admin/data'
+    | '/admin/intelligence'
+    | '/admin/model'
+    | '/admin/ports'
+    | '/admin/radar'
+    | '/admin/scenarios'
+    | '/admin/system'
+    | '/admin/vessels'
+    | '/port/decisions'
+    | '/port/events'
+    | '/port/forecast'
+    | '/port/operations'
+    | '/port/overview'
+    | '/port/vessels'
+    | '/port/weather'
+    | '/vessel/$vesselId'
+    | '/vessel/alerts'
+    | '/vessel/fleet'
+    | '/vessel/overview'
+    | '/vessel/ports'
+    | '/vessel/routes'
+    | '/admin/'
+    | '/port/'
+    | '/vessel/'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/fleet'
+    | '/login'
+    | '/model'
+    | '/nlp'
+    | '/sar'
+    | '/sim'
+    | '/wx'
+    | '/admin/data'
+    | '/admin/intelligence'
+    | '/admin/model'
+    | '/admin/ports'
+    | '/admin/radar'
+    | '/admin/scenarios'
+    | '/admin/system'
+    | '/admin/vessels'
+    | '/port/decisions'
+    | '/port/events'
+    | '/port/forecast'
+    | '/port/operations'
+    | '/port/overview'
+    | '/port/vessels'
+    | '/port/weather'
+    | '/vessel/$vesselId'
+    | '/vessel/alerts'
+    | '/vessel/fleet'
+    | '/vessel/overview'
+    | '/vessel/ports'
+    | '/vessel/routes'
+    | '/admin'
+    | '/port'
+    | '/vessel'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/port'
+    | '/vessel'
+    | '/fleet'
+    | '/login'
+    | '/model'
+    | '/nlp'
+    | '/sar'
+    | '/sim'
+    | '/wx'
+    | '/admin/data'
+    | '/admin/intelligence'
+    | '/admin/model'
+    | '/admin/ports'
+    | '/admin/radar'
+    | '/admin/scenarios'
+    | '/admin/system'
+    | '/admin/vessels'
+    | '/port/decisions'
+    | '/port/events'
+    | '/port/forecast'
+    | '/port/operations'
+    | '/port/overview'
+    | '/port/vessels'
+    | '/port/weather'
+    | '/vessel/$vesselId'
+    | '/vessel/alerts'
+    | '/vessel/fleet'
+    | '/vessel/overview'
+    | '/vessel/ports'
+    | '/vessel/routes'
+    | '/admin/'
+    | '/port/'
+    | '/vessel/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
+  PortRouteRoute: typeof PortRouteRouteWithChildren
+  VesselRouteRoute: typeof VesselRouteRouteWithChildren
   FleetRoute: typeof FleetRoute
+  LoginRoute: typeof LoginRoute
   ModelRoute: typeof ModelRoute
   NlpRoute: typeof NlpRoute
-  PortRoute: typeof PortRoute
   SarRoute: typeof SarRoute
   SimRoute: typeof SimRoute
   WxRoute: typeof WxRoute
@@ -128,11 +464,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/fleet': {
       id: '/fleet'
       path: '/fleet'
       fullPath: '/fleet'
       preLoaderRoute: typeof FleetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/model': {
@@ -153,7 +503,7 @@ declare module '@tanstack/react-router' {
       id: '/port'
       path: '/port'
       fullPath: '/port'
-      preLoaderRoute: typeof PortRouteImport
+      preLoaderRoute: typeof PortRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sar': {
@@ -170,6 +520,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SimRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vessel': {
+      id: '/vessel'
+      path: '/vessel'
+      fullPath: '/vessel'
+      preLoaderRoute: typeof VesselRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/wx': {
       id: '/wx'
       path: '/wx'
@@ -177,15 +534,264 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WxRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/data': {
+      id: '/admin/data'
+      path: '/data'
+      fullPath: '/admin/data'
+      preLoaderRoute: typeof AdminDataRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/intelligence': {
+      id: '/admin/intelligence'
+      path: '/intelligence'
+      fullPath: '/admin/intelligence'
+      preLoaderRoute: typeof AdminIntelligenceRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/model': {
+      id: '/admin/model'
+      path: '/model'
+      fullPath: '/admin/model'
+      preLoaderRoute: typeof AdminModelRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/ports': {
+      id: '/admin/ports'
+      path: '/ports'
+      fullPath: '/admin/ports'
+      preLoaderRoute: typeof AdminPortsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/radar': {
+      id: '/admin/radar'
+      path: '/radar'
+      fullPath: '/admin/radar'
+      preLoaderRoute: typeof AdminRadarRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/scenarios': {
+      id: '/admin/scenarios'
+      path: '/scenarios'
+      fullPath: '/admin/scenarios'
+      preLoaderRoute: typeof AdminScenariosRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/system': {
+      id: '/admin/system'
+      path: '/system'
+      fullPath: '/admin/system'
+      preLoaderRoute: typeof AdminSystemRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/vessels': {
+      id: '/admin/vessels'
+      path: '/vessels'
+      fullPath: '/admin/vessels'
+      preLoaderRoute: typeof AdminVesselsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/port/': {
+      id: '/port/'
+      path: '/'
+      fullPath: '/port/'
+      preLoaderRoute: typeof PortIndexRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/decisions': {
+      id: '/port/decisions'
+      path: '/decisions'
+      fullPath: '/port/decisions'
+      preLoaderRoute: typeof PortDecisionsRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/events': {
+      id: '/port/events'
+      path: '/events'
+      fullPath: '/port/events'
+      preLoaderRoute: typeof PortEventsRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/forecast': {
+      id: '/port/forecast'
+      path: '/forecast'
+      fullPath: '/port/forecast'
+      preLoaderRoute: typeof PortForecastRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/operations': {
+      id: '/port/operations'
+      path: '/operations'
+      fullPath: '/port/operations'
+      preLoaderRoute: typeof PortOperationsRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/overview': {
+      id: '/port/overview'
+      path: '/overview'
+      fullPath: '/port/overview'
+      preLoaderRoute: typeof PortOverviewRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/vessels': {
+      id: '/port/vessels'
+      path: '/vessels'
+      fullPath: '/port/vessels'
+      preLoaderRoute: typeof PortVesselsRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/port/weather': {
+      id: '/port/weather'
+      path: '/weather'
+      fullPath: '/port/weather'
+      preLoaderRoute: typeof PortWeatherRouteImport
+      parentRoute: typeof PortRouteRoute
+    }
+    '/vessel/': {
+      id: '/vessel/'
+      path: '/'
+      fullPath: '/vessel/'
+      preLoaderRoute: typeof VesselIndexRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
+    '/vessel/$vesselId': {
+      id: '/vessel/$vesselId'
+      path: '/$vesselId'
+      fullPath: '/vessel/$vesselId'
+      preLoaderRoute: typeof VesselVesselIdRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
+    '/vessel/alerts': {
+      id: '/vessel/alerts'
+      path: '/alerts'
+      fullPath: '/vessel/alerts'
+      preLoaderRoute: typeof VesselAlertsRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
+    '/vessel/fleet': {
+      id: '/vessel/fleet'
+      path: '/fleet'
+      fullPath: '/vessel/fleet'
+      preLoaderRoute: typeof VesselFleetRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
+    '/vessel/overview': {
+      id: '/vessel/overview'
+      path: '/overview'
+      fullPath: '/vessel/overview'
+      preLoaderRoute: typeof VesselOverviewRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
+    '/vessel/ports': {
+      id: '/vessel/ports'
+      path: '/ports'
+      fullPath: '/vessel/ports'
+      preLoaderRoute: typeof VesselPortsRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
+    '/vessel/routes': {
+      id: '/vessel/routes'
+      path: '/routes'
+      fullPath: '/vessel/routes'
+      preLoaderRoute: typeof VesselRoutesRouteImport
+      parentRoute: typeof VesselRouteRoute
+    }
   }
 }
 
+interface AdminRouteRouteChildren {
+  AdminDataRoute: typeof AdminDataRoute
+  AdminIntelligenceRoute: typeof AdminIntelligenceRoute
+  AdminModelRoute: typeof AdminModelRoute
+  AdminPortsRoute: typeof AdminPortsRoute
+  AdminRadarRoute: typeof AdminRadarRoute
+  AdminScenariosRoute: typeof AdminScenariosRoute
+  AdminSystemRoute: typeof AdminSystemRoute
+  AdminVesselsRoute: typeof AdminVesselsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminDataRoute: AdminDataRoute,
+  AdminIntelligenceRoute: AdminIntelligenceRoute,
+  AdminModelRoute: AdminModelRoute,
+  AdminPortsRoute: AdminPortsRoute,
+  AdminRadarRoute: AdminRadarRoute,
+  AdminScenariosRoute: AdminScenariosRoute,
+  AdminSystemRoute: AdminSystemRoute,
+  AdminVesselsRoute: AdminVesselsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
+interface PortRouteRouteChildren {
+  PortDecisionsRoute: typeof PortDecisionsRoute
+  PortEventsRoute: typeof PortEventsRoute
+  PortForecastRoute: typeof PortForecastRoute
+  PortOperationsRoute: typeof PortOperationsRoute
+  PortOverviewRoute: typeof PortOverviewRoute
+  PortVesselsRoute: typeof PortVesselsRoute
+  PortWeatherRoute: typeof PortWeatherRoute
+  PortIndexRoute: typeof PortIndexRoute
+}
+
+const PortRouteRouteChildren: PortRouteRouteChildren = {
+  PortDecisionsRoute: PortDecisionsRoute,
+  PortEventsRoute: PortEventsRoute,
+  PortForecastRoute: PortForecastRoute,
+  PortOperationsRoute: PortOperationsRoute,
+  PortOverviewRoute: PortOverviewRoute,
+  PortVesselsRoute: PortVesselsRoute,
+  PortWeatherRoute: PortWeatherRoute,
+  PortIndexRoute: PortIndexRoute,
+}
+
+const PortRouteRouteWithChildren = PortRouteRoute._addFileChildren(
+  PortRouteRouteChildren,
+)
+
+interface VesselRouteRouteChildren {
+  VesselVesselIdRoute: typeof VesselVesselIdRoute
+  VesselAlertsRoute: typeof VesselAlertsRoute
+  VesselFleetRoute: typeof VesselFleetRoute
+  VesselOverviewRoute: typeof VesselOverviewRoute
+  VesselPortsRoute: typeof VesselPortsRoute
+  VesselRoutesRoute: typeof VesselRoutesRoute
+  VesselIndexRoute: typeof VesselIndexRoute
+}
+
+const VesselRouteRouteChildren: VesselRouteRouteChildren = {
+  VesselVesselIdRoute: VesselVesselIdRoute,
+  VesselAlertsRoute: VesselAlertsRoute,
+  VesselFleetRoute: VesselFleetRoute,
+  VesselOverviewRoute: VesselOverviewRoute,
+  VesselPortsRoute: VesselPortsRoute,
+  VesselRoutesRoute: VesselRoutesRoute,
+  VesselIndexRoute: VesselIndexRoute,
+}
+
+const VesselRouteRouteWithChildren = VesselRouteRoute._addFileChildren(
+  VesselRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
+  PortRouteRoute: PortRouteRouteWithChildren,
+  VesselRouteRoute: VesselRouteRouteWithChildren,
   FleetRoute: FleetRoute,
+  LoginRoute: LoginRoute,
   ModelRoute: ModelRoute,
   NlpRoute: NlpRoute,
-  PortRoute: PortRoute,
   SarRoute: SarRoute,
   SimRoute: SimRoute,
   WxRoute: WxRoute,

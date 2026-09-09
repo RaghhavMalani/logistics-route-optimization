@@ -1,47 +1,46 @@
-from __future__ import annotations
+"""Marine weather endpoints.
 
-import json
-from pathlib import Path
+Serves the measured Open-Meteo conditions the weather expert consumed, together
+with the risk decomposition the model used and the shock-vs-persistence split.
+Fields the feed could not supply are ``null`` rather than filled in.
+"""
+
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from backend.app.services import cache_service as cache
+from src.utils import port_registry
+
 router = APIRouter()
 
-ROOT = Path(__file__).resolve().parents[3]
-CACHE_DIR = ROOT / "data" / "cache"
 
-WEATHER_BY_PORT_PATH = CACHE_DIR / "weather_by_port.json"
-WEATHER_INTEL_PATH = CACHE_DIR / "weather_intelligence.json"
-
-
-def read_json(path: Path):
-    if not path.exists():
-        raise HTTPException(
-            status_code=503,
-            detail=f"{path} not found. Run python backend/pipeline/export_support_cache.py first.",
-        )
-
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+def _bundle() -> dict:
+    try:
+        return cache.get_weather_by_port()
+    except cache.CacheNotReadyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @router.get("/weather")
 def weather_all() -> list[dict]:
-    weather_by_port = read_json(WEATHER_BY_PORT_PATH)
-    return list(weather_by_port.values())
+    return list(_bundle().values())
 
 
 @router.get("/weather/intelligence")
 def weather_intelligence() -> dict:
-    return read_json(WEATHER_INTEL_PATH)
+    try:
+        return cache.get_weather_intelligence()
+    except cache.CacheNotReadyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 @router.get("/weather/{port_code}")
 def weather_signal(port_code: str) -> dict:
-    port_code = port_code.upper()
-    weather_by_port = read_json(WEATHER_BY_PORT_PATH)
-
-    if port_code not in weather_by_port:
-        raise HTTPException(status_code=404, detail=f"Weather not found for {port_code}")
-
-    return weather_by_port[port_code]
+    bundle = _bundle()
+    port = port_registry.resolve(port_code)
+    code = port.locode if port else port_code.upper()
+    if code not in bundle:
+        raise HTTPException(status_code=404,
+                            detail=f"No weather record for {port_code}.")
+    return bundle[code]

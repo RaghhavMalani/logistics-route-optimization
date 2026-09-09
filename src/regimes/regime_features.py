@@ -29,6 +29,12 @@ HSMM_FEATURES = [
     # macro / conditions signals (prices, currency, inflation, live news) -> the
     # HSMM now infers regimes from economic conditions, not just port ops.
     "oil_stress", "fx_stress", "inflation_stress", "news_stress",
+    # specialist agents -- these are first-class regime evidence, not display
+    # decoration: a capacity squeeze or an arrival burst is precisely the kind
+    # of state change a semi-Markov model should be able to latch onto.
+    "capacity_pressure", "queue_momentum", "anomaly_score",
+    "arrival_clustering", "berth_pressure", "disruption_pressure",
+    "weather_persistence",
 ]
 
 # Neutral fill values used when a feature is missing.
@@ -38,6 +44,9 @@ _NEUTRAL = {
     "vessel_density": 0.0, "throughput": 0.0, "utilization": 0.5,
     "oil_stress": 0.5, "fx_stress": 0.5, "inflation_stress": 0.5,
     "news_stress": 0.0,
+    "capacity_pressure": 0.5, "queue_momentum": 0.5, "anomaly_score": 0.0,
+    "arrival_clustering": 0.0, "berth_pressure": 0.0,
+    "disruption_pressure": 0.0, "weather_persistence": 0.0,
 }
 
 
@@ -55,11 +64,18 @@ def assemble_panel(observed: pd.DataFrame,
                    news: pd.DataFrame | None = None,
                    port_ops: pd.DataFrame | None = None,
                    trade: pd.DataFrame | None = None,
-                   macro: pd.DataFrame | None = None) -> pd.DataFrame:
+                   macro: pd.DataFrame | None = None,
+                   extras: list | None = None) -> pd.DataFrame:
     """Left-join observed + expert features into one (port_id, date) panel.
 
     `macro` is a national daily conditions frame (oil/fx/inflation/news stress);
     it is broadcast across ports by date so the HSMM can use it.
+
+    `extras` carries the specialist frames (capacity, anomaly, arrival dynamics,
+    disruption propagation, weather persistence). They must be joined *here*,
+    before the neutral fill below: several of their columns are HSMM features,
+    and a later join would find the placeholder column already present and
+    silently leave the model running on neutral defaults.
     """
     base = _prep(observed)
     if base.empty:
@@ -99,6 +115,17 @@ def assemble_panel(observed: pd.DataFrame,
                              "news_stress", "macro_pressure"] if c in macro.columns]
         panel = panel.merge(macro[[DATE] + mcols].drop_duplicates(DATE),
                             on=DATE, how="left")
+
+    # Specialist experts, joined before the neutral fill (see the docstring).
+    for extra in extras or []:
+        extra = _prep(extra)
+        if extra.empty:
+            continue
+        cols = [c for c in extra.columns if c not in (PORT_ID, DATE)]
+        panel = panel.merge(
+            extra[[PORT_ID, DATE] + cols].drop_duplicates([PORT_ID, DATE]),
+            on=[PORT_ID, DATE], how="left", suffixes=("", "_dup"))
+        panel = panel.drop(columns=[c for c in panel.columns if c.endswith("_dup")])
 
     # Ensure every HSMM feature exists and is filled with a neutral default.
     for col in HSMM_FEATURES:

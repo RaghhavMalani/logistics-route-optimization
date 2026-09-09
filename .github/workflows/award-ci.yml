@@ -1,0 +1,99 @@
+name: India PortWatch CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/portwatch-digital-twin, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  intelligence:
+    name: Intelligence and API tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile every module
+        run: |
+          python -m compileall -q src backend scripts app run_award_demo.py run_demo.py
+
+      # The pipeline must survive with no network at all: the whole provenance
+      # design exists so a degraded run is honest rather than broken.
+      - name: Run the pipeline offline end to end
+        run: python run_award_demo.py --source sample --model baseline --offline
+
+      - name: Walk-forward benchmark (no deep stack in CI)
+        run: |
+          python -m src.evaluation.model_benchmark \
+            --panel outputs/expert_features/merged_panel.csv \
+            --weather outputs/expert_features/weather_features.csv \
+            --folds 3 --horizon 5 --no-tft
+
+      - name: Verify the exported artefacts
+        run: python scripts/verify_artefacts.py
+
+      - name: Run the test suite
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+  terminal:
+    name: Terminal typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: india-portwatch-terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: india-portwatch-terminal/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  browser:
+    # The interface has to be exercised, not just compiled: a screen that
+    # renders while throwing a console error, dropping a request or pushing the
+    # page sideways at 1366px is broken, and only a browser catches that.
+    name: Browser regression (production build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: india-portwatch-terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: india-portwatch-terminal/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # The suite builds the app itself (node-server preset) and replays a
+      # recorded API, so it needs no backend and no network.
+      - name: Route, role-guard and degraded-mode tests
+        run: npm run test:browser
+      - name: Upload the report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: india-portwatch-terminal/playwright-report
+          retention-days: 7

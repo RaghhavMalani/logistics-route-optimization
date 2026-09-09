@@ -77,9 +77,27 @@ _UNKNOWN_REALS = [
     "oil_stress", "fx_stress", "inflation_stress", "news_stress",
     "p_normal", "p_congested", "p_severe", "days_in_state",
     "expected_remaining_days", "transition_risk", "regime_confidence",
+    # specialist agents -- the deep model sees the same evidence as the GBM
+    "capacity_pressure", "queue_momentum", "throughput_stress", "anomaly_score",
+    "arrival_acceleration", "arrival_clustering", "anchorage_buildup",
+    "berth_pressure", "disruption_exposure", "disruption_pressure",
+    "weather_shock", "weather_persistence", "specialist_stress",
+    "data_quality_score",
 ]
 
 _STATIC_REALS = ["port_capacity", "berth_count", "connectivity_score"]
+
+# Inference must not attach a Lightning logger: recent Lightning versions raise
+# on the sentinel value pytorch-forecasting logs during predict, which would
+# otherwise take the whole deep-model path down for a cosmetic reason.
+_PREDICT_TRAINER_KWARGS = {
+    "logger": False,
+    "enable_progress_bar": False,
+    "enable_model_summary": False,
+    "enable_checkpointing": False,
+    "accelerator": "cpu",
+    "devices": 1,
+}
 
 
 @dataclass
@@ -144,12 +162,38 @@ class TFTForecaster:
         return df
 
     def _role_columns(self, df: pd.DataFrame):
+        """Resolve the covariate roles, dropping anything the feed cannot supply.
+
+        TimeSeriesDataSet rejects NaNs outright, and a real deployment always has
+        some column the current source cannot fill -- PortWatch, for instance,
+        carries no vessel speed at all. Columns that are entirely missing are
+        dropped (they carry no information anyway) and partial gaps are filled
+        forward within each port, so an incomplete feed degrades the model
+        instead of aborting the run.
+        """
         known = [c for c in CALENDAR_COLS + _WX_KNOWN if c in df.columns]
         unknown = [c for c in _UNKNOWN_REALS if c in df.columns]
-        # ensure target is present and float
+
         df[self.cfg.target] = pd.to_numeric(df[self.cfg.target], errors="coerce")
         for c in known + unknown + _STATIC_REALS:
             df[c] = pd.to_numeric(df[c], errors="coerce").astype(float)
+
+        dropped = [c for c in known + unknown if df[c].isna().all()]
+        if dropped:
+            log.info("TFT: dropping %d all-missing covariates (%s).",
+                     len(dropped), ", ".join(sorted(dropped)))
+        known = [c for c in known if c not in dropped]
+        unknown = [c for c in unknown if c not in dropped]
+
+        for c in known + unknown:
+            if df[c].isna().any():
+                df[c] = (df.groupby(PORT_ID)[c].transform(
+                    lambda s: s.ffill().bfill()).fillna(0.0))
+        for c in _STATIC_REALS:
+            if c in df.columns:
+                df[c] = df[c].fillna(df[c].median()).fillna(0.0)
+        df[self.cfg.target] = (df.groupby(PORT_ID)[self.cfg.target]
+                               .transform(lambda s: s.ffill().bfill()))
         return known, unknown
 
     # ------------------------------------------------------------------ fit
@@ -294,7 +338,8 @@ class TFTForecaster:
             loader = pred_ds.to_dataloader(train=False,
                                            batch_size=self.cfg.batch_size,
                                            num_workers=0)
-            raw = self.model.predict(loader, mode="quantiles", return_index=True)
+            raw = self.model.predict(loader, mode="quantiles", return_index=True,
+                                     trainer_kwargs=_PREDICT_TRAINER_KWARGS)
             return self._to_forecast_table(raw, ext)
         except Exception as exc:
             log.warning("TFT future-decode failed (%s); forecasting last "
@@ -304,7 +349,8 @@ class TFTForecaster:
             loader = pred_ds.to_dataloader(train=False,
                                            batch_size=self.cfg.batch_size,
                                            num_workers=0)
-            raw = self.model.predict(loader, mode="quantiles", return_index=True)
+            raw = self.model.predict(loader, mode="quantiles", return_index=True,
+                                     trainer_kwargs=_PREDICT_TRAINER_KWARGS)
             return self._to_forecast_table(raw, df)
 
     def _to_forecast_table(self, raw, df_prepared) -> pd.DataFrame:
