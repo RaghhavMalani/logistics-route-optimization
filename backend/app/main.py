@@ -6,10 +6,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.routes import (
+    advisories,
+    agents,
+    company,
     fleet,
+    global_eye,
     health,
+    learning,
     model,
     news,
+    port_twin,
     ports,
     provenance,
     sar,
@@ -19,8 +25,12 @@ from backend.app.routes import (
 
 app = FastAPI(
     title="India PortWatch Backend",
-    version="1.0.0",
-    description="Evidence-backed API for the India PortWatch maritime digital twin.",
+    version="2.0.0",
+    description=(
+        "Evidence-backed API for India PortWatch: forecasting, global event "
+        "intelligence, port digital twins, cargo, human-approved advisories, "
+        "agentic orchestration and the outcome ledger."
+    ),
 )
 
 # Local development works out of the box. Production can set
@@ -49,12 +59,21 @@ app.include_router(sar.router, prefix="/api")
 app.include_router(fleet.router, prefix="/api")
 app.include_router(scenarios.router, prefix="/api")
 
+# The agentic maritime OS surfaces. Everything above serves the forecasting
+# pipeline's artefacts; everything below serves the layer built on top of them.
+app.include_router(global_eye.router, prefix="/api")
+app.include_router(company.router, prefix="/api")
+app.include_router(port_twin.router, prefix="/api")
+app.include_router(advisories.router, prefix="/api")
+app.include_router(agents.router, prefix="/api")
+app.include_router(learning.router, prefix="/api")
+
 
 @app.get("/")
 def root() -> dict:
     return {
         "service": "India PortWatch Backend",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "docs": "/docs",
         "health": "/api/health",
     }
