@@ -262,9 +262,24 @@ export function OperationsMap({
       .filter((entry): entry is { label: MapLabel; point: { x: number; y: number } } => entry !== null)
       .sort((a, b) => Number(b.label.emphasis ?? false) - Number(a.label.emphasis ?? false));
 
+    const frame = containerRef.current;
+    const frameW = frame?.clientWidth ?? 0;
+    const frameH = frame?.clientHeight ?? 0;
+
     const kept: Array<{ label: MapLabel; point: { x: number; y: number } }> = [];
     const boxes: Array<[number, number, number, number]> = [];
     for (const entry of projected) {
+      // A mark panned off the edge would otherwise leave its label clipped
+      // against the frame, reading as a truncated word rather than a place.
+      if (
+        frameW > 0 &&
+        (entry.point.x < 4 ||
+          entry.point.y < 4 ||
+          entry.point.x > frameW - 12 ||
+          entry.point.y > frameH - 4)
+      ) {
+        continue;
+      }
       const width = 12 + entry.label.text.length * 6.2 + (entry.label.sub?.length ?? 0) * 5.4;
       const box: [number, number, number, number] = [
         entry.point.x + 7,

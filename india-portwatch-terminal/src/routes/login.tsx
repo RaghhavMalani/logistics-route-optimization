@@ -163,9 +163,13 @@ function LoginScreen() {
             </p>
           </div>
 
+          {/* The first two describe *this run*, so they appear only when the
+              service answered; the last two describe the system either way. */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-3)]">
-            <span>{health.data?.ports ?? "—"} ports</span>
-            <span>{health.data?.horizonDays ?? "—"}-day horizon</span>
+            {health.data?.ports != null ? <span>{health.data.ports} ports</span> : null}
+            {health.data?.horizonDays != null ? (
+              <span>{health.data.horizonDays}-day horizon</span>
+            ) : null}
             <span>q10 / q50 / q90</span>
             <span>Walk-forward validated</span>
           </div>
