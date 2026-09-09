@@ -1,436 +1,296 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
-import { useMemo, useState } from "react";
+/**
+ * The vessel operator's bridge view.
+ *
+ * The operator's own ship is the emphasised mark, but it is never the only one:
+ * a passage plan made without the traffic around it is not a passage plan. The
+ * surrounding fleet stays on the chart at lower weight, the own route is drawn
+ * with its forecast weather exposure, and where the routing artefact recommends
+ * a different call that alternative is drawn beside it so the two can be
+ * compared as geometry rather than as two numbers in a table.
+ */
 
-import { statusTone, useFleetIntel, type VesselIntel } from "@/components/app/fleet-context";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+
+import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
+import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import { TimeTransport } from "@/components/command/TimeTransport";
 import {
-  Dot,
-  Num,
-  Pill,
-  formatUtc,
-  riskLabel,
-  riskTone,
-  severityTone,
-} from "@/components/kit/primitives";
-import { EmptyState, ScreenFallback } from "@/components/kit/states";
-import { DataTable, type Column } from "@/components/kit/table";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import type { Lane } from "@/components/map/layers";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
-import { useHealth } from "@/services/hooks";
+  EnvironmentLegend,
+  TrafficFilters,
+  VesselClassLegend,
+} from "@/components/command/TrafficFilters";
+import {
+  VesselHoverCard,
+  VesselInspector,
+  useRouteExposure,
+} from "@/components/command/VesselInspector";
+import { EmptyNote, FloatPanel, PanelSection } from "@/components/command/panels";
+import { selectionGeometry } from "@/components/command/selection-geometry";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
+import { Num, Pill } from "@/components/kit/primitives";
+import { ScreenFallback } from "@/components/kit/states";
+import { MaritimeMap } from "@/components/map/MaritimeMap";
+import { formatBearing } from "@/lib/maritime/geo";
+import { waypoint } from "@/lib/maritime/searoutes";
+import { NAV_STATUS_LABEL, VESSEL_CLASSES } from "@/lib/maritime/traffic-types";
+import { nearbyTraffic, STATUS_TONE } from "@/lib/maritime/traffic-views";
+import { useFleet } from "@/services/hooks";
+import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/vessel/overview")({ component: VesselOverview });
+export const Route = createFileRoute("/vessel/overview")({ component: VesselBridge });
 
-const FLEET_LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: false,
-  weather: true,
-  stations: false,
-  storms: true,
-  routes: true,
-  chokepoints: true,
-  events: false,
-  zones: false,
-  graticule: true,
-};
+function VesselBridge() {
+  const workspace = useWorkspaceMap();
+  const fleet = useFleet();
+  const fixes = useFixes(1);
+  const at = useTrafficTick(1);
+  const [following, setFollowing] = useState(true);
 
-function formatEta(date: Date | null): string {
-  if (!date) return "—";
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${String(date.getUTCDate()).padStart(2, "0")} ${months[date.getUTCMonth()]}`;
-}
+  const owned = useMemo(() => fixes.filter((fix) => fix.owned), [fixes]);
 
-function VesselOverview() {
-  const { intel, ranked, isLoading, error, refetch, ports, weather, events, alerts } =
-    useFleetIntel();
-  const health = useHealth();
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(FLEET_LAYERS);
-  const [selected, setSelected] = useState<string | null>(null);
+  // The operator lands on their own bridge, not on an empty selection.
+  const { selectedVesselId, setSelectedVesselId } = workspace;
+  useEffect(() => {
+    if (!selectedVesselId && owned.length) setSelectedVesselId(owned[0].id);
+  }, [owned, selectedVesselId, setSelectedVesselId]);
 
-  /** One corridor per vessel: declared call, plus the alternative when advised. */
-  const lanes = useMemo<Lane[]>(() => {
-    const out: Lane[] = [];
-    for (const row of intel) {
-      const from = row.destination?.location;
-      const to = row.alternative?.location;
-      if (from && to && row.vessel.reroute) {
-        out.push({
-          id: `alt-${row.vessel.id}`,
-          from,
-          to,
-          color: "#d3a02f",
-          width: 1.4,
-          opacity: 0.75,
-          dashed: true,
-          label: `${row.vessel.name} alternative call`,
-        });
-      }
-    }
-    return out;
-  }, [intel]);
-
-  const emphasise = useMemo(
-    () =>
-      new Set(
-        intel.flatMap((row) =>
-          [row.vessel.intendedPortCode, row.vessel.recommendedPortCode].filter(
-            (code): code is string => Boolean(code),
-          ),
-        ),
-      ),
-    [intel],
+  const selectedFix = useMemo(
+    () => fixes.find((fix) => fix.id === workspace.selectedVesselId) ?? owned[0] ?? null,
+    [fixes, owned, workspace.selectedVesselId],
   );
 
-  const map = useOperationalMap({
-    ports,
-    weather,
-    vessels: [],
-    events,
-    selected,
-    emphasise,
-    extraLanes: lanes,
-  });
+  const ownRow = useMemo(() => {
+    if (!selectedFix?.owned) return null;
+    const id = selectedFix.id.replace(/^own:/, "");
+    return (fleet.data ?? []).find((row) => row.id === id) ?? null;
+  }, [fleet.data, selectedFix]);
 
-  if (isLoading || error) {
+  const exposure = useRouteExposure(selectedFix, workspace.timeline);
+  const geometry = useMemo(
+    () =>
+      selectionGeometry(selectedFix, exposure, {
+        alternativeTo: ownRow?.reroute ? ownRow.recommendedPortCode : null,
+      }),
+    [exposure, ownRow, selectedFix],
+  );
+
+  const contacts = useMemo(
+    () => (selectedFix ? nearbyTraffic(selectedFix, fixes, 60, 10) : []),
+    [fixes, selectedFix],
+  );
+
+  // Own ships and every named contact stay out of the merge and keep their
+  // labels: they are the reason this screen exists.
+  const pinnedIds = useMemo(
+    () => new Set([...owned.map((fix) => fix.id), ...contacts.map((contact) => contact.fix.id)]),
+    [contacts, owned],
+  );
+
+  if (fleet.isLoading || fleet.isError) {
     return (
       <ScreenFallback
-        title="Fleet Overview"
-        context={<span>Where the fleet is exposed right now</span>}
-        isLoading={isLoading}
-        error={error}
-        retry={refetch}
-        label="Loading fleet exposure"
+        title="Bridge"
+        context={<span>Own vessel, surrounding traffic and passage weather</span>}
+        isLoading={fleet.isLoading}
+        error={fleet.error}
+        retry={() => void fleet.refetch()}
+        label="Acquiring fleet picture"
       />
     );
   }
 
-  const reroutes = intel.filter((row) => row.vessel.reroute);
-  const arriving48 = intel.filter(
-    (row) => (row.vessel.intendedArrivalDay ?? row.vessel.bestArrivalDay ?? 99) <= 2,
-  );
-  const highRisk = intel.filter(
-    (row) => (row.vessel.intendedCongestionProbability ?? 0) >= 0.5,
-  );
-  const weatherExposed = intel.filter((row) => (row.weather?.impactScore ?? 0) >= 0.15);
-  const chokepointExposed = intel.filter((row) =>
-    row.exposure.some((entry) => entry.event.chokepoint),
-  );
-
-  const columns: Array<Column<VesselIntel>> = [
-    {
-      key: "vessel",
-      header: "Vessel",
-      width: 168,
-      render: (row) => (
-        <Link
-          to="/vessel/$vesselId"
-          params={{ vesselId: row.vessel.id }}
-          className="flex items-center gap-1.5 text-[var(--text)] hover:text-[var(--info)]"
-        >
-          <Dot tone={statusTone(row.status)} />
-          {row.vessel.name}
-        </Link>
-      ),
-      sort: (row) => row.vessel.name,
-    },
-    {
-      key: "destination",
-      header: "Declared call",
-      render: (row) => (
-        <span className="text-[var(--text-2)]">
-          {row.vessel.intendedPortName ?? row.vessel.intendedPortCode ?? "n/a"}
-        </span>
-      ),
-      sort: (row) => row.vessel.intendedPortName,
-    },
-    {
-      key: "eta",
-      header: "ETA",
-      align: "right",
-      width: 108,
-      render: (row) => (
-        <span className="num">
-          {formatEta(row.etaDate)}
-          <span className="ml-1 text-[10px] text-[var(--text-3)]">
-            +{row.vessel.intendedArrivalDay ?? row.vessel.bestArrivalDay ?? "?"}
-          </span>
-        </span>
-      ),
-      sort: (row) => row.vessel.intendedArrivalDay ?? row.vessel.bestArrivalDay,
-    },
-    {
-      key: "wait",
-      header: "Predicted wait",
-      align: "right",
-      width: 118,
-      render: (row) => <Num value={row.vessel.intendedWaitHours} unit="h" />,
-      sort: (row) => row.vessel.intendedWaitHours,
-    },
-    {
-      key: "congestion",
-      header: "Destination",
-      align: "right",
-      width: 136,
-      render: (row) =>
-        row.destination ? (
-          <span className="flex items-center justify-end gap-2">
-            <Num value={row.destination.congestionIndex} />
-            <Pill tone={riskTone(row.destination.risk)}>{riskLabel(row.destination.risk)}</Pill>
-          </span>
-        ) : (
-          <span className="num text-[var(--text-3)]">n/a</span>
-        ),
-      sort: (row) => row.destination?.congestionIndex ?? null,
-    },
-    {
-      key: "wx",
-      header: "Weather",
-      align: "right",
-      width: 96,
-      render: (row) => (
-        <Num
-          value={row.weather?.impactScore}
-          digits={3}
-          tone={(row.weather?.impactScore ?? 0) >= 0.35 ? "warn" : undefined}
-        />
-      ),
-      sort: (row) => row.weather?.impactScore ?? null,
-    },
-    {
-      key: "status",
-      header: "Status",
-      width: 148,
-      render: (row) => <Pill tone={statusTone(row.status)}>{row.status}</Pill>,
-      sort: (row) => row.status,
-    },
-  ];
+  const onPick = (hit: SearchHit) => {
+    if (hit.kind === "vessel") {
+      workspace.setSelectedVesselId(hit.id);
+      setFollowing(false);
+    }
+    workspace.flyTo([hit.lon, hit.lat], 8.5);
+  };
 
   return (
-    <Page>
-      <PageHeader
-        title="Fleet Overview"
-        context={<span>Where the fleet is exposed right now</span>}
-        meta={
+    <div className="absolute inset-0">
+      <h1 className="sr-only">Fleet Bridge</h1>
+
+      <MaritimeMap
+        layers={workspace.layers}
+        data={{ ...workspace.data, ...geometry }}
+        weatherRaster={workspace.raster}
+        windFrame={workspace.frame}
+        showWind={workspace.showWind && workspace.layers.weather}
+        vesselFilter={workspace.vesselFilter}
+        pinnedIds={pinnedIds}
+        labels={workspace.labels}
+        selectedVesselId={workspace.selectedVesselId}
+        onSelectVessel={(id) => {
+          workspace.setSelectedVesselId(id);
+          setFollowing(false);
+        }}
+        onHoverVessel={workspace.setHoveredVesselId}
+        onSelectPort={workspace.setSelectedPortCode}
+        focus={
+          following && selectedFix
+            ? {
+                center: [selectedFix.lon, selectedFix.lat],
+                zoom: 7,
+                token: Math.floor(at / 5000),
+              }
+            : workspace.focus
+        }
+        renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
+        overlay={
           <>
-            <span className="num">
-              origin{" "}
-              <span className="text-[var(--text-2)]">
-                {formatUtc(intel[0]?.vessel.originDate ?? health.data?.forecastOrigin ?? null)}
-              </span>
-            </span>
-            <span className="num">{intel[0]?.vessel.source ?? "ROUTE_OPTIMIZER"}</span>
+            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-110px)] w-[216px] flex-col gap-2">
+              <MaritimeSearch
+                ports={workspace.ports}
+                onPick={onPick}
+                placeholder="Search traffic or port"
+              />
+              <TrafficFilters workspace={workspace} />
+            </div>
+
+            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
+              <VesselClassLegend />
+              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+            </div>
+
+            <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[336px] z-20">
+              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+            </div>
+
+            <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2">
+              {owned.length > 1 ? (
+                <FloatPanel title="Own fleet" note={`${owned.length} vessels`} className="shrink-0">
+                  <ul className="p-1">
+                    {owned.map((fix) => (
+                      <li key={fix.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            workspace.setSelectedVesselId(fix.id);
+                            setFollowing(true);
+                          }}
+                          className={cn(
+                            "grid w-full grid-cols-[1fr_50px_44px] items-center gap-2 rounded-[2px] px-1.5 py-[3px] text-left",
+                            workspace.selectedVesselId === fix.id
+                              ? "bg-[var(--panel-3)]"
+                              : "hover:bg-[var(--panel-2)]",
+                          )}
+                        >
+                          <span className="truncate text-[11.5px] text-[var(--text)]">
+                            {fix.name}
+                          </span>
+                          <span className="num text-right text-[10.5px] text-[var(--text-2)]">
+                            {fix.sogKn.toFixed(1)}kn
+                          </span>
+                          <span className="flex justify-end">
+                            <Pill tone={STATUS_TONE[fix.status]}>
+                              {NAV_STATUS_LABEL[fix.status]}
+                            </Pill>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </FloatPanel>
+              ) : null}
+
+              {selectedFix ? (
+                <VesselInspector
+                  fix={selectedFix}
+                  ports={workspace.ports}
+                  timeline={workspace.timeline}
+                  ownRow={ownRow}
+                  onClose={() => workspace.setSelectedVesselId(owned[0]?.id ?? null)}
+                  onFollow={() => setFollowing((v) => !v)}
+                  following={following}
+                  onIsolate={() =>
+                    workspace.setIsolate(workspace.filters.isolate ? null : selectedFix.id)
+                  }
+                  isolated={workspace.filters.isolate === selectedFix.id}
+                  onSelectVessel={(id) => {
+                    workspace.setSelectedVesselId(id);
+                    setFollowing(false);
+                  }}
+                  className="min-h-0 flex-1"
+                />
+              ) : (
+                <FloatPanel title="Own fleet" className="min-h-0 flex-1">
+                  <EmptyNote>
+                    The routing artefact carried no vessel for this operator in this run.
+                  </EmptyNote>
+                </FloatPanel>
+              )}
+            </div>
+
+            {/* --------------------------------------------- traffic around -- */}
+            {selectedFix ? (
+              <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] w-[252px]">
+                <FloatPanel
+                  title="Traffic around own ship"
+                  note={`${contacts.length} within 60 nm`}
+                  collapsible
+                  className="max-h-[300px]"
+                >
+                  {contacts.length === 0 ? (
+                    <EmptyNote>No contact inside 60 nautical miles.</EmptyNote>
+                  ) : (
+                    <PanelSection title="Contacts">
+                      <ul className="space-y-[2px]">
+                        {contacts.map((contact) => (
+                          <li key={contact.fix.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                workspace.setSelectedVesselId(contact.fix.id);
+                                setFollowing(false);
+                              }}
+                              className="grid w-full grid-cols-[1fr_40px_38px] items-baseline gap-1.5 rounded-[2px] px-1 py-[2px] text-left hover:bg-[var(--panel-3)]"
+                            >
+                              <span className="min-w-0 truncate text-[10.5px] text-[var(--text-2)]">
+                                <span
+                                  aria-hidden
+                                  className="mr-1 inline-block h-[6px] w-[6px] rounded-[1px] align-middle"
+                                  style={{
+                                    background: VESSEL_CLASSES[contact.fix.vesselClass].color,
+                                  }}
+                                />
+                                {contact.fix.name}
+                              </span>
+                              <span className="num text-right text-[10px] text-[var(--text-3)]">
+                                {contact.rangeNm.toFixed(1)}nm
+                              </span>
+                              <span className="num text-right text-[10px] text-[var(--text-3)]">
+                                {formatBearing(contact.bearing)}
+                              </span>
+                            </button>
+                            <div className="px-1 pb-[2px] text-[9px] text-[var(--text-3)]">
+                              {waypoint(contact.fix.destinationId)?.name.split(" (")[0] ?? "—"} ·{" "}
+                              <Num value={contact.fix.sogKn} digits={1} unit="kn" />
+                              {contact.computable ? (
+                                <span
+                                  className={cn(
+                                    "ml-1",
+                                    contact.cpa.cpaNm < 1 && contact.cpa.tcpaMinutes > 0
+                                      ? "text-[var(--warn)]"
+                                      : "",
+                                  )}
+                                >
+                                  CPA {contact.cpa.cpaNm.toFixed(1)}nm
+                                </span>
+                              ) : null}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </PanelSection>
+                  )}
+                </FloatPanel>
+              </div>
+            ) : null}
           </>
         }
       />
-
-      <StatStrip
-        items={[
-          {
-            label: "Vessels scored",
-            value: intel.length,
-            note: "against the live quantile forecast",
-          },
-          {
-            label: "Arriving within 48h",
-            value: arriving48.length,
-            tone: arriving48.length ? "info" : "neutral",
-            note: arriving48.map((row) => row.vessel.name.replace("MV ", "")).join(" · ") || "none",
-          },
-          {
-            label: "Reroutes advised",
-            value: reroutes.length,
-            tone: reroutes.length ? "warn" : "ok",
-            note: "only where the saving clears the diversion cost",
-          },
-          {
-            label: "High port-wait risk",
-            value: highRisk.length,
-            tone: highRisk.length ? "crit" : "ok",
-            note: "P(congestion) ≥ 0.50 on the scored day",
-          },
-          {
-            label: "Weather exposure",
-            value: weatherExposed.length,
-            tone: weatherExposed.length ? "warn" : "ok",
-            note: "destination impact index ≥ 0.15",
-          },
-          {
-            label: "Chokepoint exposure",
-            value: chokepointExposed.length,
-            tone: chokepointExposed.length ? "warn" : "ok",
-            note: "measured lane exposure to an active event",
-          },
-        ]}
-      />
-
-      <PageBody padded={false} className="flex min-h-0 overflow-hidden">
-        <div className="flex min-w-0 flex-1 flex-col border-r border-[var(--line)]">
-          <div className="relative min-h-0 flex-1">
-            <OperationsMap
-              data={map.data}
-              visible={layers}
-              labels={map.labels}
-              selected={selected}
-              onSelect={setSelected}
-              overlay={
-                <>
-                  <MapControlPanel
-                    toggles={[
-                      { key: "ports", label: "Ports", count: map.counts.ports },
-                      { key: "routes", label: "Corridors", count: map.counts.routes },
-                      { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                      {
-                        key: "weather",
-                        label: "Weather field",
-                        count: map.counts.weather,
-                        disabled: (map.counts.weather ?? 0) === 0,
-                        disabledReason: "No weather artefact in this run",
-                      },
-                      {
-                        key: "storms",
-                        label: "Storm envelopes",
-                        count: map.counts.storms,
-                        disabled: (map.counts.storms ?? 0) === 0,
-                        disabledReason: "No storm flag on any port in this run",
-                      },
-                      { key: "graticule", label: "Graticule" },
-                    ]}
-                    visible={layers}
-                    onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                    weatherField={map.weatherField}
-                    onWeatherField={map.setWeatherField}
-                    weatherAvailability={map.availability}
-                  />
-                  <MapLegend
-                    weatherField={map.weatherField}
-                    weatherActive={layers.weather}
-                    extra={[
-                      { label: "Alternative call", color: "#d3a02f", shape: "line" },
-                      { label: "Chokepoint", color: "#4c9fcb", shape: "ring" },
-                    ]}
-                    note="The routing artefact carries declared calls and arrival windows, not AIS tracks — no vessel position is drawn."
-                  />
-                </>
-              }
-            />
-          </div>
-
-          {/* Sized to the roster: a fixed strip would leave dead space under
-              three vessels and clip a larger fleet. */}
-          <div
-            className="shrink-0 border-t border-[var(--line)]"
-            style={{ height: Math.min(300, 74 + Math.max(intel.length, 1) * 26) }}
-          >
-            <Panel
-              title="Fleet"
-              note={`${intel.length} vessels`}
-              className="h-full rounded-none border-0"
-            >
-              {intel.length === 0 ? (
-                <EmptyState
-                  title="No vessels scored"
-                  detail="The routing artefact is empty for this run."
-                />
-              ) : (
-                <DataTable
-                  rows={intel}
-                  columns={columns}
-                  rowKey={(row) => row.vessel.id}
-                  selectedKey={selected}
-                  onRowClick={(row) => setSelected(row.vessel.intendedPortCode ?? null)}
-                  initialSort="eta"
-                  initialDirection="asc"
-                />
-              )}
-            </Panel>
-          </div>
-        </div>
-
-        <aside className="flex w-[380px] shrink-0 flex-col overflow-y-auto 2xl:w-[430px]">
-          <Panel
-            title="Recommended actions"
-            note={`${ranked.length}`}
-            className="shrink-0 rounded-none border-x-0 border-t-0"
-          >
-            <ul>
-              {ranked.map((row, index) => (
-                <li key={row.vessel.id} className="border-b border-[var(--line)]/50 last:border-0">
-                  <Link
-                    to="/vessel/$vesselId"
-                    params={{ vesselId: row.vessel.id }}
-                    className="block px-3 py-2.5 transition-colors hover:bg-[var(--panel-2)]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="num text-[10.5px] text-[var(--text-3)]">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <Pill tone={statusTone(row.status)}>{row.status}</Pill>
-                      <span className="ml-auto text-[12px] font-medium text-[var(--text)]">
-                        {row.vessel.name}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[12px] leading-snug text-[var(--text-2)]">
-                      {row.action}
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-snug text-[var(--text-3)]">
-                      {row.why}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-
-          <Panel
-            title="Network alerts"
-            note={`${alerts.length}`}
-            className="min-h-0 flex-1 rounded-none border-x-0 border-b-0"
-            scroll
-          >
-            {alerts.length === 0 ? (
-              <p className="px-3 py-3 text-[11.5px] text-[var(--text-3)]">
-                No alerts raised across the network for the current forecast.
-              </p>
-            ) : (
-              <ul>
-                {alerts.slice(0, 12).map((alert) => {
-                  const touchesFleet = intel.some(
-                    (row) => row.vessel.intendedPortCode === alert.portCode,
-                  );
-                  return (
-                    <li
-                      key={alert.id}
-                      className="border-b border-[var(--line)]/50 px-3 py-2 last:border-0"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Pill tone={severityTone(alert.severity)}>{alert.severity}</Pill>
-                        {touchesFleet ? <Pill tone="warn">on our lane</Pill> : null}
-                        <span className="num ml-auto text-[10px] text-[var(--text-3)]">
-                          {alert.portCode}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-[11.5px] leading-snug text-[var(--text-2)]">
-                        {alert.text}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <div className="border-t border-[var(--line)] px-3 py-2">
-              <Link
-                to="/vessel/alerts"
-                className="inline-flex items-center gap-1 text-[11.5px] text-[var(--info)] hover:underline"
-              >
-                All alerts and events <ArrowUpRight size={11} />
-              </Link>
-            </div>
-          </Panel>
-        </aside>
-      </PageBody>
-    </Page>
+    </div>
   );
 }

@@ -110,16 +110,29 @@
 
   /* ---------------------------------------------------------- geometry -- */
   --radius: 3px;
-  --nav-w: 208px;
-  --nav-w-compact: 60px;
-  --topbar-h: 52px;
+  --nav-w: 196px;
+  --nav-w-compact: 46px;
+  /* Chrome is deliberately thin: this is a map product, and every pixel the
+     shell keeps is a pixel of ocean the operator does not get. */
+  --topbar-h: 38px;
+  --status-h: 24px;
 
-  /* map palette — a chart, not a satellite photograph */
-  --sea: #071822;
-  --sea-deep: #05131b;
-  --land: #101b23;
-  --land-line: #24404f;
-  --graticule: #14252f;
+  /* map palette — a working nautical chart, not a satellite photograph */
+  --sea: #061520;
+  --sea-deep: #04101a;
+  --land: #0d1720;
+  --land-line: #4d7f9b;
+  --graticule: #10222d;
+
+  /* vessel classes. Colour is class here, not state: state is the glyph. */
+  --ship-container: #57a9d8;
+  --ship-tanker: #cf8b4a;
+  --ship-bulk: #93b062;
+  --ship-lng: #9d86d6;
+  --ship-roro: #57b3a5;
+  --ship-cargo: #93a7b8;
+  --ship-passenger: #d5758f;
+  --ship-service: #7a8fa1;
 }
 
 @layer base {
@@ -320,6 +333,49 @@
   .pw-skeleton {
     animation: none;
   }
+}
+
+
+/* ------------------------------------------------------------- scrubber -- */
+
+/**
+ * The forecast scrubber.
+ *
+ * Native range input, restyled rather than replaced: it keeps keyboard control,
+ * the correct pointer capture and screen-reader semantics, all of which a div
+ * with a drag handler would have to reimplement badly.
+ */
+.pw-scrub {
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel-3);
+  outline: none;
+  cursor: pointer;
+}
+
+.pw-scrub::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--info);
+  border: 1px solid #06121a;
+  cursor: grab;
+}
+
+.pw-scrub::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--info);
+  border: 1px solid #06121a;
+  cursor: grab;
+}
+
+.pw-scrub:focus-visible::-webkit-slider-thumb {
+  outline: 1px solid var(--info);
+  outline-offset: 2px;
 }
 
 /* ------------------------------------------------------------------ map -- */

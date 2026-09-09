@@ -1,467 +1,302 @@
+/**
+ * National command.
+ *
+ * The map is the screen. Everything else floats over it and folds away: search
+ * and filters top-left, the environment legend bottom-left, the time transport
+ * across the bottom, and a right inspector that only appears once a vessel or a
+ * port has been selected. Until then the right column carries the one summary a
+ * duty officer needs -- what is moving, where the pressure is, and what the
+ * decision layer wants done.
+ */
+
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
-import { Sparkline } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
+import { PortSummary } from "@/components/command/PortCockpit";
+import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import { TimeTransport } from "@/components/command/TimeTransport";
 import {
-  Dot,
-  Num,
-  Pill,
-  ProvenanceTag,
-  formatUtc,
-  riskLabel,
-  riskTone,
-  severityTone,
-} from "@/components/kit/primitives";
+  EnvironmentLegend,
+  TrafficFilters,
+  VesselClassLegend,
+} from "@/components/command/TrafficFilters";
+import {
+  VesselHoverCard,
+  VesselInspector,
+  useRouteExposure,
+} from "@/components/command/VesselInspector";
+import { EmptyNote, FloatPanel, PanelSection } from "@/components/command/panels";
+import { selectionGeometry } from "@/components/command/selection-geometry";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
+import { Num, Pill, riskLabel, riskTone } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
-import { useHealth, useNews, usePorts, useVessels, useWeather } from "@/services/hooks";
-import type { PortSnapshot } from "@/types/portwatch";
+import { MaritimeMap } from "@/components/map/MaritimeMap";
+import { countByStatus, portTraffic } from "@/lib/maritime/traffic-views";
+import { useNews } from "@/services/hooks";
 
 export const Route = createFileRoute("/admin/radar")({ component: NationalRadar });
 
-const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: true,
-  weather: true,
-  stations: false,
-  storms: true,
-  routes: true,
-  chokepoints: true,
-  events: false,
-  zones: false,
-  graticule: true,
-};
-
 function NationalRadar() {
-  const health = useHealth();
-  const ports = usePorts();
-  const weather = useWeather();
-  const vessels = useVessels();
+  const workspace = useWorkspaceMap();
   const news = useNews();
   const { setPortCode } = useAuth();
+  const at = useTrafficTick(1);
+  const fixes = useFixes(1);
+  const [following, setFollowing] = useState(false);
 
-  const [selected, setSelected] = useState<string | null>(null);
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(DEFAULT_LAYERS);
+  const selectedFix = useMemo(
+    () => fixes.find((fix) => fix.id === workspace.selectedVesselId) ?? null,
+    [fixes, workspace.selectedVesselId],
+  );
+  const exposure = useRouteExposure(selectedFix, workspace.timeline);
+  const geometry = useMemo(() => selectionGeometry(selectedFix, exposure), [exposure, selectedFix]);
 
-  const portList = useMemo(
-    () => [...(ports.data ?? [])].sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0)),
-    [ports.data],
+  const selectedPort = workspace.selectedPortCode
+    ? (workspace.portByCode.get(workspace.selectedPortCode) ?? null)
+    : null;
+
+  const statusCounts = useMemo(() => countByStatus(fixes), [fixes]);
+  const visibleCount = useMemo(
+    () => fixes.filter(workspace.vesselFilter).length,
+    [fixes, workspace.vesselFilter],
   );
 
-  const map = useOperationalMap({
-    ports: ports.data ?? [],
-    weather: weather.data ?? [],
-    vessels: vessels.data?.vessels ?? [],
-    events: news.data?.events ?? [],
-    labelChokepoints: true,
-    selected,
-    emphasise: useMemo(
-      () => new Set(portList.slice(0, 3).map((port) => port.code)),
-      [portList],
-    ),
-  });
+  const selectedPortTraffic = useMemo(() => {
+    if (!selectedPort?.location) return null;
+    return portTraffic(fixes, {
+      code: selectedPort.code,
+      lat: selectedPort.location.lat,
+      lon: selectedPort.location.lon,
+    });
+  }, [fixes, selectedPort]);
 
-  if (ports.isLoading || ports.isError) {
+  const ranked = useMemo(
+    () =>
+      [...workspace.ports].sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0)),
+    [workspace.ports],
+  );
+
+  const alerts = news.data?.alerts ?? [];
+
+  if (workspace.portsQuery.isLoading || workspace.portsQuery.isError) {
     return (
       <ScreenFallback
-        title="National Port Radar"
-        context={<span>Where intervention matters right now</span>}
-        isLoading={ports.isLoading}
-        error={ports.error}
-        retry={() => void ports.refetch()}
+        title="National Command"
+        context={<span>Live maritime picture for Indian waters</span>}
+        isLoading={workspace.portsQuery.isLoading}
+        error={workspace.portsQuery.error}
+        retry={() => void workspace.portsQuery.refetch()}
         label="Acquiring national picture"
       />
     );
   }
 
-  const all = ports.data ?? [];
-  const severe = all.filter((port) => port.risk === "severe");
-  const congested = all.filter((port) => port.risk === "congested");
-  const meanForecast = all.length
-    ? all.reduce((sum, port) => sum + port.congestionIndex, 0) / all.length
-    : null;
-  const dailyCalls = (vessels.data?.vessels ?? []).reduce(
-    (sum, vessel) => sum + (vessel.dailyPortCalls ?? 0),
-    0,
-  );
-  const peakWeather = (weather.data ?? []).reduce<number | null>(
-    (peak, signal) =>
-      signal.impactScore == null ? peak : peak == null ? signal.impactScore : Math.max(peak, signal.impactScore),
-    null,
-  );
-
-  const selectedPort = selected ? all.find((port) => port.code === selected) ?? null : null;
-  const alerts = news.data?.alerts ?? [];
-  const events = news.data?.events ?? [];
+  const onPick = (hit: SearchHit) => {
+    if (hit.kind === "vessel") {
+      workspace.setSelectedVesselId(hit.id);
+      workspace.setSelectedPortCode(null);
+    } else if (hit.kind === "port") {
+      workspace.setSelectedPortCode(hit.id);
+      workspace.setSelectedVesselId(null);
+    }
+    workspace.flyTo([hit.lon, hit.lat], hit.kind === "vessel" ? 8 : 7);
+  };
 
   return (
-    <Page>
-      <PageHeader
-        title="National Port Radar"
-        context={
-          <>
-            <span>Where intervention matters right now</span>
-          </>
-        }
-        meta={
-          <>
-            <span className="num">
-              model <span className="text-[var(--text-2)]">{health.data?.model ?? "—"}</span>
-            </span>
-            <span className="num">
-              origin{" "}
-              <span className="text-[var(--text-2)]">
-                {formatUtc(health.data?.forecastOrigin ?? null)}
-              </span>
-            </span>
-            <ProvenanceTag
-              status={health.data?.forecastOriginStatus ?? null}
-              ageHours={health.data?.forecastOriginAgeHours ?? null}
-              detail="Age of the forecast origin against wall clock"
-            />
-          </>
-        }
-      />
+    <div className="absolute inset-0">
+      <h1 className="sr-only">National Command</h1>
 
-      <StatStrip
-        items={[
-          {
-            label: "Severe ports",
-            value: severe.length,
-            tone: severe.length ? "crit" : "ok",
-            note: severe.map((port) => port.short).join(" · ") || "none",
-          },
-          {
-            label: "Congested",
-            value: congested.length,
-            tone: congested.length ? "warn" : "ok",
-            note: congested.map((port) => port.short).join(" · ") || "none",
-          },
-          {
-            label: "Mean day-1 congestion",
-            value: meanForecast?.toFixed(1) ?? "n/a",
-            note: `across ${all.length} ports · index 0–100`,
-          },
-          {
-            label: "Daily port calls",
-            value: dailyCalls ? dailyCalls.toFixed(0) : "n/a",
-            note: "aggregate satellite-AIS activity",
-          },
-          {
-            label: "Peak weather impact",
-            value: peakWeather?.toFixed(2) ?? "n/a",
-            tone: (peakWeather ?? 0) >= 0.35 ? "warn" : "info",
-            note: `${(weather.data ?? []).filter((s) => (s.impactScore ?? 0) >= 0.35).length} of ${weather.data?.length ?? 0} above watch`,
-          },
-          {
-            label: "Open alerts",
-            value: alerts.length,
-            tone: alerts.length ? "warn" : "ok",
-            note: `${events.filter((e) => e.severity === "severe").length} severe events in feed`,
-          },
-        ]}
-      />
+      <MaritimeMap
+        layers={workspace.layers}
+        data={{ ...workspace.data, ...geometry }}
+        weatherRaster={workspace.raster}
+        windFrame={workspace.frame}
+        showWind={workspace.showWind && workspace.layers.weather}
+        vesselFilter={workspace.vesselFilter}
+        labels={workspace.labels}
+        selectedVesselId={workspace.selectedVesselId}
+        onSelectVessel={(id) => {
+          workspace.setSelectedVesselId(id);
+          if (id) workspace.setSelectedPortCode(null);
+          setFollowing(false);
+        }}
+        onHoverVessel={workspace.setHoveredVesselId}
+        selectedPortCode={workspace.selectedPortCode}
+        onSelectPort={(code) => {
+          workspace.setSelectedPortCode(code);
+          workspace.setSelectedVesselId(null);
+        }}
+        focus={
+          following && selectedFix
+            ? { center: [selectedFix.lon, selectedFix.lat], zoom: 8, token: Math.floor(at / 4000) }
+            : workspace.focus
+        }
+        renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
+        overlay={
+          <>
+            {/* -------------------------------------------------- top left -- */}
+            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+              <MaritimeSearch ports={workspace.ports} onPick={onPick} />
+              <TrafficFilters workspace={workspace} />
+            </div>
 
-      <PageBody padded={false} className="flex min-h-0 overflow-hidden">
-        {/* ------------------------------------------------------------ map -- */}
-        <div className="relative min-w-0 flex-1 border-r border-[var(--line)]">
-          <OperationsMap
-            data={map.data}
-            visible={layers}
-            labels={map.labels}
-            selected={selected}
-            hovered={hovered}
-            onHover={setHovered}
-            onSelect={(code) => setSelected(code)}
-            renderTooltip={(code) => {
-              const port = all.find((entry) => entry.code === code);
-              if (!port) return null;
-              const signal = (weather.data ?? []).find((entry) => entry.portCode === code);
-              const activity = (vessels.data?.vessels ?? []).find((entry) => entry.portCode === code);
-              return (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-[12px] font-medium text-[var(--text)]">
-                      {port.name}
-                    </span>
-                    <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>
-                  </div>
-                  <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-[3px] text-[11px]">
-                    {(
-                      [
-                        ["Observed", <Num key="o" value={port.observedCongestionIndex} />],
-                        ["Day 1 forecast", <Num key="f" value={port.congestionIndex} />],
+            {/* ------------------------------------------------- bottom left -- */}
+            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
+              <VesselClassLegend />
+              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+            </div>
+
+            {/* ------------------------------------------------------ bottom -- */}
+            <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[352px] z-20">
+              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+            </div>
+
+            {/* ------------------------------------------------------- right -- */}
+            <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[338px] flex-col gap-2">
+              {selectedFix ? (
+                <VesselInspector
+                  fix={selectedFix}
+                  ports={workspace.ports}
+                  timeline={workspace.timeline}
+                  onClose={() => {
+                    workspace.setSelectedVesselId(null);
+                    workspace.setIsolate(null);
+                    setFollowing(false);
+                  }}
+                  onIsolate={() =>
+                    workspace.setIsolate(workspace.filters.isolate ? null : selectedFix.id)
+                  }
+                  isolated={workspace.filters.isolate === selectedFix.id}
+                  onFollow={() => setFollowing((v) => !v)}
+                  following={following}
+                  onSelectVessel={(id) => workspace.setSelectedVesselId(id)}
+                  className="min-h-0 flex-1"
+                />
+              ) : selectedPort && selectedPortTraffic ? (
+                <FloatPanel
+                  title={selectedPort.name}
+                  note={<span className="num">{selectedPort.code}</span>}
+                  onClose={() => workspace.setSelectedPortCode(null)}
+                  className="min-h-0 flex-1"
+                >
+                  <PortSummary port={selectedPort} traffic={selectedPortTraffic} />
+                  <PanelSection title="Open the twin">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Link
+                        to="/port/overview"
+                        onClick={() => setPortCode(selectedPort.code)}
+                        className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--line-strong)] px-1.5 py-[3px] text-[10.5px] text-[var(--text-2)] hover:text-[var(--text)]"
+                      >
+                        Port cockpit <ArrowUpRight size={10} />
+                      </Link>
+                      <Link
+                        to="/admin/scenarios"
+                        className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--line-strong)] px-1.5 py-[3px] text-[10.5px] text-[var(--text-2)] hover:text-[var(--text)]"
+                      >
+                        Stress-test <ArrowUpRight size={10} />
+                      </Link>
+                    </div>
+                  </PanelSection>
+                </FloatPanel>
+              ) : (
+                <FloatPanel
+                  title="National picture"
+                  note={<span className="num">{visibleCount} shown</span>}
+                  className="min-h-0 flex-1"
+                >
+                  <PanelSection title="Traffic" right={`${fixes.length} tracked`}>
+                    <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+                      {(
                         [
-                          "80% band",
-                          <span key="b" className="num text-[var(--text-2)]">
-                            {port.forecastQ10?.toFixed(0) ?? "—"}–{port.forecastQ90?.toFixed(0) ?? "—"}
-                          </span>,
-                        ],
-                        ["Berth wait", <Num key="w" value={port.delayHours} unit="h" />],
-                        ["Daily calls", <Num key="c" value={activity?.dailyPortCalls ?? port.vesselCalls} digits={0} />],
-                        ["Weather impact", <Num key="wx" value={signal?.impactScore} digits={3} />],
-                        ["Regime", <span key="r" className="text-[var(--text-2)]">{port.regime}</span>],
-                      ] as const
-                    ).map(([label, value]) => (
-                      <div key={label} className="contents">
-                        <dt className="text-[var(--text-3)]">{label}</dt>
-                        <dd className="text-right">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <div className="mt-1.5 border-t border-[var(--line)] pt-1.5 text-[10px] text-[var(--info)]">
-                    Click to pin this port to the panel
-                  </div>
-                </div>
-              );
-            }}
-            overlay={
-              <>
-                <MapControlPanel
-                  toggles={[
-                    { key: "ports", label: "Ports", count: map.counts.ports },
-                    { key: "vessels", label: "AIS activity", count: map.counts.vessels },
-                    {
-                      key: "weather",
-                      label: "Weather field",
-                      count: map.counts.weather,
-                      disabled: (map.counts.weather ?? 0) === 0,
-                      disabledReason: "No weather artefact in this run",
-                    },
-                    {
-                      key: "storms",
-                      label: "Storm envelopes",
-                      count: map.counts.storms,
-                      disabled: (map.counts.storms ?? 0) === 0,
-                      disabledReason: "No port carries a storm flag in this run",
-                    },
-                    { key: "routes", label: "Exposure corridors", count: map.counts.routes },
-                    { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                    {
-                      key: "events",
-                      label: "Events",
-                      count: map.counts.events,
-                      disabled: (map.counts.events ?? 0) === 0,
-                      disabledReason: "No event in the feed carries a mapped location",
-                    },
-                    { key: "graticule", label: "Graticule" },
-                  ]}
-                  visible={layers}
-                  onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  weatherField={map.weatherField}
-                  onWeatherField={map.setWeatherField}
-                  weatherAvailability={map.availability}
-                  footer={map.eventNote}
-                />
-                <MapLegend
-                  weatherField={map.weatherField}
-                  weatherActive={layers.weather}
-                  extra={[
-                    { label: "AIS activity", color: "#4c9fcb", shape: "dot" },
-                    { label: "Exposure corridor", color: "#d3a02f", shape: "line" },
-                    { label: "Chokepoint", color: "#4c9fcb", shape: "ring" },
-                  ]}
-                  note={layers.weather ? map.weatherNote : undefined}
-                />
-              </>
-            }
-          />
-        </div>
-
-        {/* ----------------------------------------------------------- rail -- */}
-        <aside className="flex w-[360px] shrink-0 flex-col overflow-hidden 2xl:w-[420px]">
-          {selectedPort ? (
-            <SelectedPort
-              port={selectedPort}
-              onClear={() => setSelected(null)}
-              onOpen={() => setPortCode(selectedPort.code)}
-            />
-          ) : null}
-
-          <Panel
-            title="Priority ports"
-            note={`${portList.length} ranked`}
-            className="min-h-0 flex-1 rounded-none border-x-0 border-t-0"
-            scroll
-          >
-            <ul>
-              {portList.map((port, index) => (
-                <li key={port.code}>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(port.code)}
-                    onMouseEnter={() => setHovered(port.code)}
-                    onMouseLeave={() => setHovered(null)}
-                    className={`grid w-full grid-cols-[18px_1fr_54px_60px_46px] items-center gap-2 border-b border-[var(--line)]/50 px-2.5 py-[6px] text-left transition-colors ${
-                      selected === port.code ? "bg-[var(--panel-3)]" : "hover:bg-[var(--panel-2)]"
-                    }`}
-                  >
-                    <span className="num text-[10.5px] text-[var(--text-3)]">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <Dot tone={riskTone(port.risk)} />
-                      <span className="truncate text-[12px] text-[var(--text)]">{port.name}</span>
-                    </span>
-                    <Num value={port.congestionIndex} className="text-right text-[12px]" />
-                    <span className="flex justify-end">
-                      <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>
-                    </span>
-                    <Sparkline
-                      data={port.congestionHistory.map((point) => point.value)}
-                      tone={riskTone(port.risk)}
-                      height={16}
-                      fill={false}
-                    />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-
-          <Panel
-            title="Action queue"
-            note={`${alerts.length} open`}
-            className="h-[236px] shrink-0 rounded-none border-x-0 border-b-0"
-            scroll
-          >
-            {alerts.length === 0 ? (
-              <p className="p-3 text-[11.5px] text-[var(--text-3)]">
-                The decision layer issued no action for the current forecast.
-              </p>
-            ) : (
-              <ul>
-                {alerts.map((alert, index) => (
-                  <li
-                    key={alert.id}
-                    className="border-b border-[var(--line)]/50 px-2.5 py-2 last:border-0"
-                  >
-                    <div className="flex items-baseline gap-2">
-                      <span className="num text-[10px] text-[var(--text-3)]">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <Pill tone={severityTone(alert.severity)}>{alert.severity}</Pill>
-                      <span className="num ml-auto text-[10px] text-[var(--text-3)]">
-                        conf {alert.confidence?.toFixed(2) ?? "n/a"}
-                      </span>
+                          ["Under way", statusCounts.underway],
+                          ["Inbound", statusCounts.inbound],
+                          ["Outbound", statusCounts.outbound],
+                          ["Anchored", statusCounts.anchored],
+                          ["Waiting", statusCounts.waiting],
+                          ["Alongside", statusCounts.moored],
+                        ] as Array<[string, number]>
+                      ).map(([label, count]) => (
+                        <div key={label}>
+                          <div className="text-[9.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                            {label}
+                          </div>
+                          <div className="num mt-[1px] text-[16px] leading-none text-[var(--text)]">
+                            {count}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <p className="mt-1 text-[11.5px] leading-snug text-[var(--text-2)]">
-                      {alert.text}
-                    </p>
-                    <div className="num mt-0.5 text-[10px] text-[var(--text-3)]">
-                      {alert.action} · priority {alert.priority?.toFixed(2) ?? "n/a"}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        </aside>
-      </PageBody>
-    </Page>
-  );
-}
+                  </PanelSection>
 
-function SelectedPort({
-  port,
-  onClear,
-  onOpen,
-}: {
-  port: PortSnapshot;
-  onClear: () => void;
-  onOpen: () => void;
-}) {
-  return (
-    <Panel
-      title={port.name}
-      note={port.code}
-      actions={
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-[10px] uppercase tracking-[0.08em] hover:text-[var(--text)]"
-        >
-          Clear
-        </button>
-      }
-      className="shrink-0 rounded-none border-x-0 border-t-0"
-    >
-      <div className="p-2.5">
-        <div className="mb-2 flex items-center gap-2">
-          <Pill tone={riskTone(port.risk)} solid>
-            {riskLabel(port.risk)}
-          </Pill>
-          <span className="text-[11.5px] text-[var(--text-2)]">{port.regime}</span>
-          <ProvenanceTag
-            status={port.dataStatus}
-            ageHours={port.dataAgeHours}
-            detail={`Observed ${formatUtc(port.observedAt)}`}
-            className="ml-auto"
-          />
-        </div>
+                  <PanelSection title="Ports by priority" right={`${ranked.length} ranked`}>
+                    <ul>
+                      {ranked.map((port, index) => (
+                        <li key={port.code}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              workspace.setSelectedPortCode(port.code);
+                              if (port.location) workspace.flyTo([port.location.lon, port.location.lat], 7.4);
+                            }}
+                            className="grid w-full grid-cols-[16px_1fr_38px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
+                          >
+                            <span className="num text-[9.5px] text-[var(--text-3)]">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className="truncate text-[11px] text-[var(--text)]">
+                              {port.name}
+                            </span>
+                            <Num
+                              value={port.congestionIndex}
+                              digits={0}
+                              className="text-right text-[11px]"
+                            />
+                            <span className="flex justify-end">
+                              <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>
+                            </span>
+                            <span className="num text-right text-[10px] text-[var(--text-3)]">
+                              {(port.delayHours ?? 0).toFixed(1)}h
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </PanelSection>
 
-        <div className="grid grid-cols-3 gap-x-3 gap-y-2">
-          {(
-            [
-              ["Day 1", <Num key="1" value={port.congestionIndex} className="text-[15px]" />],
-              ["Peak", <Num key="2" value={port.peakCongestionIndex} className="text-[15px]" />],
-              ["Wait", <Num key="3" value={port.delayHours} unit="h" className="text-[15px]" />],
-              [
-                "80% band",
-                <span key="4" className="num text-[12px] text-[var(--text-2)]">
-                  {port.forecastQ10?.toFixed(0) ?? "—"}–{port.forecastQ90?.toFixed(0) ?? "—"}
-                </span>,
-              ],
-              [
-                "Confidence",
-                <Num key="5" value={port.confidence} digits={0} scale={100} unit="%" className="text-[12px]" />,
-              ],
-              [
-                "Disagreement",
-                <Num key="6" value={port.modelDisagreement} digits={2} className="text-[12px]" />,
-              ],
-            ] as const
-          ).map(([label, value]) => (
-            <div key={label}>
-              <div className="eyebrow text-[9px]">{label}</div>
-              <div className="mt-0.5">{value}</div>
+                  <PanelSection title="Action queue" right={`${alerts.length} open`}>
+                    {alerts.length === 0 ? (
+                      <EmptyNote>
+                        The decision layer issued no action for the current forecast.
+                      </EmptyNote>
+                    ) : (
+                      <ul className="space-y-1.5">
+                        {alerts.slice(0, 6).map((alert) => (
+                          <li key={alert.id}>
+                            <div className="flex items-baseline gap-1.5">
+                              <Pill tone={alert.severity === "high" ? "warn" : "info"}>
+                                {alert.severity}
+                              </Pill>
+                              <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">
+                                conf {alert.confidence?.toFixed(2) ?? "n/a"}
+                              </span>
+                            </div>
+                            <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-2)]">
+                              {alert.text}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </PanelSection>
+                </FloatPanel>
+              )}
             </div>
-          ))}
-        </div>
-
-        {port.actionTitle ? (
-          <div className="mt-2.5 border-t border-[var(--line)] pt-2">
-            <div className="eyebrow mb-1">Recommended action</div>
-            <div className="text-[12.5px] text-[var(--text)]">{port.actionTitle}</div>
-            <div className="num mt-0.5 text-[10.5px] text-[var(--text-3)]">
-              {port.recommendedAction} · priority {port.priorityScore?.toFixed(2) ?? "n/a"}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mt-2.5 flex flex-wrap gap-2 border-t border-[var(--line)] pt-2">
-          <Link
-            to="/port/overview"
-            onClick={onOpen}
-            className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--line-strong)] px-2 py-[4px] text-[11px] text-[var(--text-2)] hover:text-[var(--text)]"
-          >
-            Open port twin <ArrowUpRight size={11} />
-          </Link>
-          <Link
-            to="/admin/scenarios"
-            className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--line-strong)] px-2 py-[4px] text-[11px] text-[var(--text-2)] hover:text-[var(--text)]"
-          >
-            Stress-test <ArrowUpRight size={11} />
-          </Link>
-        </div>
-      </div>
-    </Panel>
+          </>
+        }
+      />
+    </div>
   );
 }

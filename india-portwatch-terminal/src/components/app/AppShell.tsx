@@ -1,9 +1,11 @@
 /**
- * The application shell: one top bar, one rail, one content region.
+ * The application shell: one thin top strip, one icon rail, one status line.
  *
- * The shell is where a viewer learns three things without asking — who they are
- * signed in as, which context they are looking at, and how fresh the twin is.
- * Everything else belongs to the screen.
+ * The chrome earns its pixels or it goes. This is a map-first product, so the
+ * shell answers only the three questions a viewer cannot get from the chart --
+ * who they are signed in as, which context they are looking at, and how fresh
+ * the twin is -- and then gets out of the way. Everything else is a floating
+ * panel over the map, owned by the screen.
  */
 
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -16,6 +18,7 @@ import { Pill, ProvenanceTag, formatUtc } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
 import { NAVIGATION, activeNavItem } from "./navigation";
+import { TrafficProvider, useClockState, useTraffic } from "./traffic-context";
 
 /* ----------------------------------------------------------------- clock -- */
 
@@ -71,7 +74,7 @@ function Menu({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center gap-1.5 rounded-[2px] px-2 py-[4px] text-[11.5px] transition-colors",
+          "flex items-center gap-1.5 rounded-[2px] px-2 py-[3px] text-[11.5px] transition-colors",
           open
             ? "bg-[var(--panel-3)] text-[var(--text)]"
             : "text-[var(--text-2)] hover:bg-[var(--panel-3)] hover:text-[var(--text)]",
@@ -101,12 +104,12 @@ function Menu({
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2.5">
-      <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden>
-        <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.5" />
+    <div className="flex items-center gap-2">
+      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
+        <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.6" />
         <path d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z" fill="var(--info)" opacity="0.85" />
       </svg>
-      <span className="text-[12.5px] font-semibold tracking-[0.055em] text-[var(--text)]">
+      <span className="text-[12px] font-semibold tracking-[0.05em] text-[var(--text)]">
         INDIA PORTWATCH
       </span>
     </div>
@@ -119,73 +122,20 @@ function ContextCrumb() {
   const port = ports.data?.find((p) => p.code === portCode);
 
   return (
-    <div className="flex min-w-0 items-center gap-2 text-[11.5px]">
+    <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
       <span className="text-[var(--text-3)]">/</span>
-      <span className="truncate font-medium uppercase tracking-[0.07em] text-[var(--text-2)]">
+      <span className="truncate font-medium uppercase tracking-[0.06em] text-[var(--text-2)]">
         {profile.label}
       </span>
       {profile.role === "PORT_OPERATOR" && port ? (
         <>
           <span className="text-[var(--text-3)]">/</span>
-          <span className="truncate uppercase tracking-[0.07em] text-[var(--text-2)]">
+          <span className="truncate uppercase tracking-[0.06em] text-[var(--text-2)]">
             {port.name}
           </span>
         </>
       ) : null}
       {isImpersonating ? <Pill tone="unc">Viewing as</Pill> : null}
-    </div>
-  );
-}
-
-function SystemState() {
-  const health = useHealth();
-  const clock = useUtcClock();
-  const data = health.data;
-
-  const tone =
-    data?.intelligence === "live"
-      ? "ok"
-      : data?.intelligence === "cached"
-        ? "info"
-        : data?.intelligence === "stale"
-          ? "warn"
-          : "crit";
-
-  return (
-    <div className="flex items-stretch">
-      <div className="flex flex-col justify-center border-l border-[var(--line)] px-3.5">
-        <span className="eyebrow text-[9px]">Model run</span>
-        <span className="num text-[11px] text-[var(--text-2)]">
-          {formatUtc(data?.lastRefreshUtc ?? null)}
-        </span>
-      </div>
-      <div className="flex flex-col justify-center border-l border-[var(--line)] px-3.5">
-        <span className="eyebrow text-[9px]">Sources</span>
-        <span className="num text-[11px] text-[var(--text-2)]">
-          {data ? `${(data.sources.readiness * 100).toFixed(0)}% ready` : "—"}
-        </span>
-      </div>
-      <div className="flex flex-col justify-center gap-[3px] border-l border-[var(--line)] px-3.5">
-        <span className="eyebrow text-[9px]">Twin state</span>
-        <span className="flex items-center gap-1">
-          {health.isError ? (
-            <Pill tone="crit">API down</Pill>
-          ) : (
-            <>
-              <Pill tone={tone}>{(data?.intelligence ?? "…").replace("_", " ")}</Pill>
-              <ProvenanceTag
-                status={data?.forecastOriginStatus ?? null}
-                ageHours={data?.forecastOriginAgeHours ?? null}
-                detail={`Forecast origin ${formatUtc(data?.forecastOrigin ?? null)}`}
-              />
-            </>
-          )}
-        </span>
-      </div>
-      <div className="flex flex-col justify-center border-l border-[var(--line)] px-3.5">
-        <span className="eyebrow text-[9px]">UTC</span>
-        <span className="num text-[11px] text-[var(--text)]">{clock}</span>
-      </div>
     </div>
   );
 }
@@ -266,11 +216,11 @@ function ProfileMenu() {
   return (
     <Menu
       label={
-        <span className="flex items-center gap-2">
-          <span className="grid h-[21px] w-[21px] place-items-center rounded-[2px] bg-[var(--panel-4)] text-[10px] font-semibold text-[var(--text-2)]">
+        <span className="flex items-center gap-1.5">
+          <span className="grid h-[19px] w-[19px] place-items-center rounded-[2px] bg-[var(--panel-4)] text-[9.5px] font-semibold text-[var(--text-2)]">
             {initials}
           </span>
-          <span className="hidden max-w-[128px] truncate xl:inline">{user.displayName}</span>
+          <span className="hidden max-w-[120px] truncate xl:inline">{user.displayName}</span>
         </span>
       }
     >
@@ -318,18 +268,16 @@ function SideNav({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = NAVIGATION[role];
   const active = activeNavItem(items, pathname);
-  const health = useHealth();
-  const sources = health.data?.sources;
 
   return (
     <nav
       aria-label="Workspace"
       className={cn(
         "flex shrink-0 flex-col border-r border-[var(--line)] bg-[var(--panel)] transition-[width] duration-150",
-        collapsed ? "w-[52px]" : "w-[var(--nav-w)]",
+        collapsed ? "w-[46px]" : "w-[var(--nav-w)]",
       )}
     >
-      <div className="flex-1 overflow-y-auto py-1.5">
+      <div className="flex-1 overflow-y-auto py-1">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = active?.to === item.to;
@@ -339,7 +287,7 @@ function SideNav({
               to={item.to}
               title={collapsed ? `${item.label} — ${item.hint}` : item.hint}
               className={cn(
-                "relative flex items-center gap-2.5 px-3 py-[7px] text-[12.5px] transition-colors",
+                "relative flex items-center gap-2.5 px-[15px] py-[7px] text-[12px] transition-colors",
                 isActive
                   ? "bg-[var(--panel-3)] text-[var(--text)]"
                   : "text-[var(--text-3)] hover:bg-[var(--panel-2)] hover:text-[var(--text-2)]",
@@ -348,50 +296,18 @@ function SideNav({
               {isActive ? (
                 <span className="absolute inset-y-0 left-0 w-[2px] bg-[var(--info)]" />
               ) : null}
-              <Icon size={14} strokeWidth={1.7} className="shrink-0" />
+              <Icon size={15} strokeWidth={1.7} className="shrink-0" />
               {collapsed ? null : <span className="truncate">{item.label}</span>}
             </Link>
           );
         })}
       </div>
 
-      {!collapsed && sources ? (
-        <div className="border-t border-[var(--line)] px-3 py-2.5">
-          <Link
-            to="/admin/data"
-            className="eyebrow mb-1.5 block hover:text-[var(--text-2)]"
-          >
-            Feed readiness
-          </Link>
-          <div className="mb-2 h-[3px] w-full overflow-hidden rounded-[1px] bg-[var(--panel-3)]">
-            <div
-              className="h-full bg-[var(--info)]"
-              style={{ width: `${sources.readiness * 100}%` }}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-[3px] text-[10.5px]">
-            {(
-              [
-                ["Live", sources.live.length, "var(--ok)"],
-                ["Cached", sources.cached.length, "var(--info)"],
-                ["Stale", sources.stale.length, "var(--warn)"],
-                ["Missing", sources.unavailable.length, "var(--crit)"],
-              ] as const
-            ).map(([label, count, color]) => (
-              <span key={label} className="flex items-center justify-between gap-1">
-                <span style={{ color }}>{label}</span>
-                <span className="num text-[var(--text-3)]">{count}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       <button
         type="button"
         onClick={onToggle}
         aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-        className="flex h-[30px] shrink-0 items-center gap-2 border-t border-[var(--line)] px-3.5 text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
+        className="flex h-[26px] shrink-0 items-center gap-2 border-t border-[var(--line)] px-[15px] text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
       >
         {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
         {collapsed ? null : <span className="text-[11px]">Collapse</span>}
@@ -400,16 +316,95 @@ function SideNav({
   );
 }
 
+/* ----------------------------------------------------------- status line -- */
+
+function StatusLine() {
+  const health = useHealth();
+  const { source } = useTraffic();
+  const clock = useClockState();
+  const utc = useUtcClock();
+  const data = health.data;
+
+  const twinTone =
+    data?.intelligence === "live"
+      ? "ok"
+      : data?.intelligence === "cached"
+        ? "info"
+        : data?.intelligence === "stale"
+          ? "warn"
+          : "crit";
+
+  const trafficTone =
+    source.info.kind === "LIVE_AIS"
+      ? "ok"
+      : source.info.kind === "AIS_REPLAY"
+        ? "info"
+        : source.info.kind === "SIMULATED_TRAFFIC"
+          ? "unc"
+          : "crit";
+
+  return (
+    <footer className="flex h-[var(--status-h)] shrink-0 items-center gap-3 border-t border-[var(--line)] bg-[var(--panel)] px-3 text-[10.5px] text-[var(--text-3)]">
+      <span className="flex items-center gap-1.5" title={source.info.detail}>
+        <span className="eyebrow text-[9px]">Traffic</span>
+        <Pill tone={trafficTone}>
+          {source.info.kind === "SIMULATED_TRAFFIC" ? "Simulated replay" : source.info.label}
+        </Pill>
+        <span className="num text-[var(--text-3)]">{source.roster().length} vessels</span>
+      </span>
+
+      <span className="h-3 w-px bg-[var(--line)]" />
+
+      <span className="flex items-center gap-1.5">
+        <span className="eyebrow text-[9px]">Replay</span>
+        <span className="num text-[var(--text-2)]">
+          {new Date(clock.at).toUTCString().slice(5, 22)}Z
+        </span>
+        <span className="num text-[var(--text-3)]">×{clock.rate}</span>
+      </span>
+
+      <span className="h-3 w-px bg-[var(--line)]" />
+
+      <span className="flex items-center gap-1.5">
+        <span className="eyebrow text-[9px]">Twin</span>
+        {health.isError ? (
+          <Pill tone="crit">API down</Pill>
+        ) : (
+          <>
+            <Pill tone={twinTone}>{(data?.intelligence ?? "…").replace("_", " ")}</Pill>
+            <ProvenanceTag
+              status={data?.forecastOriginStatus ?? null}
+              ageHours={data?.forecastOriginAgeHours ?? null}
+              detail={`Forecast origin ${formatUtc(data?.forecastOrigin ?? null)}`}
+            />
+          </>
+        )}
+      </span>
+
+      <span className="h-3 w-px bg-[var(--line)]" />
+
+      <Link to="/admin/data" className="hover:text-[var(--text-2)]">
+        Sources {data ? `${(data.sources.readiness * 100).toFixed(0)}% ready` : "—"}
+      </Link>
+
+      <span className="ml-auto flex items-center gap-1.5">
+        <span className="eyebrow text-[9px]">UTC</span>
+        <span className="num text-[var(--text-2)]">{utc}</span>
+      </span>
+    </footer>
+  );
+}
+
 /* ----------------------------------------------------------------- shell -- */
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+function Chrome({ children }: { children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(true);
 
-  // 1366×768 is a supported operating resolution, and the rail costs 208px of
-  // it. Start collapsed there and let the operator open it.
+  // The rail costs horizontal pixels the chart wants. It opens on the widest
+  // screens and stays as icons everywhere else; the labels are one click away.
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 1439px)");
-    const apply = () => setCollapsed(query.matches);
+    const query = window.matchMedia("(min-width: 1700px)");
+    const apply = () => setCollapsed(!query.matches);
     apply();
     query.addEventListener("change", apply);
     return () => query.removeEventListener("change", apply);
@@ -417,24 +412,29 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-[var(--bg)]">
-      <header className="flex h-[var(--topbar-h)] shrink-0 items-stretch border-b border-[var(--line)] bg-[var(--panel)]">
-        <div className="flex min-w-0 flex-1 items-center gap-3 pl-4">
-          <Brand />
-          <ContextCrumb />
-          <div className="ml-1">
-            <RoleSwitcher />
-          </div>
-        </div>
-        <SystemState />
-        <div className="flex items-center border-l border-[var(--line)] px-2">
+      <header className="flex h-[var(--topbar-h)] shrink-0 items-center gap-3 border-b border-[var(--line)] bg-[var(--panel)] px-3">
+        <Brand />
+        <ContextCrumb />
+        <RoleSwitcher />
+        <div className="ml-auto flex items-center gap-2">
           <ProfileMenu />
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
         <SideNav collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
-        <main className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
+        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
       </div>
+
+      <StatusLine />
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <TrafficProvider>
+      <Chrome>{children}</Chrome>
+    </TrafficProvider>
   );
 }
