@@ -61,6 +61,7 @@ from src.portwatch_os.twin.state import (
     VesselCall,
     YardBlock,
     schematic_layout,
+    seed_calls,
     seed_yard,
     state_from_snapshot,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "benchmark", "build_policy",
     "default_policies", "evaluate", "evaluate_promotion", "promotion_pipeline",
     "register_candidate", "reject", "reward", "reward_breakdown",
-    "schematic_layout", "seed_yard", "simulate", "state_from_snapshot",
+    "schematic_layout", "seed_calls", "seed_yard", "simulate",
+    "state_from_snapshot",
     "train_bandit", "validate_action",
 ]

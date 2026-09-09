@@ -645,15 +645,99 @@ def state_from_snapshot(
     # the note records it.
     queue_pressure = float(snapshot.get("queuePressure") or 0.0)
     occupied = int(round(len(state.berths) * min(0.92, 0.35 + queue_pressure * 0.6)))
-    for berth in state.berths[:occupied]:
+    for index, berth in enumerate(state.berths[:occupied]):
         berth.occupied_by = f"seed-{berth.berth_id}"
-        berth.free_at_hour = 2.0 + (hash(berth.berth_id) % 14)
+        # Deterministic, and spread so berths free up across the horizon rather
+        # than all at once. ``hash`` is salted per process in Python 3, so it
+        # cannot be used where a run has to be reproducible.
+        berth.free_at_hour = 1.5 + (index * 37 % 13)
+
+    seed_calls(state, snapshot)
 
     state.notes.append(
         f"Initial berth and yard occupancy seeded from the observed snapshot: "
         f"queue pressure {queue_pressure:.2f}, capacity pressure {capacity_pressure:.2f}."
     )
     return state
+
+
+#: Vessel mix used when seeding calls from an observed anchorage count. Drawn
+#: from published container-vessel envelopes; the *number* of calls comes from
+#: the measured anchorage, the size distribution is modelled.
+_CALL_MIX: Tuple[Tuple[str, float, float, int], ...] = (
+    ("feeder", 170.0, 9.0, 420),
+    ("panamax", 250.0, 12.0, 1050),
+    ("post_panamax", 300.0, 13.5, 1700),
+    ("neo_panamax", 366.0, 15.2, 2500),
+)
+
+
+def seed_calls(
+    state: PortState,
+    snapshot: Dict[str, Any],
+    *,
+    horizon_hours: float = 48.0,
+) -> None:
+    """Populate the twin's arrival queue from the observed port state.
+
+    Without calls the twin has nothing to schedule, every metric reads zero and
+    the 3D overlays are decoration. The *count* is measured -- the anchorage
+    census plus the forecast arrival rate -- while the size mix and the exact
+    arrival times are modelled and are declared as such in the state's notes.
+
+    Deterministic: the arrival sequence is derived from the port code and the
+    index, never from a wall clock or a salted hash, so two runs of the same
+    snapshot produce the same twin.
+    """
+    anchorage = float(snapshot.get("anchorageCount") or 0.0)
+    arrivals_per_day = float(snapshot.get("arrivalRate") or snapshot.get("vesselCount") or 0.0)
+    if arrivals_per_day <= 0:
+        # Fall back to the berth count: a terminal turns over roughly one vessel
+        # per berth per day at moderate utilisation.
+        arrivals_per_day = len(state.berths) * 0.9
+
+    waiting_now = int(round(anchorage))
+    inbound = int(round(arrivals_per_day * horizon_hours / 24.0))
+    total = max(1, waiting_now + inbound)
+
+    seed = sum(ord(c) for c in state.port_code)
+    for index in range(total):
+        klass, loa, draught, moves = _CALL_MIX[(seed + index * 7) % len(_CALL_MIX)]
+        if index < waiting_now:
+            # Already at anchor when the twin starts.
+            eta = -float((index * 3 + seed) % 9) - 0.5
+            call_state = WAITING
+            arrived = eta
+        else:
+            step = index - waiting_now
+            eta = (step + 1) * (horizon_hours / max(1, inbound + 1))
+            call_state = APPROACHING
+            arrived = None
+        state.calls.append(
+            VesselCall(
+                call_id=f"{state.port_code}-C{index + 1:02d}",
+                vessel_id=f"{state.port_code}-SIM-{index + 1:02d}",
+                name=f"{klass.replace('_', ' ').title()} call {index + 1}",
+                vessel_class=klass,
+                loa_m=loa,
+                draught_m=draught,
+                eta_hour=eta,
+                moves=moves + ((seed + index * 13) % 400),
+                latest_departure_hour=(
+                    eta + 20.0 + ((seed + index) % 14) if index % 3 == 0 else None
+                ),
+                priority=0.3 + ((index * 11 + seed) % 60) / 100.0,
+                state=call_state,
+                arrived_hour=arrived,
+            )
+        )
+
+    state.notes.append(
+        f"Arrival queue seeded from the observed anchorage census ({waiting_now} "
+        f"waiting) and the run's arrival rate ({arrivals_per_day:.1f}/day over "
+        f"{horizon_hours:.0f} h). Vessel sizes and exact arrival times are modelled, "
+        "not observed."
+    )
 
 
 __all__ = [
@@ -674,6 +758,7 @@ __all__ = [
     "YardBlock",
     "YardVehicle",
     "schematic_layout",
+    "seed_calls",
     "seed_yard",
     "state_from_snapshot",
 ]

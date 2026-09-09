@@ -1,0 +1,410 @@
+"""Advisory persistence and the authorisation boundary.
+
+The state machine in :mod:`~src.portwatch_os.advisories.model` says what
+transitions are legal. This module says *who* may attempt them, and it is the
+layer an API route calls.
+
+Authorisation here is deliberately narrow and explicit:
+
+*   A port controller may act as ISSUER only for the port they hold.
+*   A company or vessel operator may act as RECIPIENT only for advisories
+    addressed to their own vessel or organisation.
+*   Nobody may act as SYSTEM. Expiry is driven by the clock through
+    :func:`AdvisoryStore.expire_due`, and there is no caller-supplied path to it.
+
+A denied action raises rather than returning an empty result, so a caller cannot
+mistake "you may not" for "there is nothing there".
+"""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import threading
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence
+
+from src.portwatch_os.advisories.model import (
+    ACCEPTED,
+    ADVISORY_STATES,
+    DRAFT,
+    ISSUED,
+    ISSUER,
+    RECIPIENT,
+    SYSTEM,
+    Advisory,
+    AdvisoryError,
+    AuditEntry,
+    expire_due,
+    modify,
+    transition,
+    utc_now,
+)
+from src.utils.config import OUTPUTS_DIR
+
+DEFAULT_ADVISORY_PATH = OUTPUTS_DIR / "portwatch_advisories.db"
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS advisories (
+    advisory_id             TEXT PRIMARY KEY,
+    kind                    TEXT NOT NULL,
+    port_code               TEXT NOT NULL,
+    issuer                  TEXT NOT NULL,
+    issuer_organisation     TEXT NOT NULL,
+    recipient_vessel_id     TEXT NOT NULL,
+    recipient_vessel_name   TEXT NOT NULL,
+    recipient_organisation  TEXT NOT NULL,
+    created_at              TEXT NOT NULL,
+    recommendation          TEXT NOT NULL,
+    reason                  TEXT NOT NULL,
+    state                   TEXT NOT NULL,
+    model_confidence        REAL,
+    prediction_ids          TEXT,
+    evidence                TEXT,
+    critic_verdict          TEXT,
+    critic_reasons          TEXT,
+    decision_id             TEXT,
+    valid_until             TEXT,
+    issued_at               TEXT,
+    responded_at            TEXT,
+    response_reason         TEXT,
+    modified_from           TEXT,
+    audit                   TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_adv_port      ON advisories(port_code, state);
+CREATE INDEX IF NOT EXISTS ix_adv_recipient ON advisories(recipient_vessel_id, state);
+CREATE INDEX IF NOT EXISTS ix_adv_org       ON advisories(recipient_organisation, state);
+"""
+
+
+class AuthorisationError(AdvisoryError):
+    """The actor is not permitted to do this. Distinct from an illegal transition."""
+
+
+class Principal:
+    """Who is acting, and what they are entitled to act on.
+
+    Constructed by the API from the authenticated session, never from a request
+    body. The distinction matters: a caller that could name its own principal
+    could issue advisories as any port authority it liked.
+    """
+
+    def __init__(
+        self,
+        *,
+        actor: str,
+        role: str,
+        port_code: Optional[str] = None,
+        organisation: Optional[str] = None,
+        vessel_ids: Optional[Sequence[str]] = None,
+        is_admin: bool = False,
+    ) -> None:
+        if role not in (ISSUER, RECIPIENT):
+            raise AuthorisationError(
+                f"a principal may be an {ISSUER} or a {RECIPIENT}; "
+                f"'{role}' is not a role a caller may hold"
+            )
+        if not actor:
+            raise AuthorisationError("a principal must be a named actor")
+        self.actor = actor
+        self.role = role
+        self.port_code = port_code
+        self.organisation = organisation
+        self.vessel_ids = set(vessel_ids or [])
+        self.is_admin = is_admin
+
+    def assert_may_issue(self, advisory: Advisory) -> None:
+        if self.role != ISSUER:
+            raise AuthorisationError(
+                f"{self.actor} holds the {self.role} role and cannot issue advisories"
+            )
+        if self.is_admin:
+            return
+        if self.port_code and advisory.port_code != self.port_code:
+            raise AuthorisationError(
+                f"{self.actor} controls {self.port_code} and cannot act on an advisory "
+                f"issued by {advisory.port_code}"
+            )
+
+    def assert_may_respond(self, advisory: Advisory) -> None:
+        if self.role != RECIPIENT:
+            raise AuthorisationError(
+                f"{self.actor} holds the {self.role} role and cannot respond to an "
+                "advisory on the recipient's behalf"
+            )
+        if self.is_admin:
+            return
+        if self.vessel_ids and advisory.recipient_vessel_id in self.vessel_ids:
+            return
+        if self.organisation and advisory.recipient_organisation == self.organisation:
+            return
+        raise AuthorisationError(
+            f"{self.actor} is not the recipient of {advisory.advisory_id}"
+        )
+
+    def may_see(self, advisory: Advisory) -> bool:
+        if self.is_admin:
+            return True
+        if self.role == ISSUER:
+            return not self.port_code or advisory.port_code == self.port_code
+        if not advisory.visible_to_recipient:
+            return False
+        return (
+            advisory.recipient_vessel_id in self.vessel_ids
+            or (self.organisation is not None
+                and advisory.recipient_organisation == self.organisation)
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "actor": self.actor, "role": self.role, "portCode": self.port_code,
+            "organisation": self.organisation, "vesselIds": sorted(self.vessel_ids),
+            "isAdmin": self.is_admin,
+        }
+
+
+class AdvisoryStore:
+    """SQLite-backed advisory register with the authorisation gate in front."""
+
+    def __init__(self, path: Path | str | None = None) -> None:
+        self.path = Path(path) if path is not None else DEFAULT_ADVISORY_PATH
+        if str(self.path) != ":memory:":
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
+        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        with self._lock:
+            self._conn.executescript(_SCHEMA)
+            self._conn.commit()
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
+
+    # -- serialisation -----------------------------------------------------
+    @staticmethod
+    def _to_row(advisory: Advisory) -> Dict[str, Any]:
+        row = asdict(advisory)
+        for key in ("recommendation", "prediction_ids", "evidence",
+                    "critic_reasons", "modified_from"):
+            row[key] = json.dumps(getattr(advisory, key), sort_keys=True, default=str)
+        row["audit"] = json.dumps([e.to_dict() for e in advisory.audit], default=str)
+        return row
+
+    @staticmethod
+    def _from_row(row: Dict[str, Any]) -> Advisory:
+        data = dict(row)
+        for key, default in (
+            ("recommendation", {}), ("prediction_ids", []), ("evidence", {}),
+            ("critic_reasons", []),
+        ):
+            data[key] = _loads(data.get(key)) or default
+        data["modified_from"] = _loads(data.get("modified_from"))
+        audit = _loads(data.pop("audit", None)) or []
+        advisory = Advisory(**{
+            k: v for k, v in data.items()
+            if k in Advisory.__dataclass_fields__ and k != "audit"
+        })
+        advisory.audit = [AuditEntry(**entry) for entry in audit]
+        return advisory
+
+    # -- writes ------------------------------------------------------------
+    def create(self, advisory: Advisory, *, principal: Optional[Principal] = None) -> Advisory:
+        """Register a new advisory. Always lands in DRAFT.
+
+        The state is forced rather than trusted: an advisory that arrived
+        claiming to be ISSUED would bypass the entire approval workflow, so the
+        constructor's word on that is not accepted.
+        """
+        problems = advisory.validate()
+        if problems:
+            raise AdvisoryError(
+                f"{advisory.advisory_id} is not a well-formed advisory: "
+                + "; ".join(problems)
+            )
+        if principal is not None:
+            principal.assert_may_issue(advisory)
+        advisory.state = DRAFT
+        if not advisory.audit:
+            advisory.audit.append(
+                AuditEntry(
+                    at=advisory.created_at or utc_now(),
+                    actor=advisory.issuer, actor_role=ISSUER, action="Draft created",
+                    from_state=DRAFT, to_state=DRAFT,
+                    reason="generated by the decision engine and awaiting review",
+                )
+            )
+        self._write(advisory)
+        return advisory
+
+    def _write(self, advisory: Advisory) -> None:
+        row = self._to_row(advisory)
+        columns = list(row)
+        placeholders = ", ".join("?" for _ in columns)
+        updates = ", ".join(f"{c} = excluded.{c}" for c in columns if c != "advisory_id")
+        sql = (
+            f"INSERT INTO advisories ({', '.join(columns)}) VALUES ({placeholders}) "
+            f"ON CONFLICT(advisory_id) DO UPDATE SET {updates}"
+        )
+        with self._lock:
+            self._conn.execute(sql, [row[c] for c in columns])
+            self._conn.commit()
+
+    def act(
+        self,
+        advisory_id: str,
+        target: str,
+        *,
+        principal: Principal,
+        reason: Optional[str] = None,
+        changes: Optional[Dict[str, Any]] = None,
+    ) -> Advisory:
+        """Attempt a transition as this principal. Raises if not permitted."""
+        advisory = self.require(advisory_id)
+        if principal.role == ISSUER:
+            principal.assert_may_issue(advisory)
+        else:
+            principal.assert_may_respond(advisory)
+
+        transition(
+            advisory, target, actor=principal.actor, actor_role=principal.role,
+            reason=reason, changes=changes,
+        )
+        self._write(advisory)
+        return advisory
+
+    def modify(
+        self,
+        advisory_id: str,
+        changes: Dict[str, Any],
+        *,
+        principal: Principal,
+        reason: str,
+    ) -> Advisory:
+        advisory = self.require(advisory_id)
+        principal.assert_may_issue(advisory)
+        modify(advisory, changes, actor=principal.actor, reason=reason)
+        self._write(advisory)
+        return advisory
+
+    def expire_due(self, *, now: Optional[str] = None) -> List[Advisory]:
+        """The only path to a SYSTEM transition, and it takes no caller identity."""
+        advisories = [a for a in self.all() if a.state in (ISSUED, "acknowledged")]
+        expired = expire_due(advisories, now=now)
+        for advisory in expired:
+            self._write(advisory)
+        return expired
+
+    # -- reads -------------------------------------------------------------
+    def get(self, advisory_id: str) -> Optional[Advisory]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM advisories WHERE advisory_id = ?", (advisory_id,)
+            ).fetchone()
+        return self._from_row(dict(row)) if row else None
+
+    def require(self, advisory_id: str) -> Advisory:
+        advisory = self.get(advisory_id)
+        if advisory is None:
+            raise AdvisoryError(f"no advisory {advisory_id}")
+        return advisory
+
+    def all(self) -> List[Advisory]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM advisories ORDER BY created_at DESC"
+            ).fetchall()
+        return [self._from_row(dict(row)) for row in rows]
+
+    def visible_to(
+        self,
+        principal: Principal,
+        *,
+        state: Optional[str] = None,
+        port_code: Optional[str] = None,
+        vessel_id: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[Advisory]:
+        """Everything this principal is entitled to see, filtered.
+
+        The visibility rule is applied after the query rather than inside it, so
+        there is exactly one place -- ``Principal.may_see`` -- that decides who
+        sees what, and the SQL cannot drift out of step with it.
+        """
+        clauses: List[str] = []
+        params: List[Any] = []
+        if state:
+            clauses.append("state = ?")
+            params.append(state)
+        if port_code:
+            clauses.append("port_code = ?")
+            params.append(port_code)
+        if vessel_id:
+            clauses.append("recipient_vessel_id = ?")
+            params.append(vessel_id)
+        sql = "SELECT * FROM advisories"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += f" ORDER BY created_at DESC LIMIT {int(limit)}"
+        with self._lock:
+            rows = self._conn.execute(sql, params).fetchall()
+        return [
+            advisory for advisory in (self._from_row(dict(r)) for r in rows)
+            if principal.may_see(advisory)
+        ]
+
+    def counts(self) -> Dict[str, int]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT state, COUNT(*) AS n FROM advisories GROUP BY state"
+            ).fetchall()
+        return {row["state"]: int(row["n"]) for row in rows}
+
+    def audit_trail(self, advisory_id: str) -> List[Dict[str, Any]]:
+        return [entry.to_dict() for entry in self.require(advisory_id).audit]
+
+
+def _loads(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return None
+
+
+_DEFAULT: Optional[AdvisoryStore] = None
+_LOCK = threading.Lock()
+
+
+def get_advisory_store(path: Path | str | None = None) -> AdvisoryStore:
+    global _DEFAULT
+    if path is not None:
+        return AdvisoryStore(path)
+    with _LOCK:
+        if _DEFAULT is None:
+            _DEFAULT = AdvisoryStore()
+        return _DEFAULT
+
+
+def reset_default_store() -> None:
+    """Tests only."""
+    global _DEFAULT
+    with _LOCK:
+        if _DEFAULT is not None:
+            _DEFAULT.close()
+        _DEFAULT = None
+
+
+__all__ = [
+    "DEFAULT_ADVISORY_PATH",
+    "AdvisoryStore",
+    "AuthorisationError",
+    "Principal",
+    "get_advisory_store",
+    "reset_default_store",
+]
