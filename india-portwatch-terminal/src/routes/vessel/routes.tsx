@@ -13,27 +13,12 @@ import {
   riskLabel,
 } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import type { Lane } from "@/components/map/layers";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
+import { ContextMap } from "@/components/command/ContextMap";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
+import { seaRoute } from "@/lib/maritime/searoutes";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/vessel/routes")({ component: RouteIntelligence });
-
-const LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: false,
-  weather: true,
-  stations: false,
-  storms: true,
-  routes: true,
-  chokepoints: true,
-  events: false,
-  zones: false,
-  graticule: true,
-};
 
 /**
  * Route intelligence compares the call a vessel declared with the best
@@ -44,45 +29,48 @@ const LAYERS: Record<LayerKey, boolean> = {
 function RouteIntelligence() {
   const { intel, isLoading, error, refetch, ports, weather, events } = useFleetIntel();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(LAYERS);
 
   const active: VesselIntel | null =
     intel.find((row) => row.vessel.id === selectedId) ?? intel[0] ?? null;
 
-  const lanes = useMemo<Lane[]>(() => {
-    if (!active?.destination?.location || !active.alternative?.location) return [];
-    return [
-      {
-        id: `route-${active.vessel.id}`,
-        from: active.destination.location,
-        to: active.alternative.location,
-        color: active.vessel.reroute ? "#d3a02f" : "#4c9fcb",
-        width: 2,
-        opacity: 0.9,
-        dashed: true,
-        label: "Declared call → alternative",
-      },
-    ];
+  /**
+   * The declared call and the alternative, drawn as two passages from the same
+   * origin rather than as a line between two ports. Comparing them as geometry
+   * is the point of the screen, and a straight hop from one quay to the other
+   * would have crossed the subcontinent.
+   */
+  const comparisonRoutes = useMemo<GeoJSON.FeatureCollection>(() => {
+    const intended = active?.vessel.intendedPortCode;
+    const alternative = active?.vessel.recommendedPortCode;
+    if (!intended) return { type: "FeatureCollection", features: [] };
+
+    const origin =
+      active?.vessel.candidatePortCodes?.find((code) => code !== intended) ?? "LKCMB";
+    const features: GeoJSON.Feature[] = [];
+
+    const declared = seaRoute(origin, intended);
+    if (declared) {
+      features.push({
+        type: "Feature",
+        properties: { part: "ahead", color: "#7cc4e8", id: "declared" },
+        geometry: { type: "LineString", coordinates: declared.path.coords },
+      });
+    }
+    if (alternative && alternative !== intended) {
+      const other = seaRoute(origin, alternative);
+      if (other) {
+        features.push({
+          type: "Feature",
+          properties: { part: "alternative", color: "#8a7fc4", id: "alternative" },
+          geometry: { type: "LineString", coordinates: other.path.coords },
+        });
+      }
+    }
+    return { type: "FeatureCollection", features };
   }, [active]);
 
-  const emphasise = useMemo(
-    () =>
-      new Set(
-        [active?.vessel.intendedPortCode, active?.vessel.recommendedPortCode].filter(
-          (code): code is string => Boolean(code),
-        ),
-      ),
-    [active],
-  );
-
-  const map = useOperationalMap({
-    ports,
-    weather,
-    vessels: [],
-    events,
-    selected: active?.vessel.intendedPortCode ?? null,
-    emphasise,
-    extraLanes: lanes,
+  const workspace = useWorkspaceMap({
+    layerOverrides: { traffic: false, corridors: false },
   });
 
   const centre = useMemo<[number, number]>(() => {
@@ -281,52 +269,15 @@ function RouteIntelligence() {
         </div>
 
         <div className="relative min-w-0 flex-1 border-r border-[var(--line)]">
-          <OperationsMap
-            data={map.data}
-            visible={layers}
-            labels={map.labels}
-            selected={vessel.intendedPortCode}
-            center={centre}
-            zoom={sameCall ? 6.4 : 5.2}
-            overlay={
-              <>
-                <MapControlPanel
-                  toggles={[
-                    { key: "ports", label: "Ports", count: map.counts.ports },
-                    { key: "routes", label: "Corridors", count: map.counts.routes },
-                    { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                    {
-                      key: "weather",
-                      label: "Weather field",
-                      count: map.counts.weather,
-                      disabled: (map.counts.weather ?? 0) === 0,
-                      disabledReason: "No weather artefact in this run",
-                    },
-                    { key: "graticule", label: "Graticule" },
-                  ]}
-                  visible={layers}
-                  onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  weatherField={map.weatherField}
-                  onWeatherField={map.setWeatherField}
-                  weatherAvailability={map.availability}
-                />
-                <MapLegend
-                  weatherField={map.weatherField}
-                  weatherActive={layers.weather}
-                  extra={[
-                    {
-                      label: sameCall ? "No diversion scored" : "Declared → alternative",
-                      color: vessel.reroute ? "#d3a02f" : "#4c9fcb",
-                      shape: "line",
-                    },
-                  ]}
-                  note={
-                    sameCall
-                      ? "The optimizer's best option is the declared call itself, so there is no second path to draw."
-                      : "The corridor is a great circle between the two calls — a comparison of endpoints, not a routed passage plan."
-                  }
-                />
-              </>
+          <ContextMap
+            workspace={workspace}
+            extraData={{ routes: comparisonRoutes }}
+            view={{ center: centre, zoom: sameCall ? 6.2 : 4.8 }}
+            showTraffic={false}
+            note={
+              sameCall
+                ? "The optimizer's best option is the declared call itself, so there is no second passage to draw."
+                : "Both passages follow the water-only routing graph from the same origin. Visualisation only: not a passage plan."
             }
           />
         </div>

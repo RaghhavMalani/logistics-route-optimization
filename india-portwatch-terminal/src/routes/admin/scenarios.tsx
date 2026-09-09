@@ -14,30 +14,16 @@ import {
 } from "@/components/kit/primitives";
 import { FailureState, LoadingPanel, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import { CHOKEPOINT_BY_CODE, type Lane } from "@/components/map/layers";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
+import { ContextMap } from "@/components/command/ContextMap";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
+import { CHOKEPOINT_BY_CODE } from "@/lib/maritime/chokepoints";
+import { seaRoute } from "@/lib/maritime/searoutes";
 import { cn } from "@/lib/utils";
 import { runScenario } from "@/services/portwatch";
 import { useNews, usePorts, useScenarios, useWeather } from "@/services/hooks";
 import type { ScenarioPortImpact } from "@/types/portwatch";
 
 export const Route = createFileRoute("/admin/scenarios")({ component: ScenarioRoom });
-
-const LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: false,
-  weather: false,
-  stations: false,
-  storms: false,
-  routes: true,
-  chokepoints: true,
-  events: false,
-  zones: false,
-  graticule: true,
-};
 
 function ScenarioRoom() {
   const catalogue = useScenarios();
@@ -48,7 +34,6 @@ function ScenarioRoom() {
   const [scenarioKey, setScenarioKey] = useState<string | null>(null);
   const [intensity, setIntensity] = useState(1);
   const [runId, setRunId] = useState(0);
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(LAYERS);
 
   const activeKey = scenarioKey ?? catalogue.data?.[0]?.key ?? null;
   const definition = catalogue.data?.find((entry) => entry.key === activeKey) ?? null;
@@ -62,28 +47,39 @@ function ScenarioRoom() {
 
   // Stable identity: the memos below key off this array.
   const impacts = useMemo(() => result.data?.affectedPorts ?? [], [result.data]);
-  /** Corridors from the shocked chokepoint to the ports it actually reaches. */
-  const lanes = useMemo<Lane[]>(() => {
+  /**
+   * Propagation corridors from the shocked chokepoint to the ports it reaches.
+   *
+   * Drawn along the water-only routing graph rather than as a straight bearing,
+   * so a corridor's shape is the passage the diversion would actually take.
+   */
+  const propagation = useMemo<GeoJSON.FeatureCollection>(() => {
     const shocked = result.data?.chokepointImpacts?.filter((entry) => entry.isShocked) ?? [];
     const portByCode = new Map((ports.data ?? []).map((port) => [port.code, port]));
-    const out: Lane[] = [];
+    const features: GeoJSON.Feature[] = [];
     for (const choke of shocked) {
+      const waypointId = CHOKEPOINT_BY_CODE.get(choke.code)?.waypointId;
+      if (!waypointId) continue;
       for (const impact of impacts.slice(0, 8)) {
         const port = portByCode.get(impact.portCode);
         if (!port?.location) continue;
-        out.push({
-          id: `${choke.code}-${impact.portCode}`,
-          from: choke.location,
-          to: port.location,
-          color: impact.riskLevel === "severe" ? "#d05a4c" : "#d3a02f",
-          width: 0.6 + impact.exposure * 2.2,
-          opacity: 0.25 + impact.exposure * 0.5,
-          dashed: true,
-          label: `${choke.name} → ${impact.name}`,
+        const route = seaRoute(waypointId, impact.portCode);
+        if (!route) continue;
+        features.push({
+          type: "Feature",
+          properties: {
+            part: "exposure",
+            id: `${choke.code}-${impact.portCode}`,
+            color: impact.riskLevel === "severe" ? "#d05a4c" : "#d3a02f",
+            width: 0.8 + impact.exposure * 2.4,
+            opacity: 0.28 + impact.exposure * 0.5,
+            label: `${choke.name} → ${impact.name}`,
+          },
+          geometry: { type: "LineString", coordinates: route.path.coords },
         });
       }
     }
-    return out;
+    return { type: "FeatureCollection", features };
   }, [impacts, ports.data, result.data?.chokepointImpacts]);
 
   const emphasise = useMemo(
@@ -91,14 +87,8 @@ function ScenarioRoom() {
     [impacts],
   );
 
-  const map = useOperationalMap({
-    ports: ports.data ?? [],
-    weather: weather.data ?? [],
-    vessels: [],
-    events: news.data?.events ?? [],
-    emphasise,
-    extraLanes: lanes,
-    exposureLanes: false,
+  const workspace = useWorkspaceMap({
+    layerOverrides: { traffic: false, weather: false, corridors: false, events: false },
   });
 
   if (catalogue.isLoading || catalogue.isError) {
@@ -307,40 +297,11 @@ function ScenarioRoom() {
         {/* ------------------------------------------------ map + ledger -- */}
         <div className="flex min-w-0 flex-1 flex-col border-r border-[var(--line)]">
           <div className="relative min-h-0 flex-1">
-            <OperationsMap
-              data={map.data}
-              visible={layers}
-              labels={map.labels}
-              overlay={
-                <>
-                  <MapControlPanel
-                    toggles={[
-                      { key: "ports", label: "Ports", count: map.counts.ports },
-                      { key: "routes", label: "Propagation", count: map.counts.routes },
-                      { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                      {
-                        key: "weather",
-                        label: "Weather field",
-                        count: map.counts.weather,
-                        disabled: (map.counts.weather ?? 0) === 0,
-                        disabledReason: "No weather artefact in this run",
-                      },
-                      { key: "graticule", label: "Graticule" },
-                    ]}
-                    visible={layers}
-                    onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                    weatherField={map.weatherField}
-                    onWeatherField={map.setWeatherField}
-                    weatherAvailability={map.availability}
-                  />
-                  <MapLegend
-                    weatherField={map.weatherField}
-                    weatherActive={layers.weather}
-                    extra={[{ label: "Propagation path", color: "#d3a02f", shape: "line" }]}
-                    note="Corridors are drawn only from a shocked chokepoint to ports the measured lane-exposure graph connects to it."
-                  />
-                </>
-              }
+            <ContextMap
+              workspace={workspace}
+              extraData={{ routes: propagation }}
+              showTraffic={false}
+              note="Propagation corridors are drawn only from a shocked chokepoint to ports the measured lane-exposure graph connects to it, and follow the water-only routing graph."
             />
           </div>
 

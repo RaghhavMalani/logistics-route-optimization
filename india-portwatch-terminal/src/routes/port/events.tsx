@@ -12,7 +12,7 @@ import {
 } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
-import { CHOKEPOINT_BY_CODE } from "@/components/map/layers";
+import { CHOKEPOINT_BY_CODE } from "@/lib/maritime/chokepoints";
 import { useNews } from "@/services/hooks";
 import type { NewsEvent } from "@/types/portwatch";
 

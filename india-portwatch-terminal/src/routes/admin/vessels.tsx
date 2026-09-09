@@ -11,27 +11,13 @@ import {
 } from "@/components/kit/primitives";
 import { EmptyState, LoadingPanel, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
+import { ContextMap } from "@/components/command/ContextMap";
+import { TrafficFilters } from "@/components/command/TrafficFilters";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { useFeedAdapters, useNews, usePorts, useVessels, useWeather } from "@/services/hooks";
 import type { FeedAdapter, VesselActivity } from "@/types/portwatch";
 
 export const Route = createFileRoute("/admin/vessels")({ component: AdminVessels });
-
-const LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: true,
-  weather: false,
-  stations: false,
-  storms: false,
-  routes: false,
-  chokepoints: true,
-  events: false,
-  zones: false,
-  graticule: true,
-};
 
 function AdminVessels() {
   const vessels = useVessels();
@@ -39,17 +25,7 @@ function AdminVessels() {
   const ports = usePorts();
   const weather = useWeather();
   const news = useNews();
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(LAYERS);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  const map = useOperationalMap({
-    ports: ports.data ?? [],
-    weather: weather.data ?? [],
-    vessels: vessels.data?.vessels ?? [],
-    events: news.data?.events ?? [],
-    selected,
-    exposureLanes: false,
-  });
+  const workspace = useWorkspaceMap({ layerOverrides: { events: false, corridors: true } });
 
   if (vessels.isLoading || vessels.isError) {
     return (
@@ -231,34 +207,19 @@ function AdminVessels() {
 
       <PageBody padded={false} className="flex min-h-0 overflow-hidden">
         <div className="relative min-w-0 flex-1 border-r border-[var(--line)]">
-          <OperationsMap
-            data={map.data}
-            visible={layers}
-            labels={map.labels}
-            selected={selected}
-            onSelect={setSelected}
-            overlay={
+          <ContextMap
+            workspace={workspace}
+            note={
               <>
-                <MapControlPanel
-                  toggles={[
-                    { key: "vessels", label: "AIS activity", count: map.counts.vessels },
-                    { key: "ports", label: "Ports", count: map.counts.ports },
-                    { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                    { key: "graticule", label: "Graticule" },
-                  ]}
-                  visible={layers}
-                  onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                />
-                <MapLegend
-                  weatherActive={false}
-                  extra={[
-                    { label: "Low queue pressure", color: "#4c9fcb", shape: "dot" },
-                    { label: "Elevated", color: "#d3a02f", shape: "dot" },
-                    { label: "High", color: "#d05a4c", shape: "dot" },
-                  ]}
-                  note={vessels.data?.basis}
-                />
+                Vessel positions are <span className="text-[var(--unc)]">SIMULATED</span> by the
+                replay engine. The table below is measured satellite-AIS activity at the berth
+                line, which is a different thing and is the only AIS this deployment has.
               </>
+            }
+            overlay={
+              <div className="pointer-events-none absolute right-2.5 top-2.5 z-20 w-[216px]">
+                <TrafficFilters workspace={workspace} />
+              </div>
             }
           />
         </div>
@@ -273,8 +234,12 @@ function AdminVessels() {
               rows={rows}
               columns={columns}
               rowKey={(row) => row.portCode}
-              selectedKey={selected}
-              onRowClick={(row) => setSelected(row.portCode)}
+              selectedKey={workspace.selectedPortCode}
+              onRowClick={(row) => {
+                workspace.setSelectedPortCode(row.portCode);
+                const port = workspace.portByCode.get(row.portCode);
+                if (port?.location) workspace.flyTo([port.location.lon, port.location.lat], 7);
+              }}
               initialSort="pressure"
             />
           </Panel>

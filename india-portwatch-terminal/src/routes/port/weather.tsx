@@ -7,27 +7,14 @@ import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/l
 import { KeyValue, Num, Pill, formatDate, formatUtc } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
+import { ContextMap } from "@/components/command/ContextMap";
+import { TimeTransport } from "@/components/command/TimeTransport";
+import { TrafficFilters } from "@/components/command/TrafficFilters";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { useNews, useVessels, useWeather, useWeatherIntelligence } from "@/services/hooks";
 import type { WeatherSignal } from "@/types/portwatch";
 
 export const Route = createFileRoute("/port/weather")({ component: PortWeather });
-
-const WEATHER_LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: false,
-  weather: true,
-  stations: true,
-  storms: true,
-  routes: false,
-  chokepoints: false,
-  events: false,
-  zones: false,
-  graticule: true,
-};
 
 function PortWeather() {
   const { port, ports, query } = usePortContext();
@@ -35,15 +22,10 @@ function PortWeather() {
   const intelligence = useWeatherIntelligence();
   const vessels = useVessels();
   const news = useNews();
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(WEATHER_LAYERS);
-
-  const map = useOperationalMap({
-    ports,
-    weather: weather.data ?? [],
-    vessels: vessels.data?.vessels ?? [],
-    events: news.data?.events ?? [],
-    selected: port?.code ?? null,
-    exposureLanes: false,
+  const workspace = useWorkspaceMap({
+    zonesFor: port?.code ?? null,
+    initialSelectedPort: port?.code ?? null,
+    layerOverrides: { corridors: false, chokepoints: false },
   });
 
   const centre = useMemo<[number, number]>(
@@ -226,57 +208,22 @@ function PortWeather() {
 
       <PageBody padded={false} className="flex min-h-0 overflow-hidden">
         <div className="relative min-w-0 flex-1 border-r border-[var(--line)]">
-          <OperationsMap
-            data={map.data}
-            visible={layers}
-            labels={map.labels}
-            selected={port.code}
-            center={centre}
+          <ContextMap
+            workspace={workspace}
             // Wide enough that the interpolated field reads as a field rather
             // than a wash over the one port in view.
-            zoom={4.7}
-            loadingLabel="Initialising weather chart"
+            view={{ center: centre, zoom: 4.9 }}
             overlay={
               <>
-                <MapControlPanel
-                  toggles={[
-                    {
-                      key: "weather",
-                      label: "Weather field",
-                      count: map.counts.weather,
-                      disabled: (map.counts.weather ?? 0) === 0,
-                      disabledReason: "No weather artefact in this run",
-                    },
-                    {
-                      key: "stations",
-                      label: "Station readings",
-                      count: map.counts.stations,
-                      disabled: (map.counts.stations ?? 0) === 0,
-                      disabledReason: "No weather artefact in this run",
-                    },
-                    {
-                      key: "storms",
-                      label: "Storm envelopes",
-                      count: map.counts.storms,
-                      disabled: (map.counts.storms ?? 0) === 0,
-                      disabledReason: "No port carries a storm flag in this run",
-                    },
-                    { key: "ports", label: "Ports", count: map.counts.ports },
-                    { key: "vessels", label: "AIS activity", count: map.counts.vessels },
-                    { key: "graticule", label: "Graticule" },
-                  ]}
-                  visible={layers}
-                  onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  weatherField={map.weatherField}
-                  onWeatherField={map.setWeatherField}
-                  weatherAvailability={map.availability}
-                />
-                <MapLegend
-                  weatherField={map.weatherField}
-                  weatherActive={layers.weather}
-                  extra={[{ label: "Storm envelope", color: "#d05a4c", shape: "ring" }]}
-                  note={map.weatherNote}
-                />
+                <div className="pointer-events-none absolute right-2.5 top-2.5 z-20 w-[216px]">
+                  <TrafficFilters workspace={workspace} defaultOpen />
+                </div>
+                <div className="pointer-events-none absolute inset-x-2.5 bottom-[74px] z-20">
+                  <TimeTransport
+                    timeline={workspace.timeline}
+                    weatherAt={workspace.weatherAt}
+                  />
+                </div>
               </>
             }
           />

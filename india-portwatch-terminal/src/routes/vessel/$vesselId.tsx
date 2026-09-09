@@ -18,27 +18,14 @@ import {
   severityTone,
 } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import type { Lane } from "@/components/map/layers";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
+import { ContextMap } from "@/components/command/ContextMap";
+import { selectionGeometry } from "@/components/command/selection-geometry";
+import { useRouteExposure } from "@/components/command/VesselInspector";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
+import { useFixes } from "@/components/app/traffic-context";
 import { useForecast } from "@/services/hooks";
 
 export const Route = createFileRoute("/vessel/$vesselId")({ component: VesselDetail });
-
-const LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: false,
-  weather: true,
-  stations: false,
-  storms: true,
-  routes: true,
-  chokepoints: true,
-  events: false,
-  zones: false,
-  graticule: true,
-};
 
 function formatEta(date: Date | null): string {
   if (!date) return "—";
@@ -49,7 +36,6 @@ function formatEta(date: Date | null): string {
 function VesselDetail() {
   const { vesselId } = Route.useParams();
   const { intel, isLoading, error, refetch, ports, weather, events } = useFleetIntel();
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(LAYERS);
 
   const row = intel.find((entry) => entry.vessel.id === vesselId) ?? null;
   const destinationForecast = useForecast(row?.vessel.intendedPortCode ?? null);
@@ -57,43 +43,29 @@ function VesselDetail() {
     row?.vessel.reroute ? (row.vessel.recommendedPortCode ?? null) : null,
   );
 
-  const lanes = useMemo<Lane[]>(() => {
-    if (!row?.destination?.location) return [];
-    const out: Lane[] = [];
-    if (row.alternative?.location && row.vessel.reroute) {
-      out.push({
-        id: `alt-${row.vessel.id}`,
-        from: row.destination.location,
-        to: row.alternative.location,
-        color: "#d3a02f",
-        width: 1.8,
-        opacity: 0.85,
-        dashed: true,
-        label: "Alternative call",
-      });
-    }
-    return out;
-  }, [row]);
-
-  const emphasise = useMemo(
-    () =>
-      new Set(
-        [row?.vessel.intendedPortCode, row?.vessel.recommendedPortCode].filter(
-          (code): code is string => Boolean(code),
-        ),
-      ),
-    [row],
+  /**
+   * The vessel's own position, from the traffic source.
+   *
+   * The routing artefact carries a declared call and an arrival window, never a
+   * track. The replay engine turns that into a position by placing the vessel on
+   * the water-only passage so it arrives when the artefact says it will -- which
+   * is why the map and the fleet board agree instead of contradicting each other.
+   */
+  const fixes = useFixes(1);
+  const fix = useMemo(
+    () => fixes.find((entry) => entry.id === `own:${vesselId}`) ?? null,
+    [fixes, vesselId],
   );
 
-  const map = useOperationalMap({
-    ports,
-    weather,
-    vessels: [],
-    events,
-    selected: row?.vessel.intendedPortCode ?? null,
-    emphasise,
-    extraLanes: lanes,
-  });
+  const workspace = useWorkspaceMap({ layerOverrides: { corridors: false } });
+  const exposure = useRouteExposure(fix, workspace.timeline);
+  const geometry = useMemo(
+    () =>
+      selectionGeometry(fix, exposure, {
+        alternativeTo: row?.vessel.reroute ? row.vessel.recommendedPortCode : null,
+      }),
+    [exposure, fix, row],
+  );
 
   const centre = useMemo<[number, number]>(() => {
     const a = row?.destination?.location;
@@ -230,50 +202,11 @@ function VesselDetail() {
 
       <PageBody padded={false} className="flex min-h-0 overflow-hidden">
         <div className="relative min-w-0 flex-1 border-r border-[var(--line)]">
-          <OperationsMap
-            data={map.data}
-            visible={layers}
-            labels={map.labels}
-            selected={vessel.intendedPortCode}
-            center={centre}
-            zoom={vessel.reroute ? 5.2 : 6.4}
-            overlay={
-              <>
-                <MapControlPanel
-                  toggles={[
-                    { key: "ports", label: "Ports", count: map.counts.ports },
-                    { key: "routes", label: "Corridors", count: map.counts.routes },
-                    { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                    {
-                      key: "weather",
-                      label: "Weather field",
-                      count: map.counts.weather,
-                      disabled: (map.counts.weather ?? 0) === 0,
-                      disabledReason: "No weather artefact in this run",
-                    },
-                    {
-                      key: "storms",
-                      label: "Storm envelopes",
-                      count: map.counts.storms,
-                      disabled: (map.counts.storms ?? 0) === 0,
-                      disabledReason: "No storm flag on any port in this run",
-                    },
-                    { key: "graticule", label: "Graticule" },
-                  ]}
-                  visible={layers}
-                  onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  weatherField={map.weatherField}
-                  onWeatherField={map.setWeatherField}
-                  weatherAvailability={map.availability}
-                />
-                <MapLegend
-                  weatherField={map.weatherField}
-                  weatherActive={layers.weather}
-                  extra={[{ label: "Alternative call", color: "#d3a02f", shape: "line" }]}
-                  note="Declared call and alternative. The routing artefact carries no AIS track, so no position or heading is drawn."
-                />
-              </>
-            }
+          <ContextMap
+            workspace={workspace}
+            extraData={geometry}
+            view={{ center: fix ? [fix.lon, fix.lat] : centre, zoom: 5.4 }}
+            note="Own position is SIMULATED by the replay engine and placed so the vessel arrives when the routing artefact says it will. Passage geometry is non-navigational."
           />
         </div>
 

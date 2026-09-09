@@ -12,44 +12,28 @@ import {
 } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
-import { MapControlPanel, MapLegend } from "@/components/map/MapControls";
-import { OperationsMap } from "@/components/map/OperationsMap";
-import type { LayerKey } from "@/components/map/basemap";
-import { CHOKEPOINT_BY_CODE } from "@/components/map/layers";
-import { useOperationalMap } from "@/components/map/useOperationalMap";
+import { ContextMap } from "@/components/command/ContextMap";
+import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
+import { CHOKEPOINT_BY_CODE } from "@/lib/maritime/chokepoints";
+import { buildExposureLayers } from "@/lib/maritime/exposure";
 import { useNews, usePorts, useWeather } from "@/services/hooks";
 import type { NewsEvent } from "@/types/portwatch";
 
 export const Route = createFileRoute("/admin/intelligence")({ component: EventIntelligence });
 
-const LAYERS: Record<LayerKey, boolean> = {
-  ports: true,
-  vessels: false,
-  weather: false,
-  stations: false,
-  storms: false,
-  routes: true,
-  chokepoints: true,
-  events: true,
-  zones: false,
-  graticule: true,
-};
-
 function EventIntelligence() {
   const news = useNews();
   const ports = usePorts();
   const weather = useWeather();
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(LAYERS);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const map = useOperationalMap({
-    ports: ports.data ?? [],
-    weather: weather.data ?? [],
-    vessels: [],
-    events: news.data?.events ?? [],
-    labelChokepoints: true,
+  const workspace = useWorkspaceMap({
+    layerOverrides: { events: true, weather: false, traffic: false, corridors: false },
   });
+  const exposure = useMemo(
+    () => buildExposureLayers(news.data?.events ?? [], ports.data ?? []),
+    [news.data, ports.data],
+  );
 
   const events = useMemo(() => news.data?.events ?? [], [news.data]);
   const rows = useMemo(() => {
@@ -187,8 +171,8 @@ function EventIntelligence() {
           },
           {
             label: "Mapped on chart",
-            value: map.counts.events ?? 0,
-            note: map.eventNote ?? "all events carry a mapped chokepoint",
+            value: exposure.placedEvents,
+            note: exposure.note ?? "all events carry a mapped chokepoint",
           },
         ]}
       />
@@ -196,35 +180,22 @@ function EventIntelligence() {
       <PageBody padded={false} className="flex min-h-0 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col border-r border-[var(--line)]">
           <div className="relative h-[46%] min-h-[240px] shrink-0 border-b border-[var(--line)]">
-            <OperationsMap
-              data={map.data}
-              visible={layers}
-              labels={map.labels}
+            <ContextMap
+              workspace={workspace}
+              extraData={{
+                events: exposure.events,
+                routes: exposure.routes,
+                chokepoints: exposure.chokepoints,
+              }}
               // Pulled back and west so Suez, Hormuz, Bab-el-Mandeb and Malacca
               // are all on screen: this screen is about the corridors, not the coast.
-              center={[62, 16]}
-              zoom={3.1}
-              overlay={
+              view={{ center: [62, 16], zoom: 3.1 }}
+              showTraffic={false}
+              note={
                 <>
-                  <MapControlPanel
-                    toggles={[
-                      { key: "events", label: "Events", count: map.counts.events },
-                      { key: "routes", label: "Exposure corridors", count: map.counts.routes },
-                      { key: "chokepoints", label: "Chokepoints", count: map.counts.chokepoints },
-                      { key: "ports", label: "Ports", count: map.counts.ports },
-                      { key: "graticule", label: "Graticule" },
-                    ]}
-                    visible={layers}
-                    onToggle={(key) => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  />
-                  <MapLegend
-                    weatherActive={false}
-                    extra={[
-                      { label: "Event", color: "#d3a02f", shape: "dot" },
-                      { label: "Exposure corridor", color: "#d3a02f", shape: "line" },
-                    ]}
-                    note={map.eventNote ?? undefined}
-                  />
+                  Exposure corridors follow the water-only routing graph, so their length is the
+                  passage a diversion would actually run.
+                  {exposure.note ? ` ${exposure.note}` : ""}
                 </>
               }
             />
