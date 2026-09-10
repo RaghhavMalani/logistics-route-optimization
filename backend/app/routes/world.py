@@ -467,3 +467,62 @@ def attention_item(
 
 
 __all__ = ["router"]
+
+
+# --------------------------------------------------------------------------
+# signal fabric
+# --------------------------------------------------------------------------
+
+
+@router.get("/fabric/providers")
+def fabric_providers(
+    mode: Optional[str] = Query(None, description="RESEARCH | DEMO | COMMERCIAL | GOVERNMENT"),
+) -> Dict[str, Any]:
+    """Every source this deployment knows about, and what it may be used for.
+
+    Served rather than kept internal because "where does this number come from,
+    and may we use it" is a procurement question, and a product that cannot
+    answer it from its own API is asking a customer to take provenance on
+    trust.
+    """
+    from src.portwatch_os.fabric import COMMERCIAL, MODES as FABRIC_MODES, SignalFabric
+
+    active = (mode or COMMERCIAL).strip().upper()
+    if active not in FABRIC_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of: {', '.join(FABRIC_MODES)}.",
+        )
+    return SignalFabric(mode=active).report()
+
+
+@router.get("/fabric/resolve/{capability}")
+def fabric_resolve(
+    capability: str,
+    mode: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """The best legally usable provider for one capability, or UNAVAILABLE.
+
+    The rejected list travels with the answer. "No commercial AIS is
+    configured" is only useful alongside "AISStream was rejected because its
+    licence does not permit commercial use" -- the second sentence is the one
+    that tells an operator what to buy.
+    """
+    from src.portwatch_os.fabric import CAPABILITIES, COMMERCIAL, MODES as FABRIC_MODES
+    from src.portwatch_os.fabric import SignalFabric
+
+    active = (mode or COMMERCIAL).strip().upper()
+    if active not in FABRIC_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of: {', '.join(FABRIC_MODES)}.",
+        )
+    if capability not in CAPABILITIES:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"'{capability}' is not a capability this fabric models. "
+                f"Known: {', '.join(CAPABILITIES)}."
+            ),
+        )
+    return SignalFabric(mode=active).resolve(capability).to_dict()
