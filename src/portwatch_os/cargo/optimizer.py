@@ -269,6 +269,11 @@ def optimise(
         for v in vessels
     }
     zone_free = {z.zone_id: z.free_teu for z in zones}
+    # A zone's reefer plugs are consumed by the plan just as its TEU is. Without
+    # a residual, _best_zone keeps clearing every reefer shipment against the
+    # zone's *original* plug count and the plan reports overloaded blocks as
+    # feasible.
+    zone_plugs = {z.zone_id: z.reefer_plugs_free for z in zones}
     by_id = {v.vessel_id: v for v in vessels}
 
     #: Candidate list: every (shipment, vessel) pair that passes every check.
@@ -335,10 +340,32 @@ def optimise(
                 f"{vessel.name} ran out of reefer plugs"
             )
             continue
+        # Deadweight is a hard limit like TEU and plugs. It was decremented but
+        # never checked, so a plan could load a vessel past its deadweight while
+        # every other budget still looked healthy.
+        if (
+            budget["deadweight"] is not None
+            and budget["deadweight"] < shipment.weight_t
+        ):
+            plan.foregone_value += max(0.0, value)
+            failures.setdefault(shipment.shipment_id, []).append(
+                f"{vessel.name} reached its deadweight before this shipment was reached"
+            )
+            continue
         if zone is not None and zone_free.get(zone.zone_id, 0.0) < shipment.teu:
             plan.foregone_value += max(0.0, value)
             failures.setdefault(shipment.shipment_id, []).append(
                 f"yard block {zone.name} filled up before this shipment was reached"
+            )
+            continue
+        if (
+            zone is not None
+            and shipment.spec.needs_power
+            and zone_plugs.get(zone.zone_id, 0) < int(shipment.teu)
+        ):
+            plan.foregone_value += max(0.0, value)
+            failures.setdefault(shipment.shipment_id, []).append(
+                f"yard block {zone.name} ran out of reefer plugs"
             )
             continue
 
@@ -349,6 +376,10 @@ def optimise(
             budget["deadweight"] -= shipment.weight_t
         if zone is not None:
             zone_free[zone.zone_id] = zone_free.get(zone.zone_id, 0.0) - shipment.teu
+            if shipment.spec.needs_power:
+                zone_plugs[zone.zone_id] = (
+                    zone_plugs.get(zone.zone_id, 0) - int(shipment.teu)
+                )
 
         assigned.add(shipment.shipment_id)
         plan.assignments.append(

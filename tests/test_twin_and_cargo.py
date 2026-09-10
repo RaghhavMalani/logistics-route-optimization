@@ -49,10 +49,12 @@ from src.portwatch_os.twin.rl import (
 )
 from src.portwatch_os.twin.simulation import (
     ASSIGN_BERTH,
+    ASSIGN_CRANES,
     DELAY_ARRIVAL,
     NO_ACTION,
     Action,
     SimulationConfig,
+    apply_action,
     reward,
     reward_breakdown,
     simulate,
@@ -63,6 +65,7 @@ from src.portwatch_os.twin.simulation import (
 from src.portwatch_os.twin.state import (
     ALONGSIDE,
     APPROACHING,
+    DEPARTED,
     GEOMETRY_SCHEMATIC,
     WAITING,
     PortState,
@@ -547,6 +550,131 @@ class CargoTests(unittest.TestCase):
         self.assertLess(
             near.quay_transfer_minutes_per_teu, far.quay_transfer_minutes_per_teu
         )
+
+
+class CraneResourceTests(unittest.TestCase):
+    """Cranes are physical: one crane, one berth, and only while cargo is worked."""
+
+    def _berthed(self):
+        state = small_state()
+        call = state.calls[0]
+        berth = next(
+            b for b in state.berths
+            if b.can_accept(call.loa_m, call.draught_m, call.cargo_type)
+            and len(b.crane_ids) >= 2
+        )
+        apply_action(
+            state, Action(kind=ASSIGN_BERTH, call_id="C0", berth_id=berth.berth_id)
+        )
+        return state, call, berth
+
+    def test_a_vessel_cannot_be_berthed_with_another_berths_crane(self):
+        state, call, berth = self._berthed()
+        target = next(
+            c for c in state.calls
+            if c.call_id != "C0" and c.state == APPROACHING
+        )
+        # A berth this hull actually fits, or the action is refused on
+        # compatibility long before the crane rule is ever reached.
+        other = next(
+            b for b in state.berths
+            if b.berth_id != berth.berth_id and b.crane_ids
+            and b.occupied_by is None
+            and b.can_accept(target.loa_m, target.draught_m, target.cargo_type)
+        )
+        problem = validate_action(state, Action(
+            kind=ASSIGN_BERTH, call_id=target.call_id, berth_id=other.berth_id,
+            crane_ids=[berth.crane_ids[0]],
+        ))
+        self.assertIsNotNone(problem)
+        self.assertIn("cannot reach", problem)
+
+    def test_cranes_cannot_be_assigned_to_a_call_that_is_not_working(self):
+        state, call, berth = self._berthed()
+        call.state = DEPARTED           # gone, but it keeps the berth it worked
+        problem = validate_action(state, Action(
+            kind=ASSIGN_CRANES, call_id="C0", crane_ids=list(berth.crane_ids[:1]),
+        ))
+        self.assertIsNotNone(problem)
+        self.assertIn("not working cargo", problem)
+
+    def test_adding_a_crane_actually_brings_the_berth_free_sooner(self):
+        """The re-plan used to divide the new workload by itself.
+
+        That ratio is 1.0 for every input, so changing the crane set never moved
+        free_at_hour and the simulator reported the same completion whether one
+        crane worked the ship or four.
+        """
+        state, call, berth = self._berthed()
+        apply_action(state, Action(
+            kind=ASSIGN_CRANES, call_id="C0", crane_ids=[berth.crane_ids[0]],
+        ))
+        with_one = berth.free_at_hour
+        apply_action(state, Action(
+            kind=ASSIGN_CRANES, call_id="C0", crane_ids=list(berth.crane_ids[:2]),
+        ))
+        self.assertLess(berth.free_at_hour, with_one)
+
+
+class PlanCapacityTests(unittest.TestCase):
+    """A plan is only worth anything if it respects the ship and the yard.
+
+    Per-shipment compatibility is checked against the vessel's *original*
+    capacity, so the only thing standing between a plan and an overloaded vessel
+    is the running budget the assignment loop keeps.
+    """
+
+    def _shipment(self, **kwargs):
+        base = dict(
+            shipment_id="S1", teu=10.0, cargo_class="dry",
+            destination_port="SGSIN", available_hour=4.0,
+        )
+        base.update(kwargs)
+        return Shipment(**base)
+
+    def test_a_plan_never_exceeds_the_vessels_deadweight(self):
+        # Three 400 t shipments, 900 t of deadweight free: TEU and plugs stay
+        # healthy throughout, so deadweight is the only thing that can refuse
+        # the third.
+        vessel = VesselCapacity(
+            vessel_id="V1", name="MV Onward", available_teu=1000,
+            available_reefer_plugs=100, available_deadweight_t=900.0,
+            onward_ports=["SGSIN"], departure_hour=40.0, load_cutoff_hour=36.0,
+        )
+        zone = StorageZone(
+            zone_id="Y1", name="Yard A1", free_teu=5000, capacity_teu=8000,
+            reefer_plugs_free=500,
+        )
+        shipments = [
+            self._shipment(shipment_id=f"S{i}", weight_t=400.0) for i in range(3)
+        ]
+        plan = optimise("INMAA", shipments, [vessel], [zone])
+        loaded = sum(
+            s.weight_t for s in shipments
+            if s.shipment_id in {a.shipment_id for a in plan.assignments}
+        )
+        self.assertLessEqual(loaded, 900.0)
+        self.assertEqual(len(plan.assignments), 2)
+
+    def test_a_plan_never_exceeds_a_yard_blocks_reefer_plugs(self):
+        # One block with 30 plugs and three 20 TEU reefers. TEU is ample, so
+        # only a residual plug budget can stop the block being oversubscribed.
+        vessel = VesselCapacity(
+            vessel_id="V1", name="MV Onward", available_teu=1000,
+            available_reefer_plugs=500,
+            onward_ports=["SGSIN"], departure_hour=40.0, load_cutoff_hour=36.0,
+        )
+        zone = StorageZone(
+            zone_id="Y1", name="Yard A1", free_teu=5000, capacity_teu=8000,
+            reefer_plugs_free=30,
+        )
+        shipments = [
+            self._shipment(shipment_id=f"R{i}", teu=20.0, cargo_class="reefer")
+            for i in range(3)
+        ]
+        plan = optimise("INMAA", shipments, [vessel], [zone])
+        in_block = [a for a in plan.assignments if a.zone_id == "Y1"]
+        self.assertLessEqual(sum(int(a.teu) for a in in_block), 30)
 
 
 if __name__ == "__main__":

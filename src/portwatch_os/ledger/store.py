@@ -435,6 +435,19 @@ class SqliteLedgerStore(LedgerStore):
         metrics = metrics or {}
         lead = _hours_between(record.issued_at, observed_at)
         with self._tx() as conn:
+            # Re-read under the lock: between the fetch above and here another
+            # writer may have resolved this claim, and a second observation must
+            # not be able to move the observed value or the scores derived from
+            # it. record_prediction refuses the same rewrite on the insert path.
+            current = conn.execute(
+                "SELECT status FROM predictions WHERE prediction_id = ?",
+                (prediction_id,),
+            ).fetchone()
+            if current is not None and current["status"] == RESOLVED:
+                raise LedgerError(
+                    f"prediction {prediction_id} is already resolved; its observed "
+                    "value and metrics cannot be rewritten"
+                )
             conn.execute(
                 "UPDATE predictions SET status = ?, observed_value = ?, observed_at = ?,"
                 " observation_source = ?, error = ?, absolute_error = ?, brier = ?,"
@@ -527,6 +540,15 @@ class SqliteLedgerStore(LedgerStore):
         if self.get_decision(decision_id) is None:
             return None
         with self._tx() as conn:
+            current = conn.execute(
+                "SELECT status FROM decisions WHERE decision_id = ?",
+                (decision_id,),
+            ).fetchone()
+            if current is not None and current["status"] == RESOLVED:
+                raise LedgerError(
+                    f"decision {decision_id} is already resolved; its observed "
+                    "outcome cannot be rewritten"
+                )
             conn.execute(
                 "UPDATE decisions SET status = ?, action_state = ?, observed_outcome = ?,"
                 " observed_at = ?, operational_reward = ?, impact_error = ?"
@@ -611,6 +633,15 @@ class SqliteLedgerStore(LedgerStore):
         false_alarm = (not occurred) and record.predicted_probability >= 0.5
         lead = _hours_between(record.issued_at, observed_at) if occurred else None
         with self._tx() as conn:
+            current = conn.execute(
+                "SELECT status FROM event_outcomes WHERE outcome_id = ?",
+                (outcome_id,),
+            ).fetchone()
+            if current is not None and current["status"] == RESOLVED:
+                raise LedgerError(
+                    f"event outcome {outcome_id} is already resolved; whether the "
+                    "event occurred cannot be rewritten"
+                )
             conn.execute(
                 "UPDATE event_outcomes SET status = ?, occurred = ?, observed_at = ?,"
                 " observation_source = ?, observed_impact = ?, false_alarm = ?,"

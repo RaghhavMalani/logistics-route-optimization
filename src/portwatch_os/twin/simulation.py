@@ -252,6 +252,24 @@ def validate_action(state: PortState, action: Action) -> Optional[str]:
             )
         if not berth.crane_ids:
             return f"berth {berth.berth_id} has no crane able to serve it"
+        # The action may name its own cranes. Those have to be able to reach this
+        # berth and be free, exactly as ASSIGN_CRANES requires -- otherwise a
+        # caller can berth a vessel using a crane working another quay.
+        requested = action.crane_ids
+        if requested:
+            unreachable = [c for c in requested if c not in set(berth.crane_ids)]
+            if unreachable:
+                return (
+                    f"cranes {', '.join(unreachable)} cannot reach berth "
+                    f"{berth.berth_id}"
+                )
+            busy = [
+                c for c in requested
+                if (crane := state.crane(c))
+                and crane.assigned_berth not in (None, berth.berth_id)
+            ]
+            if busy:
+                return f"cranes {', '.join(busy)} are working another berth"
         return None
 
     if action.kind == ASSIGN_CRANES:
@@ -260,6 +278,12 @@ def validate_action(state: PortState, action: Action) -> Optional[str]:
             return f"unknown call {action.call_id}"
         if call.berth_id is None:
             return f"call {call.call_id} has no berth, so cranes cannot be assigned"
+        if call.state != ALONGSIDE:
+            # A completed call still carries the berth it worked, so berth_id
+            # alone does not mean the vessel is there to be worked.
+            return (
+                f"call {call.call_id} is {call.state} and is not working cargo"
+            )
         berth = state.berth(call.berth_id)
         reachable = set(berth.crane_ids) if berth else set()
         unreachable = [c for c in action.crane_ids if c not in reachable]
@@ -327,6 +351,9 @@ def apply_action(state: PortState, action: Action) -> None:
     elif action.kind == ASSIGN_CRANES:
         call = state.call(action.call_id or "")
         assert call
+        # Capture the work still outstanding under the *old* crane set before the
+        # assignment replaces it; afterwards the old rate is unrecoverable.
+        old_work = call_work_hours(state, call, call.assigned_cranes)
         for crane_id in call.assigned_cranes:
             crane = state.crane(crane_id)
             if crane and crane_id not in action.crane_ids:
@@ -340,14 +367,12 @@ def apply_action(state: PortState, action: Action) -> None:
         berth = state.berth(call.berth_id or "")
         if berth and berth.free_at_hour is not None:
             remaining = max(0.0, berth.free_at_hour - state.hour - UNBERTHING_OVERHEAD_HOURS)
-            old_rate = sum(
-                c.moves_per_hour for c in state.cranes
-                if c.crane_id in set(call.assigned_cranes)
-            )
             new_work = call_work_hours(state, call, action.crane_ids)
-            if new_work is not None and old_rate > 0:
+            if new_work is not None and old_work is not None and old_work > 0:
+                # The remaining work is rescaled by how much slower or faster the
+                # new crane set is. More cranes finish sooner; fewer take longer.
                 berth.free_at_hour = state.hour + remaining * (
-                    new_work / max(new_work, 1e-6)
+                    new_work / old_work
                 ) + UNBERTHING_OVERHEAD_HOURS
 
     elif action.kind == DELAY_ARRIVAL:

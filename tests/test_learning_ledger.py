@@ -490,5 +490,56 @@ class OutcomeAgentTests(unittest.TestCase):
         self.assertEqual(scored["takeUpRate"], 0.0)
 
 
+class ResolutionIsFinalTests(unittest.TestCase):
+    """A resolved row is evidence, and evidence does not get a second draft.
+
+    The insert paths already refuse to rewrite a resolved record. The resolve
+    paths did not check at all, so calling one twice quietly replaced the
+    observed value, the calibration metrics and the audit trail -- which is
+    precisely the retroactive edit the ledger exists to make impossible.
+    """
+
+    def setUp(self):
+        self.store = SqliteLedgerStore(":memory:")
+
+    def test_a_prediction_cannot_be_resolved_twice(self):
+        record = PredictionRecord(
+            prediction_id="p-1", domain=DOMAIN_PORT_FORECAST, kind=CONTINUOUS,
+            target="congestion_index", subject="INMAA", model="ens",
+            model_version="1", issued_at=BASE, valid_at=BASE,
+            context=PredictionContext(), predicted_value=0.4,
+        )
+        self.store.record_prediction(record)
+        self.store.resolve_prediction("p-1", 0.5, shift_iso(BASE, 6), "observed")
+        with self.assertRaises(LedgerError):
+            self.store.resolve_prediction("p-1", 0.9, shift_iso(BASE, 12), "revised")
+        self.assertEqual(self.store.get_prediction("p-1").observed_value, 0.5)
+
+    def test_an_event_outcome_cannot_be_resolved_twice(self):
+        claim = EventOutcomeRecord(
+            outcome_id="evo-1", event_id="E1", category="closure", region="SUEZ",
+            claim="chokepoint_closure_within_24h", horizon_hours=24.0,
+            predicted_probability=0.8, confidence=0.7, source_count=3,
+            issued_at=BASE,
+        )
+        self.store.record_event_outcome(claim)
+        self.store.resolve_event_outcome("evo-1", True, shift_iso(BASE, 24), "observed")
+        with self.assertRaises(LedgerError):
+            self.store.resolve_event_outcome(
+                "evo-1", False, shift_iso(BASE, 30), "revised"
+            )
+        self.assertTrue(self.store.get_event_outcome("evo-1").occurred)
+
+    def test_a_decision_cannot_be_resolved_twice(self):
+        self.store.record_decision(DecisionRecord(
+            decision_id="dec-1", kind="advisory", subject="PWD-001",
+            issued_at=BASE, issuer="S. Iyer", recommendation={}, reason="queue",
+        ))
+        self.store.resolve_decision("dec-1", ACTION_TAKEN, {}, utc_now())
+        with self.assertRaises(LedgerError):
+            self.store.resolve_decision("dec-1", "not_taken", {}, utc_now())
+        self.assertEqual(self.store.get_decision("dec-1").action_state, ACTION_TAKEN)
+
+
 if __name__ == "__main__":
     unittest.main()
