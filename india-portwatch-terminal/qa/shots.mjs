@@ -23,8 +23,18 @@ const BASE = process.env.SHOT_BASE ?? "http://127.0.0.1:4180";
 const OUT = process.env.SHOT_OUT ?? "qa/shots";
 
 const RUNS = [
-  { role: "ADMIN", routes: { "national-command": "/admin/radar" } },
-  { role: "PORT_OPERATOR", routes: { "port-chennai": "/port/overview" } },
+  {
+    role: "NATIONAL_ADMIN",
+    routes: {
+      "national-command": "/admin/radar",
+      "global-eye-cascade": "/admin/global-eye",
+    },
+  },
+  { role: "PORT_AUTHORITY", routes: { "port-chennai": "/port/overview" } },
+  {
+    role: "SHIPPING_COMPANY",
+    routes: { "company-global-eye": "/company/global-eye" },
+  },
   { role: "VESSEL_OPERATOR", routes: { "vessel-konkan": "/vessel/overview" } },
 ];
 
