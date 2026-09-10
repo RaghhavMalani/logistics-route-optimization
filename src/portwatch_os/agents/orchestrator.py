@@ -50,7 +50,8 @@ from src.portwatch_os.agents.critic import (
     recommendation_from_agents,
 )
 from src.portwatch_os.agents.specialists import SPECIALISTS
-from src.portwatch_os.agents.tools import PROPOSE, ToolRegistry, ToolScope
+from src.portwatch_os.agents.spatial import SpatialCommand, commands_from_trace
+from src.portwatch_os.agents.tools import PROPOSE, ToolCall, ToolRegistry, ToolScope
 from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.utils.logging_utils import get_logger
 
@@ -264,6 +265,22 @@ class AgentRun:
             for call in result.calls
         ]
 
+    @property
+    def calls(self) -> List[ToolCall]:
+        return [call for result in self.results for call in result.calls]
+
+    @property
+    def spatial(self) -> List[SpatialCommand]:
+        """What the world should show, derived from what the tools returned.
+
+        An answer to "show me the affected vessels" is the chart changing, not a
+        paragraph the operator then has to find on a chart themselves. Every
+        command names the tool call that justifies it, and one that cannot is
+        dropped -- an agent inventing a subject to fly the camera to would be
+        the spatial equivalent of inventing a number.
+        """
+        return commands_from_trace(self.calls)
+
     def to_dict(self, *, include_results: bool = False) -> Dict[str, Any]:
         return {
             "runId": self.run_id,
@@ -285,6 +302,7 @@ class AgentRun:
             ),
             "critic": self.verdict.to_dict() if self.verdict else None,
             "decisionId": self.decision_id,
+            "spatial": [command.to_dict() for command in self.spatial],
             "note": (
                 "Agents orchestrate and explain. Every number above came from a tool "
                 "listed in the trace, and every tool names the deterministic model that "
