@@ -178,17 +178,38 @@ Greedy rests on two standard results, both defensible to a controller: serving
 the shortest job first minimises mean wait across a queue (a theorem, not a
 hunch), and putting a small vessel on the largest berth wastes it.
 
-Measured on held-out scenarios:
+Measured on 40 held-out episodes (seeds 9,000,000–9,000,039) of the scenario the
+pipeline evaluates — 6 berths, 18 arrivals over 60 hours, yard at 72%, weather
+impact 0–0.45 — after 250 training episodes on seeds 1,000,000–1,000,249:
 
-| Policy | Mean reward | vs baseline |
-|---|---:|---:|
-| Greedy with arrival lookahead | −196.8 | **+3.2%** |
-| Greedy shortest-work | −197.3 | **+3.0%** |
-| Contextual bandit | −199.7 | +1.8% |
-| First come, first served | −203.3 | — |
-| Random feasible | −206.0 | −1.3% |
+| Policy | Mean reward | vs baseline | Mean wait | Missed departures |
+|---|---:|---:|---:|---:|
+| Contextual bandit | −184.8 | **+5.6%** | 2.13 h | 1.57 |
+| Greedy with arrival lookahead | −186.4 | **+4.8%** | 2.06 h | 1.60 |
+| Greedy shortest-work | −187.4 | **+4.3%** | 2.10 h | 1.60 |
+| Random feasible | −190.6 | +2.6% | 1.66 h | 1.62 |
+| First come, first served | −195.8 | — | 2.65 h | 1.85 |
 
-No policy produced a violation or proposed an infeasible action.
+No policy produced a violation or proposed an infeasible action. Deterministic:
+the same seeds give the same table, which is what `GET /api/learning/policies`
+returns after a pipeline run.
+
+Two results in that table are worth stating rather than hiding:
+
+**Random feasible beats FCFS.** On a congested quay FCFS lets one 366 m vessel
+take the berth a queue of short calls is waiting for, so nearly any other
+ordering is better. The baseline to beat is the rule terminals run, not a random
+one.
+
+**Random has the lowest mean wait and still loses.** It berths whatever fits soonest, and
+pays for that in completed calls: 10.12 against 10.60 for the optimisers. A single-metric
+scoreboard would have ranked it first, which is why the reward function charges
+for all of it at once.
+
+Under the lightly loaded default scenario (8 berths, 14 arrivals over 48 hours)
+every policy lands within 2% of FCFS at about −53.5: a compatible berth is almost
+always free and the assignment hardly matters. Optimisation earns its keep under
+congestion.
 
 See [RL safety in the README](../README.md#rl-safety) for why the bandit is not
 promoted.

@@ -298,7 +298,7 @@ Extends the Events section above, for the Global Eye layer.
 | Ledger history | **Backfilled from the run's own walk-forward evaluation** | `outputs/forecasts/walk_forward_predictions.csv`, produced under that evaluation's leakage discipline. **Not** generated, and **not** the README's headline benchmark — a different panel and horizon set |
 | Error attribution | **Exact** | `y − predicted = Σ wᵢ(y − sᵢ)`, verified to close. Unavailable, with a reason, when the signals were not recorded |
 | Reliability weights | **Fitted** | Resolved rows only, behind an `as_of` barrier that *raises* on a leaking row rather than skipping it. Shrunk toward 1.0, clamped 0.35–1.60 |
-| Policy results | **Measured** | Held-out scenarios on seeds disjoint from training. Greedy lookahead +3.2%, greedy +3.0%, bandit +1.8% against FCFS |
+| Policy results | **Measured** | 40 held-out episodes on seeds disjoint from training. Bandit +5.6%, greedy lookahead +4.8%, greedy +4.3%, random feasible +2.6% against FCFS. Deterministic: the same seeds give the same table |
 | Policy state | **Recorded** | The bandit is `REJECTED`: it beats FCFS by 5.6% but the best optimiser by only 0.8%, below the gate's threshold |
 | Decision take-up | **Measured** | `ACTION_NOT_TAKEN` is recorded as carefully as `ACTION_TAKEN`, and take-up is reported next to reward |
 

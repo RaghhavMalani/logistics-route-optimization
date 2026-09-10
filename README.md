@@ -373,19 +373,40 @@ Berth assignment, crane allocation, arrival staggering and yard placement are
 optimised against that state. Measured on held-out simulated scenarios, against
 the rule most terminals actually run:
 
+The scenario is the one the pipeline evaluates and records: 6 berths, 18 arrivals
+over 60 hours, yard at 72%, weather impact 0–0.45. Forty held-out episodes on
+seeds 9,000,000–9,000,039, after 250 training episodes on 1,000,000–1,000,249.
+
 | Policy | Family | Mean reward | vs first-come-first-served |
 |---|---|---:|---:|
-| Greedy shortest-work | optimiser | −197.3 | **+3.0%** |
-| Greedy with arrival lookahead | optimiser | −196.8 | **+3.2%** |
-| Contextual bandit rule selection | learned | −199.7 | +1.8% |
-| First come, first served | rule (baseline) | −203.3 | — |
-| Random feasible | baseline | −206.0 | −1.3% |
+| Contextual bandit rule selection | learned | −184.8 | **+5.6%** |
+| Greedy with arrival lookahead | optimiser | −186.4 | **+4.8%** |
+| Greedy shortest-work | optimiser | −187.4 | **+4.3%** |
+| Random feasible | baseline | −190.6 | +2.6% |
+| First come, first served | rule (baseline) | −195.8 | — |
 
 Reward is the operational cost function in
 `src.portwatch_os.twin.simulation.REWARD_WEIGHTS`: it charges for waiting,
 turnaround, missed departures, yard overflow and idle berths, and pays for
 completed calls. Higher is better. No policy in the table produced a
 hard-constraint violation or proposed an infeasible action.
+
+Every run of `run_award_demo.py` reproduces this and writes it to the ledger;
+`GET /api/learning/policies` returns the table above with its reward breakdowns,
+so the figures in this README are the ones the product will show you.
+
+**Random feasible beats first-come-first-served here, and that is the finding.**
+On a congested quay FCFS is actively harmful: it lets a 366 m vessel with eight
+hundred moves take the berth a queue of short calls is waiting for. Almost any
+alternative ordering does better, which is why the baseline to beat is the rule
+terminals actually run rather than a random one.
+
+The ranking is scenario-dependent, and the honest version of that sentence is the
+numbers: under the lightly loaded default scenario (8 berths, 14 arrivals over
+48 hours) every policy lands within 2% of FCFS at about −53.5, because there is
+almost always a compatible berth free and the assignment barely matters. Policy
+choice earns its keep under congestion. A product that quoted only the congested
+table would be overstating what optimisation buys on a quiet morning.
 
 **The simulator never relaxes a constraint.** A vessel too long or too deep for a
 berth is not assigned to it, whatever a policy asks for; the action is refused
