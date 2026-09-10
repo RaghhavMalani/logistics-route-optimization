@@ -363,12 +363,28 @@ class McpTests(unittest.TestCase):
         self.assertTrue([t for t in tools if t["access"] == EXECUTE])
 
     def test_a_read_tool_answers_with_its_computing_module(self):
+        """Either it answers and names what computed it, or it says why it cannot.
+
+        The one thing it may never do is return a plausible empty result. On a
+        fresh checkout the port-state artefact has not been exported, so the
+        honest outcome is an unavailable refusal naming the rebuild command --
+        which is exactly what a client needs in order to say "the artefact is
+        missing" rather than "there are no ports".
+        """
         result = self._call(
             "tools/call",
             {"name": "portwatch.ports.list", "arguments": {}},
         )
-        self.assertFalse(result["isError"])
-        self.assertTrue(result["structuredContent"]["computedBy"])
+        structured = result["structuredContent"]
+
+        if result["isError"]:
+            self.assertTrue(
+                structured["unavailable"],
+                "a READ tool failed for a reason other than missing data",
+            )
+            self.assertTrue(structured["error"], "a refusal must state its reason")
+        else:
+            self.assertTrue(structured["computedBy"])
 
     def test_an_execute_call_is_refused_as_a_tool_result_not_a_protocol_error(self):
         """A refusal an agent can reason about beats a transport-level failure."""

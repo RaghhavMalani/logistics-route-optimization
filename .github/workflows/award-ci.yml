@@ -113,9 +113,15 @@ jobs:
         working-directory: india-portwatch-terminal
     steps:
       - uses: actions/checkout@v4
+      # Node 24, not 22, because that is the npm the lock file was generated
+      # with. npm 10 and npm 11 disagree about optional peer dependencies --
+      # unstorage declares lru-cache as an optional peer, npm 11 leaves it out of
+      # the lock and npm 10's `npm ci` then refuses the lock as out of sync. The
+      # fix is to build on the same major the project is developed and verified
+      # on rather than to hand-edit a lock file into satisfying both.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: india-portwatch-terminal/package-lock.json
       - name: Install dependencies
@@ -141,9 +147,15 @@ jobs:
         working-directory: india-portwatch-terminal
     steps:
       - uses: actions/checkout@v4
+      # Node 24, not 22, because that is the npm the lock file was generated
+      # with. npm 10 and npm 11 disagree about optional peer dependencies --
+      # unstorage declares lru-cache as an optional peer, npm 11 leaves it out of
+      # the lock and npm 10's `npm ci` then refuses the lock as out of sync. The
+      # fix is to build on the same major the project is developed and verified
+      # on rather than to hand-edit a lock file into satisfying both.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: india-portwatch-terminal/package-lock.json
       - name: Install dependencies
