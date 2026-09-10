@@ -20,6 +20,31 @@ import {
   test,
 } from "../harness";
 
+/**
+ * Wait until the cascade reveal has finished writing features.
+ *
+ * The reveal is staged over about a second and a half, so a count taken while
+ * it runs is a count of a moment rather than of the world. Comparing two such
+ * counts across a lens switch measures the animation, not the claim.
+ */
+async function settledCascade(page: import("@playwright/test").Page) {
+  const read = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as {
+          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+        }).__portwatchSources?.cascade?.features.length ?? 0,
+    );
+  let previous = -1;
+  for (let i = 0; i < 20; i += 1) {
+    const current = await read();
+    if (current > 0 && current === previous) return current;
+    previous = current;
+    await page.waitForTimeout(300);
+  }
+  return previous;
+}
+
 /** The world's own state, as the dispatcher left it. */
 async function worldState(page: import("@playwright/test").Page) {
   return page.evaluate(() => ({
@@ -165,22 +190,19 @@ test.describe("world lenses", () => {
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/global-eye");
     await settle(page);
-    await page.waitForFunction(
-      () =>
-        ((window as unknown as {
-          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-        }).__portwatchSources?.cascade?.features.length ?? 0) > 0,
-      undefined,
-      { timeout: 15_000 },
-    );
 
+    const beforeFeatures = await settledCascade(page);
+    expect(beforeFeatures).toBeGreaterThan(0);
     const before = await worldState(page);
+
     await page.locator('[data-testid="lens-option"][data-lens="INTELLIGENCE"]').click();
     await settle(page);
+    const afterFeatures = await settledCascade(page);
     const after = await worldState(page);
 
     expect(after.lens).toBe("INTELLIGENCE");
-    expect(after.cascadeFeatures).toBe(before.cascadeFeatures);
+    // The reading changed; the conclusion did not.
+    expect(afterFeatures).toBe(beforeFeatures);
     expect(after.attentionCount).toBe(before.attentionCount);
   });
 

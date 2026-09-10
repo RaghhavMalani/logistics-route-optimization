@@ -44,6 +44,7 @@ import {
 import type { AttentionItem, WorldCascade } from "@/types/portwatch-os";
 
 import { CommandBar } from "@/components/copilot/CommandBar";
+import { SignalHealth } from "@/components/fabric/SignalHealth";
 import { LENS_DEFINITIONS, lensLayers } from "@/lib/maritime/lenses";
 import { LENSES, useWorld, type Lens } from "@/world/WorldContext";
 
@@ -389,6 +390,7 @@ export function GlobalEyeScreen({
                 lens={lens}
                 onChange={world.setLens}
               />
+              <SignalHealth mode="DEMO" />
             </div>
 
             {/* -------------------------------------------------- legend -- */}
