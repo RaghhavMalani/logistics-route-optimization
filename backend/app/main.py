@@ -21,6 +21,7 @@ from backend.app.routes import (
     sar,
     scenarios,
     weather,
+    world,
 )
 
 app = FastAPI(
@@ -67,6 +68,7 @@ app.include_router(port_twin.router, prefix="/api")
 app.include_router(advisories.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(learning.router, prefix="/api")
+app.include_router(world.router, prefix="/api")
 
 
 @app.get("/")
