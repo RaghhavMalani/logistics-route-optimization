@@ -223,16 +223,28 @@ export const fetchAgentArchitecture = (): Promise<AgentArchitecture> =>
 export const fetchToolCatalogue = (maxAccess = "PROPOSE"): Promise<ToolCatalogue> =>
   getJson<ToolCatalogue>(`/agents/tools?max_access=${encodeURIComponent(maxAccess)}`);
 
-export const runAgent = (payload: {
-  question: string;
-  role?: string;
-  portCode?: string | null;
-  vesselId?: string | null;
-  companyId?: string | null;
-  eventId?: string | null;
-  horizonHours?: number;
-  includeResults?: boolean;
-}): Promise<AgentRun> => postJson<AgentRun>("/agents/run", payload);
+/**
+ * Run the orchestrator.
+ *
+ * The identity headers are what decide the run's *visibility*: tools that read
+ * advisories belonging to particular ports and carriers are answered for this
+ * identity, and a run sent without them reads none of those records rather than
+ * falling back to a national view. `role` in the body only chooses which
+ * workspace the answer is phrased for and grants nothing.
+ */
+export const runAgent = (
+  payload: {
+    question: string;
+    role?: string;
+    portCode?: string | null;
+    vesselId?: string | null;
+    companyId?: string | null;
+    eventId?: string | null;
+    horizonHours?: number;
+    includeResults?: boolean;
+  },
+  headers: Record<string, string> = {},
+): Promise<AgentRun> => postJson<AgentRun>("/agents/run", payload, headers);
 
 export const fetchAgentRuns = (limit = 20): Promise<{ runs: Array<Record<string, unknown>>; total: number }> =>
   getJson(`/agents/runs?limit=${limit}`);

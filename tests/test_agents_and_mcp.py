@@ -47,6 +47,7 @@ from src.portwatch_os.agents.tools import (
     SIMULATE,
     ApprovalContext,
     ToolRegistry,
+    ToolScope,
     ToolUnavailable,
     approval_from_session,
 )
@@ -54,9 +55,9 @@ from src.portwatch_os.ledger.store import SqliteLedgerStore
 from src.portwatch_os.mcp.server import PortWatchMCPServer
 
 
-def _advisory() -> Advisory:
+def _advisory(**overrides) -> Advisory:
     created = utc_now()
-    return Advisory(
+    base = dict(
         advisory_id="ADV-INMAA-EXEC01",
         kind="arrival_window",
         port_code="INMAA",
@@ -72,6 +73,8 @@ def _advisory() -> Advisory:
             "berth policy; arriving later removes the wait."
         ),
     )
+    base.update(overrides)
+    return Advisory(**base)
 
 
 def registry() -> ToolRegistry:
@@ -79,6 +82,99 @@ def registry() -> ToolRegistry:
         ledger=SqliteLedgerStore(":memory:"),
         advisory_store=AdvisoryStore(":memory:"),
     )
+
+
+class ToolVisibilityScopeTests(unittest.TestCase):
+    """An agent holds no standing visibility of its own.
+
+    It used to read the advisory register with a hardcoded admin principal. On a
+    one-port, one-carrier deployment that is invisible; on a real one it means
+    the agent answering a Chennai controller reads Nhava Sheva's drafts, and one
+    carrier's agent reads another carrier's advisories. Visibility now follows
+    the authenticated identity that asked, and national scope is a property of
+    the role rather than a default.
+    """
+
+    def setUp(self):
+        self.store = AdvisoryStore(":memory:")
+        self.registry = build_registry(
+            ledger=SqliteLedgerStore(":memory:"), advisory_store=self.store,
+        )
+        # Two ports, two carriers, one advisory each, all issued so a recipient
+        # can see them at all.
+        self._seed("ADV-MAA", "INMAA", "PWD-001", "PortWatch Demo Shipping")
+        self._seed("ADV-NSA", "INNSA", "OTH-900", "Other Line Ltd")
+
+    def _seed(self, advisory_id, port, vessel, organisation):
+        controller = Principal(actor="ctl", role=ISSUER, port_code=port)
+        self.store.create(
+            _advisory(
+                advisory_id=advisory_id, port_code=port,
+                recipient_vessel_id=vessel, recipient_organisation=organisation,
+            ),
+            principal=controller,
+        )
+        self.store.act(advisory_id, UNDER_REVIEW, principal=controller)
+        self.store.act(advisory_id, ISSUED, principal=controller)
+
+    def _list(self, scope):
+        return self.registry.call("portwatch.advisories.list", {}, scope=scope)
+
+    def test_a_scoped_tool_refuses_when_no_identity_is_supplied(self):
+        call = self._list(None)
+        self.assertFalse(call.ok)
+        self.assertIn("absent scope is not national access", call.error)
+
+    def test_a_port_authority_sees_only_its_own_port(self):
+        call = self._list(ToolScope(actor="S. Iyer", role="PORT_AUTHORITY",
+                                    port_code="INMAA"))
+        self.assertTrue(call.ok, call.error)
+        self.assertEqual([a["advisoryId"] for a in call.result], ["ADV-MAA"])
+
+    def test_a_carrier_sees_only_its_own_organisation(self):
+        call = self._list(ToolScope(actor="M. Fernandes", role="SHIPPING_COMPANY",
+                                    organisation="Other Line Ltd"))
+        self.assertTrue(call.ok, call.error)
+        self.assertEqual([a["advisoryId"] for a in call.result], ["ADV-NSA"])
+
+    def test_a_vessel_operator_sees_only_its_own_vessels(self):
+        call = self._list(ToolScope(actor="R. Nayar", role="VESSEL_OPERATOR",
+                                    vessel_ids=("PWD-001",)))
+        self.assertTrue(call.ok, call.error)
+        self.assertEqual([a["advisoryId"] for a in call.result], ["ADV-MAA"])
+
+    def test_national_command_sees_the_network_and_the_trace_says_so(self):
+        scope = ToolScope(
+            actor="A. Deshmukh", role="NATIONAL_ADMIN",
+            elevation_reason="national command holds network-wide visibility by role",
+        )
+        call = self._list(scope)
+        self.assertTrue(call.ok, call.error)
+        self.assertEqual(
+            sorted(a["advisoryId"] for a in call.result), ["ADV-MAA", "ADV-NSA"]
+        )
+        # The elevation is visible in the trace rather than silent.
+        traced = call.to_dict()["scope"]
+        self.assertTrue(traced["national"])
+        self.assertIn("national command", traced["elevationReason"])
+
+    def test_an_audit_trail_is_refused_across_a_port_boundary(self):
+        call = self.registry.call(
+            "portwatch.audit.advisory", {"advisory_id": "ADV-NSA"},
+            scope=ToolScope(actor="S. Iyer", role="PORT_AUTHORITY",
+                            port_code="INMAA"),
+        )
+        self.assertFalse(call.ok)
+        self.assertIn("not entitled", call.error)
+
+    def test_a_port_authority_reads_its_own_audit_trail(self):
+        call = self.registry.call(
+            "portwatch.audit.advisory", {"advisory_id": "ADV-MAA"},
+            scope=ToolScope(actor="S. Iyer", role="PORT_AUTHORITY",
+                            port_code="INMAA"),
+        )
+        self.assertTrue(call.ok, call.error)
+        self.assertTrue(call.result)
 
 
 class ExecuteScopeTests(unittest.TestCase):

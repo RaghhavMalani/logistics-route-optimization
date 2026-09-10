@@ -50,7 +50,7 @@ from src.portwatch_os.agents.critic import (
     recommendation_from_agents,
 )
 from src.portwatch_os.agents.specialists import SPECIALISTS
-from src.portwatch_os.agents.tools import PROPOSE, ToolRegistry
+from src.portwatch_os.agents.tools import PROPOSE, ToolRegistry, ToolScope
 from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.utils.logging_utils import get_logger
 
@@ -333,6 +333,7 @@ class CommandAgent:
         question: str,
         *,
         role: str = NATIONAL_ADMIN,
+        scope: Optional[ToolScope] = None,
         port_code: Optional[str] = None,
         vessel_id: Optional[str] = None,
         company_id: Optional[str] = None,
@@ -352,6 +353,7 @@ class CommandAgent:
             event_id=event_id,
             horizon_hours=horizon_hours or entities.get("horizon_hours", 72.0),
             role=role,
+            scope=scope,
             context=dict(context or {}),
         )
 

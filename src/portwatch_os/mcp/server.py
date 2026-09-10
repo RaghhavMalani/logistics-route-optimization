@@ -35,8 +35,10 @@ from src.portwatch_os.agents.tools import (
     SIMULATE,
     ApprovalContext,
     ToolRegistry,
+    ToolScope,
     approval_from_session,
 )
+from src.portwatch_os.roles import NATIONAL_ADMIN, WORKSPACE_ROLES, is_workspace_role
 
 PROTOCOL_VERSION = "2024-11-05"
 
@@ -172,6 +174,7 @@ class PortWatchMCPServer:
         *,
         max_access: str = PROPOSE,
         approval: Optional[ApprovalContext] = None,
+        scope: Optional[ToolScope] = None,
     ) -> None:
         if max_access not in ACCESS_LEVELS:
             raise ValueError(f"unknown access ceiling {max_access}")
@@ -185,6 +188,11 @@ class PortWatchMCPServer:
         # approval is minted per call, bound to the subject, and only for a
         # request that proves it came from the mandated session.
         self.approval = approval
+        # The identity scoped reads are answered for. A server started without
+        # one can still serve every unscoped tool; what it cannot do is hand a
+        # connected model the national view of the advisory register because
+        # nobody said whose question it was.
+        self.scope = scope
         self.resources = {r.uri: r for r in _build_resources(self.registry, max_access)}
         self._initialised = False
 
@@ -311,7 +319,8 @@ class PortWatchMCPServer:
                 }
 
         call = self.registry.call(
-            name, arguments, approval=approval, max_access=self.max_access
+            name, arguments, approval=approval, max_access=self.max_access,
+            scope=self.scope,
         )
 
         if not call.ok:
@@ -406,8 +415,31 @@ def build_server(
     approver: Optional[str] = None,
     session_id: Optional[str] = None,
     port_code: Optional[str] = None,
+    role: Optional[str] = None,
+    organisation: Optional[str] = None,
+    vessel_ids: Optional[str] = None,
 ) -> PortWatchMCPServer:
     approval: Optional[ApprovalContext] = None
+    scope: Optional[ToolScope] = None
+    if approver and role:
+        normalised = role.strip().upper()
+        if not is_workspace_role(normalised):
+            raise ValueError(
+                f"--role must be one of: {', '.join(WORKSPACE_ROLES)}"
+            )
+        scope = ToolScope(
+            actor=approver,
+            role=normalised,
+            port_code=port_code,
+            organisation=organisation,
+            vessel_ids=tuple(
+                v.strip() for v in (vessel_ids or "").split(",") if v.strip()
+            ),
+            elevation_reason=(
+                "operator started the server at national scope"
+                if normalised == NATIONAL_ADMIN else None
+            ),
+        )
     if max_access == EXECUTE:
         if not approver or not session_id:
             raise ValueError(
@@ -424,7 +456,9 @@ def build_server(
             reason="MCP server started with an explicit execute mandate",
             port_code=port_code,
         )
-    return PortWatchMCPServer(max_access=max_access, approval=approval)
+    return PortWatchMCPServer(
+        max_access=max_access, approval=approval, scope=scope,
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -454,6 +488,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="UN/LOCODE the approver controls. Scopes every EXECUTE call to that port.",
     )
     parser.add_argument(
+        "--role", choices=list(WORKSPACE_ROLES),
+        help=(
+            "Workspace role the operator holds. Required for tools that read "
+            "records belonging to particular ports and carriers; without it those "
+            "tools decline rather than returning the national view."
+        ),
+    )
+    parser.add_argument("--organisation", help="Carrier the operator acts for.")
+    parser.add_argument("--vessels", help="Comma-separated vessel ids the operator holds.")
+    parser.add_argument(
         "--list-tools", action="store_true",
         help="Print the exposed tool catalogue and exit, without serving.",
     )
@@ -464,6 +508,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         server = build_server(
             max_access=max_access, approver=args.approver,
             session_id=args.session_id, port_code=args.port_code,
+            role=args.role, organisation=args.organisation,
+            vessel_ids=args.vessels,
         )
     except ValueError as exc:
         parser.error(str(exc))

@@ -32,6 +32,7 @@ from src.portwatch_os.advisories.store import (
     AuthorisationError,
     Principal,
     get_advisory_store,
+    principal_for_role,
 )
 from src.portwatch_os.agents.tools import (
     EXECUTE,
@@ -41,6 +42,7 @@ from src.portwatch_os.agents.tools import (
     ApprovalContext,
     ToolError,
     ToolRegistry,
+    ToolScope,
     ToolUnavailable,
 )
 from src.portwatch_os.cargo.model import demo_manifest, zones_from_state
@@ -106,6 +108,22 @@ def _now() -> str:
 # --------------------------------------------------------------------------
 # registry
 # --------------------------------------------------------------------------
+
+
+def _principal_for_scope(scope: ToolScope) -> Principal:
+    """The advisory principal for an authenticated tool scope.
+
+    Thin on purpose: the mapping itself lives in the advisory store beside the
+    authorisation rules it feeds, so the tool layer and the HTTP layer cannot
+    drift into disagreeing about what a role may see.
+    """
+    return principal_for_role(
+        actor=scope.actor,
+        role=scope.role,
+        port_code=scope.port_code,
+        organisation=scope.organisation,
+        vessel_ids=list(scope.vessel_ids),
+    )
 
 
 def build_registry(
@@ -332,25 +350,34 @@ def build_registry(
 
     @registry.register(
         "portwatch.advisories.list", READ,
-        "Advisories visible to a principal.",
+        "Advisories visible to the authenticated identity asking.",
         arguments={"port_code": "Optional port filter.",
                    "vessel_id": "Optional recipient vessel filter.",
                    "state": "Optional advisory state filter."},
         returns="Advisories with their state, evidence and audit trail.",
         computed_by="src.portwatch_os.advisories.store",
-        failure_modes=("None: an empty register is a valid answer.",),
+        failure_modes=(
+            "No authenticated scope was supplied, and an agent does not hold one "
+            "by default.",
+            "Otherwise none: an empty register is a valid answer.",
+        ),
+        scoped=True,
     )
     def advisories_list(
+        scope: ToolScope,
         port_code: Optional[str] = None,
         vessel_id: Optional[str] = None,
         state: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        # An agent reads with an admin-scoped principal because it is assembling
-        # evidence for a controller who already has that scope. What it cannot do
-        # is *act*, which is the boundary that matters.
-        principal = Principal(actor="portwatch-agent", role=ISSUER, is_admin=True)
+        # The agent reads as the identity that asked, not as national command.
+        # It used to read with a hardcoded admin principal on the reasoning that
+        # it was assembling evidence for a controller who already held that
+        # scope -- which stops being true the moment there is a second port or a
+        # second carrier on the deployment.
+        principal = _principal_for_scope(scope)
         return [
-            a.to_dict() for a in advisories.visible_to(
+            a.to_dict(for_recipient=principal.role == RECIPIENT)
+            for a in advisories.visible_to(
                 principal, state=state, port_code=port_code, vessel_id=vessel_id
             )
         ]
@@ -444,15 +471,17 @@ def build_registry(
         required=("advisory_id",),
         returns="Every transition with actor, role, timestamp and reason.",
         computed_by="src.portwatch_os.advisories.store",
-        failure_modes=("The advisory id does not exist.",),
+        failure_modes=(
+            "The advisory id does not exist.",
+            "The asking identity is not entitled to that advisory.",
+            "No authenticated scope was supplied.",
+        ),
+        scoped=True,
     )
-    def audit_advisory(advisory_id: str) -> List[Dict[str, Any]]:
-        # The trail is scoped like the advisory. The agent reads the register at
-        # national scope -- the same standing it has for the list tool -- and the
-        # store applies the visibility rule rather than the id being the key.
-        principal = Principal(
-            actor="portwatch-agent", role=ISSUER, is_admin=True,
-        )
+    def audit_advisory(advisory_id: str, scope: ToolScope) -> List[Dict[str, Any]]:
+        # The trail carries the issuing port's internal review, so it is gated by
+        # the asking identity's visibility rather than by knowledge of the id.
+        principal = _principal_for_scope(scope)
         try:
             return advisories.audit_trail(advisory_id, principal)
         except AuthorisationError as exc:

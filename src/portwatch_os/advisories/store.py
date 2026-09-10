@@ -23,7 +23,7 @@ import sqlite3
 import threading
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.advisories.model import (
     ACCEPTED,
@@ -205,6 +205,59 @@ class Principal:
             "organisation": self.organisation, "vesselIds": sorted(self.vessel_ids),
             "isAdmin": self.is_admin,
         }
+
+
+#: How a workspace role maps onto a side of the advisory workflow, and what it
+#: is scoped by. National command is the only role that sees the network, and it
+#: says so explicitly here rather than any caller defaulting into it.
+_ROLE_MAP: Dict[str, Tuple[str, str]] = {
+    "NATIONAL_ADMIN": (ISSUER, "national"),
+    "PORT_AUTHORITY": (ISSUER, "port"),
+    "SHIPPING_COMPANY": (RECIPIENT, "organisation"),
+    "VESSEL_OPERATOR": (RECIPIENT, "vessels"),
+    # Legacy request vocabulary, kept so the HTTP surface does not break.
+    "ISSUER": (ISSUER, "port"),
+    "PORT_OPERATOR": (ISSUER, "port"),
+    "ADMIN": (ISSUER, "national"),
+    "RECIPIENT": (RECIPIENT, "organisation"),
+}
+
+
+def principal_for_role(
+    *,
+    actor: str,
+    role: str,
+    port_code: Optional[str] = None,
+    organisation: Optional[str] = None,
+    vessel_ids: Optional[Sequence[str]] = None,
+) -> Principal:
+    """Turn a workspace role and its scope into an advisory principal.
+
+    One mapping, used by the HTTP routes and by the tool layer, so an agent
+    answering a port controller's question sees exactly what that controller
+    would see over the API and not a byte more. Each role is scoped by the thing
+    it actually owns, and the scope is required: a port authority that names no
+    port is refused rather than quietly widened to the network.
+    """
+    normalised = (role or "").strip().upper()
+    mapped = _ROLE_MAP.get(normalised)
+    if mapped is None:
+        raise AuthorisationError(
+            f"'{role}' is not a role that may act on advisories. A port authority "
+            "or national command acts as the issuer; a company or vessel operator "
+            "as the recipient."
+        )
+    party, scoped_by = mapped
+    if scoped_by == "national":
+        return Principal(actor=actor, role=party, is_admin=True)
+    if scoped_by == "port":
+        return Principal(actor=actor, role=party, port_code=port_code)
+    if scoped_by == "organisation":
+        return Principal(
+            actor=actor, role=party, organisation=organisation,
+            vessel_ids=vessel_ids,
+        )
+    return Principal(actor=actor, role=party, vessel_ids=vessel_ids)
 
 
 class AdvisoryStore:

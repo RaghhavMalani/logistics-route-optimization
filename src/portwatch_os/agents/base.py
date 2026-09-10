@@ -31,6 +31,7 @@ from src.portwatch_os.agents.tools import (
     ApprovalContext,
     ToolCall,
     ToolRegistry,
+    ToolScope,
 )
 from src.portwatch_os.roles import NATIONAL_ADMIN
 
@@ -176,6 +177,7 @@ class Agent:
         arguments: Optional[Dict[str, Any]] = None,
         *,
         trace: Optional[List[ToolCall]] = None,
+        scope: Optional[ToolScope] = None,
     ) -> ToolCall:
         """Invoke a tool, refusing anything this agent did not declare.
 
@@ -193,7 +195,9 @@ class Agent:
                 ),
             )
         else:
-            call = self.registry.call(tool, arguments, max_access=self.max_access)
+            call = self.registry.call(
+                tool, arguments, max_access=self.max_access, scope=scope,
+            )
         if trace is not None:
             trace.append(call)
         return call
@@ -231,6 +235,9 @@ class AgentRequest:
     horizon_hours: float = 72.0
     #: The role the answer is for. Changes emphasis, never the numbers.
     role: str = NATIONAL_ADMIN
+    #: The authenticated identity this run answers for. Scoped tools are refused
+    #: without it -- an agent holds no standing visibility of its own.
+    scope: Optional[ToolScope] = None
     #: Output from earlier agents in the same run.
     context: Dict[str, Any] = field(default_factory=dict)
 
@@ -238,7 +245,7 @@ class AgentRequest:
         return AgentRequest(
             question=self.question, port_code=self.port_code, vessel_id=self.vessel_id,
             company_id=self.company_id, event_id=self.event_id,
-            horizon_hours=self.horizon_hours, role=self.role,
+            horizon_hours=self.horizon_hours, role=self.role, scope=self.scope,
             context={**self.context, **updates},
         )
 

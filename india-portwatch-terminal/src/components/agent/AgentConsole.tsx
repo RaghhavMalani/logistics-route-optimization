@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { useWorkspace } from "@/auth/AuthProvider";
+import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { Pill, type Tone } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { runAgent } from "@/services/portwatch-os";
@@ -213,19 +213,25 @@ function AgentBlock({ result }: { result: AgentResultView }) {
 
 export function AgentConsole({ className }: { className?: string }) {
   const { role, portCode, companyId } = useWorkspace();
+  // Visibility follows the signed-in identity, not the workspace being viewed:
+  // the run reads what this user may read and nothing wider.
+  const { identityHeaders } = useAuth();
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [run, setRun] = useState<AgentRun | null>(null);
 
   const mutation = useMutation({
     mutationFn: (text: string) =>
-      runAgent({
-        question: text,
-        role,
-        portCode: role === "PORT_AUTHORITY" ? portCode : null,
-        companyId,
-        includeResults: false,
-      }),
+      runAgent(
+        {
+          question: text,
+          role,
+          portCode: role === "PORT_AUTHORITY" ? portCode : null,
+          companyId,
+          includeResults: false,
+        },
+        identityHeaders,
+      ),
     onSuccess: (result) => setRun(result),
   });
 

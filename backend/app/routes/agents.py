@@ -13,12 +13,12 @@ import threading
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from src.portwatch_os.agents.orchestrator import INTENTS, AgentRun, CommandAgent
 from src.portwatch_os.agents.portwatch_tools import build_registry
-from src.portwatch_os.agents.tools import ACCESS_LEVELS, EXECUTE, PROPOSE
-from src.portwatch_os.roles import NATIONAL_ADMIN
+from src.portwatch_os.agents.tools import ACCESS_LEVELS, EXECUTE, PROPOSE, ToolScope
+from src.portwatch_os.roles import NATIONAL_ADMIN, WORKSPACE_ROLES, is_workspace_role
 
 router = APIRouter()
 
@@ -78,16 +78,74 @@ def list_tools(
     }
 
 
+def scope_from_request(
+    actor: Optional[str],
+    role: Optional[str],
+    port_code: Optional[str],
+    organisation: Optional[str],
+    vessel_ids: Optional[str],
+) -> Optional[ToolScope]:
+    """The authenticated identity a run answers for, from the identity headers.
+
+    Deliberately *not* read from the request body. A body field naming the role
+    would let any caller ask for the national view, which is the same
+    impersonation the advisory and policy endpoints refuse. Absent headers give
+    no scope at all, and a scoped tool then declines rather than falling back to
+    national visibility.
+    """
+    if not actor or not role:
+        return None
+    normalised = role.strip().upper()
+    if not is_workspace_role(normalised):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"'{role}' is not a workspace role. Send X-PortWatch-Role with one "
+                f"of: {', '.join(WORKSPACE_ROLES)}."
+            ),
+        )
+    return ToolScope(
+        actor=actor,
+        role=normalised,
+        port_code=port_code,
+        organisation=organisation,
+        vessel_ids=tuple(
+            v.strip() for v in (vessel_ids or "").split(",") if v.strip()
+        ),
+        elevation_reason=(
+            "national command holds network-wide visibility by role"
+            if normalised == NATIONAL_ADMIN else None
+        ),
+    )
+
+
 @router.post("/agents/run")
-def run_agent(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Run the orchestrator against a question."""
+def run_agent(
+    payload: Dict[str, Any] = Body(...),
+    actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role_header: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
+    vessel_ids: Optional[str] = Header(None, alias="X-PortWatch-Vessels"),
+) -> Dict[str, Any]:
+    """Run the orchestrator against a question.
+
+    The body still chooses which workspace the answer is *phrased* for. What it
+    cannot do is widen what the run may read: that follows the identity headers,
+    and a run with no identity reads nothing that belongs to a port or a carrier.
+    """
     question = str(payload.get("question") or "").strip()
     if not question:
         raise HTTPException(status_code=400, detail="A question is required.")
 
+    scope = scope_from_request(
+        actor, role_header, header_port, organisation, vessel_ids,
+    )
+
     run = command_agent().run(
         question,
-        role=str(payload.get("role") or NATIONAL_ADMIN),
+        role=str(payload.get("role") or (scope.role if scope else NATIONAL_ADMIN)),
+        scope=scope,
         port_code=payload.get("portCode"),
         vessel_id=payload.get("vesselId"),
         company_id=payload.get("companyId"),

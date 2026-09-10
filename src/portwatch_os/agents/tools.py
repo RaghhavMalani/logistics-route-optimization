@@ -73,6 +73,69 @@ class ApprovalRequired(ToolError):
         )
 
 
+class ScopeRequired(ToolError):
+    """A scoped tool was called without an authenticated identity.
+
+    The absence of an identity is not a licence to read everything. A tool that
+    reads records belonging to particular ports and carriers has to know whose
+    question it is answering, and a caller that cannot say is refused rather
+    than served the national view.
+    """
+
+    def __init__(self, tool_name: str) -> None:
+        super().__init__(
+            f"{tool_name} reads records that belong to particular ports and carriers, "
+            "so it requires the authenticated scope of the identity asking. No scope "
+            "was supplied, and an absent scope is not national access.",
+            recoverable=False,
+        )
+
+
+@dataclass(frozen=True)
+class ToolScope:
+    """The authenticated identity a tool call is answering for.
+
+    Built by the API from a signed-in session and by the MCP server from its
+    operator mandate -- never from model output, for the same reason
+    :class:`ApprovalContext` is not model-constructible.
+
+    An agent used to read the advisory register with a hardcoded admin
+    principal, on the reasoning that it was assembling evidence for a
+    controller who already held that scope. That reasoning does not survive
+    contact with a second customer: the agent answering a Chennai controller's
+    question would read Nhava Sheva's drafts and one carrier's agent would read
+    another's. Visibility now follows the identity that asked.
+
+    Elevation above one's own scope is possible -- national command legitimately
+    sees the network -- but it is a property of the *role*, and it is recorded
+    on the call so it shows up in the trace rather than being invisible.
+    """
+
+    actor: str
+    #: A workspace role from :mod:`src.portwatch_os.roles`.
+    role: str
+    port_code: Optional[str] = None
+    organisation: Optional[str] = None
+    vessel_ids: Tuple[str, ...] = ()
+    #: Why this scope sees beyond a single port or carrier, when it does.
+    elevation_reason: Optional[str] = None
+
+    @property
+    def is_national(self) -> bool:
+        return self.role == "NATIONAL_ADMIN"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "actor": self.actor,
+            "role": self.role,
+            "portCode": self.port_code,
+            "organisation": self.organisation,
+            "vesselIds": list(self.vessel_ids),
+            "national": self.is_national,
+            "elevationReason": self.elevation_reason,
+        }
+
+
 @dataclass(frozen=True)
 class ApprovalContext:
     """Proof that a human authorised an EXECUTE call.
@@ -177,6 +240,10 @@ class ToolSpec:
     computed_by: str = ""
     #: Known failure modes, so an agent can plan around them rather than retrying.
     failure_modes: Tuple[str, ...] = ()
+    #: Whether this tool reads records that belong to particular ports and
+    #: carriers. A scoped tool is refused without an authenticated
+    #: :class:`ToolScope`, and receives it as a ``scope`` argument.
+    scoped: bool = False
 
     def to_schema(self) -> Dict[str, Any]:
         """JSON-schema-ish description, for MCP tool listing."""
@@ -187,6 +254,7 @@ class ToolSpec:
             "computedBy": self.computed_by,
             "returns": self.returns,
             "failureModes": list(self.failure_modes),
+            "scoped": self.scoped,
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -211,6 +279,9 @@ class ToolCall:
     error: Optional[str] = None
     unavailable: bool = False
     computed_by: str = ""
+    #: The identity this call was answered for, when the tool is scoped. Present
+    #: in the trace so that a national-scope read is visible as one.
+    scope: Optional["ToolScope"] = None
 
     def to_dict(self, *, include_result: bool = False) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
@@ -222,6 +293,7 @@ class ToolCall:
             "error": self.error,
             "unavailable": self.unavailable,
             "computedBy": self.computed_by,
+            "scope": None if self.scope is None else self.scope.to_dict(),
         }
         if include_result:
             payload["result"] = _safe(self.result)
@@ -251,6 +323,7 @@ class ToolRegistry:
         returns: str = "",
         computed_by: str = "",
         failure_modes: Sequence[str] = (),
+        scoped: bool = False,
     ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         if access not in ACCESS_LEVELS:
             raise ValueError(f"unknown access level {access}")
@@ -260,7 +333,7 @@ class ToolRegistry:
                 name=name, access=access, summary=summary, handler=handler,
                 arguments=dict(arguments or {}), required=tuple(required),
                 returns=returns, computed_by=computed_by,
-                failure_modes=tuple(failure_modes),
+                failure_modes=tuple(failure_modes), scoped=scoped,
             )
             return handler
 
@@ -299,6 +372,7 @@ class ToolRegistry:
         *,
         approval: Optional[ApprovalContext] = None,
         max_access: str = PROPOSE,
+        scope: Optional[ToolScope] = None,
     ) -> ToolCall:
         """Invoke a tool, with the access boundary checked before anything runs.
 
@@ -342,6 +416,16 @@ class ToolRegistry:
                 )
             arguments = {**arguments, "approval": approval}
 
+        if spec.scoped:
+            if scope is None:
+                return ToolCall(
+                    tool=name, access=spec.access, arguments=arguments, ok=False,
+                    duration_ms=(time.perf_counter() - started) * 1000,
+                    computed_by=spec.computed_by,
+                    error=str(ScopeRequired(name)),
+                )
+            arguments = {**arguments, "scope": scope}
+
         missing = [key for key in spec.required if key not in arguments]
         if missing:
             return ToolCall(
@@ -358,12 +442,14 @@ class ToolRegistry:
                 tool=name, access=spec.access, arguments=arguments, ok=True,
                 duration_ms=(time.perf_counter() - started) * 1000,
                 result=result, computed_by=spec.computed_by,
+                scope=scope if spec.scoped else None,
             )
         except ToolUnavailable as exc:
             return ToolCall(
                 tool=name, access=spec.access, arguments=arguments, ok=False,
                 duration_ms=(time.perf_counter() - started) * 1000,
                 error=str(exc), unavailable=True, computed_by=spec.computed_by,
+                scope=scope if spec.scoped else None,
             )
         except Exception as exc:  # noqa: BLE001 - a tool failure is data, not a crash
             log.warning("Tool %s failed: %s", name, exc)
@@ -371,6 +457,7 @@ class ToolRegistry:
                 tool=name, access=spec.access, arguments=arguments, ok=False,
                 duration_ms=(time.perf_counter() - started) * 1000,
                 error=f"{type(exc).__name__}: {exc}", computed_by=spec.computed_by,
+                scope=scope if spec.scoped else None,
             )
 
 
@@ -399,7 +486,7 @@ def _safe(value: Any, depth: int = 0) -> Any:
         return "..."
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
-    if isinstance(value, ApprovalContext):
+    if isinstance(value, (ApprovalContext, ToolScope)):
         return value.to_dict()
     if isinstance(value, dict):
         return {str(k): _safe(v, depth + 1) for k, v in list(value.items())[:60]}
@@ -421,9 +508,11 @@ __all__ = [
     "SIMULATE",
     "ApprovalContext",
     "ApprovalRequired",
+    "ScopeRequired",
     "ToolCall",
     "ToolError",
     "ToolRegistry",
+    "ToolScope",
     "ToolSpec",
     "ToolUnavailable",
     "approval_from_session",

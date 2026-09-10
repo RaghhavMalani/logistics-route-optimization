@@ -700,7 +700,7 @@ class AdvisoryAgent(Agent):
         existing = self.call(
             "portwatch.advisories.list",
             {"port_code": request.port_code, "vessel_id": request.vessel_id},
-            trace=calls,
+            trace=calls, scope=request.scope,
         )
         if existing.ok:
             open_rows = [
