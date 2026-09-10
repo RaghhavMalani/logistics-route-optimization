@@ -1,18 +1,21 @@
-# India PortWatch — 90-second demo
+# India PortWatch — the 2-minute demo
 
-The demo has one job: show that this is a working maritime digital twin whose
-every number is traceable, not a dashboard with a model behind it.
+One job: show a maritime operations system that closes the loop — it observes,
+explains, forecasts, simulates, decides, acts under human approval, and then
+comes back to check whether it was right.
 
-**The spine of the story:** *observe → understand → forecast → simulate →
-decide → route*, and at every step, "here is where that number came from".
+**The spine:** `OBSERVE → UNDERSTAND → FORECAST → SIMULATE → DECIDE → ACT → LEARN`
+
+Every screen answers "where did that number come from", and where there is no
+measurement it says so instead of drawing one.
 
 ---
 
 ## Before you start
 
 ```bash
-# 1. Build the artefacts (about 100 seconds; add --deep for the TFT, +20 min)
-python run_award_demo.py --source portwatch --model ensemble --benchmark
+# 1. Build the artefacts (about two minutes; add --benchmark for +1 min)
+python run_award_demo.py --source portwatch --model ensemble
 
 # 2. Confirm the twin is coherent before anyone watches
 python scripts/verify_artefacts.py
@@ -31,99 +34,278 @@ VITE_PORTWATCH_API_BASE=http://localhost:8000/api
 Sanity check before the room fills up:
 
 ```bash
-curl -s localhost:8000/api/health | python -m json.tool | head -20
+curl -s localhost:8000/api/health | python -m json.tool | head -30
 ```
 
-`intelligence` should read `live` or `cached`, and `benchmark.available` should
-be `true`. If it says `not_ready`, the pipeline has not run.
+`intelligence` should read `live` or `cached`. If it says `not_ready`, the
+pipeline has not run. Then check the learning history the last segment depends
+on:
+
+```bash
+curl -s localhost:8000/api/learning/summary | python -m json.tool | head -20
+```
+
+`resolved` should be in the thousands. The pipeline backfills it from its own
+walk-forward history at the end of every run.
+
+Sign in as **`admin@portwatch.demo`** (password `portwatch`) — the demo starts on
+the national picture and switches accounts twice. Have the other three logins to
+hand:
+
+| Account | Role | Lands on |
+|---|---|---|
+| `admin@portwatch.demo` | National Command | `/admin/radar` |
+| `port@portwatch.demo` | Port Authority (Chennai) | `/port/overview` |
+| `company@portwatch.demo` | Shipping Company | `/company/overview` |
+| `vessel@portwatch.demo` | Vessel Operator | `/vessel/overview` |
 
 ---
 
-## The 90 seconds
+## 00:00–00:20 — National Radar
 
-### 0:00–0:15 — National Radar: *which port needs intervention?*
+> *"India's maritime network, with its own status visible."*
 
-Open the terminal at `/`.
+Open `/admin/radar`.
 
-> "This is every major Indian port, live. The map is coloured by the model's own
-> risk assessment, and the panel bottom-left already answers the question."
+The map fills the screen: every major Indian port, the weather composite already
+on, simulated traffic moving on the water.
 
-Point at **WHO NEEDS INTERVENTION**. Read the line aloud — it names the port,
-the recommended action, the day-1 congestion with its 80% band, the expected
-berth wait and the regime with its expected remaining duration.
+> "One screen. Ports coloured by the model's own risk assessment, the weather
+> composite underneath, and traffic on top."
 
-> "One panel, one answer, with the uncertainty attached."
+Point at the status strip.
 
-Then point at the status strip along the top.
+> "And notice what it says about itself. The model that produced this, the
+> forecast origin, how old it is, and — this matters — **what each layer
+> actually is**. Port state: CACHED_LIVE, because IMF PortWatch publishes with a
+> lag. Weather: LIVE. Traffic: SIMULATED_TRAFFIC, because we hold no AIS licence
+> and will not pretend otherwise."
 
-> "And notice what it says about itself: the model that produced this, the
-> forecast origin, how old that is, source readiness, and how much the models
-> disagree. If this were stale, it would say STALE — it does, because IMF
-> PortWatch publishes with a lag. Nothing here pretends to be real-time."
+Grab the weather timeline and scrub it to **+24h**, then press play.
 
-**Hover a port** to show the compact operational tooltip. **Click it.**
+> "This is the same composite forward in time — wind, rain, wave and storm risk
+> together, out to 72 hours. Nobody has to know which field to pick to see
+> weather is coming."
 
-### 0:15–0:30 — Port Cockpit: *why?*
+Finish on **WHO NEEDS INTERVENTION** bottom-left.
 
-> "Now the digital twin of one port."
+> "And the panel already answers the question: which port, what action, the
+> day-1 congestion with its 80% band, and the regime with its expected remaining
+> duration."
 
-Walk left to right:
+---
 
-- **NOW** — observed congestion, berth wait, daily port calls, queue buildup,
-  throughput. Measured, not forecast.
-- **SPECIALIST PRESSURE** — capacity, berth pressure, arrival clustering,
-  anomaly, disruption, data quality. Each a bounded 0–1 signal.
-- **NEXT 24H / 10-DAY FAN** — the quantile band, widening with horizon.
-- **HSMM REGIME** — the state, its probabilities, days in state, expected
-  remaining duration, transition risk.
+## 00:20–00:40 — Global Eye
 
-> "And this strip is the whole chain: raw signal, expert, regime, forecast,
-> decision — each with its own confidence and its own timestamp."
+> *"A disruption appears in the Red Sea."*
 
-Finish on **WHAT SHOULD WE DO**.
+Go to `/admin/global-eye`.
 
-> "A specific instruction, its expected delay saving, the ranked factors that
-> drove it, and the fallback if it can't be executed. No language model chooses
-> this — it is a deterministic rule cascade over the forecast distribution."
+> "Global Eye is not news on a map. It is a chain, and every hop is computed."
 
-### 0:30–0:45 — Model Intelligence: *how do we know?*
+Click the Red Sea / Bab-el-Mandeb event. Read the chain out loud as it expands:
 
-> "This is the part most projects can't show."
+```
+EVENT  →  CHOKEPOINT  →  TRADE LANE  →  VESSELS  →  PORTS  →  IMPACT  →  ACTIONS
+```
 
-Point at the headline row: leading model, MAE, **skill against naive
-persistence**, 80% coverage.
+Three things to point at, in this order:
+
+1. **Corroboration.** "Nine articles from six outlets, merged into one event —
+   same category, same chokepoint, within 36 hours, and the headlines overlap.
+   Confidence is built from *distinct outlets*, not article count."
+2. **The honesty line.** "Severity is a labelled heuristic and the probability
+   says **unavailable** — twenty-six claims are committed with their horizons and
+   none has elapsed yet. It shows severity and corroboration instead of inventing
+   a percentage."
+3. **The lanes.** "Europe–India via Suez, 4,650 nautical miles, with a
+   Cape of Good Hope alternative at plus 3,750. Hormuz has **no** alternative,
+   and that lane is weighted higher for it, not lower."
+
+---
+
+## 00:40–01:00 — Shipping Company
+
+> *"These vessels are exposed."*
+
+Sign out, sign in as `company@portwatch.demo`. It lands on **Fleet Command**.
+
+> "Same event, one carrier's problem."
+
+Point at the right rail, top.
+
+> "**ACTION REQUIRED** is the first thing on the screen — before the fleet list,
+> before the map. Each row: the vessel, the exposure, what to do, and **the
+> deadline by which the option closes**."
+
+Then scroll to **Monitor only** on `/company/risk`.
+
+> "And this is the part that makes it operational. These vessels are just as
+> exposed — but they are already inside the strait. A diversion is no longer
+> available, so they are listed separately instead of being mixed into a queue of
+> things you cannot fix. Telling an operator to divert a committed vessel would be
+> worse than saying nothing."
+
+Open one vessel.
+
+> "Route options with the detour in nautical miles and hours, the exposure on
+> each, and the routing labelled non-navigational — it guarantees water, not a
+> passage plan."
+
+---
+
+## 01:00–01:20 — Agentic AI
+
+> *"PortWatch gathers weather, route, port and fleet evidence — and a human still
+> decides."*
+
+Go to `/admin/agents`. Run **"Which of my vessels are exposed and what should I
+do?"**
+
+Do **not** talk about the answer first. Talk about the trace.
+
+```
+GLOBAL EYE  events ✓  exposure ✓
+FLEET       fleet ✓  risk ✓
+ROUTE       optimize ✓
+CRITIC      APPROVED
+```
+
+> "Five tool calls across three agents, in sequence, each feeding the next. Every
+> step names the module that computed it. Expand any one and you get the actual
+> evidence, not a summary of it."
+
+Point at the access column.
+
+> "Four levels — READ, SIMULATE, PROPOSE, EXECUTE. **No agent in this system
+> holds an EXECUTE ceiling**, and the browser suite asserts that. The most any
+> agent can do is produce a draft."
+
+Point at the Critic verdict.
+
+> "Then a Critic reviews it against eight checks before a human sees it —
+> including whether the action is *still available*. It can only lower
+> confidence, never raise it."
+
+Then, briefly, the confidence figure.
+
+> "0.30, not 0.70, because one source was stale. Confidence is bounded by the
+> weakest link in the chain, not averaged."
+
+---
+
+## 01:20–01:40 — 3D Port Twin
+
+> *"Arrival changes propagate into berth and yard operations."*
+
+Sign in as `port@portwatch.demo`, go to `/port/twin`.
+
+The banner is the first thing you say, not the last:
+
+> "**SCHEMATIC DIGITAL TWIN — NOT A SURVEYED PORT PLAN.** Berth count, capacity,
+> occupancy and crane rates are real. The arrangement is generated. We are not
+> claiming to have surveyed Chennai."
+
+Click a berth, then a yard block.
+
+> "Length, draught, what may be handled there, which cranes can reach it —
+> cranes share a rail, so they serve their berth and its neighbours. Yard block:
+> slots, occupancy, mean dwell, reefer plugs."
+
+Step time to **+12h**.
+
+> "That is a real forward run of the discrete-event simulator, not an
+> interpolation. And this is the same object the optimisers and the RL
+> environment use — a 3D port that rendered its own idea of the terminal would be
+> an illustration. This one is an inspector."
+
+Switch overlay to **crane workload**, then **storage pressure**.
+
+> "Colour is state, not decoration. The yard is above 80% here, and above 80%
+> every productive move needs re-handles — which is why the arrival change
+> matters."
+
+---
+
+## 01:40–01:55 — Decision
+
+> *"The controller approves a new arrival advisory."*
+
+Stay in the port account, go to `/port/advisories`. Press **Draft from the engine**.
+
+> "The system ran the twin, found the calls that will wait more than an hour, put
+> each recommendation through the Critic, and drafted advisories for the
+> survivors. They are **drafts**. The vessel cannot see them."
+
+Open one draft.
+
+> "The number in it came from the simulator. The Critic's verdict is attached.
+> And the recipient sees nothing until a named human presses issue."
+
+Press **Issue**. Then switch to `vessel@portwatch.demo` → `/vessel/advisories`.
+
+> "Now it exists for the master, who can accept, decline with a reason, or
+> request a change. Eleven states, role-gated, and every transition is in the
+> audit trail with who did it and when."
+
+Accept it, and go back to the port account.
+
+> "The port sees the response. And the acceptance just resolved a decision record
+> in the ledger — which is the next screen."
+
+---
+
+## 01:55–02:00 — Learning
+
+> *"PortWatch later compares its prediction with reality and updates reliability."*
+
+Go to `/admin/learning`.
+
+> "Four thousand resolved claims. Mean absolute error 6.33. Interval coverage
+> 0.881 against a nominal 0.800 — slightly conservative, and it says so.
+> **Why was PortWatch wrong** decomposes the largest misses exactly — the weights
+> and the residual close to the error, no invented percentages — and the
+> reliability weights that changed as a result are shown with their before and
+> after."
+
+Last line, on the policy table:
+
+> "And the learned policy is sitting at **REJECTED**, with the reason: it beats
+> first-come-first-served by 5.6% but the hand-written optimiser by only 0.8%,
+> which does not clear the gate. A system that only showed its successes would be
+> marketing."
+
+---
+
+## If you have four minutes instead of two
+
+Two screens the short version skips, both worth it with a technical audience.
+
+### Model Intelligence — `/admin/model`
+
+Headline row: leading model, MAE, **skill against naive persistence**, 80%
+coverage.
 
 > "Four expanding walk-forward folds, twenty-eight thousand out-of-fold
-> predictions, every model on identical folds. The ensemble beats a random walk
-> by 8% and is the only model with a calibrated interval — 0.807 against a
-> nominal 0.800."
+> predictions, every model on identical folds. The ensemble beats a random walk by
+> 8% and is the only model with a calibrated interval — 0.807 against a nominal
+> 0.800."
 
 Switch the drilldown to **HORIZON**.
 
-> "Here's the honest bit. Nothing beats persistence at one day on a smoothed
+> "Here is the honest bit. Nothing beats persistence at one day on a smoothed
 > index — our first benchmark run had persistence beating every model at every
 > horizon. So we made persistence a first-class ensemble member and fitted the
 > blend weights per horizon, out-of-fold."
 
-Point at the **ENSEMBLE POLICY** table.
+Point at **ENSEMBLE POLICY**: 80% persistence at day one, shifting to the models
+by day six.
 
-> "80% persistence at day one, shifting to the models by day six. Nobody wrote
-> that schedule — it was fitted, and it recovers the physics."
+> "Nobody wrote that schedule. It was fitted, and it recovers the physics."
 
-Then the calibration table and the provenance panel.
-
-> "And every source, with what it is, when it was observed, and whether it's
-> live, cached, stale or synthetic."
-
-### 0:45–1:10 — Decision Room: *what if Hormuz closes?*
+### Decision Room — `/admin/scenarios`
 
 Select **Hormuz closure**, intensity 1.0.
-
-> "Baseline versus shock. These deltas are the difference between two forecasts
-> the system actually produced — the live one, and the same one after the shock
-> propagates through the measured lane-exposure graph."
-
-Read the propagation chain left to right:
 
 ```
 HORMUZ CLOSURE  →  no maritime bypass, freight +38%
@@ -133,84 +315,83 @@ HORMUZ CLOSURE  →  no maritime bypass, freight +38%
       →  EXPECTED BENEFIT in hours
 ```
 
-> "Mundra moves most because it is the most Hormuz-exposed port in the graph,
-> not because someone typed a bigger number for it. Vizag barely moves — it
-> ships through Malacca."
-
-Move the intensity slider and let the numbers respond.
-
-> "And the recommendation is not scenario copy: it's the decision engine re-run
-> against the shocked forecast. It even tells you whether the action *changed*
-> from the baseline."
-
-### 1:10–1:25 — Decision and route
-
-Point at **RECOMMENDED ACTION UNDER SHOCK**, then jump to **Fleet Board**.
-
-> "Per vessel: intended call, best alternative, and the three numbers that
-> justify the choice — ETA difference, risk difference, port-wait difference.
-> A reroute is only advised when the modelled waiting saving clears the extra
-> steaming with margin. Most of the time it says keep the call, which is the
-> correct answer and the one a fake system never gives."
-
-### 1:25–1:30 — Close on auditability
-
-Back to Model Intelligence, or the rail's source panel.
-
-> "Everything you just saw is reproducible from one command, measured by a
-> walk-forward benchmark, and labelled with where it came from. Where we don't
-> have a measurement — per-vessel AIS, SAR detection — the system says
-> UNAVAILABLE instead of drawing something."
+> "These deltas are the difference between two forecasts the system actually
+> produced — the live one, and the same one after the shock propagates through
+> the measured lane-exposure graph. Mundra moves most because it is the most
+> Hormuz-exposed port in the graph, not because someone typed a bigger number for
+> it. Vizag barely moves — it ships through Malacca."
 
 ---
 
 ## The questions you will be asked
 
-**"Is this real data or a simulation?"**
-Real. IMF PortWatch satellite-AIS port calls, Open-Meteo surface and marine
-weather, GDELT and GDACS events, FRED macro series. `/api/provenance` lists
-every source with its observation timestamp and state. Nothing is currently
-`SYNTHETIC` on the PortWatch path — and if a feed failed, the affected panels
-would say so.
+**"Is the ship traffic real?"**
+No, and the map says `SIMULATED_TRAFFIC` on every surface that shows it. It is a
+deterministic replay engine behind a `TrafficSource` interface — the seam a
+licensed AIS feed plugs into. Nothing on the water is an observed position, and
+we would rather say that than lose the argument later.
+
+**"Is the 3D port real?"**
+The counts are; the arrangement is not. Berth count and capacity index come from
+the port registry, occupancy from the observed snapshot, crane rates from
+published envelopes. Positions are generated, and the banner says
+SCHEMATIC and does not scroll away.
+
+**"So what is the AI actually doing, if the numbers are all deterministic?"**
+Orchestrating. An agent decides which tools to call and in what order, carries
+results between them, reconciles disagreement and absence, and reports. Every
+figure in its output came out of a named module — `ToolSpec.computed_by` is
+required and a test fails any tool shipped without one. If a language model wrote
+the recommended arrival time, that number would be unfalsifiable, and the entire
+learning loop downstream of it would be measuring fiction.
+
+**"Can it act on its own?"**
+No, and it is enforced in two independent places. Every agent is constructed with
+a ceiling of PROPOSE at most, so an EXECUTE tool is unreachable — over MCP at the
+default ceiling it is not even listed. And an EXECUTE call additionally requires
+an approval context whose `human_verified` flag is set, which only
+`approval_from_session` can set, which requires an authenticated session. There is
+deliberately no path from agent output to that function.
+
+**"Is there reinforcement learning in this?"**
+Yes, and it is a contextual bandit over scheduling rules — not PPO, because the
+problem does not need it and the honest thing is to start with the simplest thing
+that could work. It trains inside the twin, on training seeds disjoint from the
+evaluation seeds, and it is currently **REJECTED** by the promotion gate. That is
+the demonstration: the gate works, and it did not approve our own learned policy.
 
 **"How do you know the model is any good?"**
 `python -m src.evaluation.model_benchmark --folds 4`. Expanding walk-forward,
-identical folds for every candidate, ensemble weights fitted only on
-out-of-fold predictions, scored on the same rows as the baselines. MAE 7.43
-against persistence 8.08, and calibrated intervals.
+identical folds for every candidate, ensemble weights fitted only on out-of-fold
+predictions, scored on the same rows as the baselines. MAE 7.43 against
+persistence 8.08, with calibrated intervals. The benchmark also reports the cells
+where the ensemble loses — persistence wins in the CONGESTED regime, and that is
+printed in `regime_benchmark.csv`.
+
+**"Where does the learning history on the last screen come from? Is it generated?"**
+No. It is backfilled from `outputs/forecasts/walk_forward_predictions.csv` — the
+run's own walk-forward evaluation, which already holds exactly what a ledger row
+and its outcome are, produced under the evaluation's leakage discipline. The
+member models become the contributor signals and the fitted ensemble weights
+become the contributions, so the attribution closes by construction.
+
+**"Why does the event probability say unavailable?"**
+Because 26 claims are committed and none has elapsed, and the threshold is 20
+resolved outcomes. A product that prints "72%" from four historical observations
+is lying with a decimal point. The claims are written *before* the world answers,
+with horizons, which is the only way that screen can ever become available.
 
 **"Isn't the ensemble just tuned until it won?"**
 The weights are chosen by minimising pinball loss on out-of-fold predictions
-only, never on the block they are scored on. And the benchmark still reports the
-cells where the ensemble loses — persistence wins in the CONGESTED regime, and
-that is printed in `regime_benchmark.csv`.
-
-**"Why is the TFT worse than a gradient-booster?"**
-Because at this data scale it is — 12 ports, about a year of daily history — and
-it is last in the table. But it is the only model whose error *falls* with lead
-time (10.87 at +1d down to 8.71 at +9d, where it beats everything else) and the
-best model in the SEVERE regime. The stacker gives it 0.10 weight at day 1 and
-0.50 at day 10. Its intervals are badly calibrated and we print that too rather
-than hiding it behind the ensemble.
-
-**"Is the scenario engine just multiplying a constant?"**
-No — that is exactly what it used to do, and it was replaced. The shock is
-applied to the live quantile forecast through elasticities calibrated against
-documented analogues, propagated by each port's measured lane exposure, and the
-reported deltas are the difference between the two forecasts. `simulate_scenario`
-refuses to run at all without a live forecast.
-
-**"What are the agents actually doing?"**
-Every specialist writes a CSV under `outputs/expert_features/`, and every one of
-those columns is in the HSMM feature matrix and the forecaster's feature list.
-`scripts/verify_artefacts.py` fails the build if a specialist column is missing
-from the merged panel or was silently suffixed by a duplicate join — which is a
-bug this project actually had and fixed.
+only, never on the block they are scored on. `fit_reliability` goes further and
+*raises* on a row observed at or after its `as_of` barrier rather than skipping
+it — a silent skip is how a leakage bug survives code review.
 
 **"What would you do next?"**
-Wire port-authority dwell times to replace the berth-wait proxy, add a
-commercial AIS feed for per-vessel tracking, and extend the registry beyond the
-13 ports it covers.
+A licensed AIS feed behind `TrafficSource`, surveyed geometry behind the layout
+generator, and port-authority dwell times to replace the berth-wait proxy. All
+three are provider implementations, not rewrites — which is the point of having
+built the seams.
 
 ---
 
@@ -220,6 +401,11 @@ commercial AIS feed for per-vessel tracking, and extend the registry beyond the
 |---|---|---|
 | Every screen says *Intelligence API unavailable* | Backend not running | `uvicorn backend.app.main:app --port 8000` |
 | Screens load but say *has not been exported* | Pipeline never ran | `python run_award_demo.py --source portwatch` |
+| `/admin/learning` says the ledger is empty | Learning pass skipped | `curl -X POST localhost:8000/api/learning/backfill` |
 | Model Intelligence shows *No benchmark artefacts* | Benchmark not run | `python -m src.evaluation.model_benchmark --folds 4` |
+| The twin renders nothing | Three.js chunk blocked | Check the console; the scene is lazy-loaded and will report the failure |
 | Everything reads `STALE` | PortWatch cache is old | `python run_award_demo.py --source portwatch --refresh` |
 | No network in the room | Expected | `python run_award_demo.py --source portwatch --offline` — it runs on cache and labels itself accordingly |
+
+**Rehearse the account switches.** Three of the seven segments change role, and
+fumbling a sign-in costs more of the two minutes than any screen does.

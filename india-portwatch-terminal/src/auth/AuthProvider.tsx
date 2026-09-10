@@ -23,9 +23,12 @@ import {
 import { AUTH_MODE, resolveAdapter } from "./adapters";
 import {
   ROLE_PROFILE,
+  advisoryHeaders,
+  normaliseRole,
   type Credentials,
   type Role,
   type Session,
+  type User,
 } from "./types";
 
 const SESSION_KEY = "portwatch.session.v1";
@@ -46,6 +49,10 @@ interface AuthContextValue {
   viewAs: Role | null;
   /** Port an operator is scoped to, or the port an admin is inspecting. */
   portCode: string;
+  /** Carrier account this identity acts for, where it has one. */
+  companyId: string | null;
+  /** Identity headers for the advisory API. Empty for a role that cannot act. */
+  identityHeaders: Record<string, string>;
   mode: typeof AUTH_MODE;
   adapterDescription: string;
   signIn(credentials: Credentials): Promise<Session>;
@@ -108,10 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setStatus("anonymous");
           return;
         }
-        const storedView = readStored<Role>(VIEW_AS_KEY);
+        const storedView = normaliseRole(readStored<string>(VIEW_AS_KEY));
         setSession(restored);
         setViewAsState(
-          restored.user.role === "ADMIN" && storedView
+          restored.user.role === "NATIONAL_ADMIN" && storedView
             ? storedView
             : restored.user.role,
         );
@@ -157,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setViewAs = useCallback(
     (next: Role) => {
-      if (session?.user.role !== "ADMIN") return;
+      if (session?.user.role !== "NATIONAL_ADMIN") return;
       setViewAsState(next);
       writeStored(VIEW_AS_KEY, next);
     },
@@ -176,6 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: session?.user.role ?? null,
       viewAs: viewAs ?? session?.user.role ?? null,
       portCode: session?.user.portCode ?? portCode,
+      companyId: session?.user.companyId ?? null,
+      identityHeaders: advisoryHeaders(session?.user ?? null),
       mode: AUTH_MODE,
       adapterDescription: adapter.description,
       signIn,
@@ -207,13 +216,15 @@ export function useAuth(): AuthContextValue {
 
 /** The workspace currently on screen, resolved once for every consumer. */
 export function useWorkspace() {
-  const { viewAs, role, session, portCode } = useAuth();
-  const active = viewAs ?? role ?? "ADMIN";
+  const { viewAs, role, session, portCode, companyId } = useAuth();
+  const active = viewAs ?? role ?? "NATIONAL_ADMIN";
   return {
     role: active,
     profile: ROLE_PROFILE[active],
-    isImpersonating: role === "ADMIN" && viewAs !== null && viewAs !== "ADMIN",
+    isImpersonating:
+      role === "NATIONAL_ADMIN" && viewAs !== null && viewAs !== "NATIONAL_ADMIN",
     user: session?.user ?? null,
     portCode,
+    companyId,
   };
 }

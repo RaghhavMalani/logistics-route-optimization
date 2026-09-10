@@ -98,6 +98,7 @@ export function Panel({
   className,
   bodyClassName,
   scroll = false,
+  testId,
 }: {
   title?: ReactNode;
   note?: ReactNode;
@@ -106,9 +107,14 @@ export function Panel({
   className?: string;
   bodyClassName?: string;
   scroll?: boolean;
+  /** Stable hook for the browser suite. */
+  testId?: string;
 }) {
   return (
-    <section className={cn("panel flex min-h-0 min-w-0 flex-col overflow-hidden", className)}>
+    <section
+      data-testid={testId}
+      className={cn("panel flex min-h-0 min-w-0 flex-col overflow-hidden", className)}
+    >
       {title ? (
         <div className="panel-head">
           <span className="min-w-0 truncate">{title}</span>

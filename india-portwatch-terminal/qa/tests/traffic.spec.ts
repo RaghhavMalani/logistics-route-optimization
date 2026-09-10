@@ -59,7 +59,7 @@ async function open(page: Page, context: Parameters<typeof seedSession>[0], role
 
 test.describe("traffic population", () => {
   test("national command draws a fleet, not a handful", async ({ context, page }) => {
-    await open(page, context, "ADMIN", "/admin/radar");
+    await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
     const vessels = await drawn(page, "vessels");
     expect(vessels.length, "too few vessels for a traffic picture").toBeGreaterThan(120);
@@ -75,13 +75,13 @@ test.describe("traffic population", () => {
   });
 
   test("the source is declared as simulated, not as observed AIS", async ({ context, page }) => {
-    await open(page, context, "ADMIN", "/admin/radar");
+    await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
     await expect(page.getByText("Simulated replay").first()).toBeVisible();
     await expect(page.getByText(/\d+ vessels/).first()).toBeVisible();
   });
 
   test("the port cockpit shows the traffic around its own facility", async ({ context, page }) => {
-    await open(page, context, "PORT_OPERATOR", "/port/overview");
+    await open(page, context, "PORT_AUTHORITY", "/port/overview");
 
     const board = page.getByTestId("traffic-board");
     await expect(board).toBeVisible();
@@ -112,7 +112,7 @@ test.describe("traffic population", () => {
 /* ---------------------------------------------------------------- filters -- */
 
 test("a class filter removes that class from the chart", async ({ context, page }) => {
-  await open(page, context, "ADMIN", "/admin/radar");
+  await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   const before = await drawn(page, "vessels");
   const containersBefore = before.filter((v: any) => v.class === "container").length;
@@ -132,7 +132,7 @@ test("a class filter removes that class from the chart", async ({ context, page 
 /* -------------------------------------------------- search and inspection -- */
 
 test("search finds a vessel, and selecting it opens the inspector", async ({ context, page }) => {
-  await open(page, context, "ADMIN", "/admin/radar");
+  await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   const search = page.getByRole("searchbox", { name: /Search vessels, ports and chokepoints/i });
   await search.fill("Coromandel");
@@ -151,7 +151,7 @@ test("search finds a vessel, and selecting it opens the inspector", async ({ con
 });
 
 test("search finds a port and flies to it", async ({ context, page }) => {
-  await open(page, context, "ADMIN", "/admin/radar");
+  await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
   const before = await page.evaluate(() => (window as any).__portwatchMap.getZoom());
 
   await page
@@ -192,7 +192,7 @@ test("scrubbing the forecast moves the weather and the predicted fleet", async (
   context,
   page,
 }) => {
-  await open(page, context, "ADMIN", "/admin/radar");
+  await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   // At NOW there is nothing to predict, so no ghosts are drawn.
   expect((await drawn(page, "ghosts")).length).toBe(0);
@@ -214,7 +214,7 @@ test("scrubbing the forecast moves the weather and the predicted fleet", async (
 });
 
 test("the replay clock can be paused and restarted", async ({ context, page }) => {
-  await open(page, context, "ADMIN", "/admin/radar");
+  await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   await page.getByRole("button", { name: "Pause replay" }).click();
   await expect(page.getByRole("button", { name: "Play replay" })).toBeVisible();
@@ -227,23 +227,28 @@ test("the replay clock can be paused and restarted", async ({ context, page }) =
 /* ----------------------------------------------------------- environment -- */
 
 test("weather is on by default and states what it is", async ({ context, page }) => {
-  await open(page, context, "ADMIN", "/admin/radar");
+  await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   const visible = await page.evaluate(
     () => (window as any).__portwatchMap.getLayoutProperty("wx-field", "visibility"),
   );
   expect(visible, "the weather composite was not on by default").not.toBe("none");
 
-  await expect(page.getByText("Precipitation").first()).toBeVisible();
-  await expect(page.getByText("observed").first()).toBeVisible();
-  await expect(page.getByText(/modelled/).first()).toBeVisible();
+  // The layer is a composite, not a field the operator picks. The legend names
+  // what it carries, so a regression that silently drops back to one field --
+  // or drops the layer entirely -- fails here.
+  const legend = page.getByTestId("environment-legend");
+  await expect(legend.getByText("Environment")).toBeVisible();
+  await expect(legend.getByText("rain · wind · severe")).toBeVisible();
+  await expect(legend.getByText("observed").first()).toBeVisible();
+  await expect(legend.getByText(/modelled/).first()).toBeVisible();
 });
 
 test("wave height is reported as unavailable rather than substituted", async ({
   context,
   page,
 }) => {
-  await open(page, context, "PORT_OPERATOR", "/port/overview");
+  await open(page, context, "PORT_AUTHORITY", "/port/overview");
   await page.getByRole("tab", { name: /Weather/ }).click();
   await expect(page.getByText("UNAVAILABLE").first()).toBeVisible();
 });
@@ -251,7 +256,7 @@ test("wave height is reported as unavailable rather than substituted", async ({
 /* ------------------------------------------------------ arrival sequence -- */
 
 test("the arrival sequence ranks by ETA and shows the berth wait", async ({ context, page }) => {
-  await open(page, context, "PORT_OPERATOR", "/port/overview");
+  await open(page, context, "PORT_AUTHORITY", "/port/overview");
 
   await page.getByRole("tab", { name: /Arrivals/ }).click();
   await expect(page.getByText(/berths ·/)).toBeVisible();
@@ -260,7 +265,7 @@ test("the arrival sequence ranks by ETA and shows the berth wait", async ({ cont
 });
 
 test("the traffic board sorts", async ({ context, page }) => {
-  await open(page, context, "PORT_OPERATOR", "/port/overview");
+  await open(page, context, "PORT_AUTHORITY", "/port/overview");
   const board = page.getByTestId("traffic-board");
   // The board opens itself only where there is room for it and the chart both.
   const expand = board.getByRole("button", { name: "expand" });

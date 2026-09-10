@@ -41,20 +41,38 @@ async function readDetail(response: Response): Promise<string> {
   }
 }
 
-export async function getJson<T>(path: string): Promise<T> {
+/**
+ * `headers` carries the caller identity where an endpoint needs one -- the
+ * advisory routes, which the backend turns into an acting principal. It is
+ * optional because most of this API is read-only and anonymous.
+ */
+export async function getJson<T>(
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<T> {
   const url = endpoint(path);
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
+  const response = await fetch(url, {
+    headers: { Accept: "application/json", ...headers },
+  });
   if (!response.ok) {
     throw new ApiError(response.status, await readDetail(response), url);
   }
   return (await response.json()) as T;
 }
 
-export async function postJson<T>(path: string, body: unknown): Promise<T> {
+export async function postJson<T>(
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<T> {
   const url = endpoint(path);
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...headers,
+    },
     body: JSON.stringify(body),
   });
   if (!response.ok) {

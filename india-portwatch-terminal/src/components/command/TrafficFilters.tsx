@@ -133,6 +133,16 @@ export function TrafficFilters({
 
         {showFields ? (
           <div className="mt-1.5 flex flex-wrap gap-1 border-t border-[var(--line)]/60 pt-1.5">
+            {/* The composite is the default and the first chip, so isolating a
+                single field reads as narrowing rather than as the normal way to
+                use the layer. */}
+            <Chip
+              active={workspace.weatherField === null}
+              onClick={() => workspace.setWeatherField(null)}
+              title="Rain, wind and severe cells together"
+            >
+              Composite
+            </Chip>
             {WEATHER_FIELD_LIST.map((spec) => (
               <Chip
                 key={spec.key}
@@ -178,9 +188,15 @@ export function EnvironmentLegend({
   frame: WeatherFrame;
   className?: string;
 }) {
-  const spec = WEATHER_FIELD_LIST.find((field) => field.key === workspace.weatherField)!;
-  const stops = legendStops(workspace.weatherField);
-  const covered = workspace.raster?.covered ?? 0;
+  const composite = workspace.weatherField === null;
+  const spec = composite
+    ? null
+    : (WEATHER_FIELD_LIST.find((field) => field.key === workspace.weatherField) ?? null);
+  const stops = legendStops(composite ? "precipitation" : workspace.weatherField!);
+  const raster = workspace.raster;
+  const covered = raster?.covered ?? 0;
+  const peaks = raster?.peaks;
+  const storms = workspace.storms.cells.length;
 
   return (
     <div
@@ -189,12 +205,20 @@ export function EnvironmentLegend({
         "px-2 py-1.5 backdrop-blur-[3px]",
         className,
       )}
+      data-testid="environment-legend"
     >
       <div className="flex items-baseline gap-2">
-        <span className="eyebrow text-[9px]">{spec.label}</span>
-        <span className="num text-[9.5px] text-[var(--text-3)]">{spec.unit}</span>
+        <span className="eyebrow text-[9px]">
+          {composite ? "Environment" : spec?.label}
+        </span>
+        <span className="num text-[9.5px] text-[var(--text-3)]">
+          {composite ? "rain · wind · severe" : spec?.unit}
+        </span>
         {frame.derived ? (
-          <Pill tone="unc" title="Scaled from the daily weather-impact forecast and interpolated between forecast days.">
+          <Pill
+            tone="unc"
+            title="Scaled from the daily weather-impact forecast and interpolated between forecast days."
+          >
             derived
           </Pill>
         ) : (
@@ -213,7 +237,32 @@ export function EnvironmentLegend({
         ))}
       </div>
 
-      <div className="mt-1 flex items-center gap-2.5 border-t border-[var(--line)]/60 pt-1 text-[9px] text-[var(--text-3)]">
+      {/* The composite carries three fields at once, so the legend has to say
+          what the peak of each currently is -- otherwise a reader cannot tell
+          whether a hot cell is rain, wind or a severe flag. */}
+      {composite && peaks ? (
+        <div className="mt-1.5 grid grid-cols-3 gap-1.5 border-t border-[var(--line)]/60 pt-1.5">
+          {(
+            [
+              ["Rain", peaks.rainMm, "mm"],
+              ["Wind", peaks.windKn, "kn"],
+              ["Severe", peaks.stormRisk, "idx"],
+            ] as Array<[string, number | null, string]>
+          ).map(([label, value, unit]) => (
+            <div key={label}>
+              <div className="text-[8.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                peak {label}
+              </div>
+              <div className="num text-[11px] leading-none text-[var(--text)]">
+                {value == null ? "—" : value.toFixed(value < 1 ? 3 : 1)}
+                <span className="ml-0.5 text-[8.5px] text-[var(--text-3)]">{unit}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--line)]/60 pt-1 text-[9px] text-[var(--text-3)]">
         <span className="flex items-center gap-1">
           <span className="h-[2px] w-4 rounded-full bg-[#8fd0ef]" />
           Wind flow
@@ -222,6 +271,7 @@ export function EnvironmentLegend({
         <span className="flex items-center gap-1">
           <span className="h-[7px] w-[7px] rounded-full border border-[#d05a4c]" />
           Storm cell
+          {storms ? <span className="num">{storms}</span> : null}
         </span>
         <span className="num">{covered} stations</span>
       </div>

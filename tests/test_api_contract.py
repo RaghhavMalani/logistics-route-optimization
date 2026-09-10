@@ -43,6 +43,55 @@ class HealthContractTests(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)),
                          "a source appears in more than one provenance bucket")
 
+    def test_the_operations_states_are_in_the_vocabulary_and_bucketed(self):
+        """SIMULATED_TRAFFIC and SCHEMATIC belong to the provenance state machine.
+
+        They were string literals in the modules that needed them, which is how a
+        vocabulary drifts. A source in either state must survive a round trip
+        through the registry and appear in exactly one bucket -- if snapshot()
+        did not bucket it, it would be silently dropped from the record.
+        """
+        from src.utils import provenance
+
+        before = provenance.get_all()
+        provenance.reset()
+        try:
+            provenance.record("test.traffic", status=provenance.SIMULATED_TRAFFIC,
+                              provider="replay engine")
+            provenance.record("test.geometry", status=provenance.SCHEMATIC,
+                              provider="layout generator")
+            snapshot = provenance.snapshot()
+
+            self.assertEqual(snapshot["simulated"], ["test.traffic"])
+            self.assertEqual(snapshot["schematic"], ["test.geometry"])
+            self.assertEqual(snapshot["counts"][provenance.SIMULATED_TRAFFIC], 1)
+            self.assertEqual(snapshot["counts"][provenance.SCHEMATIC], 1)
+
+            # Neither is trusted like a measurement, and neither is worthless:
+            # a schematic twin is built from measured counts.
+            self.assertLess(provenance.STATE_CONFIDENCE[provenance.SIMULATED_TRAFFIC],
+                            provenance.STATE_CONFIDENCE[provenance.STALE])
+            self.assertLess(provenance.STATE_CONFIDENCE[provenance.SCHEMATIC],
+                            provenance.STATE_CONFIDENCE[provenance.STALE])
+            self.assertGreater(provenance.STATE_CONFIDENCE[provenance.SCHEMATIC],
+                               provenance.STATE_CONFIDENCE[provenance.UNAVAILABLE])
+        finally:
+            provenance.reset()
+            for name, row in before.items():
+                provenance.record(name, status=row["status"], provider=row.get("provider", ""),
+                                  detail=row.get("detail", ""),
+                                  observed_at=row.get("observed_at"),
+                                  fetched_at=row.get("fetched_at"))
+
+    def test_the_operations_modules_share_that_vocabulary(self):
+        """One definition, imported -- not three copies that can drift apart."""
+        from src.portwatch_os.fleet.company import SOURCE_SIMULATED
+        from src.portwatch_os.twin.state import GEOMETRY_SCHEMATIC
+        from src.utils import provenance
+
+        self.assertEqual(SOURCE_SIMULATED, provenance.SIMULATED_TRAFFIC)
+        self.assertEqual(GEOMETRY_SCHEMATIC, provenance.SCHEMATIC)
+
     def test_root_advertises_the_health_endpoint(self):
         payload = client.get("/").json()
         self.assertEqual(payload["health"], "/api/health")

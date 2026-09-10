@@ -10,7 +10,20 @@ each source carries an explicit state:
     STALE         real provider data, but older than the freshness budget --
                   usable with a reduced confidence, and labelled as such
     SYNTHETIC     modelled or generated stand-in; never presented as measured
+    SIMULATED_TRAFFIC
+                  vessel movement produced by this application's replay engine.
+                  Generated, like SYNTHETIC, but named separately because it is
+                  drawn on a chart where a reader will assume it is observed AIS
+    SCHEMATIC     geometry generated from real counts and capacities. The numbers
+                  are measured; the arrangement is not a survey
     UNAVAILABLE   the source failed and no usable fallback exists
+
+The last two exist because the operations layer draws two things that look
+observed and are not -- vessels on the water and a port in three dimensions --
+and "synthetic" is too weak a word for something a viewer will take for real.
+They live here rather than in those modules so there is exactly one vocabulary:
+:mod:`src.portwatch_os.fleet.company` and :mod:`src.portwatch_os.twin.state`
+import these constants instead of carrying their own strings.
 
 Each record also carries the two timestamps that matter operationally --
 ``observed_at`` (when the world produced the data) and ``fetched_at`` (when we
@@ -34,6 +47,8 @@ LIVE = "LIVE"
 CACHED_LIVE = "CACHED_LIVE"
 STALE = "STALE"
 SYNTHETIC = "SYNTHETIC"
+SIMULATED_TRAFFIC = "SIMULATED_TRAFFIC"
+SCHEMATIC = "SCHEMATIC"
 UNAVAILABLE = "UNAVAILABLE"
 
 #: Retained so older call sites keep working.
@@ -45,6 +60,13 @@ STATE_CONFIDENCE: Dict[str, float] = {
     CACHED_LIVE: 0.90,
     STALE: 0.55,
     SYNTHETIC: 0.30,
+    # A replay engine is internally consistent and deterministic, so a model may
+    # reason over it -- but it is not an observation, and it is trusted no more
+    # than any other generated stand-in.
+    SIMULATED_TRAFFIC: 0.30,
+    # The counts a schematic twin is built from are measured, which is why this
+    # sits above SYNTHETIC: the arrangement is generated, the envelope is not.
+    SCHEMATIC: 0.45,
     UNAVAILABLE: 0.00,
 }
 
@@ -165,6 +187,7 @@ def _normalise_status(status: str) -> str:
     return {
         "LIVE": LIVE, "CACHE": CACHED_LIVE, "CACHED": CACHED_LIVE,
         "SYNTHETIC": SYNTHETIC, "STALE": STALE,
+        "SIMULATED": SIMULATED_TRAFFIC, "REPLAY": SIMULATED_TRAFFIC,
     }.get(key, UNAVAILABLE)
 
 
@@ -200,12 +223,15 @@ def snapshot() -> dict:
         "readiness": readiness_score(),
         "counts": {
             state: len(by_status(state))
-            for state in (LIVE, CACHED_LIVE, STALE, SYNTHETIC, UNAVAILABLE)
+            for state in (LIVE, CACHED_LIVE, STALE, SYNTHETIC,
+                          SIMULATED_TRAFFIC, SCHEMATIC, UNAVAILABLE)
         },
         "live": by_status(LIVE),
         "cached": by_status(CACHED_LIVE),
         "stale": by_status(STALE),
         "synthetic": by_status(SYNTHETIC),
+        "simulated": by_status(SIMULATED_TRAFFIC),
+        "schematic": by_status(SCHEMATIC),
         "unavailable": by_status(UNAVAILABLE),
         "sources": get_all(),
     }

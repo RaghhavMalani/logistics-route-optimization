@@ -10,9 +10,9 @@
 import { expect, killApi, seedSession, settle, test } from "../harness";
 
 const WORKSPACES: Array<[Parameters<typeof seedSession>[1], string]> = [
-  ["ADMIN", "/admin/radar"],
-  ["ADMIN", "/admin/data"],
-  ["PORT_OPERATOR", "/port/overview"],
+  ["NATIONAL_ADMIN", "/admin/radar"],
+  ["NATIONAL_ADMIN", "/admin/data"],
+  ["PORT_AUTHORITY", "/port/overview"],
   ["VESSEL_OPERATOR", "/vessel/overview"],
 ];
 
@@ -41,7 +41,7 @@ for (const [role, path] of WORKSPACES) {
 
 test("the top bar marks the service as down", async ({ context, page }) => {
   await killApi(context);
-  await seedSession(context, "ADMIN");
+  await seedSession(context, "NATIONAL_ADMIN");
   await page.goto("/admin/radar");
   await settle(page);
   await expect(page.getByText("API down")).toBeVisible({ timeout: 15_000 });
@@ -58,7 +58,7 @@ test("the sign-in screen reports an unreachable service", async ({ context, page
 test("a missing artefact is reported as missing, not as zero", async ({ context, page }) => {
   // The recorded fixtures carry no artefacts for this port, so the API answers
   // 404 exactly as the real one does for a port outside the run.
-  await seedSession(context, "ADMIN");
+  await seedSession(context, "NATIONAL_ADMIN");
   await page.goto("/port/overview");
   await settle(page);
   await page.getByRole("combobox", { name: "Select port" }).selectOption("INVTZ");

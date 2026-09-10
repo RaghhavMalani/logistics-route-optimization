@@ -16,6 +16,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
+import { AgentConsole } from "@/components/agent/AgentConsole";
 import { usePortContext, PortSwitcher } from "@/components/app/port-context";
 import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
 import {
@@ -165,6 +166,8 @@ function PortCockpitScreen() {
               <div className="pointer-events-auto flex items-center gap-2 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-[4px] backdrop-blur-[3px]">
                 <PortSwitcher className="w-[168px]" />
               </div>
+              {/* The command surface, collapsed. The chart stays the product. */}
+              <AgentConsole />
             </div>
 
             <div

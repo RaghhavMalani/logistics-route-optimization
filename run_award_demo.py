@@ -25,12 +25,13 @@ python run_award_demo.py --source sample --model baseline
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import pandas as pd
 
 from src.utils.config import (
-    DATE, PORT_ID, EXPERT_FEATURES_DIR, FORECASTS_DIR, REGIMES_DIR,
+    DATE, PORT_ID, EXPERT_FEATURES_DIR, FORECASTS_DIR, PROJECT_ROOT, REGIMES_DIR,
     FORECAST_HORIZON_DAYS, DemoConfig, ensure_dirs,
 )
 from src.utils.logging_utils import get_logger, section
@@ -426,6 +427,107 @@ def main() -> dict:
     export_cache()
     from backend.pipeline.export_support_cache import main as export_support
     export_support(event_catalogue=event_catalogue)
+
+    # ---------------------------------------------------------------- learn --
+    #
+    # The learning layer can only report what the ledger holds, so the pipeline
+    # loads its own walk-forward history into it: the forecast made at each
+    # origin, and the value the panel later observed. Real pairs, produced under
+    # the evaluation's own leakage discipline, so calibration and reliability
+    # have something to be computed from rather than an empty screen.
+    section(log, "LEARNING LEDGER")
+    try:
+        from src.portwatch_os.learning.backfill import backfill_forecasts
+        from src.portwatch_os.learning.outcome_agent import OutcomeAgent
+        from src.portwatch_os.ledger.store import get_ledger
+
+        ledger = get_ledger()
+        report = backfill_forecasts(ledger)
+        for note in report.notes:
+            log.info("%s", note)
+        if report.resolved:
+            outcome = OutcomeAgent(ledger).run()
+            overall = outcome.overall.continuous if outcome.overall else None
+            if overall:
+                log.info(
+                    "Scored %d resolved claims: MAE %.3f, bias %+.3f, "
+                    "interval coverage %.3f against a nominal %.2f.",
+                    overall.count, overall.mean_absolute_error or 0.0,
+                    overall.bias or 0.0, overall.interval_coverage or 0.0,
+                    overall.nominal_coverage or 0.0,
+                )
+            log.info(
+                "Reliability weights: %d fitted, %d moved on this pass.",
+                len(ledger.reliability()), len(outcome.reliability_updates),
+            )
+
+        # Commit a falsifiable claim per live event. This is what makes Global
+        # Eye scorable at all: the claim and its horizon go into the ledger
+        # before the world answers, and the outcome agent settles it when the
+        # horizon elapses -- including the case where nothing happened, which is
+        # a measured non-event rather than a missing row.
+        try:
+            from src.portwatch_os.global_eye.calibration import claims_for
+            from src.portwatch_os.global_eye.ingest import from_news_bundle
+            from src.portwatch_os.ledger.schema import utc_now
+
+            bundle_path = PROJECT_ROOT / "data" / "cache" / "news_bundle.json"
+            if bundle_path.exists():
+                with open(bundle_path, "r", encoding="utf-8") as handle:
+                    events, _ = from_news_bundle(json.load(handle))
+                issued = utc_now()
+                claims = 0
+                for claim in claims_for(events, issued_at=issued):
+                    try:
+                        ledger.record_event_outcome(claim)
+                        claims += 1
+                    except Exception:  # noqa: BLE001 - a settled claim is not rewritten
+                        continue
+                log.info(
+                    "Global Eye: %d event claims committed with their horizons. "
+                    "Calibration stays unavailable until they resolve.",
+                    claims,
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Event claims skipped: %s", exc)
+
+        # Train a candidate policy in the digital twin and put it through the
+        # promotion gate. It is recorded whatever the verdict: a rejected policy
+        # with its reasons is the evidence that the gate does something.
+        try:
+            from src.portwatch_os.twin.promotion import promotion_pipeline
+            from src.portwatch_os.twin.rl import (
+                PortEnvironment,
+                ScenarioSpec,
+                benchmark as policy_benchmark,
+                default_policies,
+                train_bandit,
+            )
+
+            spec = ScenarioSpec(
+                arrivals=18, berth_count=6, horizon_hours=60,
+                yard_utilisation=0.72, weather_range=(0.0, 0.45),
+            )
+            environment = PortEnvironment(spec)
+            learner, training = train_bandit(environment, episodes=250)
+            bench = policy_benchmark(
+                environment, default_policies(learner.freeze()), episodes=40,
+            )
+            record, decision = promotion_pipeline(
+                ledger, bench,
+                candidate_policy_id="bandit",
+                name="Contextual bandit rule selection",
+                version="0.1.0",
+                environment=f"PortEnvironment/{spec.port_code}-{spec.berth_count}berth",
+                training=training.to_dict(),
+                training_seeds=training.seeds,
+            )
+            log.info("Policy %s: %s", record.state, decision.summary())
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Policy evaluation skipped: %s", exc)
+
+    except Exception as exc:  # noqa: BLE001 - the ledger is not load-bearing here
+        log.warning("Ledger backfill skipped: %s", exc)
 
     section(log, "READY")
     log.info("Model: %s | ports=%d | forecast rows=%d | source readiness=%.2f",

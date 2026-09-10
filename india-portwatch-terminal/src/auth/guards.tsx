@@ -72,7 +72,20 @@ export function PublicOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Roles permitted into each workspace root. */
-export const VESSEL_ACCESS: Role[] = ["VESSEL_OPERATOR", "ADMIN"];
-export const PORT_ACCESS: Role[] = ["PORT_OPERATOR", "ADMIN"];
-export const ADMIN_ACCESS: Role[] = ["ADMIN"];
+/**
+ * Roles permitted into each workspace root.
+ *
+ * A shipping company reaches the vessel workspace because a fleet desk drills
+ * into one of its own ships; it does not reach the port workspace, because a
+ * carrier has no business inside a port authority's control room. National
+ * command reaches everything, which is the only reason the "view as" switcher
+ * can exist.
+ */
+export const VESSEL_ACCESS: Role[] = [
+  "VESSEL_OPERATOR",
+  "SHIPPING_COMPANY",
+  "NATIONAL_ADMIN",
+];
+export const COMPANY_ACCESS: Role[] = ["SHIPPING_COMPANY", "NATIONAL_ADMIN"];
+export const PORT_ACCESS: Role[] = ["PORT_AUTHORITY", "NATIONAL_ADMIN"];
+export const ADMIN_ACCESS: Role[] = ["NATIONAL_ADMIN"];

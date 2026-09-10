@@ -169,7 +169,7 @@ async function drawnLines(
 
 test.describe("rendered routes", () => {
   test("the corridors the chart draws are water-only", async ({ context, page }) => {
-    await seedSession(context, "ADMIN");
+    await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/radar");
     await settle(page);
     await page.waitForFunction(

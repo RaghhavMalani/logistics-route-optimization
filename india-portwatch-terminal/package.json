@@ -5,15 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "node qa/stop-preview.mjs && vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:browser": "playwright test",
+    "test:browser:ci": "playwright test --project=desktop-1920 --project=laptop-1366",
     "test:browser:ui": "playwright test --ui",
-    "qa:fixtures": "node qa/capture-fixtures.mjs"
+    "qa:fixtures": "node qa/capture-fixtures.mjs",
+    "preview:stop": "node qa/stop-preview.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -48,6 +50,7 @@
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
     "@tanstack/router-plugin": "^1.168.18",
+    "@types/three": "^0.185.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -65,6 +68,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
+    "three": "^0.186.0",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",

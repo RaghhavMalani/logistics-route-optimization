@@ -9,12 +9,17 @@
  * one thing that actually changes them.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useClockState } from "@/components/app/traffic-context";
+import { useClockState, useTraffic } from "@/components/app/traffic-context";
 import type { MapLabel, MapView } from "@/components/map/MaritimeMap";
 import type { LayerKey } from "@/components/map/basemap";
-import { buildStormCells, buildWeatherRaster } from "@/components/map/weather-layers";
+import type { WeatherRaster } from "@/components/map/weather-layers";
+import {
+  buildCompositeRaster,
+  buildStormCells,
+  buildWeatherRaster,
+} from "@/components/map/weather-layers";
 import { CHOKEPOINTS } from "@/lib/maritime/chokepoints";
 import { anchorageRadiusKm, seawardBearing } from "@/lib/maritime/port-geometry";
 import type { NavStatus, VesselClass, VesselFix } from "@/lib/maritime/traffic-types";
@@ -28,6 +33,19 @@ import type { PortSnapshot } from "@/types/portwatch";
 import { bearingLine, circleRing, sectorRing } from "@/components/map/geometry";
 
 /* ---------------------------------------------------------------- layers -- */
+
+/**
+ * How finely the weather raster follows the forecast cursor.
+ *
+ * The frame beneath it is interpolated between forecast days, so half an hour of
+ * cursor movement is below the resolution of the data. Rebuilding for less than
+ * that spends a per-pixel interpolation and a PNG encode to produce the same
+ * image.
+ */
+const RASTER_QUANTUM_HOURS = 0.5;
+
+/** Cached rasters. A full forecast span at the quantum above fits inside this. */
+const RASTER_CACHE_LIMIT = 400;
 
 export const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   traffic: true,
@@ -188,12 +206,15 @@ export interface WorkspaceMap {
   vesselFilter: (fix: VesselFix) => boolean;
   filterActive: boolean;
 
-  weatherField: WeatherFieldKey;
-  setWeatherField: (key: WeatherFieldKey) => void;
+  /** Null means the composite. A key means a single-field comparison view. */
+  weatherField: WeatherFieldKey | null;
+  setWeatherField: (key: WeatherFieldKey | null) => void;
   timeline: ReturnType<typeof buildWeatherTimeline>;
   frame: WeatherFrame;
-  raster: ReturnType<typeof buildWeatherRaster>;
+  raster: ReturnType<typeof buildCompositeRaster>;
   storms: ReturnType<typeof buildStormCells>;
+  /** The frame three hours behind, from which storm motion is inferred. */
+  previousFrame: WeatherFrame | null;
   showWind: boolean;
   setShowWind: (on: boolean) => void;
 
@@ -226,6 +247,8 @@ export function useWorkspaceMap(options: {
   /** Layers this workspace overrides at mount. */
   layerOverrides?: Partial<Record<LayerKey, boolean>>;
   initialSelectedPort?: string | null;
+  /** Start on a single field instead of the composite. */
+  weatherField?: WeatherFieldKey | null;
 } = {}): WorkspaceMap {
   const { ports: enrichedPorts, query: portsQuery } = useEnrichedPorts();
   const weatherQuery = useWeather();
@@ -288,7 +311,18 @@ export function useWorkspaceMap(options: {
     isolate !== null || classes.size !== ALL_CLASSES.length || statuses.size !== ALL_STATUSES.length;
 
   /* --------------------------------------------------------------- weather -- */
-  const [weatherField, setWeatherField] = useState<WeatherFieldKey>("precipitation");
+  /**
+   * The environment layer is a composite by default.
+   *
+   * `weatherField` still exists because the port weather screen compares one
+   * variable across ports, and a composite there would be the wrong tool. On a
+   * map-first workspace it is null, and the raster carries precipitation, wind
+   * and severity together -- an operator should not have to discover that it is
+   * blowing by switching away from the rain.
+   */
+  const [weatherField, setWeatherField] = useState<WeatherFieldKey | null>(
+    options.weatherField ?? null,
+  );
   const [showWind, setShowWind] = useState(true);
 
   const timeline = useMemo(
@@ -303,14 +337,88 @@ export function useWorkspaceMap(options: {
     ? timeline.from + offsetHours * 3_600_000
     : clockState.at + offsetHours * 3_600_000;
 
+  // Tell the clock how far the forecast actually reaches, so the scrubber and
+  // the play control cannot run past the data.
+  const clock = useTraffic().clock;
+  useEffect(() => {
+    if (!timeline.available) return;
+    clock.setMaxOffsetHours(
+      Math.max(6, Math.round((timeline.to - timeline.from) / 3_600_000)),
+    );
+  }, [clock, timeline.available, timeline.from, timeline.to]);
+
   const frame = useMemo(() => timeline.frameAt(weatherAt), [timeline, weatherAt]);
 
-  const raster = useMemo(
-    () => (layers.weather ? buildWeatherRaster(frame, weatherField) : null),
-    [frame, layers.weather, weatherField],
+  // The previous frame, so storm motion can be inferred from the risk trend
+  // rather than invented. Three hours back: long enough for a cell to have
+  // moved, short enough that it is the same cell.
+  const previousFrame = useMemo(
+    () => (timeline.available ? timeline.frameAt(weatherAt - 3 * 3_600_000) : null),
+    [timeline, weatherAt],
   );
 
-  const storms = useMemo(() => buildStormCells(frame), [frame]);
+  /**
+   * The raster is the expensive part of the frame and the least sensitive to a
+   * few minutes of cursor movement.
+   *
+   * Building it is a per-pixel inverse-distance interpolation over every station
+   * followed by a PNG encode. The frame underneath is interpolated between
+   * forecast *days*, so two cursor positions half an hour apart produce visually
+   * identical output -- rebuilding for both is pure cost. So the raster is keyed
+   * on a quantised offset and cached: scrubbing back over ground already covered
+   * is free, and the play loop pays for each half-hour once instead of on every
+   * throttled tick.
+   *
+   * Everything else -- the read-out, the storm cells, the port values -- still
+   * follows the un-quantised cursor, so nothing an operator reads is coarsened.
+   */
+  const rasterOffsetHours =
+    Math.round(offsetHours / RASTER_QUANTUM_HOURS) * RASTER_QUANTUM_HOURS;
+  const rasterAt = timeline.available
+    ? timeline.from + rasterOffsetHours * 3_600_000
+    : clockState.at + rasterOffsetHours * 3_600_000;
+
+  const rasterCache = useRef<{
+    timeline: unknown;
+    field: WeatherFieldKey | null;
+    entries: Map<number, WeatherRaster | null>;
+  }>({ timeline: null, field: null, entries: new Map() });
+
+  const raster = useMemo(() => {
+    if (!layers.weather) return null;
+    const store = rasterCache.current;
+    // Invalidated here rather than in an effect. An effect runs *after* the
+    // render that changed the timeline, so the first render with new weather
+    // data would be served a raster built from the old one -- which is how an
+    // empty legend appears on a screen whose data has just arrived.
+    if (store.timeline !== timeline || store.field !== weatherField) {
+      store.timeline = timeline;
+      store.field = weatherField;
+      store.entries = new Map();
+    }
+
+    const hit = store.entries.get(rasterOffsetHours);
+    if (hit !== undefined) return hit;
+
+    const built = weatherField
+      ? buildWeatherRaster(timeline.frameAt(rasterAt), weatherField)
+      : buildCompositeRaster(timeline.frameAt(rasterAt));
+    // Bounded: a full forecast span at this quantum is a few hundred entries,
+    // and each is one small PNG data URL. Oldest out first.
+    if (store.entries.size >= RASTER_CACHE_LIMIT) {
+      const oldest = store.entries.keys().next();
+      if (!oldest.done) store.entries.delete(oldest.value);
+    }
+    store.entries.set(rasterOffsetHours, built);
+    return built;
+    // `timeline` and `rasterAt` are the frame's inputs; `frame` itself is not,
+    // because the raster deliberately runs on the quantised cursor.
+  }, [layers.weather, rasterAt, rasterOffsetHours, timeline, weatherField]);
+
+  const storms = useMemo(
+    () => buildStormCells(frame, previousFrame),
+    [frame, previousFrame],
+  );
 
   /* ----------------------------------------------------------- selections -- */
   const [selectedPortCode, setSelectedPortCode] = useState<string | null>(
@@ -386,6 +494,7 @@ export function useWorkspaceMap(options: {
     frame,
     raster,
     storms,
+    previousFrame,
     showWind,
     setShowWind,
     data,
