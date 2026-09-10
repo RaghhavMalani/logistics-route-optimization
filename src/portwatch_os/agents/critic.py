@@ -80,6 +80,11 @@ class CriticVerdict:
     def failed(self) -> List[CriticCheck]:
         return [c for c in self.checks if not c.passed]
 
+    @property
+    def failed_checks(self) -> List[str]:
+        """Names of the checks that did not pass. What a caller asks for first."""
+        return [c.name for c in self.failed]
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "verdict": self.verdict,
@@ -90,7 +95,7 @@ class CriticVerdict:
                 None if self.adjusted_confidence is None
                 else round(self.adjusted_confidence, 3)
             ),
-            "failedChecks": [c.name for c in self.failed],
+            "failedChecks": self.failed_checks,
             "ranAt": self.ran_at,
         }
 

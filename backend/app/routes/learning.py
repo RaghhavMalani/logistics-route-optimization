@@ -271,6 +271,27 @@ def learning_calibration() -> Dict[str, Any]:
     }
 
 
+@router.post("/learning/backfill")
+def backfill(payload: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
+    """Load the pipeline's walk-forward history into the ledger.
+
+    The pipeline does this at the end of a run. Exposed here so a deployment
+    whose ledger is empty can be filled without a full pipeline pass, and so the
+    demo can show the loop closing on screen.
+    """
+    from src.portwatch_os.learning.backfill import backfill_forecasts
+
+    ledger = get_ledger()
+    report = backfill_forecasts(ledger, limit=int(payload.get("limit") or 4000))
+    outcome = None
+    if report.resolved:
+        outcome = OutcomeAgent(ledger).run()
+    return {
+        "backfill": report.to_dict(),
+        "outcome": outcome.to_dict() if outcome else None,
+    }
+
+
 @router.post("/learning/run")
 def run_outcome_pass(payload: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
     """Run the outcome agent: resolve, score, attribute, recalibrate.

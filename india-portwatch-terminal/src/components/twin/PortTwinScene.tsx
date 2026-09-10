@@ -146,11 +146,50 @@ export function PortTwinScene({
     scene.fog = new THREE.Fog(0x061420, 2200, 5200);
 
     const [extentX, extentY] = state.extentM;
-    const camera = new THREE.PerspectiveCamera(42, width / height, 10, 12000);
-    // Looking down the quay from seaward and above: the angle a controller
-    // recognises from a terminal plan, not a video-game chase camera.
-    camera.position.set(extentX * 0.62, extentY * 1.35, -extentY * 1.15);
-    camera.lookAt(extentX * 0.45, 0, extentY * 0.4);
+
+    // The terminal's actual footprint, rather than the state's nominal extent.
+    // The extent is a generous bounding box; framing the camera and sizing the
+    // apron to it left a third of the picture as empty concrete, which reads as
+    // a rendering fault rather than as a quiet port.
+    const xs = [
+      ...state.berths.map((b) => b.x),
+      ...state.yardBlocks.map((b) => b.x + b.width_m / 2),
+      ...state.yardBlocks.map((b) => b.x - b.width_m / 2),
+      ...state.sheds.map((b) => b.x),
+    ];
+    const zs = [
+      ...state.yardBlocks.map((b) => b.y + b.depth_m / 2),
+      ...state.sheds.map((b) => b.y + b.depth_m / 2),
+      ...state.gates.map((g) => g.y),
+    ];
+    const longestBerth = Math.max(200, ...state.berths.map((b) => b.length_m));
+    const minX = Math.min(...xs) - longestBerth * 0.6;
+    const maxX = Math.max(...xs) + longestBerth * 0.6;
+    const maxZ = Math.max(extentY * 0.5, ...zs) + 120;
+    const spanX = Math.max(600, maxX - minX);
+    const centreX = (minX + maxX) / 2;
+    const centreZ = maxZ * 0.42;
+
+    const camera = new THREE.PerspectiveCamera(46, width / height, 10, 14000);
+    // Seaward and about 35 degrees above the horizon.
+    //
+    // Steeper than this and the terminal flattens into a pattern of rectangles;
+    // shallower and the yard blocks occlude each other and the quay leaves the
+    // frame. The distance is set so the full quay length fits the horizontal
+    // field of view at the widest port in the registry.
+    // Far enough back that the whole quay fits the horizontal field of view,
+    // whatever the port's size, rather than a distance tuned to one of them.
+    const horizontalHalfFov = Math.atan(
+      Math.tan((46 * Math.PI) / 360) * Math.max(1, width / height),
+    );
+    const fitDistance = (spanX * 0.62) / Math.tan(horizontalHalfFov);
+    const elevation = (36 * Math.PI) / 180;
+    camera.position.set(
+      centreX,
+      Math.max(400, fitDistance * Math.sin(elevation)),
+      centreZ - fitDistance * Math.cos(elevation),
+    );
+    camera.lookAt(centreX, 0, centreZ);
 
     scene.add(new THREE.AmbientLight(0xb8d4e4, 0.62));
     const sun = new THREE.DirectionalLight(0xffffff, 0.85);
@@ -168,29 +207,66 @@ export function PortTwinScene({
       return item;
     };
 
-    /* -- water and quay ------------------------------------------------- */
+    /* -- water, quay and the edge between them --------------------------- */
+    //
+    // The harbour reads as a harbour only if the water is obviously water. A
+    // smoother, slightly metallic plane catches the directional light where the
+    // matte apron does not, which is the whole difference between "a port" and
+    // "boxes on a ground plane".
     const water = new THREE.Mesh(
-      track(new THREE.PlaneGeometry(extentX * 2.4, extentY * 2.4)),
-      track(new THREE.MeshStandardMaterial({ color: WATER, roughness: 0.35, metalness: 0.1 })),
+      track(new THREE.PlaneGeometry(extentX * 3, extentY * 3)),
+      track(
+        // Enough sheen to read as water, not so much that the sun leaves a
+        // specular blob competing with the terminal for attention.
+        new THREE.MeshStandardMaterial({
+          color: WATER, roughness: 0.42, metalness: 0.18,
+        }),
+      ),
     );
     water.rotation.x = -Math.PI / 2;
-    water.position.set(extentX * 0.4, -1.5, extentY * 0.2);
+    water.position.set(centreX, -2, -extentY * 0.5);
     scene.add(water);
 
     const apron = new THREE.Mesh(
-      track(new THREE.BoxGeometry(extentX, 6, extentY * 0.95)),
-      track(new THREE.MeshStandardMaterial({ color: QUAY, roughness: 0.9 })),
+      track(new THREE.BoxGeometry(spanX, 7, maxZ)),
+      track(new THREE.MeshStandardMaterial({ color: QUAY, roughness: 0.95 })),
     );
-    apron.position.set(extentX / 2 - 100, 3, extentY * 0.45);
+    apron.position.set(centreX, 3.5, maxZ / 2 - 10);
     scene.add(apron);
+
+    // The quay edge. One bright line is what tells a reader where the land
+    // stops, and it is the reference every berth is read against.
+    const edge = new THREE.Mesh(
+      track(new THREE.BoxGeometry(spanX, 9, 5)),
+      track(new THREE.MeshStandardMaterial({ color: 0x7d8b96, roughness: 0.7 })),
+    );
+    edge.position.set(centreX, 5, -8);
+    scene.add(edge);
+
+    // Bollards along the edge, spaced by berth. Small, but they give the quay a
+    // scale the eye can use.
+    const bollard = track(new THREE.CylinderGeometry(3.5, 4.5, 11, 8));
+    const bollardMaterial = track(
+      new THREE.MeshStandardMaterial({ color: 0x94a3ad, roughness: 0.6 }),
+    );
+    for (const berth of state.berths) {
+      for (const offset of [-berth.length_m * 0.35, 0, berth.length_m * 0.35]) {
+        const post = new THREE.Mesh(bollard, bollardMaterial);
+        post.position.set(berth.x + offset, 11, -4);
+        scene.add(post);
+      }
+    }
 
     /* -- berths --------------------------------------------------------- */
     for (const berth of state.berths) {
+      // A shallow slab set into the apron rather than a block on top of it: a
+      // berth is a stretch of quay, and drawing it as a raised box made the
+      // quay look like a row of platforms.
       const mesh = new THREE.Mesh(
-        track(new THREE.BoxGeometry(berth.length_m * 0.86, 10, 46)),
+        track(new THREE.BoxGeometry(berth.length_m * 0.9, 4, 54)),
         track(new THREE.MeshStandardMaterial({ color: IDLE, roughness: 0.8 })),
       );
-      mesh.position.set(berth.x, 9, 24);
+      mesh.position.set(berth.x, 8.5, 26);
       mesh.userData.kind = "berth";
       mesh.userData.id = berth.berth_id;
       scene.add(mesh);
@@ -218,16 +294,36 @@ export function PortTwinScene({
       // A hull alongside, so an occupied berth reads as occupied at a glance.
       if (berth.occupied_by) {
         const hull = new THREE.Mesh(
-          track(new THREE.BoxGeometry(berth.length_m * 0.8, 34, 44)),
-          track(new THREE.MeshStandardMaterial({ color: 0x4a6a80, roughness: 0.7 })),
+          track(new THREE.BoxGeometry(berth.length_m * 0.82, 30, 46)),
+          track(new THREE.MeshStandardMaterial({ color: 0x3d5c72, roughness: 0.65 })),
         );
-        hull.position.set(berth.x, 18, -32);
+        hull.position.set(berth.x, 13, -42);
         scene.add(hull);
-        const house = new THREE.Mesh(
-          track(new THREE.BoxGeometry(38, 26, 34)),
-          track(new THREE.MeshStandardMaterial({ color: 0x93aec0, roughness: 0.6 })),
+
+        // Deck cargo. Two rows of stacked boxes read as a container ship at a
+        // glance where a bare hull reads as a barge.
+        const boxGeometry = track(new THREE.BoxGeometry(24, 13, 13));
+        const boxMaterial = track(
+          new THREE.MeshStandardMaterial({ color: 0x9a6f52, roughness: 0.85 }),
         );
-        house.position.set(berth.x + berth.length_m * 0.28, 46, -32);
+        const bays = Math.max(3, Math.round(berth.length_m / 46));
+        for (let bay = 0; bay < bays; bay += 1) {
+          for (const lane of [-13, 0, 13]) {
+            const box = new THREE.Mesh(boxGeometry, boxMaterial);
+            box.position.set(
+              berth.x - berth.length_m * 0.34 + bay * (berth.length_m * 0.68 / bays),
+              34,
+              -42 + lane,
+            );
+            scene.add(box);
+          }
+        }
+
+        const house = new THREE.Mesh(
+          track(new THREE.BoxGeometry(34, 30, 40)),
+          track(new THREE.MeshStandardMaterial({ color: 0xa8c0cf, roughness: 0.55 })),
+        );
+        house.position.set(berth.x + berth.length_m * 0.32, 43, -42);
         scene.add(house);
       }
     }
@@ -246,10 +342,10 @@ export function PortTwinScene({
         }
       }
       const boom = new THREE.Mesh(
-        track(new THREE.BoxGeometry(9, 5, 132)),
+        track(new THREE.BoxGeometry(9, 5, 150)),
         legMaterial,
       );
-      boom.position.set(0, 80, -34);
+      boom.position.set(0, 80, -46);
       group.add(boom);
       const gantry = new THREE.Mesh(
         track(new THREE.BoxGeometry(40, 9, 34)),
@@ -258,7 +354,9 @@ export function PortTwinScene({
       gantry.position.set(0, 84, 0);
       group.add(gantry);
 
-      group.position.set(crane.x, 6, 8);
+      // Sat on the quay just inboard of the edge, with the boom reaching out
+      // over the water where a vessel would be worked.
+      group.position.set(crane.x, 7, 14);
       group.userData.kind = "crane";
       group.userData.id = crane.crane_id;
       scene.add(group);
@@ -384,11 +482,12 @@ export function PortTwinScene({
         track(new THREE.MeshStandardMaterial({ color: 0x7a5f52, roughness: 0.8 })),
       );
       // Ranked seaward in the order they will be served, so the anchorage
-      // reads as a queue rather than as scatter.
+      // reads as a queue rather than as scatter. Far enough off the quay that
+      // it is unmistakably at anchor rather than alongside.
       hull.position.set(
-        200 + (index % 4) * 460,
-        13,
-        -300 - Math.floor(index / 4) * 190,
+        minX + spanX * (0.16 + (index % 4) * 0.22),
+        11,
+        -520 - Math.floor(index / 4) * 240,
       );
       scene.add(hull);
       pickables.push({
@@ -451,14 +550,14 @@ export function PortTwinScene({
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
-    const target = new THREE.Vector3(extentX * 0.45, 0, extentY * 0.4);
+    const target = new THREE.Vector3(centreX, 0, centreZ);
     const spherical = new THREE.Spherical().setFromVector3(
       camera.position.clone().sub(target),
     );
 
     const applyCamera = () => {
       spherical.phi = Math.max(0.18, Math.min(Math.PI / 2 - 0.06, spherical.phi));
-      spherical.radius = Math.max(extentX * 0.35, Math.min(extentX * 2.6, spherical.radius));
+      spherical.radius = Math.max(spanX * 0.3, Math.min(spanX * 2.8, spherical.radius));
       camera.position.copy(target).add(new THREE.Vector3().setFromSpherical(spherical));
       camera.lookAt(target);
     };
