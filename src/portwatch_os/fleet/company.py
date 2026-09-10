@@ -25,7 +25,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.global_eye.exposure import TRADE_LANES, VesselVoyage
-from src.utils import port_registry
+from src.utils import port_registry, provenance
 
 COMPANY_DISCLAIMER = (
     "Demo carrier. PortWatch Demo Shipping is a fictional operator created so "
@@ -35,10 +35,10 @@ COMPANY_DISCLAIMER = (
     "account interface is the seam a licensed fleet or AIS provider plugs into."
 )
 
-#: Where positions come from. Mirrors the terminal's traffic-source vocabulary
-#: so the status strip can say the same thing about a company fleet as about the
-#: national picture.
-SOURCE_SIMULATED = "SIMULATED_TRAFFIC"
+#: Where positions come from. Taken from the provenance vocabulary rather than
+#: written out here, so a company fleet, the national picture and the pipeline's
+#: own registry cannot drift into describing the same thing three ways.
+SOURCE_SIMULATED = provenance.SIMULATED_TRAFFIC
 SOURCE_LIVE_AIS = "LIVE_AIS"
 SOURCE_PROVIDER = "FLEET_PROVIDER"
 

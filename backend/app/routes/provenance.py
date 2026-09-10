@@ -1,8 +1,12 @@
 """Data provenance endpoint.
 
-Exposes, source by source, whether the twin is running on live measurements,
-cached measurements, stale measurements or a synthetic stand-in -- including the
+Exposes, source by source, which of the honesty states a source is in -- live,
+cached, stale, synthetic, simulated traffic, schematic or unavailable -- with the
 observation and fetch timestamps, the age and the confidence each state earns.
+
+The states come from :mod:`src.utils.provenance`, which is the only place they
+are defined. A reader comparing this payload with what a screen says should find
+the same word in both.
 """
 
 from __future__ import annotations

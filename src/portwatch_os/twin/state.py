@@ -25,10 +25,12 @@ import math
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from src.utils import port_registry
+from src.utils import port_registry, provenance
 
-#: What the geometry is. Rendered as a standing banner on every 3D surface.
-GEOMETRY_SCHEMATIC = "SCHEMATIC"
+#: What the geometry is. Rendered as a standing banner on every 3D surface. The
+#: schematic state comes from the provenance vocabulary: one set of words for
+#: everything in this system that looks observed and is not.
+GEOMETRY_SCHEMATIC = provenance.SCHEMATIC
 GEOMETRY_SURVEYED = "SURVEYED"
 
 SCHEMATIC_DISCLAIMER = (
