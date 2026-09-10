@@ -56,6 +56,9 @@ export const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   ports: true,
   corridors: true,
   routes: true,
+  // Consequence is drawn only when a cascade is open, so the layer starts off
+  // and the world stays legible until somebody asks it a question.
+  cascade: false,
   tracks: true,
   vectors: true,
   chokepoints: true,

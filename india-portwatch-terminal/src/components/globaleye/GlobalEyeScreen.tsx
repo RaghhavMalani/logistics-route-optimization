@@ -1,117 +1,56 @@
 /**
- * The Global Eye workspace, shared by all three roles that get one.
+ * Global Eye: the world, and what is happening to it.
  *
- * The layout is the same everywhere because the question is the same -- what is
- * happening, and what does it do to me. What changes is the `scope`:
+ * This screen used to be a map with a 300px register down one side and a 350px
+ * inspector down the other, both filled with 9px tables. That is a dashboard
+ * that happens to contain a map, and it reads as static however live the data
+ * underneath it is.
  *
- *   national   every event, ranked by severity × corroboration.
- *   company    filtered to events that reach this fleet, with vessel exposure.
- *   port       filtered to events that reach this port.
+ * The arrangement here is different in one specific way: **the geography is the
+ * explanation**. Selecting an event does not fill a panel with rows -- it plays
+ * the consequence across the water. The threatened chokepoint lights, the lanes
+ * that genuinely transit it draw, the exposed hulls come up, and the ports the
+ * delay lands on take a ring whose size is the pressure the engine computed.
+ * The panels that remain are an action queue and an evidence drawer, and both
+ * are narrow, capped, and dismissible.
  *
- * Map-first, like every other primary surface. Events sit on the chart at their
- * chokepoint or their reported position, with the corridor from the chokepoint
- * to each exposed port drawn as water. The register and the impact chain are
- * floating panels, so the geography stays the thing being read.
+ * Two rules hold:
+ *
+ * *   **Nothing here computes consequence.** Every magnitude, every colour
+ *     weight and every ring radius is read from a cascade the server produced.
+ * *   **Time is one control.** Scrubbing the transport re-queries the same
+ *     temporal graph, so a lapsed event visibly stops reaching anything rather
+ *     than being filtered out by the client.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useWorkspace } from "@/auth/AuthProvider";
-import { EmptyNote, FloatPanel, PanelSection, PanelTabs } from "@/components/command/panels";
+import { useAuth, useWorkspace } from "@/auth/AuthProvider";
+import { EmptyNote, FloatPanel } from "@/components/command/panels";
 import { TimeTransport } from "@/components/command/TimeTransport";
 import { EnvironmentLegend } from "@/components/command/TrafficFilters";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
-import { Pill, formatUtc } from "@/components/kit/primitives";
+import { Pill } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
-import { CHOKEPOINT_BY_CODE } from "@/lib/maritime/chokepoints";
-import { seaRoute } from "@/lib/maritime/searoutes";
+import { cascadeLayers } from "@/lib/maritime/cascade-layers";
 import { cn } from "@/lib/utils";
-import { useEventImpact, useGlobalEvents, useGlobalExposure } from "@/services/os-hooks";
-import type { EventImpact, GlobalEvent } from "@/types/portwatch-os";
 import {
-  ActionList,
-  EventRow,
-  ImpactChain,
-  PortExposureRow,
-  ProbabilityBadge,
-  SourceList,
-  VesselExposureRow,
-  exposureTone,
-  groupTone,
-  severityTone,
-} from "./EventPanels";
+  useAttention,
+  useAttentionItem,
+  useWorldCascade,
+  useWorldCascades,
+} from "@/services/os-hooks";
+import type { AttentionItem, WorldCascade } from "@/types/portwatch-os";
+
+import { ActionRail } from "./ActionRail";
+import { EvidenceDrawer } from "./EvidenceDrawer";
+import { useCascadeReveal } from "./useCascadeReveal";
 
 export type GlobalEyeScope = "national" | "company" | "port";
 
-/**
- * Event and corridor geometry for the chart.
- *
- * Corridors are catalogue legs from the chokepoint to each exposed port, so a
- * line's length on the chart is the length of the passage it represents. An
- * event with no mapped chokepoint contributes a marker and no corridor, and the
- * panel says how many those are.
- */
-function eventGeometry(impacts: EventImpact[], selectedId: string | null) {
-  const events: GeoJSON.Feature[] = [];
-  const routes: GeoJSON.Feature[] = [];
-  let unroutable = 0;
-
-  for (const impact of impacts) {
-    const focused = selectedId === null || impact.eventId === selectedId;
-    if (impact.coordinates) {
-      events.push({
-        type: "Feature",
-        properties: {
-          id: impact.eventId,
-          title: impact.title,
-          severity: impact.severity,
-          color:
-            impact.severity >= 0.7 ? "#d05a4c"
-              : impact.severity >= 0.45 ? "#d3a02f" : "#4c9fcb",
-          opacity: focused ? 0.95 : 0.35,
-        },
-        geometry: {
-          type: "Point",
-          coordinates: [impact.coordinates.lon, impact.coordinates.lat],
-        },
-      });
-    }
-
-    if (!focused) continue;
-    for (const chokepoint of impact.chokepoints) {
-      const choke = CHOKEPOINT_BY_CODE.get(chokepoint);
-      if (!choke?.waypointId) continue;
-      for (const port of impact.ports.slice(0, 5)) {
-        const route = seaRoute(choke.waypointId, port.portCode);
-        if (!route) {
-          unroutable += 1;
-          continue;
-        }
-        routes.push({
-          type: "Feature",
-          properties: {
-            part: "exposure",
-            id: `${impact.eventId}-${port.portCode}`,
-            color:
-              port.exposure >= 0.55 ? "#d05a4c"
-                : port.exposure >= 0.3 ? "#d3a02f" : "#4c9fcb",
-            width: 0.9 + port.exposure * 2.4,
-            opacity: 0.3 + port.exposure * 0.5,
-            label: `${choke.name} → ${port.portCode} · exposure ${port.exposure.toFixed(2)}`,
-          },
-          geometry: { type: "LineString", coordinates: route.path.coords },
-        });
-      }
-    }
-  }
-
-  return {
-    events: { type: "FeatureCollection" as const, features: events },
-    routes: { type: "FeatureCollection" as const, features: routes },
-    unroutable,
-  };
-}
+/** The horizons the projection offers, in hours from now. */
+const PROJECTION_OFFSETS = [0, 3, 6, 12, 24, 48, 72] as const;
 
 export function GlobalEyeScreen({
   scope,
@@ -122,121 +61,175 @@ export function GlobalEyeScreen({
   title: string;
   portCode?: string | null;
 }) {
-  const { companyId } = useWorkspace();
   const workspace = useWorkspaceMap({
-    layerOverrides: { events: true, routes: true },
+    layerOverrides: { events: true, routes: true, cascade: true },
   });
-  const scopedCompany = scope === "company" ? companyId : null;
+  const { identityHeaders } = useAuth();
 
-  const exposure = useGlobalExposure({
-    companyId: scopedCompany,
-    portCode: scope === "port" ? portCode : null,
-    limit: 24,
-  });
-  const events = useGlobalEvents({ limit: 60 });
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [projectionHours, setProjectionHours] = useState(0);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"chain" | "vessels" | "sources">("chain");
+  // The instant the whole world is queried at. One control, one clock: the
+  // cascade, the attention queue and the map all read the same moment.
+  const at = useMemo(() => {
+    if (projectionHours === 0) return null;
+    return new Date(Date.now() + projectionHours * 3_600_000).toISOString();
+  }, [projectionHours]);
 
-  const impacts = exposure.data?.impacts ?? [];
-  const selected = useMemo(
-    () => impacts.find((i) => i.eventId === selectedId) ?? impacts[0] ?? null,
-    [impacts, selectedId],
+  const cascades = useWorldCascades(at);
+  const attention = useAttention(identityHeaders, at, 5);
+
+  const live = useMemo(
+    () => (cascades.data?.cascades ?? []).filter((c) => c.live),
+    [cascades.data],
   );
 
-  const geometry = useMemo(
-    () => eventGeometry(impacts, selected?.eventId ?? null),
-    [impacts, selected?.eventId],
+  // Default to the worst live cascade so the screen opens with the world
+  // already saying something, rather than waiting to be asked.
+  useEffect(() => {
+    if (selectedEventId || live.length === 0) return;
+    setSelectedEventId(live[0].eventId);
+  }, [live, selectedEventId]);
+
+  const cascade = useWorldCascade(selectedEventId, identityHeaders, at);
+  const reveal = useCascadeReveal(
+    selectedEventId ? `${selectedEventId}@${projectionHours}` : null,
   );
 
-  const portRisk = exposure.data?.portRisk ?? {};
-  const rankedPorts = useMemo(
-    () => Object.values(portRisk).sort((a, b) => b.risk - a.risk),
-    [portRisk],
+  const affected = cascade.data?.affected;
+  const layers = useMemo(
+    () => cascadeLayers(affected, reveal.reveal),
+    [affected, reveal.reveal],
   );
 
-  if (exposure.isLoading || exposure.isError) {
+  const detail = useAttentionItem(
+    evidenceOpen ? selectedAttentionId : null,
+    identityHeaders,
+    at,
+  );
+
+  /** Selecting an item drives the world: subject, cascade and camera. */
+  const selectItem = useCallback(
+    (item: AttentionItem) => {
+      setSelectedAttentionId(item.attentionId);
+      const eventId = item.cascadeId.split(":").pop() ?? null;
+      if (eventId && eventId !== selectedEventId) setSelectedEventId(eventId);
+      if (item.subjectType === "vessel") {
+        workspace.setSelectedVesselId(item.subjectId);
+      }
+      if (item.subjectType === "port") {
+        workspace.setSelectedPortCode(item.subjectId);
+      }
+      const subject = [
+        ...(affected?.ports ?? []),
+        ...(affected?.chokepoints ?? []),
+      ].find((s) => s.id === item.subjectId);
+      if (subject?.lat != null && subject?.lon != null) {
+        workspace.flyTo([subject.lon, subject.lat], 4.4);
+      }
+    },
+    [affected, selectedEventId, workspace],
+  );
+
+  const inspect = useCallback(
+    (item: AttentionItem) => {
+      selectItem(item);
+      setEvidenceOpen(true);
+    },
+    [selectItem],
+  );
+
+  if (cascades.isLoading || cascades.isError) {
     return (
       <ScreenFallback
         title={title}
-        context={<span>World events and their maritime exposure</span>}
-        isLoading={exposure.isLoading}
-        error={exposure.error}
-        retry={() => void exposure.refetch()}
-        label="Building the exposure graph"
+        context={<span>World events and their maritime consequence</span>}
+        isLoading={cascades.isLoading}
+        error={cascades.error}
+        retry={() => void cascades.refetch()}
+        label="Propagating world consequence"
       />
     );
   }
 
-  const ingest = exposure.data?.ingest;
-  const calibrated = exposure.data?.calibrationAvailable ?? false;
-  const unclassified = ingest?.unclassified ?? 0;
+  const totals = cascade.data?.totals ?? {};
+  const selectedCascade = cascade.data;
 
   return (
     <div className="absolute inset-0">
       <h1 className="sr-only">{title}</h1>
 
       <MaritimeMap
-        layers={{ ...workspace.layers, events: true, routes: true }}
+        layers={{ ...workspace.layers, events: true, routes: true, cascade: true }}
         data={{
           ...workspace.data,
-          events: geometry.events,
-          routes: geometry.routes,
+          cascade: layers.cascade,
+          rings: layers.rings,
         }}
         weatherRaster={workspace.raster}
         windFrame={workspace.frame}
         showWind={workspace.showWind && workspace.layers.weather}
         vesselFilter={workspace.vesselFilter}
+        focusIds={layers.focusIds.size ? layers.focusIds : null}
+        selectedVesselId={workspace.selectedVesselId}
+        onSelectVessel={workspace.setSelectedVesselId}
         labels={workspace.labels}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
         focus={workspace.focus}
         overlay={
           <>
-            {/* ------------------------------------------------- register -- */}
-            <div className="pointer-events-none absolute bottom-2.5 left-2.5 top-2.5 z-20 flex w-[300px] flex-col gap-2">
+            {/* ---------------------------------------------- action rail -- */}
+            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex w-[286px] flex-col gap-2">
               <FloatPanel
-                title="Event register"
+                title="Action required"
                 note={
                   <span className="num">
-                    {impacts.length} of {ingest?.events ?? 0}
+                    {attention.data?.actionable ?? 0}/{attention.data?.total ?? 0}
                   </span>
                 }
-                className="min-h-0 flex-1"
-                testId="event-register"
+                testId="action-rail"
+                className="pointer-events-auto"
                 footer={
-                  <>
-                    {ingest?.rawItems ?? 0} feed items merged into {ingest?.events ?? 0} events
-                    {unclassified
-                      ? `; ${unclassified} carried no maritime-relevant classification`
-                      : ""}
-                    .{" "}
-                    {calibrated
-                      ? "Probabilities are calibrated against resolved outcomes."
-                      : "No calibrated probability yet: severity and corroboration are shown instead."}
-                  </>
+                  "Ranked by the loss attention can still prevent: consequence × " +
+                  "confidence × urgency, cut when no option remains."
                 }
               >
-                {impacts.length === 0 ? (
+                <ActionRail
+                  items={attention.data?.items ?? []}
+                  total={attention.data?.total ?? 0}
+                  selectedId={selectedAttentionId}
+                  onSelect={selectItem}
+                  onInspect={inspect}
+                  loading={attention.isLoading}
+                />
+              </FloatPanel>
+
+              {/* ------------------------------------------- world events -- */}
+              <FloatPanel
+                title="Live consequence"
+                note={<span className="num">{live.length}</span>}
+                testId="cascade-register"
+                className="pointer-events-auto"
+              >
+                {live.length === 0 ? (
                   <EmptyNote>
-                    No event in the current feed reaches this scope. That is a measured
-                    absence, not a missing feed — {ingest?.events ?? 0} events were
-                    ingested.
+                    No event in the register propagates consequence at this
+                    instant. Scrub back toward now to see live events.
                   </EmptyNote>
                 ) : (
-                  impacts.map((impact) => (
-                    <EventRow
-                      key={impact.eventId}
-                      event={impact}
-                      exposure={impact.worstExposure || null}
-                      selected={selected?.eventId === impact.eventId}
+                  live.slice(0, 6).map((row) => (
+                    <CascadeRow
+                      key={row.eventId}
+                      row={row}
+                      selected={row.eventId === selectedEventId}
                       onSelect={() => {
-                        setSelectedId(impact.eventId);
-                        if (impact.coordinates) {
-                          workspace.flyTo(
-                            [impact.coordinates.lon, impact.coordinates.lat],
-                            4.6,
-                          );
+                        setSelectedEventId(row.eventId);
+                        setSelectedAttentionId(null);
+                        if (row.lat != null && row.lon != null) {
+                          workspace.flyTo([row.lon, row.lat], 4.2);
                         }
                       }}
                     />
@@ -245,164 +238,199 @@ export function GlobalEyeScreen({
               </FloatPanel>
             </div>
 
+            {/* ------------------------------------------------- evidence -- */}
+            {evidenceOpen && selectedAttentionId ? (
+              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[330px] flex-col">
+                <FloatPanel
+                  title="Why this"
+                  className="pointer-events-auto min-h-0 flex-1"
+                  scroll={false}
+                  testId="evidence-panel"
+                  footer="Every line is a step the engine ran, including the ones it refused."
+                >
+                  {detail.isLoading ? (
+                    <p className="px-2 py-3 text-[10.5px] text-[var(--text-3)]">
+                      Reading the computation trail…
+                    </p>
+                  ) : (
+                    <EvidenceDrawer
+                      item={detail.data?.item ?? null}
+                      steps={detail.data?.evidence ?? []}
+                      narrative={detail.data?.narrative ?? []}
+                      onClose={() => setEvidenceOpen(false)}
+                    />
+                  )}
+                </FloatPanel>
+              </div>
+            ) : null}
+
+            {/* ------------------------------------------------- headline -- */}
+            {selectedCascade ? (
+              <div
+                className="pointer-events-none absolute left-1/2 top-2.5 z-20 w-[420px] -translate-x-1/2"
+                data-testid="cascade-headline"
+              >
+                <div className="rounded border border-[var(--line)] bg-[var(--surface)]/92 px-2.5 py-1.5 backdrop-blur">
+                  <p className="truncate text-[11px] font-medium text-[var(--text)]">
+                    {selectedCascade.title}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[9.5px] text-[var(--text-2)]">
+                    {totals.vessels ? (
+                      <span className="num" data-testid="total-vessels">
+                        {totals.vessels.value.toFixed(0)} vessels
+                      </span>
+                    ) : null}
+                    {totals.hours ? (
+                      <span className="num" data-testid="total-hours">
+                        {totals.hours.value.toFixed(0)} h aggregate shift
+                      </span>
+                    ) : null}
+                    {totals.ratio ? (
+                      <span className="num" data-testid="total-pressure">
+                        {(totals.ratio.value * 100).toFixed(0)}% yard pressure
+                      </span>
+                    ) : null}
+                    <span className="num ml-auto text-[var(--text-3)]">
+                      {affected?.lanes.length ?? 0} lanes · {affected?.ports.length ?? 0} ports
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {/* -------------------------------------------------- legend -- */}
-            <div className="pointer-events-none absolute bottom-2.5 left-[314px] z-20 w-[248px]">
+            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
               <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
             </div>
 
             {/* ----------------------------------------------- transport -- */}
-            <div className="pointer-events-none absolute bottom-2.5 left-[574px] right-[364px] z-20">
+            <div className="pointer-events-none absolute bottom-2.5 left-[266px] right-2.5 z-20 flex flex-col gap-1.5">
+              <ProjectionBar
+                hours={projectionHours}
+                onChange={setProjectionHours}
+                live={Boolean(selectedCascade?.live)}
+                playing={reveal.playing}
+                onPlay={reveal.play}
+                onReset={reveal.reset}
+              />
               <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
-            </div>
-
-            {/* ------------------------------------------------ inspector -- */}
-            <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[350px] flex-col gap-2">
-              {selected ? (
-                <FloatPanel
-                  title={selected.categoryLabel}
-                  note={<Pill tone={severityTone(selected.severity)}>
-                    sev {selected.severity.toFixed(2)}
-                  </Pill>}
-                  className="min-h-0 flex-1"
-                  scroll
-                  testId="event-inspector"
-                  footer={
-                    selected.geolocationBasis === "chokepoint_centroid"
-                      ? "Position is the chokepoint centroid, not a reported coordinate."
-                      : selected.geolocationBasis === "unlocated"
-                        ? "This event carries no position and is not drawn on the chart."
-                        : undefined
-                  }
-                >
-                  <div className="border-b border-[var(--line)] px-2 py-2">
-                    <p className="text-[12px] leading-snug text-[var(--text)]">
-                      {selected.title}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[9.5px] text-[var(--text-3)]">
-                      {selected.region ? <Pill tone="neutral">{selected.region}</Pill> : null}
-                      <span className="num">first seen {formatUtc(selected.firstSeen)}</span>
-                      <span className="num">last {formatUtc(selected.lastSeen)}</span>
-                      <span className="num" title="Recency weight applied to this event's exposure">
-                        decay {selected.decay.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="mt-2">
-                      <ProbabilityBadge event={selected} />
-                    </div>
-                  </div>
-
-                  <PanelTabs
-                    value={tab}
-                    onChange={setTab}
-                    tabs={[
-                      { value: "chain", label: "Chain" },
-                      { value: "vessels", label: "Vessels", count: selected.vessels.length },
-                      { value: "sources", label: "Sources", count: selected.sourceCount },
-                    ]}
-                  />
-
-                  {tab === "chain" ? (
-                    <>
-                      <ImpactChain impact={selected} />
-                      <PanelSection title="Ports exposed" right={`${selected.ports.length}`}>
-                        {selected.ports.length ? (
-                          selected.ports.map((port) => (
-                            <PortExposureRow key={port.portCode} row={port} />
-                          ))
-                        ) : (
-                          <EmptyNote>No Indian port is reached by an exposed lane.</EmptyNote>
-                        )}
-                      </PanelSection>
-                      <PanelSection title="Actions" right={`${selected.actions.length}`}>
-                        <ActionList actions={selected.actions} />
-                      </PanelSection>
-                      {selected.notes.length ? (
-                        <PanelSection title="What this does not say">
-                          <ul className="space-y-1">
-                            {selected.notes.map((note) => (
-                              <li
-                                key={note}
-                                className="text-[10px] leading-snug text-[var(--text-3)]"
-                              >
-                                {note}
-                              </li>
-                            ))}
-                          </ul>
-                        </PanelSection>
-                      ) : null}
-                    </>
-                  ) : null}
-
-                  {tab === "vessels" ? (
-                    selected.vessels.length ? (
-                      <div>
-                        {selected.vessels.map((vessel) => (
-                          <VesselExposureRow key={vessel.vesselId} row={vessel} />
-                        ))}
-                      </div>
-                    ) : (
-                      <EmptyNote>
-                        No fleet is in scope for this view, so vessel-level exposure is not
-                        computed. Sign in as a shipping company to see fleet exposure.
-                      </EmptyNote>
-                    )
-                  ) : null}
-
-                  {tab === "sources" ? (
-                    <PanelSection title="Reports" right={`${selected.reportCount}`}>
-                      <SourceList event={selected} />
-                    </PanelSection>
-                  ) : null}
-                </FloatPanel>
-              ) : (
-                <FloatPanel title="Exposure" className="min-h-0 flex-1">
-                  <EmptyNote>Select an event to trace its impact chain.</EmptyNote>
-                </FloatPanel>
-              )}
-
-              <FloatPanel
-                title="Ports by event risk"
-                note={<span className="num">{rankedPorts.length}</span>}
-                collapsible
-                defaultOpen={rankedPorts.length > 0}
-                className="max-h-[240px] shrink-0"
-                footer="Combined across live events with a noisy-OR, so two independent 0.50 exposures give 0.75 rather than certainty."
-              >
-                {rankedPorts.length ? (
-                  <div className="px-2 py-1">
-                    {rankedPorts.slice(0, 12).map((port) => (
-                      <div
-                        key={port.portCode}
-                        className="flex items-baseline gap-2 border-b border-[var(--line)]/50 py-[3px] last:border-0"
-                      >
-                        <span className="num w-[46px] shrink-0 text-[10.5px] text-[var(--text-2)]">
-                          {port.portCode}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text)]">
-                          {port.portName}
-                        </span>
-                        <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
-                          {port.events.length} ev
-                        </span>
-                        <span
-                          className={cn(
-                            "num shrink-0 text-[11px]",
-                            `text-[var(--${exposureTone(port.risk)})]`,
-                          )}
-                        >
-                          {port.risk.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyNote>No port carries measurable event risk right now.</EmptyNote>
-                )}
-              </FloatPanel>
             </div>
           </>
         }
       />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ rows -- */
+
+function CascadeRow({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: WorldCascade;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      data-testid="cascade-row"
+      data-event={row.eventId}
+      className={cn(
+        "w-full border-b border-[var(--line)] px-2 py-1.5 text-left transition-colors",
+        "hover:bg-[var(--surface-2)]",
+        selected && "bg-[var(--surface-2)]",
+      )}
+    >
+      <p className="truncate text-[10.5px] text-[var(--text)]">{row.title}</p>
+      <div className="mt-0.5 flex items-center gap-2 text-[9px] text-[var(--text-3)]">
+        <span className="num">{row.nodeCount} affected</span>
+        {row.totals?.vessels ? (
+          <span className="num">{row.totals.vessels.value.toFixed(0)} hulls</span>
+        ) : null}
+      </div>
+    </button>
+  );
+}
+
+/**
+ * PROJECT 72H.
+ *
+ * Each offset re-queries the same temporal graph. Nothing here predicts: an
+ * event past its claim horizon simply stops reaching anything, and the operator
+ * watches the consequence drain rather than being shown a second model's
+ * opinion of the future.
+ */
+function ProjectionBar({
+  hours,
+  onChange,
+  live,
+  playing,
+  onPlay,
+  onReset,
+}: {
+  hours: number;
+  onChange: (hours: number) => void;
+  live: boolean;
+  playing: boolean;
+  onPlay: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div
+      className="pointer-events-auto flex items-center gap-1 rounded border border-[var(--line)] bg-[var(--surface)]/92 px-1.5 py-1 backdrop-blur"
+      data-testid="projection-bar"
+    >
+      <span className="mr-1 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        Project
+      </span>
+      {PROJECTION_OFFSETS.map((offset) => (
+        <button
+          key={offset}
+          type="button"
+          data-testid="projection-offset"
+          data-offset={offset}
+          data-active={hours === offset}
+          onClick={() => onChange(offset)}
+          className={cn(
+            "num rounded px-1.5 py-0.5 text-[10px] transition-colors",
+            hours === offset
+              ? "bg-[var(--accent)] text-[var(--surface)]"
+              : "text-[var(--text-2)] hover:bg-[var(--surface-2)]",
+          )}
+        >
+          {offset === 0 ? "NOW" : `+${offset}h`}
+        </button>
+      ))}
+
+      <span className="mx-1 h-3 w-px bg-[var(--line)]" />
+
+      <button
+        type="button"
+        data-testid="play-cascade"
+        onClick={onPlay}
+        disabled={playing}
+        className="rounded px-1.5 py-0.5 text-[10px] text-[var(--text-2)] hover:bg-[var(--surface-2)] disabled:opacity-40"
+      >
+        {playing ? "Playing" : "Play cascade"}
+      </button>
+      <button
+        type="button"
+        data-testid="reset-cascade"
+        onClick={onReset}
+        className="rounded px-1.5 py-0.5 text-[10px] text-[var(--text-2)] hover:bg-[var(--surface-2)]"
+      >
+        Reset
+      </button>
+
+      <span className="ml-auto" data-testid="projection-state">
+        <Pill tone={live ? "info" : "neutral"}>
+          {live ? "propagating" : "no consequence"}
+        </Pill>
+      </span>
     </div>
   );
 }

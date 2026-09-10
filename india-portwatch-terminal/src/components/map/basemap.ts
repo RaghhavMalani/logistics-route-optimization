@@ -72,6 +72,7 @@ const RUNTIME_SOURCES = [
   "chokepoints",
   "events",
   "rings",
+  "cascade",
 ] as const;
 
 export type RuntimeSource = (typeof RUNTIME_SOURCES)[number];
@@ -318,6 +319,54 @@ export function buildStyle(): StyleSpecification {
         },
       },
 
+      /* --------------------------------------------------------- cascade -- */
+      /*
+       * Consequence drawn on the water. Width and opacity are data-driven from
+       * the magnitude the World State Engine computed, so a heavier lane is
+       * heavier because the engine said so rather than because a designer
+       * picked a thickness.
+       *
+       * `reveal` is the animation channel: the screen raises it from 0 to 1
+       * once when a cascade is opened, and leaves it there. Nothing pulses on
+       * a loop -- a control room that blinks permanently is a control room
+       * whose operators stop seeing the blinking.
+       */
+      {
+        id: "cascade-halo",
+        type: "line",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "lane"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["*", ["get", "width"], 2.6],
+          "line-opacity": ["*", ["get", "opacity"], 0.18],
+          "line-blur": 3,
+        },
+      },
+      {
+        id: "cascade-lane",
+        type: "line",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "lane"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["get", "width"],
+          "line-opacity": ["get", "opacity"],
+        },
+      },
+      {
+        id: "cascade-flow",
+        type: "line",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "flow"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["get", "width"],
+          "line-opacity": ["get", "opacity"],
+          "line-dasharray": [1.5, 3],
+        },
+      },
+
       /* ---------------------------------------------------------- tracks -- */
       {
         id: "track-line",
@@ -490,6 +539,7 @@ export const LAYER_GROUPS = {
   vectors: ["vector-line"],
   chokepoints: ["chokepoint-mark"],
   events: ["event-mark"],
+  cascade: ["cascade-halo", "cascade-lane", "cascade-flow"],
   zones: ["zone-fill", "zone-edge", "zone-channel"],
   graticule: ["graticule-line"],
 } as const;
