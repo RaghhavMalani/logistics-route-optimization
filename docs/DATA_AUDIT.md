@@ -4,7 +4,7 @@ Field by field: what is measured, what is derived, what is a proxy, and what is
 absent. If a reviewer wants to attack a number, this page tells them where to
 aim — which is the point.
 
-Last reviewed: 2026-09-08.
+Last reviewed: 2026-09-10.
 
 ---
 
@@ -16,6 +16,17 @@ Enforced in three places: `src/utils/provenance.py` (the state machine, with
 automatic downgrade), `backend/app/routes/*` (nullable fields, 503 on missing
 artefacts) and the terminal's `Value` component (renders `n/a`, never a
 stand-in). `scripts/verify_artefacts.py` fails the build if any of it slips.
+
+The vocabulary every layer speaks:
+
+```
+LIVE · CACHED_LIVE · STALE · SYNTHETIC · SIMULATED_TRAFFIC · SCHEMATIC · UNAVAILABLE
+```
+
+`SIMULATED_TRAFFIC` and `SCHEMATIC` were added in this cycle. They exist because
+the operations layer draws two things that look observed and are not — vessels on
+the water, and a port in three dimensions — and "synthetic" was too weak a word
+for something a viewer will assume is real.
 
 ---
 
@@ -138,16 +149,180 @@ was a constant with a knob on it. It now propagates against the live forecast.
 
 ---
 
+## Vessel traffic
+
+Added in this cycle, and the single easiest thing in the product to mistake for a
+measurement.
+
+| Field | Status | Basis |
+|---|---|---|
+| Vessel position, course, speed | **Simulated** | Deterministic replay from a seeded schedule over the routing graph. Not an observation of any vessel |
+| Vessel identity, name, operator | **Fictional** | Generated. `imo` is `null` rather than a plausible-looking number |
+| Track history | **Simulated** | The replay engine's own past steps |
+| Voyage origin, destination, ETA | **Demo** | Constructed against the real port registry, so the geography is right and the voyage is not |
+| Traffic density | **Simulated** | A count of simulated vessels, not a traffic measurement |
+
+Every surface that renders traffic carries `SIMULATED_TRAFFIC`. The replay engine
+sits behind a `TrafficSource` interface
+(`india-portwatch-terminal/src/lib/maritime/traffic-source.ts`); a licensed feed
+is an implementation of it, and nothing above the interface changes.
+
+### What is real about it
+
+The **water** is. The routing graph guarantees a vessel is on navigable water and
+transits the chokepoints its lane actually transits, so exposure computed against
+these positions exercises the real graph. The graph is non-navigational: it
+guarantees water, not a passage plan, and says so.
+
+---
+
+## Port digital twin
+
+> **SCHEMATIC DIGITAL TWIN — NOT A SURVEYED PORT PLAN**
+
+The banner is not dismissible and does not scroll away.
+
+| Field | Status | Basis |
+|---|---|---|
+| Berth count | **Measured** | Port registry |
+| Capacity index | **Measured** | Port registry |
+| Berth occupancy | **Derived** | Queue pressure from the observed snapshot |
+| Yard utilisation | **Derived** | Capacity pressure, weighted toward the quay |
+| Queue length | **Derived** | The anchorage census proxy plus the run's arrival rate |
+| Crane move rates | **Modelled** | Published equipment envelopes, not one terminal's measured productivity |
+| Berth positions, yard block and shed layout, crane rail, gates, anchorage | **Schematic** | Generated from berth count and capacity index |
+| Vessel size mix, exact arrival times | **Modelled** | Seeded from the measured count; the individual vessels are not real calls |
+| Weather derating curve | **Modelled** | Zero throughput above impact 0.62 — a modelled cut-off, not a measured one |
+| Yard friction curve | **Modelled** | Quadratic re-handle cost above 0.80 utilisation, floored at 0.45 |
+| Gang size | **Modelled** | Roughly one crane per 90 m of LOA, capped at five |
+
+The layout **scales off two real numbers**, so a large port gets a large twin and
+a feeder port does not — but the arrangement is generated and the twin is not a
+survey of any terminal. Seeding is deterministic: free-times derive from the berth
+index rather than `hash()`, which is salted per process and would make two runs of
+the same snapshot differ.
+
+### What the simulator guarantees
+
+Not accuracy — **determinism and constraint enforcement**. The same inputs produce
+byte-identical metrics, so two policies can be compared; and a vessel too long or
+too deep for a berth is refused whatever a policy asks for, with the reason
+recorded in `rejected_actions`. Those are the two properties a policy benchmark
+needs to mean anything, and they are what the tests hold it to.
+
+---
+
+## Cargo and transshipment
+
+| Field | Status | Basis |
+|---|---|---|
+| Shipments, TEU, commodity, cut-offs | **Demo** | Generated. Carries `CARGO_DISCLAIMER` on every response |
+| Connection feasibility | **Computed** | Handling hours against the departure cut-off, berth compatibility, yard headroom |
+| Unplaced reasons | **Computed** | Every failing rule is collected, not just the first |
+| Plan value | **Computed** | The stated `VALUE_WEIGHTS`, applied identically to every candidate |
+
+The **rules are real and the data is not**. A commercial manifest feed would drive
+the same feasibility logic unchanged, which is the only claim being made here.
+
+---
+
+## Carrier accounts
+
+| Field | Status | Basis |
+|---|---|---|
+| Company name, fleet, voyages | **Fictional** | `fleet/company.py::demo_company` |
+| `imo` | **Absent** | `None`, deliberately — a fabricated IMO number is a fabricated vessel identity |
+| Exposure, deadlines, route options | **Computed** | The real exposure chain, run over the demo fleet |
+
+No real Maersk, MSC or CMA CGM voyage appears anywhere in this repository.
+`Company.from_provider` is the seam a real account integration fills.
+
+---
+
+## Advisories
+
+| Field | Status | Basis |
+|---|---|---|
+| The recommendation in a draft | **Computed** | The twin simulation that produced it, named in the record |
+| Critic verdict | **Computed** | Eight declared checks over the producing evidence |
+| State, transitions, timestamps, actor | **Recorded** | Append-only audit trail per advisory |
+| **Actor identity** | **Asserted, not verified** | Taken from the request session. `/api/advisories/policy` says so in its own response and names the function to replace |
+
+Nothing in an advisory reaches the recipient before a named human issues it. The
+draft state is invisible to the recipient, enforced server-side in
+`visible_to_recipient` rather than by hiding a route.
+
+---
+
+## Agents
+
+| Claim | Status |
+|---|---|
+| Numbers in an agent's answer | **Computed** by a named module. `ToolSpec.computed_by` is required and a test fails any tool shipped without one |
+| Agent autonomy | **None over real actions.** No agent holds an EXECUTE ceiling, and EXECUTE additionally requires a human-verified approval context an agent cannot construct |
+| Confidence | **Propagated**, bounded by the weakest link, never asserted. No evidence returns `None`, rendered as unknown |
+| Intent classification | **Keyword matching.** The product ships with no language model configured; the classifier seam is optional and its answer is validated against known intents |
+| Narration | Assembled from findings that name their source tool. A model may render it more fluently but cannot introduce a number the trace lacks |
+| Tool trace | **Recorded** per run: agent, tool, outcome, duration, computing module |
+
+A failed call and an *unavailable* one are distinguished. "The weather artefact
+has not been exported" is a state the product reports; "the weather tool crashed"
+is a defect.
+
+---
+
+## Events, exposure and calibration
+
+Extends the Events section above, for the Global Eye layer.
+
+| Field | Status | Basis |
+|---|---|---|
+| Event cluster | **Computed** | Merged only on category + anchor + 36h + headline overlap ≥ 0.34, all four |
+| Confidence | **Derived** | Distinct outlets, saturating; a second independent feed counts for more than a second newspaper |
+| Severity | **Heuristic** | A transparent word list, labelled as one on every surface. Maximum across a merged cluster, never the mean |
+| Location basis | **Declared** | `reported` / `chokepoint_centroid` / `port_location` / `unlocated`. An inferred centroid is not a geocode and the inspector says so |
+| Unclassified items | **Counted** | Items the classifier could not place are reported as a count, not forced into a category |
+| Lane exposure | **Computed** | `severity × confidence × recency_decay`, over the lane catalogue's actual chokepoints |
+| Detour distance and hours | **Computed** | The lane catalogue's alternative routing |
+| Port risk across events | **Computed** | Noisy-OR, so no pile-up of events reaches certainty |
+| Timing gate | **Computed** | A vessel within six hours of the strait is committed; `monitor`, never `divert` |
+| **Event probability** | **Currently unavailable** | 26 claims are committed with horizons and none has elapsed; the threshold is 20 resolved outcomes. The UI shows severity and corroboration and prints the reason |
+
+---
+
+## Learning
+
+| Field | Status | Basis |
+|---|---|---|
+| Resolved claims, MAE, bias, coverage | **Measured** | Scored against recorded observations. 4,000 resolved claims, MAE 6.33, coverage 0.881 against nominal 0.800 |
+| Ledger history | **Backfilled from the run's own walk-forward evaluation** | `outputs/forecasts/walk_forward_predictions.csv`, produced under that evaluation's leakage discipline. **Not** generated, and **not** the README's headline benchmark — a different panel and horizon set |
+| Error attribution | **Exact** | `y − predicted = Σ wᵢ(y − sᵢ)`, verified to close. Unavailable, with a reason, when the signals were not recorded |
+| Reliability weights | **Fitted** | Resolved rows only, behind an `as_of` barrier that *raises* on a leaking row rather than skipping it. Shrunk toward 1.0, clamped 0.35–1.60 |
+| Policy results | **Measured** | Held-out scenarios on seeds disjoint from training. Greedy lookahead +3.2%, greedy +3.0%, bandit +1.8% against FCFS |
+| Policy state | **Recorded** | The bandit is `REJECTED`: it beats FCFS by 5.6% but the best optimiser by only 0.8%, below the gate's threshold |
+| Decision take-up | **Measured** | `ACTION_NOT_TAKEN` is recorded as carefully as `ACTION_TAKEN`, and take-up is reported next to reward |
+
+A claim is written **before** its outcome exists, and `record_prediction` on a
+resolved row raises rather than warns. Rewriting a claim after seeing the answer
+is the most damaging thing a learning system can do to itself.
+
+---
+
 ## Absent by design
 
 | Claim not made | Why |
 |---|---|
-| Individual vessel positions | No commercial AIS licence. The map draws port-call aggregates and says so |
+| Observed individual vessel positions | No commercial AIS licence. What the map draws is a deterministic replay engine, labelled `SIMULATED_TRAFFIC` on every surface, behind the `TrafficSource` seam a real feed would fill |
 | SAR vessel detections, dark vessels | No Sentinel-1 scene ingestion. `/api/sar/feed-adapters` reports it `UNAVAILABLE`, confidence 0.0 |
 | Measured berth-wait times | Not published openly. The proxy is labelled everywhere |
 | Berth-level allocation | Operator-internal data |
 | Inference latency, throughput, PSI drift | The Model Intelligence screen previously displayed all three as fixed numbers. Removed — this deployment does not measure them |
 | Model cards for architectures we do not run | Removed. The pipeline reports the model it actually used |
+| Autonomous action by an agent | Structurally excluded, not merely unimplemented. See the Agents section |
+| A predicted probability that a world event occurs | Global Eye scores what an event *would do*, not whether it happens |
+| A forecast storm track or cone | Storm motion is inferred from the risk gradient between stations. The artefact carries no track |
+| Measured wind direction | The feed carries none. Monsoon climatology, labelled MODELLED wherever shown |
+| Significant wave height where the marine grid has no coverage | `null`, not a substituted sea state |
 
 ---
 
