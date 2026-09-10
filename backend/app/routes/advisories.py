@@ -310,15 +310,19 @@ def generate_advisories(
     from src.portwatch_os.twin.simulation import SimulationConfig, simulate
 
     state = build_state_for(port_code)
+    record = port_registry.resolve(port_code)
+    profile = resolve_company(None)
+    # Put the carrier's actual inbound vessels into the twin before simulating.
+    # The twin otherwise seeds synthetic calls whose ids share no namespace with
+    # the fleet, and an advisory can only name a vessel the simulated wait
+    # genuinely belongs to.
+    _seat_fleet_calls(state, profile, port_code)
     result = simulate(
         state, GreedyPolicy(),
         SimulationConfig(horizon_hours=24.0, record_trace=False),
         snapshot_hours=(),
     )
     final = result.final_state
-    record = port_registry.resolve(port_code)
-    profile = resolve_company(None)
-    fleet = profile.vessels if profile else []
 
     # The calls that actually waited. Anything under an hour is not worth an
     # advisory: the schedule buffer absorbs it and a controller's attention is
@@ -333,16 +337,31 @@ def generate_advisories(
     refused: List[Dict[str, Any]] = []
     store = get_advisory_store()
 
-    for index, call in enumerate(waited):
+    for call in waited:
         # Half the observed wait, capped at the advisory envelope. Arriving
         # later than the berth frees buys nothing, so the recommendation never
         # exceeds the wait it is removing.
         shift = round(min(call.wait_hours * 0.5, 12.0), 1)
-        vessel = fleet[index % len(fleet)] if fleet else None
+        # Identity, not array position. Pairing a waiting call with whichever
+        # fleet vessel happened to sit at the same index addressed the advisory
+        # to a vessel that had nothing to do with the wait it described.
+        vessel = profile.vessel(call.vessel_id) if profile else None
+        if vessel is None:
+            # A synthetic call the carrier does not operate. The port may still
+            # draft against it, but it is not sent to somebody else's ship.
+            refused.append({
+                "vesselId": call.vessel_id,
+                "reasons": [
+                    f"{call.name} is a simulated call with no vessel in the "
+                    "connected fleet, so there is no master to address."
+                ],
+                "checks": [],
+            })
+            continue
 
         recommendation = Recommendation(
             kind="arrival_advisory",
-            subject=vessel.vessel_id if vessel else call.vessel_id,
+            subject=vessel.vessel_id,
             action="restagger_arrival",
             values={
                 "arrivalShiftHours": shift,
@@ -373,7 +392,7 @@ def generate_advisories(
         advisory = Advisory(
             advisory_id=Advisory.make_id(
                 port_code,
-                vessel.vessel_id if vessel else call.vessel_id,
+                vessel.vessel_id,
                 "arrival_window",
                 created_at,
             ),
@@ -381,8 +400,8 @@ def generate_advisories(
             port_code=(record.locode if record else port_code),
             issuer="PortWatch decision engine",
             issuer_organisation=(record.authority if record else port_code),
-            recipient_vessel_id=vessel.vessel_id if vessel else call.vessel_id,
-            recipient_vessel_name=vessel.name if vessel else call.name,
+            recipient_vessel_id=vessel.vessel_id,
+            recipient_vessel_name=vessel.name,
             recipient_organisation=(profile.name if profile else "Unknown operator"),
             created_at=created_at,
             recommendation={
@@ -514,6 +533,36 @@ def advisory_audit(
         raise HTTPException(status_code=403, detail=str(exc))
     except AdvisoryError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+def _seat_fleet_calls(state, profile, port_code: str) -> None:
+    """Replace synthetic calls with the carrier's vessels bound for this port.
+
+    The twin seeds calls it invents, because a port's inbound list is not part
+    of the observed snapshot. Those calls carry ids like ``INMAA-SIM-01`` while
+    the fleet carries ``PWD-001``; they are separate namespaces and nothing
+    relates one to the other. Seating the real vessels on those calls is what
+    makes "this vessel is simulated to wait" a statement about that vessel.
+
+    The port's load is unchanged: a fleet vessel takes over an existing call
+    rather than being added alongside it.
+    """
+    from src.portwatch_os.twin.state import APPROACHING, WAITING
+
+    if profile is None:
+        return
+    inbound = [
+        v for v in profile.vessels
+        if (v.destination_port or "").upper() == port_code.upper()
+    ]
+    if not inbound:
+        return
+    seats = [c for c in state.calls if c.state in (WAITING, APPROACHING)]
+    for vessel, call in zip(inbound, seats):
+        call.vessel_id = vessel.vessel_id
+        call.name = vessel.name
+        call.loa_m = vessel.loa_m
+        call.draught_m = vessel.draught_m
 
 
 def _instant(epoch: Optional[str], hour: float) -> str:

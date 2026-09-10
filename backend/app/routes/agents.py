@@ -18,6 +18,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from src.portwatch_os.agents.orchestrator import INTENTS, AgentRun, CommandAgent
 from src.portwatch_os.agents.portwatch_tools import build_registry
 from src.portwatch_os.agents.tools import ACCESS_LEVELS, EXECUTE, PROPOSE
+from src.portwatch_os.roles import NATIONAL_ADMIN
 
 router = APIRouter()
 
@@ -86,7 +87,7 @@ def run_agent(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
 
     run = command_agent().run(
         question,
-        role=str(payload.get("role") or "ADMIN"),
+        role=str(payload.get("role") or NATIONAL_ADMIN),
         port_code=payload.get("portCode"),
         vessel_id=payload.get("vesselId"),
         company_id=payload.get("companyId"),

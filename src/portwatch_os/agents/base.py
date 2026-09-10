@@ -32,6 +32,7 @@ from src.portwatch_os.agents.tools import (
     ToolCall,
     ToolRegistry,
 )
+from src.portwatch_os.roles import NATIONAL_ADMIN
 
 #: What an agent concluded about its own output.
 COMPLETE = "complete"
@@ -229,7 +230,7 @@ class AgentRequest:
     event_id: Optional[str] = None
     horizon_hours: float = 72.0
     #: The role the answer is for. Changes emphasis, never the numbers.
-    role: str = "ADMIN"
+    role: str = NATIONAL_ADMIN
     #: Output from earlier agents in the same run.
     context: Dict[str, Any] = field(default_factory=dict)
 

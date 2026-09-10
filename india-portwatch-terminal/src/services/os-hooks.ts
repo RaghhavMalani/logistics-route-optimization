@@ -211,6 +211,11 @@ export const useAdvisoryPolicy = (): UseQueryResult<AdvisoryPolicy> =>
  * looking at the same port see different rows, and caching both under one key
  * would show one of them the other's view -- which for a draft advisory is
  * exactly the leak the workflow exists to prevent.
+ *
+ * The key therefore carries *every* field the server authorises on, not just
+ * the actor and role. Two identities sharing a role, or one session whose port
+ * or vessel scope changes, would otherwise read each other's rows straight out
+ * of the long-lived QueryClient without a request ever being made.
  */
 export const useAdvisories = (
   headers: Record<string, string>,
@@ -221,6 +226,10 @@ export const useAdvisories = (
       "advisories",
       headers["X-PortWatch-Actor"] ?? null,
       headers["X-PortWatch-Role"] ?? null,
+      headers["X-PortWatch-Org"] ?? null,
+      headers["X-PortWatch-Port"] ?? null,
+      headers["X-PortWatch-Vessels"] ?? null,
+      headers["X-PortWatch-Admin"] ?? null,
       params,
     ],
     queryFn: () => fetchAdvisories(headers, params),

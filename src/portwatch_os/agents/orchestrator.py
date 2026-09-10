@@ -51,6 +51,7 @@ from src.portwatch_os.agents.critic import (
 )
 from src.portwatch_os.agents.specialists import SPECIALISTS
 from src.portwatch_os.agents.tools import PROPOSE, ToolRegistry
+from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.utils.logging_utils import get_logger
 
 log = get_logger(__name__)
@@ -331,7 +332,7 @@ class CommandAgent:
         self,
         question: str,
         *,
-        role: str = "ADMIN",
+        role: str = NATIONAL_ADMIN,
         port_code: Optional[str] = None,
         vessel_id: Optional[str] = None,
         company_id: Optional[str] = None,

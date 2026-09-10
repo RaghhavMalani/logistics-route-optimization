@@ -41,7 +41,6 @@ router = APIRouter()
 _FALLBACK_EPOCH_MS = 1_787_896_800_000  # 2026-08-28T06:00:00Z
 
 
-@lru_cache(maxsize=4)
 def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile]:
     """The company account for this deployment.
 
@@ -49,20 +48,43 @@ def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile
     writes. Absent, the demo carrier is used and every payload carries the
     disclaimer saying so. There is no path where a fictional fleet is presented
     as a real one.
+
+    The result is cached on everything it actually reads, not on the company id
+    alone. Both of the other inputs move underneath a long-running process --
+    the provider rewrites its file, and the pipeline advances its forecast
+    origin -- and keying on the id alone pinned the first snapshot for the life
+    of the process, so the fleet clock drifted away from the port state shown
+    beside it.
     """
     provider_path = os.getenv("PORTWATCH_FLEET_PROVIDER")
     if provider_path and os.path.exists(provider_path):
-        import json
-
-        with open(provider_path, "r", encoding="utf-8") as handle:
-            profile = from_provider(json.load(handle))
-        if company_id and company_id != profile.company_id:
-            return None
-        return profile
+        try:
+            stamp = os.path.getmtime(provider_path)
+        except OSError:
+            stamp = None
+        return _from_provider_file(company_id, provider_path, stamp)
 
     if company_id and company_id != DEMO_COMPANY_ID:
         return None
-    return attach_etas(demo_company(), _epoch_ms())
+    return _demo_at(_epoch_ms())
+
+
+@lru_cache(maxsize=4)
+def _from_provider_file(
+    company_id: Optional[str], provider_path: str, stamp: Optional[float]
+) -> Optional[CompanyProfile]:
+    import json
+
+    with open(provider_path, "r", encoding="utf-8") as handle:
+        profile = from_provider(json.load(handle))
+    if company_id and company_id != profile.company_id:
+        return None
+    return profile
+
+
+@lru_cache(maxsize=4)
+def _demo_at(epoch_ms: int) -> CompanyProfile:
+    return attach_etas(demo_company(), epoch_ms)
 
 
 def _epoch_ms() -> int:
