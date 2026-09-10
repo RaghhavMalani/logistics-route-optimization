@@ -9,8 +9,8 @@ and learns from the difference.
 
 ```
 OBSERVE → UNDERSTAND → FORECAST → SIMULATE → DECIDE → ACT → LEARN
-                                                              │
-                    └─────────────────────────────────────────┘
+   ▲                                                            │
+   └────────────────────────────────────────────────────────────┘
 ```
 
 The last arrow is the one most systems leave out. Every claim this product makes
