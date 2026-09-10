@@ -48,6 +48,12 @@ test.describe("weather composite", () => {
     context,
     page,
   }) => {
+    // The only test here that waits on wall-clock animation: it plays the
+    // cursor, then pauses it and proves it stopped. Every step contends with an
+    // eight hundred vessel render loop on a software renderer, so it gets a
+    // longer budget rather than a shorter assertion -- the thing under test is
+    // that the animation really runs and really stops.
+    test.slow();
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/radar");
     await settle(page);

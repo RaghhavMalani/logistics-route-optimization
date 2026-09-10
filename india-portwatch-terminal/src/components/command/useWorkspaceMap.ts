@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useClockState, useTraffic } from "@/components/app/traffic-context";
 import type { MapLabel, MapView } from "@/components/map/MaritimeMap";
 import type { LayerKey } from "@/components/map/basemap";
+import type { WeatherRaster } from "@/components/map/weather-layers";
 import {
   buildCompositeRaster,
   buildStormCells,
@@ -32,6 +33,19 @@ import type { PortSnapshot } from "@/types/portwatch";
 import { bearingLine, circleRing, sectorRing } from "@/components/map/geometry";
 
 /* ---------------------------------------------------------------- layers -- */
+
+/**
+ * How finely the weather raster follows the forecast cursor.
+ *
+ * The frame beneath it is interpolated between forecast days, so half an hour of
+ * cursor movement is below the resolution of the data. Rebuilding for less than
+ * that spends a per-pixel interpolation and a PNG encode to produce the same
+ * image.
+ */
+const RASTER_QUANTUM_HOURS = 0.5;
+
+/** Cached rasters. A full forecast span at the quantum above fits inside this. */
+const RASTER_CACHE_LIMIT = 400;
 
 export const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   traffic: true,
@@ -343,12 +357,63 @@ export function useWorkspaceMap(options: {
     [timeline, weatherAt],
   );
 
+  /**
+   * The raster is the expensive part of the frame and the least sensitive to a
+   * few minutes of cursor movement.
+   *
+   * Building it is a per-pixel inverse-distance interpolation over every station
+   * followed by a PNG encode. The frame underneath is interpolated between
+   * forecast *days*, so two cursor positions half an hour apart produce visually
+   * identical output -- rebuilding for both is pure cost. So the raster is keyed
+   * on a quantised offset and cached: scrubbing back over ground already covered
+   * is free, and the play loop pays for each half-hour once instead of on every
+   * throttled tick.
+   *
+   * Everything else -- the read-out, the storm cells, the port values -- still
+   * follows the un-quantised cursor, so nothing an operator reads is coarsened.
+   */
+  const rasterOffsetHours =
+    Math.round(offsetHours / RASTER_QUANTUM_HOURS) * RASTER_QUANTUM_HOURS;
+  const rasterAt = timeline.available
+    ? timeline.from + rasterOffsetHours * 3_600_000
+    : clockState.at + rasterOffsetHours * 3_600_000;
+
+  const rasterCache = useRef<{
+    timeline: unknown;
+    field: WeatherFieldKey | null;
+    entries: Map<number, WeatherRaster | null>;
+  }>({ timeline: null, field: null, entries: new Map() });
+
   const raster = useMemo(() => {
     if (!layers.weather) return null;
-    return weatherField
-      ? buildWeatherRaster(frame, weatherField)
-      : buildCompositeRaster(frame);
-  }, [frame, layers.weather, weatherField]);
+    const store = rasterCache.current;
+    // Invalidated here rather than in an effect. An effect runs *after* the
+    // render that changed the timeline, so the first render with new weather
+    // data would be served a raster built from the old one -- which is how an
+    // empty legend appears on a screen whose data has just arrived.
+    if (store.timeline !== timeline || store.field !== weatherField) {
+      store.timeline = timeline;
+      store.field = weatherField;
+      store.entries = new Map();
+    }
+
+    const hit = store.entries.get(rasterOffsetHours);
+    if (hit !== undefined) return hit;
+
+    const built = weatherField
+      ? buildWeatherRaster(timeline.frameAt(rasterAt), weatherField)
+      : buildCompositeRaster(timeline.frameAt(rasterAt));
+    // Bounded: a full forecast span at this quantum is a few hundred entries,
+    // and each is one small PNG data URL. Oldest out first.
+    if (store.entries.size >= RASTER_CACHE_LIMIT) {
+      const oldest = store.entries.keys().next();
+      if (!oldest.done) store.entries.delete(oldest.value);
+    }
+    store.entries.set(rasterOffsetHours, built);
+    return built;
+    // `timeline` and `rasterAt` are the frame's inputs; `frame` itself is not,
+    // because the raster deliberately runs on the quantised cursor.
+  }, [layers.weather, rasterAt, rasterOffsetHours, timeline, weatherField]);
 
   const storms = useMemo(
     () => buildStormCells(frame, previousFrame),
