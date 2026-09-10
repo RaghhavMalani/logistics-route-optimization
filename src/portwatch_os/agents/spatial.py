@@ -44,6 +44,8 @@ SET_LENS = "SET_LENS"
 COMPARE_SCENARIOS = "COMPARE_SCENARIOS"
 #: Raise the attention queue, optionally filtered.
 SHOW_ATTENTION = "SHOW_ATTENTION"
+#: Drop the current selection and emphasis, returning the world to rest.
+CLEAR_CONTEXT = "CLEAR_CONTEXT"
 
 COMMANDS: Tuple[str, ...] = (
     FOCUS_EVENT,
@@ -56,7 +58,59 @@ COMMANDS: Tuple[str, ...] = (
     SET_LENS,
     COMPARE_SCENARIOS,
     SHOW_ATTENTION,
+    CLEAR_CONTEXT,
 )
+
+# --------------------------------------------------------------------------
+# safety classes
+# --------------------------------------------------------------------------
+
+#: Changes only what the operator is looking at. Reversible by looking
+#: elsewhere, and safe to run the moment an answer arrives.
+UI = "UI"
+#: Runs a model. Cheap, side-effect-free and still *not* automatic outside an
+#: explicit simulation context: a projection that ran because a sentence was
+#: phrased a certain way is a projection nobody asked for.
+SIMULATION = "SIMULATION"
+#: Reaches the world outside this screen -- an advisory to a master, a
+#: committed plan. Never automatic, at any confidence, under any phrasing.
+OPERATIONAL = "OPERATIONAL"
+
+SAFETY_CLASSES: Tuple[str, ...] = (UI, SIMULATION, OPERATIONAL)
+
+#: The classification is per command kind rather than per call, so a new
+#: command cannot be added without someone deciding which of these it is.
+#: :func:`safety_of` raises on an unclassified kind for exactly that reason.
+COMMAND_SAFETY: Dict[str, str] = {
+    FOCUS_EVENT: UI,
+    FOCUS_VESSEL: UI,
+    FOCUS_PORT: UI,
+    FOCUS_CHOKEPOINT: UI,
+    SHOW_CASCADE: UI,
+    SHOW_ROUTE: UI,
+    SET_TIME: UI,
+    SET_LENS: UI,
+    SHOW_ATTENTION: UI,
+    CLEAR_CONTEXT: UI,
+    # Branching the world is a model run, not a camera move.
+    COMPARE_SCENARIOS: SIMULATION,
+}
+
+
+def safety_of(kind: str) -> str:
+    """The safety class of a command kind.
+
+    Deliberately raises rather than defaulting. A command that fell through to
+    UI because nobody classified it would auto-execute, and the whole point of
+    this table is that adding a capability forces that decision.
+    """
+    try:
+        return COMMAND_SAFETY[kind]
+    except KeyError:
+        raise SpatialError(
+            f"{kind!r} has no safety class. Every command must be classified "
+            f"as one of {', '.join(SAFETY_CLASSES)} before it can be dispatched."
+        ) from None
 
 #: World lenses. A lens changes emphasis and what the agent reasons about; it
 #: never replaces the world with a page.
@@ -98,6 +152,24 @@ class SpatialCommand:
                 f"{self.subject!r} is not a lens; expected one of "
                 f"{', '.join(LENSES)}"
             )
+        # Constructing an unclassified command is refused here rather than at
+        # dispatch, so the mistake surfaces where it was made.
+        safety_of(self.kind)
+
+    @property
+    def safety(self) -> str:
+        return safety_of(self.kind)
+
+    @property
+    def auto_executable(self) -> bool:
+        """Whether a client may run this without asking anybody.
+
+        Only view changes. A simulation needs an explicit simulation context and
+        an operational action needs the human approval boundary that already
+        exists -- neither becomes automatic because the same object happens to
+        be called a "command".
+        """
+        return self.safety == UI
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -106,6 +178,8 @@ class SpatialCommand:
             "evidenceTool": self.evidence_tool,
             "reason": self.reason,
             "params": self.params,
+            "safety": self.safety,
+            "autoExecutable": self.auto_executable,
         }
 
 
@@ -213,7 +287,14 @@ def _port_of(call: ToolCall) -> Optional[str]:
 
 
 __all__ = [
+    "CLEAR_CONTEXT",
     "COMMANDS",
+    "COMMAND_SAFETY",
+    "OPERATIONAL",
+    "SAFETY_CLASSES",
+    "SIMULATION",
+    "UI",
+    "safety_of",
     "COMPARE_SCENARIOS",
     "CARGO",
     "FINANCIAL",
