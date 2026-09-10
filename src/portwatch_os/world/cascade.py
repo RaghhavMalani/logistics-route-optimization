@@ -128,11 +128,50 @@ class Cascade:
         return folded.get(unit)
 
     def explain(self, node_key: str) -> List[Step]:
-        """The steps that produced a node's quantities. Evidence Mode, directly."""
+        """The whole chain of inference that reached a node, seed first.
+
+        Not merely the last hop. "Why do you think MV Konkan is exposed?" is
+        answered by the route from the event to that hull -- the report, the
+        chokepoint it was classified onto, the lane catalogue that says this
+        routing transits it, and only then the timing that makes this particular
+        ship exposed. Showing the final step alone would answer a narrower
+        question than the one an operator is asking.
+
+        Walks backwards from the node through the steps that produced it, then
+        reverses, so the reader gets cause before effect. Cycles in the world are
+        real -- a vessel bound for a port that serves the lane it sails -- so
+        visited nodes are tracked rather than trusted not to recur.
+        """
         reached = self.reached.get(node_key)
         if reached is None:
             return []
-        return [self.steps[i] for i in reached.step_indices]
+
+        # Every step that landed on a given node, so ancestry can be walked.
+        landing: Dict[str, List[int]] = defaultdict(list)
+        for index, step in enumerate(self.steps):
+            landing[step.edge.dst].append(index)
+
+        chain: List[int] = []
+        seen_steps: set[int] = set()
+        seen_nodes: set[str] = set()
+        frontier = [node_key]
+        while frontier:
+            current = frontier.pop(0)
+            if current in seen_nodes:
+                continue
+            seen_nodes.add(current)
+            for index in landing.get(current, ()):
+                if index in seen_steps:
+                    continue
+                seen_steps.add(index)
+                chain.append(index)
+                source = self.steps[index].edge.src
+                if source != current:
+                    frontier.append(source)
+
+        # Depth first, then registration order: cause before effect.
+        chain.sort(key=lambda i: (self.steps[i].depth, i))
+        return [self.steps[i] for i in chain]
 
     def to_dict(self, *, include_steps: bool = True) -> Dict[str, Any]:
         payload: Dict[str, Any] = {

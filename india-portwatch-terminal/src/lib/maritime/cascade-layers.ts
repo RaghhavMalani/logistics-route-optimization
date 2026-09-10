@@ -162,6 +162,7 @@ export function cascadeRingFeatures(
       type: "Feature",
       geometry: { type: "Point", coordinates: point },
       properties: {
+        part: "ring",
         radius: 10 + weight * 16,
         color: CASCADE_COLOR.source,
         width: 1.4,
@@ -186,6 +187,7 @@ export function cascadeRingFeatures(
       type: "Feature",
       geometry: { type: "Point", coordinates: [port.lon, port.lat] },
       properties: {
+        part: "ring",
         radius: 9 + weight * 22,
         color: CASCADE_COLOR.landing,
         width: 1.6,
@@ -226,11 +228,22 @@ export function cascadeVesselEmphasis(
   return { focusIds, committedIds };
 }
 
-/** Everything the map needs for one cascade, in one pass. */
+/**
+ * Everything the map needs for one cascade, in one collection.
+ *
+ * Lanes and impact rings share the `cascade` source rather than borrowing
+ * `rings`, which the traffic layer already writes for own-vessel marks. Two
+ * writers on one source means whichever renders last wins, and it wins
+ * silently -- which is how the first version of this drew nothing at all.
+ */
 export function cascadeLayers(affected: CascadeAffected | undefined, reveal: number) {
+  const lanes = cascadeLaneFeatures(affected, reveal);
+  const rings = cascadeRingFeatures(affected, reveal);
   return {
-    cascade: cascadeLaneFeatures(affected, reveal),
-    rings: cascadeRingFeatures(affected, reveal),
+    cascade: {
+      type: "FeatureCollection",
+      features: [...lanes.features, ...rings.features],
+    } as GeoJSON.FeatureCollection,
     ...cascadeVesselEmphasis(affected, reveal),
   };
 }

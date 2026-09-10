@@ -59,6 +59,11 @@ const GETS = [
   "/learning/misses",
   "/learning/policies",
   "/learning/calibration",
+  // The world engine. The cascade list and the attention queue are what the
+  // Global Eye screen opens with, so both are part of the interface snapshot.
+  "/world/state",
+  "/world/cascades",
+  "/attention",
   ...PORTS.flatMap((code) => [
     `/port-twin/${code}`,
     `/port-twin/${code}/simulate`,
@@ -107,6 +112,62 @@ for (const route of GETS) {
   fs.writeFileSync(path.join(OUT, file), JSON.stringify(body));
   manifest[route] = file;
   console.log(`${route} -> ${file}`);
+}
+
+/**
+ * The world engine's addressed routes.
+ *
+ * A cascade is keyed by event id and an attention item by a composite key, and
+ * neither survives the next ingest. One live example of each is recorded and
+ * the replayer serves it for any id, which keeps this a snapshot of the
+ * interface rather than a transcript of one feed.
+ */
+const worldHeaders = {
+  Accept: "application/json",
+  "X-PortWatch-Actor": "A. Deshmukh",
+  "X-PortWatch-Role": "NATIONAL_ADMIN",
+};
+
+const cascadeList = await fetch(`${BASE}/world/cascades`, { headers: worldHeaders });
+if (cascadeList.ok) {
+  const live = (await cascadeList.json()).cascades.find((row) => row.live);
+  if (live) {
+    const detail = await fetch(
+      `${BASE}/world/cascades/${encodeURIComponent(live.eventId)}`,
+      { headers: worldHeaders },
+    );
+    if (detail.ok) {
+      fs.writeFileSync(
+        path.join(OUT, "world_cascade_detail.json"),
+        JSON.stringify(await detail.json()),
+      );
+      manifest["/world/cascades/{id}"] = "world_cascade_detail.json";
+      console.log("/world/cascades/{id} -> world_cascade_detail.json");
+    }
+  } else {
+    console.warn("skip /world/cascades/{id}: no event propagates consequence right now");
+  }
+}
+
+const queue = await fetch(`${BASE}/attention`, { headers: worldHeaders });
+if (queue.ok) {
+  const first = (await queue.json()).items[0];
+  if (first) {
+    const detail = await fetch(
+      `${BASE}/attention/${first.attentionId}`,
+      { headers: worldHeaders },
+    );
+    if (detail.ok) {
+      fs.writeFileSync(
+        path.join(OUT, "attention_item.json"),
+        JSON.stringify(await detail.json()),
+      );
+      manifest["/attention/{id}"] = "attention_item.json";
+      console.log("/attention/{id} -> attention_item.json");
+    }
+  } else {
+    console.warn("skip /attention/{id}: the queue is empty right now");
+  }
 }
 
 // One propagated scenario, so the Scenario Room has an outcome to render.

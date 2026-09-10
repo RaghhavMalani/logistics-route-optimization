@@ -68,10 +68,28 @@ export const ACCOUNTS: Record<Role, Record<string, unknown>> = {
   },
 };
 
+/**
+ * Routes whose last segment is an identifier the backend generated.
+ *
+ * A cascade is addressed by event id and an attention item by a composite key,
+ * neither of which is stable across an ingest. Recording one file per id would
+ * make the fixture set a matrix that goes stale the first time the feed moves,
+ * so one representative response is recorded and served for the shape.
+ */
+const GET_FALLBACKS: Array<[RegExp, string]> = [
+  [/\/world\/cascades\/.+$/, "world_cascade_detail.json"],
+  [/\/attention\/.+$/, "attention_item.json"],
+];
+
 function fixtureFor(pathname: string): string | null {
   const route = pathname.replace(/^.*\/api/, "");
   const file = path.join(FIXTURES, `${route.replace(/^\//, "").replace(/\//g, "_") || "root"}.json`);
-  return fs.existsSync(file) ? file : null;
+  if (fs.existsSync(file)) return file;
+
+  const fallback = GET_FALLBACKS.find(([pattern]) => pattern.test(route));
+  if (!fallback) return null;
+  const shaped = path.join(FIXTURES, fallback[1]);
+  return fs.existsSync(shaped) ? shaped : null;
 }
 
 /**

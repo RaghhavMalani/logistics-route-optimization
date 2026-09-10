@@ -82,19 +82,22 @@ export function ActionRail({
         const selected = item.attentionId === selectedId;
         const effect = item.expectedOperationalEffect;
         return (
-          <button
+          <div
             key={item.attentionId}
-            type="button"
             data-testid="attention-item"
             data-status={item.status}
             data-subject={item.subjectId}
-            onClick={() => onSelect(item)}
-            onDoubleClick={() => onInspect(item)}
             className={cn(
-              "group w-full border-b border-[var(--line)] px-2 py-2 text-left transition-colors",
+              "group relative border-b border-[var(--line)] transition-colors",
               "hover:bg-[var(--surface-2)]",
               selected && "bg-[var(--surface-2)]",
             )}
+          >
+          <button
+            type="button"
+            onClick={() => onSelect(item)}
+            onDoubleClick={() => onInspect(item)}
+            className="w-full px-2 py-2 text-left"
           >
             <div className="flex items-center gap-1.5">
               <Pill tone={STATUS_TONE[item.status]}>{STATUS_LABEL[item.status]}</Pill>
@@ -128,6 +131,22 @@ export function ActionRail({
               </span>
             </div>
           </button>
+
+          <button
+            type="button"
+            data-testid="inspect-item"
+            onClick={() => onInspect(item)}
+            title="Show the computation behind this"
+            className={cn(
+              "absolute right-1.5 top-1.5 rounded px-1 py-0.5 text-[9px] uppercase tracking-wide",
+              "text-[var(--text-3)] opacity-0 transition-opacity",
+              "hover:bg-[var(--surface)] hover:text-[var(--text)]",
+              "focus:opacity-100 group-hover:opacity-100",
+            )}
+          >
+            why
+          </button>
+          </div>
         );
       })}
 
