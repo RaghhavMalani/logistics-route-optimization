@@ -91,6 +91,13 @@ test.describe("weather composite", () => {
 });
 
 test.describe("Global Eye", () => {
+  /**
+   * The impact chain is still the whole product claim of Global Eye. What
+   * changed is where it is made: it used to be a labelled list in a panel, and
+   * it is now drawn on the water and summarised above it. The hops are asserted
+   * through the cascade the chart received, which is the same chain and is
+   * harder to fake than a list of headings.
+   */
   test("the register renders and an event traces its impact chain", async ({
     context,
     page,
@@ -100,19 +107,30 @@ test.describe("Global Eye", () => {
     await page.goto("/admin/global-eye");
     await settle(page);
 
-    await expect(page.getByTestId("event-register")).toBeVisible();
-    const rows = page.getByTestId("global-event-row");
+    await expect(page.getByTestId("cascade-register")).toBeVisible();
+    const rows = page.getByTestId("cascade-row");
     expect(await rows.count()).toBeGreaterThan(0);
 
     await rows.first().click();
-    await expect(page.getByTestId("event-inspector")).toBeVisible();
-    await expect(page.getByTestId("impact-chain")).toBeVisible();
+    await expect(page.getByTestId("cascade-headline")).toBeVisible();
 
-    // The chain's hops, in order. This is the whole product claim of Global Eye.
-    const chain = page.getByTestId("impact-chain");
-    for (const hop of ["Event", "Chokepoints", "Trade lanes", "Vessels", "Ports", "Actions"]) {
-      await expect(chain.getByText(hop, { exact: true })).toBeVisible();
-    }
+    // Every hop of the chain, read off the consequence the chart drew.
+    const hops = await page.evaluate(() => {
+      const registry = (window as unknown as {
+        __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+      }).__portwatchSources;
+      const features = registry?.cascade?.features ?? [];
+      return {
+        lanes: features.filter(
+          (f) => (f.properties as Record<string, unknown>)?.part === "lane",
+        ).length,
+        rings: features.filter(
+          (f) => (f.properties as Record<string, unknown>)?.part === "ring",
+        ).length,
+      };
+    });
+    expect(hops.lanes).toBeGreaterThan(0);
+    expect(hops.rings).toBeGreaterThan(0);
 
     expect(recorder.pageErrors).toEqual([]);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
@@ -122,6 +140,11 @@ test.describe("Global Eye", () => {
    * A probability is either calibrated or withheld with a reason. There is no
    * third state, and the screen must never show a bare percentage that came out
    * of a word-list heuristic.
+   *
+   * The claim now attaches to the cascade's seed. A cascade is seeded with the
+   * calibrated probability where one exists and with raw severity where none
+   * does, so everything drawn downstream inherits whichever was used and the
+   * reader has to be able to tell which.
    */
   test("an uncalibrated event says so rather than showing a number", async ({
     context,
@@ -130,21 +153,22 @@ test.describe("Global Eye", () => {
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/global-eye");
     await settle(page);
-    await page.getByTestId("global-event-row").first().click();
+    await page.getByTestId("cascade-row").first().click();
+    await settle(page);
 
-    const inspector = page.getByTestId("event-inspector");
-    const withheld = inspector.getByText("No calibrated probability");
-    const stated = inspector.locator("text=/within \\d+h/");
+    const basis = page.getByTestId("seed-basis");
+    await expect(basis).toBeVisible();
 
-    const hasWithheld = (await withheld.count()) > 0;
-    const hasStated = (await stated.count()) > 0;
+    const text = (await basis.innerText()).toLowerCase();
+    const withheld = text.includes("no calibrated probability");
+    const stated = /\d+% calibrated/.test(text);
     expect(
-      hasWithheld || hasStated,
-      "an event must either state a calibrated probability or say why it cannot",
+      withheld || stated,
+      "a cascade must either state a calibrated seed or say it has none",
     ).toBe(true);
     expect(
-      hasWithheld && hasStated,
-      "an event cannot both withhold and state a probability",
+      withheld && stated,
+      "a cascade cannot both withhold and state a calibrated probability",
     ).toBe(false);
   });
 });

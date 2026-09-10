@@ -289,6 +289,7 @@ export function GlobalEyeScreen({
                         {(totals.ratio.value * 100).toFixed(0)}% yard pressure
                       </span>
                     ) : null}
+                    <SeedBasis cascade={selectedCascade} />
                     <span className="num ml-auto text-[var(--text-3)]">
                       {affected?.lanes.length ?? 0} lanes · {affected?.ports.length ?? 0} ports
                     </span>
@@ -318,6 +319,38 @@ export function GlobalEyeScreen({
         }
       />
     </div>
+  );
+}
+
+/**
+ * What the cascade was seeded from, and whether that number is calibrated.
+ *
+ * A probability is either calibrated against resolved outcomes or it is
+ * withheld with a reason -- there is no third state, and a bare percentage out
+ * of a word-list heuristic is the thing this product must never show. The
+ * cascade is seeded with the calibrated probability where one exists and with
+ * raw severity where none does, so a reader has to be able to tell which drove
+ * everything downstream of it.
+ */
+function SeedBasis({ cascade }: { cascade: WorldCascade }) {
+  const seed = cascade.seed?.quantity;
+  if (!seed) return null;
+  const calibrated = Boolean(seed.attrs?.calibrated);
+  return (
+    <span data-testid="seed-basis" className="num">
+      {calibrated ? (
+        <span title="Calibrated against resolved outcomes">
+          seeded {(seed.value * 100).toFixed(0)}% calibrated
+        </span>
+      ) : (
+        <span
+          className="text-[var(--text-3)]"
+          title="No calibrated probability yet; the cascade is seeded from severity and corroboration instead."
+        >
+          seeded from severity · no calibrated probability
+        </span>
+      )}
+    </span>
   );
 }
 
