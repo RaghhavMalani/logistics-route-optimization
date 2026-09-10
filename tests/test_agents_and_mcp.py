@@ -10,8 +10,15 @@ from __future__ import annotations
 import json
 import unittest
 
-from src.portwatch_os.advisories.model import DRAFT, ISSUED, ISSUER
-from src.portwatch_os.advisories.store import AdvisoryStore
+from src.portwatch_os.advisories.model import (
+    DRAFT,
+    ISSUED,
+    ISSUER,
+    UNDER_REVIEW,
+    Advisory,
+    utc_now,
+)
+from src.portwatch_os.advisories.store import AdvisoryStore, Principal
 from src.portwatch_os.agents.base import (
     BLOCKED,
     COMPLETE,
@@ -47,11 +54,140 @@ from src.portwatch_os.ledger.store import SqliteLedgerStore
 from src.portwatch_os.mcp.server import PortWatchMCPServer
 
 
+def _advisory() -> Advisory:
+    created = utc_now()
+    return Advisory(
+        advisory_id="ADV-INMAA-EXEC01",
+        kind="arrival_window",
+        port_code="INMAA",
+        issuer="PortWatch decision engine",
+        issuer_organisation="Chennai Port Authority",
+        recipient_vessel_id="PWD-001",
+        recipient_vessel_name="MV Konkan",
+        recipient_organisation="PortWatch Demo Shipping",
+        created_at=created,
+        recommendation={"recommendedArrival": "2026-09-10T18:30:00+00:00"},
+        reason=(
+            "The twin simulates 3.2 h at anchor for this call under the greedy "
+            "berth policy; arriving later removes the wait."
+        ),
+    )
+
+
 def registry() -> ToolRegistry:
     return build_registry(
         ledger=SqliteLedgerStore(":memory:"),
         advisory_store=AdvisoryStore(":memory:"),
     )
+
+
+class ExecuteScopeTests(unittest.TestCase):
+    """The EXECUTE boundary, from both sides.
+
+    A verified approval is necessary but not sufficient: it also has to name the
+    artefact being acted on and carry the operator's own scope. Building the
+    principal from the advisory instead made the store's port check compare a
+    value against itself, so any execute-enabled client could issue for any port.
+    """
+
+    def setUp(self):
+        self.store = AdvisoryStore(":memory:")
+        self.registry = build_registry(
+            ledger=SqliteLedgerStore(":memory:"), advisory_store=self.store,
+        )
+        self.controller = Principal(actor="S. Iyer", role=ISSUER, port_code="INMAA")
+        record = self.store.create(_advisory(), principal=self.controller)
+        self.advisory_id = record.advisory_id
+
+    def _approval(self, **overrides):
+        base = dict(
+            actor="S. Iyer", actor_role="ISSUER", session_id="sess-1",
+            subject=self.advisory_id, port_code="INMAA",
+        )
+        base.update(overrides)
+        return approval_from_session(**base)
+
+    def test_a_reviewed_advisory_is_issued_by_its_own_port(self):
+        self.store.act(self.advisory_id, UNDER_REVIEW, principal=self.controller)
+        call = self.registry.call(
+            "portwatch.advisories.issue", {"advisory_id": self.advisory_id},
+            approval=self._approval(), max_access=EXECUTE,
+        )
+        self.assertTrue(call.ok, call.error)
+        self.assertEqual(call.result["state"], ISSUED)
+
+    def test_a_controller_at_another_port_cannot_issue(self):
+        self.store.act(self.advisory_id, UNDER_REVIEW, principal=self.controller)
+        call = self.registry.call(
+            "portwatch.advisories.issue", {"advisory_id": self.advisory_id},
+            approval=self._approval(actor="Other", port_code="INNSA"),
+            max_access=EXECUTE,
+        )
+        self.assertFalse(call.ok)
+        self.assertIn("INNSA", call.error)
+
+    def test_an_approval_for_a_different_advisory_does_not_transfer(self):
+        self.store.act(self.advisory_id, UNDER_REVIEW, principal=self.controller)
+        call = self.registry.call(
+            "portwatch.advisories.issue", {"advisory_id": self.advisory_id},
+            approval=self._approval(subject="ADV-SOMETHING-ELSE"),
+            max_access=EXECUTE,
+        )
+        self.assertFalse(call.ok)
+        self.assertIn("cannot issue", call.error)
+
+    def test_a_draft_is_not_walked_through_review_on_the_way_out(self):
+        """Issuing must not perform the review step it is meant to follow."""
+        call = self.registry.call(
+            "portwatch.advisories.issue", {"advisory_id": self.advisory_id},
+            approval=self._approval(), max_access=EXECUTE,
+        )
+        self.assertFalse(call.ok)
+        self.assertIn("draft", call.error)
+        self.assertEqual(self.store.require(self.advisory_id).state, DRAFT)
+
+
+class McpExecuteTests(unittest.TestCase):
+    """One startup mandate must not authorise every later call."""
+
+    def setUp(self):
+        self.mandate = approval_from_session(
+            actor="S. Iyer", actor_role="ISSUER", session_id="sess-1",
+            port_code="INMAA", reason="server started with an execute mandate",
+        )
+        self.server = PortWatchMCPServer(
+            registry(), max_access=EXECUTE, approval=self.mandate,
+        )
+
+    def _call(self, params):
+        return self.server.handle(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params}
+        )["result"]
+
+    def test_a_bare_execute_call_no_longer_rides_the_startup_mandate(self):
+        result = self._call(
+            {"name": "portwatch.advisories.issue", "arguments": {"advisory_id": "x"}}
+        )
+        self.assertTrue(result["isError"])
+        self.assertIn("does not authorise individual actions", result["structuredContent"]["error"])
+
+    def test_an_approval_from_another_session_is_refused(self):
+        result = self._call({
+            "name": "portwatch.advisories.issue",
+            "arguments": {"advisory_id": "x"},
+            "approval": {"sessionId": "sess-elsewhere", "subject": "x"},
+        })
+        self.assertTrue(result["isError"])
+        self.assertIn("does not come from the session", result["structuredContent"]["error"])
+
+    def test_an_approval_must_name_the_advisory_being_acted_on(self):
+        result = self._call({
+            "name": "portwatch.advisories.issue",
+            "arguments": {"advisory_id": "x"},
+            "approval": {"sessionId": "sess-1", "subject": "a-different-one"},
+        })
+        self.assertTrue(result["isError"])
+        self.assertIn("names a-different-one", result["structuredContent"]["error"])
 
 
 class AccessBoundaryTests(unittest.TestCase):
