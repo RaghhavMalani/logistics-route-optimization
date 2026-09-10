@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from src.portwatch_os.global_eye.calibration import fit_calibrator
 from src.portwatch_os.ledger.schema import (
@@ -229,18 +229,47 @@ def learning_policies() -> Dict[str, Any]:
 def approve_policy(
     policy_id: str,
     payload: Dict[str, Any] = Body(...),
+    actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    admin: Optional[str] = Header(None, alias="X-PortWatch-Admin"),
 ) -> Dict[str, Any]:
     """Promote an evaluated policy. Refused unless every gate passed.
 
-    The approver is required and is recorded. There is no automated path to this
-    endpoint's effect: the ledger refuses an APPROVED transition whose safety
-    checks carry a false, and refuses one with no named approver.
+    The approver is the *authenticated* operator, taken from the identity
+    headers the rest of the workflow uses, never from the request body. A body
+    field would let any caller promote a policy while claiming any human's name,
+    which is the opposite of the human approval gate this endpoint exists to be.
+    The ledger separately refuses an APPROVED transition whose safety checks
+    carry a false.
     """
-    approver = str(payload.get("approver") or "").strip()
+    approver = (actor or "").strip()
     if not approver:
         raise HTTPException(
-            status_code=400,
-            detail="A named human approver is required to promote a policy.",
+            status_code=401,
+            detail=(
+                "Promoting a policy is a human act. Send X-PortWatch-Actor with the "
+                "signed-in operator's name."
+            ),
+        )
+    is_admin = (admin or "").lower() in ("1", "true", "yes")
+    if not is_admin and (role or "").lower() not in (
+        "national_admin", "admin", "issuer", "port_authority", "port_operator",
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"'{role or 'unknown'}' may not promote a learned policy. Policy "
+                "promotion is a port authority or national command action."
+            ),
+        )
+    claimed = str(payload.get("approver") or "").strip()
+    if claimed and claimed != approver:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"the request claims {claimed} approved this, but the session is "
+                f"{approver}. An approval is recorded against the operator who made it."
+            ),
         )
     ledger = get_ledger()
     record = ledger.get_policy(policy_id)

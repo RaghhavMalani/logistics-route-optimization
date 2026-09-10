@@ -159,6 +159,10 @@ def _build_resources(registry: ToolRegistry, max_access: str) -> List[Resource]:
 # --------------------------------------------------------------------------
 
 
+class _ApprovalRefused(RuntimeError):
+    """An EXECUTE call did not carry a valid per-call approval."""
+
+
 class PortWatchMCPServer:
     """A minimal JSON-RPC MCP server over the PortWatch tool registry."""
 
@@ -173,9 +177,13 @@ class PortWatchMCPServer:
             raise ValueError(f"unknown access ceiling {max_access}")
         self.registry = registry or build_registry()
         self.max_access = max_access
-        # An approval context may be supplied by an operator running the server
-        # inside their own authenticated session. It is never derived from a
-        # request, so a client cannot talk its way into one.
+        # A *mandate*, not a ready-made approval. It records which human is
+        # accountable and which session they authenticated in; it is never handed
+        # to the registry as-is. Reusing one startup approval for every EXECUTE
+        # call would let any client connected to a server started with
+        # --allow-execute act under the operator's single standing mandate, so an
+        # approval is minted per call, bound to the subject, and only for a
+        # request that proves it came from the mandated session.
         self.approval = approval
         self.resources = {r.uri: r for r in _build_resources(self.registry, max_access)}
         self._initialised = False
@@ -228,14 +236,82 @@ class PortWatchMCPServer:
             return self._read_resource(params)
         raise _RpcError(-32601, f"unknown method {method}")
 
+    def _approval_for(
+        self,
+        arguments: Dict[str, Any],
+        requested: Any,
+    ) -> ApprovalContext:
+        """Mint a fresh, subject-bound approval for one EXECUTE call.
+
+        The client supplies the session it is acting in and the subject it wants
+        approved. Everything that confers authority -- the accountable human and
+        their scope -- comes from the operator's mandate, so a client can never
+        widen its own reach; the most it can do is name a subject the mandate
+        already covers.
+        """
+        mandate = self.approval
+        if mandate is None or not mandate.human_verified:
+            raise _ApprovalRefused(
+                "this server holds no execute mandate. Start it with --allow-execute "
+                "--approver --session-id, or produce a PROPOSE draft instead."
+            )
+        if not isinstance(requested, dict):
+            raise _ApprovalRefused(
+                "an EXECUTE call must carry an 'approval' object naming the session "
+                "it was authorised in and the subject it approves. A standing "
+                "server mandate does not authorise individual actions."
+            )
+        session_id = str(requested.get("sessionId") or "")
+        if not session_id or session_id != mandate.session_id:
+            raise _ApprovalRefused(
+                "the approval does not come from the session this server was "
+                "mandated in, so it does not name an accountable human."
+            )
+        subject = str(requested.get("subject") or "")
+        if not subject:
+            raise _ApprovalRefused(
+                "an EXECUTE approval must name the subject it approves."
+            )
+        target = arguments.get("advisory_id")
+        if target is not None and subject != str(target):
+            raise _ApprovalRefused(
+                f"the approval names {subject} but the call acts on {target}."
+            )
+        return approval_from_session(
+            actor=mandate.actor,
+            actor_role=mandate.actor_role,
+            session_id=mandate.session_id or "",
+            subject=subject,
+            reason=str(requested.get("reason") or mandate.reason or ""),
+            port_code=mandate.port_code,
+            organisation=mandate.organisation,
+            vessel_ids=mandate.vessel_ids,
+            is_admin=mandate.is_admin,
+        )
+
     def _call_tool(self, params: Dict[str, Any]) -> Dict[str, Any]:
         name = params.get("name")
         if not name:
             raise _RpcError(-32602, "tools/call requires a tool name")
         arguments = params.get("arguments") or {}
 
+        spec = self.registry.get(name)
+        approval: Optional[ApprovalContext] = None
+        if spec is not None and spec.access == EXECUTE:
+            try:
+                approval = self._approval_for(arguments, params.get("approval"))
+            except _ApprovalRefused as exc:
+                return {
+                    "isError": True,
+                    "content": [{"type": "text", "text": str(exc)}],
+                    "structuredContent": {
+                        "ok": False, "tool": name, "access": EXECUTE,
+                        "unavailable": False, "error": str(exc),
+                    },
+                }
+
         call = self.registry.call(
-            name, arguments, approval=self.approval, max_access=self.max_access
+            name, arguments, approval=approval, max_access=self.max_access
         )
 
         if not call.ok:
@@ -329,6 +405,7 @@ def build_server(
     max_access: str = PROPOSE,
     approver: Optional[str] = None,
     session_id: Optional[str] = None,
+    port_code: Optional[str] = None,
 ) -> PortWatchMCPServer:
     approval: Optional[ApprovalContext] = None
     if max_access == EXECUTE:
@@ -337,9 +414,15 @@ def build_server(
                 "running the MCP server at the EXECUTE ceiling requires --approver and "
                 "--session-id: an EXECUTE call must name the human accountable for it"
             )
+        if not port_code:
+            raise ValueError(
+                "running at the EXECUTE ceiling requires --port-code: the mandate is "
+                "scoped to the port the approver actually controls"
+            )
         approval = approval_from_session(
             actor=approver, actor_role="ISSUER", session_id=session_id,
             reason="MCP server started with an explicit execute mandate",
+            port_code=port_code,
         )
     return PortWatchMCPServer(max_access=max_access, approval=approval)
 
@@ -358,10 +441,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "--allow-execute", action="store_true",
-        help="Shorthand for --max-access EXECUTE. Requires --approver and --session-id.",
+        help=(
+            "Shorthand for --max-access EXECUTE. Requires --approver, --session-id "
+            "and --port-code. Each EXECUTE call must still carry its own approval "
+            "naming that session and the subject being acted on."
+        ),
     )
     parser.add_argument("--approver", help="Name of the human accountable for EXECUTE calls.")
     parser.add_argument("--session-id", help="Authenticated session the mandate came from.")
+    parser.add_argument(
+        "--port-code",
+        help="UN/LOCODE the approver controls. Scopes every EXECUTE call to that port.",
+    )
     parser.add_argument(
         "--list-tools", action="store_true",
         help="Print the exposed tool catalogue and exit, without serving.",
@@ -371,7 +462,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     max_access = EXECUTE if args.allow_execute else args.max_access
     try:
         server = build_server(
-            max_access=max_access, approver=args.approver, session_id=args.session_id
+            max_access=max_access, approver=args.approver,
+            session_id=args.session_id, port_code=args.port_code,
         )
     except ValueError as exc:
         parser.error(str(exc))

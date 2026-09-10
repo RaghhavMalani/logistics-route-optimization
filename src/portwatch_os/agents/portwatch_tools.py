@@ -23,16 +23,23 @@ from src.portwatch_os.advisories.model import (
     ISSUED,
     ISSUER,
     RECIPIENT,
+    UNDER_REVIEW,
     Advisory,
     AdvisoryError,
 )
-from src.portwatch_os.advisories.store import AdvisoryStore, Principal, get_advisory_store
+from src.portwatch_os.advisories.store import (
+    AdvisoryStore,
+    AuthorisationError,
+    Principal,
+    get_advisory_store,
+)
 from src.portwatch_os.agents.tools import (
     EXECUTE,
     PROPOSE,
     READ,
     SIMULATE,
     ApprovalContext,
+    ToolError,
     ToolRegistry,
     ToolUnavailable,
 )
@@ -440,8 +447,16 @@ def build_registry(
         failure_modes=("The advisory id does not exist.",),
     )
     def audit_advisory(advisory_id: str) -> List[Dict[str, Any]]:
+        # The trail is scoped like the advisory. The agent reads the register at
+        # national scope -- the same standing it has for the list tool -- and the
+        # store applies the visibility rule rather than the id being the key.
+        principal = Principal(
+            actor="portwatch-agent", role=ISSUER, is_admin=True,
+        )
         try:
-            return advisories.audit_trail(advisory_id)
+            return advisories.audit_trail(advisory_id, principal)
+        except AuthorisationError as exc:
+            raise ToolUnavailable(str(exc)) from exc
         except AdvisoryError as exc:
             raise ToolUnavailable(str(exc)) from exc
 
@@ -762,11 +777,27 @@ def build_registry(
     )
     def advisories_issue(advisory_id: str, approval: ApprovalContext) -> Dict[str, Any]:
         advisory = advisories.require(advisory_id)
+        if not approval.authorises(advisory_id):
+            raise ToolError(
+                f"this approval names {approval.subject or 'no subject'} and cannot "
+                f"issue {advisory_id}. An EXECUTE mandate is bound to the artefact "
+                "the human actually looked at.",
+                recoverable=False,
+            )
+        if advisory.state != UNDER_REVIEW:
+            raise ToolError(
+                f"{advisory_id} is {advisory.state}. A draft becomes visible to its "
+                "recipient only after a named controller reviews it; issuing "
+                "straight from a draft would skip that review.",
+                recoverable=False,
+            )
+        # The issuer's scope is the one the session authenticated, not the one
+        # written on the record -- reading it off the target would make the
+        # store's port check compare a value against itself.
         principal = Principal(
-            actor=approval.actor, role=ISSUER, port_code=advisory.port_code,
+            actor=approval.actor, role=ISSUER, port_code=approval.port_code,
+            is_admin=approval.is_admin,
         )
-        if advisory.state == DRAFT:
-            advisories.act(advisory_id, "under_review", principal=principal)
         issued = advisories.act(
             advisory_id, ISSUED, principal=principal,
             reason=approval.reason or "approved by the duty controller",
@@ -790,11 +821,18 @@ def build_registry(
         approval: ApprovalContext,
         reason: Optional[str] = None,
     ) -> Dict[str, Any]:
-        advisory = advisories.require(advisory_id)
+        advisories.require(advisory_id)
+        if not approval.authorises(advisory_id):
+            raise ToolError(
+                f"this approval names {approval.subject or 'no subject'} and cannot "
+                f"respond to {advisory_id}.",
+                recoverable=False,
+            )
         principal = Principal(
             actor=approval.actor, role=RECIPIENT,
-            organisation=advisory.recipient_organisation,
-            vessel_ids=[advisory.recipient_vessel_id],
+            organisation=approval.organisation,
+            vessel_ids=list(approval.vessel_ids),
+            is_admin=approval.is_admin,
         )
         updated = advisories.act(
             advisory_id, response, principal=principal, reason=reason,

@@ -92,6 +92,22 @@ class ApprovalContext:
     reason: Optional[str] = None
     #: The specific artefact being approved, e.g. an advisory id.
     subject: Optional[str] = None
+    #: The authenticated operator's own scope, carried from the session that
+    #: authenticated them. An EXECUTE handler must authorise against *this*,
+    #: never against a field read off the record being acted on -- deriving the
+    #: scope from the target makes the store's authorisation check vacuous.
+    port_code: Optional[str] = None
+    organisation: Optional[str] = None
+    vessel_ids: Tuple[str, ...] = ()
+    is_admin: bool = False
+
+    def authorises(self, subject: str) -> bool:
+        """Whether this approval was granted for ``subject`` specifically.
+
+        An approval with no subject is a blanket mandate and authorises nothing
+        in particular; handlers that act on a named record require a match.
+        """
+        return bool(self.subject) and self.subject == subject
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -101,6 +117,10 @@ class ApprovalContext:
             "humanVerified": self.human_verified,
             "reason": self.reason,
             "subject": self.subject,
+            "portCode": self.port_code,
+            "organisation": self.organisation,
+            "vesselIds": list(self.vessel_ids),
+            "isAdmin": self.is_admin,
         }
 
 
@@ -111,6 +131,10 @@ def approval_from_session(
     session_id: str,
     subject: Optional[str] = None,
     reason: Optional[str] = None,
+    port_code: Optional[str] = None,
+    organisation: Optional[str] = None,
+    vessel_ids: Optional[Sequence[str]] = None,
+    is_admin: bool = False,
 ) -> ApprovalContext:
     """The only way to produce a verified approval context.
 
@@ -128,6 +152,10 @@ def approval_from_session(
         human_verified=True,
         reason=reason,
         subject=subject,
+        port_code=port_code,
+        organisation=organisation,
+        vessel_ids=tuple(vessel_ids or ()),
+        is_admin=is_admin,
     )
 
 

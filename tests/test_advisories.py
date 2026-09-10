@@ -354,7 +354,64 @@ class AuthorisationTests(unittest.TestCase):
         self.assertEqual([a.advisory_id for a in expired], [record.advisory_id])
 
     def test_counts_report_the_register_by_state(self):
-        self.assertEqual(self.store.counts(), {DRAFT: 1})
+        self.assertEqual(self.store.counts(controller()), {DRAFT: 1})
+
+
+class ScopeTests(unittest.TestCase):
+    """A principal that names no scope is not a principal.
+
+    Every authorisation check in the store compares the advisory against the
+    principal's scope. A principal carrying no scope therefore passed every
+    comparison vacuously, which is how an unscoped issuer came to see -- and act
+    on -- every port's traffic.
+    """
+
+    def test_an_issuer_must_name_the_port_it_controls(self):
+        with self.assertRaises(AuthorisationError):
+            Principal(actor="S. Iyer", role=ISSUER)
+
+    def test_a_recipient_must_name_an_organisation_or_a_vessel(self):
+        with self.assertRaises(AuthorisationError):
+            Principal(actor="R. Nayar", role=RECIPIENT)
+
+    def test_national_command_is_the_only_unscoped_principal(self):
+        admin = Principal(actor="A. Deshmukh", role=ISSUER, is_admin=True)
+        self.assertTrue(admin.is_admin)
+
+
+class VisibilityBudgetTests(unittest.TestCase):
+    """The caller's limit counts rows the caller may see."""
+
+    def setUp(self):
+        self.store = AdvisoryStore(":memory:")
+        # One advisory for our carrier, buried under newer traffic belonging to
+        # other ports that this recipient is not entitled to.
+        self.store.create(
+            advisory(advisory_id="ADV-MINE"), principal=controller(),
+        )
+        self.store.act("ADV-MINE", UNDER_REVIEW, principal=controller())
+        self.store.act("ADV-MINE", ISSUED, principal=controller())
+        for n in range(25):
+            other_port = f"INX{n:02d}"
+            self.store.create(
+                advisory(advisory_id=f"ADV-OTHER-{n}", port_code=other_port),
+                principal=controller(port=other_port),
+            )
+
+    def test_an_authorised_advisory_is_not_squeezed_out_by_traffic(self):
+        rows = self.store.visible_to(master(), limit=5)
+        self.assertEqual([a.advisory_id for a in rows], ["ADV-MINE"])
+
+    def test_counts_describe_only_the_authorised_population(self):
+        self.assertEqual(self.store.counts(master()), {ISSUED: 1})
+
+    def test_a_recipient_cannot_read_another_ports_audit_trail(self):
+        with self.assertRaises(AuthorisationError):
+            self.store.audit_trail("ADV-OTHER-0", master())
+
+    def test_a_recipient_reads_the_trail_of_its_own_advisory(self):
+        trail = self.store.audit_trail("ADV-MINE", master())
+        self.assertTrue(trail)
 
 
 if __name__ == "__main__":

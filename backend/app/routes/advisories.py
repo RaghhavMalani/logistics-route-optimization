@@ -69,6 +69,12 @@ def principal_from_request(
     normalised = (role or "").lower()
     if normalised in ("issuer", "port_authority", "port_operator"):
         resolved = ISSUER
+    elif normalised in ("national_admin", "admin"):
+        # National command issues on behalf of every port, so it holds the
+        # issuer role and the admin flag together. Without this the default
+        # national workspace 403s on every advisory read.
+        resolved = ISSUER
+        is_admin = True
     elif normalised in ("recipient", "shipping_company", "vessel_operator"):
         resolved = RECIPIENT
     else:
@@ -150,7 +156,7 @@ def list_advisories(
         "advisories": [
             a.to_dict(for_recipient=acting.role == RECIPIENT) for a in rows
         ],
-        "counts": store.counts(),
+        "counts": store.counts(acting),
         "principal": acting.to_dict(),
     }
 
@@ -485,12 +491,27 @@ def modify_advisory(
 
 
 @router.get("/advisories/{advisory_id}/audit")
-def advisory_audit(advisory_id: str) -> Dict[str, Any]:
+def advisory_audit(
+    advisory_id: str,
+    actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
+    vessel_ids: Optional[str] = Header(None, alias="X-PortWatch-Vessels"),
+    admin: Optional[str] = Header(None, alias="X-PortWatch-Admin"),
+) -> Dict[str, Any]:
+    """The transition history, gated exactly as the advisory itself is."""
+    acting = principal_from_request(
+        actor, role, header_port, organisation, vessel_ids,
+        is_admin=(admin or "").lower() in ("1", "true", "yes"),
+    )
     try:
         return {
             "advisoryId": advisory_id,
-            "audit": get_advisory_store().audit_trail(advisory_id),
+            "audit": get_advisory_store().audit_trail(advisory_id, acting),
         }
+    except AuthorisationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except AdvisoryError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 

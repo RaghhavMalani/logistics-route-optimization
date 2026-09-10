@@ -134,6 +134,17 @@ class Principal:
             )
         if not actor:
             raise AuthorisationError("a principal must be a named actor")
+        if not is_admin and role == ISSUER and not port_code:
+            raise AuthorisationError(
+                f"{actor} claims the {ISSUER} role without naming a port. An issuer "
+                "is scoped to the port it controls; only national command acts "
+                "without one, and that is the is_admin path."
+            )
+        if not is_admin and role == RECIPIENT and not organisation and not vessel_ids:
+            raise AuthorisationError(
+                f"{actor} claims the {RECIPIENT} role without naming an organisation "
+                "or any vessel. A recipient is scoped to what it operates."
+            )
         self.actor = actor
         self.role = role
         self.port_code = port_code
@@ -176,7 +187,7 @@ class Principal:
         if self.is_admin:
             return True
         if self.role == ISSUER:
-            return not self.port_code or advisory.port_code == self.port_code
+            return advisory.port_code == self.port_code
         if not advisory.visible_to_recipient:
             return False
         return (
@@ -379,23 +390,51 @@ class AdvisoryStore:
         sql = "SELECT * FROM advisories"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        sql += f" ORDER BY created_at DESC LIMIT {int(limit)}"
+        sql += " ORDER BY created_at DESC"
         with self._lock:
             rows = self._conn.execute(sql, params).fetchall()
-        return [
-            advisory for advisory in (self._from_row(dict(r)) for r in rows)
-            if principal.may_see(advisory)
-        ]
+        # The caller's limit counts rows this principal may *see*. Applying it in
+        # SQL would count other principals' rows against the budget, so a
+        # recipient's older advisories would silently vanish once the register
+        # filled up with traffic they are not entitled to.
+        visible: List[Advisory] = []
+        for row in rows:
+            advisory = self._from_row(dict(row))
+            if principal.may_see(advisory):
+                visible.append(advisory)
+                if len(visible) >= int(limit):
+                    break
+        return visible
 
-    def counts(self) -> Dict[str, int]:
+    def counts(self, principal: Principal) -> Dict[str, int]:
+        """The register by state, over the population this principal may see.
+
+        Counting the whole table would tell a recipient how many advisories
+        every port and every competitor has in flight, which the list itself is
+        careful not to.
+        """
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT state, COUNT(*) AS n FROM advisories GROUP BY state"
-            ).fetchall()
-        return {row["state"]: int(row["n"]) for row in rows}
+            rows = self._conn.execute("SELECT * FROM advisories").fetchall()
+        tally: Dict[str, int] = {}
+        for row in rows:
+            advisory = self._from_row(dict(row))
+            if principal.may_see(advisory):
+                tally[advisory.state] = tally.get(advisory.state, 0) + 1
+        return tally
 
-    def audit_trail(self, advisory_id: str) -> List[Dict[str, Any]]:
-        return [entry.to_dict() for entry in self.require(advisory_id).audit]
+    def audit_trail(self, advisory_id: str, principal: Principal) -> List[Dict[str, Any]]:
+        """The transition history, for a principal entitled to the advisory.
+
+        The trail carries the issuing port's internal review -- drafter,
+        reviewer, rejection reasons -- so it is gated by the same visibility
+        rule as the advisory itself rather than by knowledge of the id.
+        """
+        advisory = self.require(advisory_id)
+        if not principal.may_see(advisory):
+            raise AuthorisationError(
+                f"{principal.actor} is not entitled to {advisory_id}"
+            )
+        return [entry.to_dict() for entry in advisory.audit]
 
 
 def _loads(value: Any) -> Any:
