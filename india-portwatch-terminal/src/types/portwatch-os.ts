@@ -674,6 +674,22 @@ export interface AgentRun {
   } | null;
   critic: CriticVerdictView | null;
   decisionId: string | null;
+  /**
+   * What the world should show, derived from what the tools returned.
+   *
+   * Every command names the tool call that justifies it, and carries its own
+   * safety class: UI commands run on arrival, SIMULATION needs an open
+   * simulation context, OPERATIONAL never runs from an answer.
+   */
+  spatial: Array<{
+    kind: string;
+    subject: string | null;
+    evidenceTool: string;
+    reason: string;
+    params: Record<string, unknown>;
+    safety: "UI" | "SIMULATION" | "OPERATIONAL";
+    autoExecutable: boolean;
+  }>;
   note: string;
 }
 

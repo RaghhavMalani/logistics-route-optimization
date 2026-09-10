@@ -43,6 +43,10 @@ import {
 } from "@/services/os-hooks";
 import type { AttentionItem, WorldCascade } from "@/types/portwatch-os";
 
+import { CommandBar } from "@/components/copilot/CommandBar";
+import { LENS_DEFINITIONS, lensLayers } from "@/lib/maritime/lenses";
+import { LENSES, useWorld, type Lens } from "@/world/WorldContext";
+
 import { ActionRail } from "./ActionRail";
 import { EvidenceDrawer } from "./EvidenceDrawer";
 import { useCascadeReveal } from "./useCascadeReveal";
@@ -66,10 +70,18 @@ export function GlobalEyeScreen({
   });
   const { identityHeaders } = useAuth();
 
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(null);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [projectionHours, setProjectionHours] = useState(0);
+  // Selection, lens and horizon live in the world context rather than here, so
+  // the Copilot can drive them. A component that owned this privately could not
+  // be moved from outside, which is what left the spatial loop open.
+  const world = useWorld();
+  const {
+    eventId: selectedEventId,
+    projectionHours,
+    lens,
+    evidenceFor: selectedAttentionId,
+    attentionSubjects,
+  } = world;
+  const evidenceOpen = Boolean(selectedAttentionId);
 
   // The instant the whole world is queried at. One control, one clock: the
   // cascade, the attention queue and the map all read the same moment.
@@ -90,8 +102,8 @@ export function GlobalEyeScreen({
   // already saying something, rather than waiting to be asked.
   useEffect(() => {
     if (selectedEventId || live.length === 0) return;
-    setSelectedEventId(live[0].eventId);
-  }, [live, selectedEventId]);
+    world.selectEvent(live[0].eventId);
+  }, [live, selectedEventId, world]);
 
   const cascade = useWorldCascade(selectedEventId, identityHeaders, at);
   const reveal = useCascadeReveal(
@@ -110,16 +122,41 @@ export function GlobalEyeScreen({
     at,
   );
 
+  // The lens is applied over the workspace's own toggles rather than replacing
+  // them, so a layer the operator turned off stays off when they change lens.
+  const lensedLayers = useMemo(
+    () =>
+      lensLayers(lens, {
+        ...workspace.layers,
+        events: true,
+        routes: true,
+        cascade: true,
+      }),
+    [lens, workspace.layers],
+  );
+
+  // The queue narrows to whatever the Copilot or a click last pointed at.
+  const visibleAttention = useMemo(() => {
+    const items = attention.data?.items ?? [];
+    if (attentionSubjects.length === 0) return items;
+    const wanted = new Set(attentionSubjects);
+    const matching = items.filter((item) => wanted.has(item.subjectId));
+    // Never leave the rail empty because a filter matched nothing -- an empty
+    // queue reads as "nothing to do", which is a different claim entirely.
+    return matching.length ? matching : items;
+  }, [attention.data, attentionSubjects]);
+
   /** Selecting an item drives the world: subject, cascade and camera. */
   const selectItem = useCallback(
     (item: AttentionItem) => {
-      setSelectedAttentionId(item.attentionId);
       const eventId = item.cascadeId.split(":").pop() ?? null;
-      if (eventId && eventId !== selectedEventId) setSelectedEventId(eventId);
+      if (eventId && eventId !== selectedEventId) world.selectEvent(eventId);
       if (item.subjectType === "vessel") {
+        world.selectVessel(item.subjectId);
         workspace.setSelectedVesselId(item.subjectId);
       }
       if (item.subjectType === "port") {
+        world.selectPort(item.subjectId);
         workspace.setSelectedPortCode(item.subjectId);
       }
       const subject = [
@@ -130,16 +167,35 @@ export function GlobalEyeScreen({
         workspace.flyTo([subject.lon, subject.lat], 4.4);
       }
     },
-    [affected, selectedEventId, workspace],
+    [affected, selectedEventId, workspace, world],
   );
 
   const inspect = useCallback(
     (item: AttentionItem) => {
       selectItem(item);
-      setEvidenceOpen(true);
+      world.openEvidence(item.attentionId);
     },
-    [selectItem],
+    [selectItem, world],
   );
+
+  /**
+   * The Copilot moves the camera by naming a subject, not a coordinate.
+   *
+   * A command carries an id; the geometry for it is in the cascade the screen
+   * already holds. Resolving here keeps the agent from having to know where
+   * anything is, which is knowledge it would otherwise have to be given and
+   * could then get wrong.
+   */
+  useEffect(() => {
+    const target = world.vesselId ?? world.portCode ?? world.chokepoint;
+    if (!target || !affected) return;
+    const subject = [
+      ...affected.ports, ...affected.chokepoints, ...affected.vessels,
+    ].find((s) => s.id === target);
+    if (subject?.lat != null && subject?.lon != null) {
+      workspace.flyTo([subject.lon, subject.lat], 4.4);
+    }
+  }, [world.vesselId, world.portCode, world.chokepoint, affected, workspace]);
 
   if (cascades.isLoading || cascades.isError) {
     return (
@@ -156,13 +212,14 @@ export function GlobalEyeScreen({
 
   const totals = cascade.data?.totals ?? {};
   const selectedCascade = cascade.data;
+  const lensDefinition = LENS_DEFINITIONS[lens];
 
   return (
     <div className="absolute inset-0">
       <h1 className="sr-only">{title}</h1>
 
       <MaritimeMap
-        layers={{ ...workspace.layers, events: true, routes: true, cascade: true }}
+        layers={lensedLayers}
         data={{
           ...workspace.data,
           cascade: layers.cascade,
@@ -197,7 +254,7 @@ export function GlobalEyeScreen({
                 }
               >
                 <ActionRail
-                  items={attention.data?.items ?? []}
+                  items={visibleAttention}
                   total={attention.data?.total ?? 0}
                   selectedId={selectedAttentionId}
                   onSelect={selectItem}
@@ -225,8 +282,8 @@ export function GlobalEyeScreen({
                       row={row}
                       selected={row.eventId === selectedEventId}
                       onSelect={() => {
-                        setSelectedEventId(row.eventId);
-                        setSelectedAttentionId(null);
+                        world.selectEvent(row.eventId);
+                        world.openEvidence(null);
                         if (row.lat != null && row.lon != null) {
                           workspace.flyTo([row.lon, row.lat], 4.2);
                         }
@@ -256,10 +313,37 @@ export function GlobalEyeScreen({
                       item={detail.data?.item ?? null}
                       steps={detail.data?.evidence ?? []}
                       narrative={detail.data?.narrative ?? []}
-                      onClose={() => setEvidenceOpen(false)}
+                      onClose={() => world.openEvidence(null)}
                     />
                   )}
                 </FloatPanel>
+              </div>
+            ) : null}
+
+            {/* --------------------------------------------- lens notice -- */}
+            {lensDefinition.unavailable ? (
+              <div
+                className="pointer-events-none absolute bottom-24 left-1/2 z-20 w-[420px] -translate-x-1/2"
+                data-testid="lens-unavailable"
+              >
+                <div className="rounded border border-[var(--line)] bg-[var(--surface)]/94 px-2.5 py-2 backdrop-blur">
+                  <div className="flex items-center gap-1.5">
+                    <Pill tone="neutral">{lensDefinition.label} · unavailable</Pill>
+                  </div>
+                  <p className="mt-1 text-[10.5px] font-medium text-[var(--text)]">
+                    {lensDefinition.unavailable.headline}
+                  </p>
+                  <p className="mt-1 text-[9.5px] leading-relaxed text-[var(--text-2)]">
+                    {lensDefinition.unavailable.detail}
+                  </p>
+                  <ul className="mt-1.5 flex flex-col gap-0.5">
+                    {lensDefinition.unavailable.needs.map((need) => (
+                      <li key={need} className="text-[9px] text-[var(--text-3)]">
+                        · {need}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             ) : null}
 
@@ -298,6 +382,15 @@ export function GlobalEyeScreen({
               </div>
             ) : null}
 
+            {/* ----------------------------------------------- copilot -- */}
+            <div className="pointer-events-none absolute right-2.5 top-2.5 z-30 flex flex-col items-end gap-2">
+              <CommandBar />
+              <LensBar
+                lens={lens}
+                onChange={world.setLens}
+              />
+            </div>
+
             {/* -------------------------------------------------- legend -- */}
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
               <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
@@ -307,7 +400,7 @@ export function GlobalEyeScreen({
             <div className="pointer-events-none absolute bottom-2.5 left-[266px] right-2.5 z-20 flex flex-col gap-1.5">
               <ProjectionBar
                 hours={projectionHours}
-                onChange={setProjectionHours}
+                onChange={world.setProjectionHours}
                 live={Boolean(selectedCascade?.live)}
                 playing={reveal.playing}
                 onPlay={reveal.play}
@@ -351,6 +444,49 @@ function SeedBasis({ cascade }: { cascade: WorldCascade }) {
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * The lens control.
+ *
+ * A lens is not a route. Switching one never navigates and never refetches:
+ * the same world state is on screen throughout, and what changes is which parts
+ * of it are drawn at full weight. That is the difference between an
+ * interpretation and a page, and it is why these are six buttons on the world
+ * rather than six entries in the navigation.
+ */
+function LensBar({
+  lens,
+  onChange,
+}: {
+  lens: Lens;
+  onChange: (lens: Lens) => void;
+}) {
+  return (
+    <div
+      data-testid="lens-bar"
+      className="pointer-events-auto flex items-center gap-0.5 rounded border border-[var(--line)] bg-[var(--surface)]/92 px-1 py-1 backdrop-blur"
+    >
+      {LENSES.map((option) => (
+        <button
+          key={option}
+          type="button"
+          data-testid="lens-option"
+          data-lens={option}
+          data-active={lens === option}
+          onClick={() => onChange(option)}
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide transition-colors",
+            lens === option
+              ? "bg-[var(--accent)] text-[var(--surface)]"
+              : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]",
+          )}
+        >
+          {option.slice(0, 4)}
+        </button>
+      ))}
+    </div>
   );
 }
 

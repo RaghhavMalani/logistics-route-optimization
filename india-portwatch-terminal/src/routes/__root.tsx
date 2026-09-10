@@ -9,6 +9,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { AuthProvider } from "@/auth/AuthProvider";
+import { WorldProvider } from "@/world/WorldContext";
 import { Button } from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -125,7 +126,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
+        <WorldProvider>
+          <Outlet />
+        </WorldProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

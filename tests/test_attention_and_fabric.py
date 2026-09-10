@@ -20,16 +20,22 @@ from fastapi.testclient import TestClient
 
 from backend.app.main import app
 from src.portwatch_os.agents.spatial import (
+    COMMANDS,
     FOCUS_EVENT,
     FOCUS_VESSEL,
     LENSES,
     OPERATIONS,
     SET_LENS,
     SHOW_CASCADE,
+    OPERATIONAL,
+    SAFETY_CLASSES,
+    SIMULATION,
     SpatialCommand,
     SpatialError,
+    UI,
     commands_from_trace,
     grounded,
+    safety_of,
 )
 from src.portwatch_os.agents.tools import READ, ToolCall
 from src.portwatch_os.attention.engine import attention_for
@@ -355,6 +361,57 @@ class SpatialCommandTests(unittest.TestCase):
     def test_every_lens_is_constructible(self):
         for lens in LENSES:
             SpatialCommand(kind=SET_LENS, subject=lens, evidence_tool="t")
+
+
+class CommandSafetyTests(unittest.TestCase):
+    """UI, SIMULATION and OPERATIONAL are three different things.
+
+    They are all called "commands", which is exactly why the distinction has to
+    be structural rather than remembered. A view change may run the moment an
+    answer arrives; a model run may not; an action that reaches a vessel may
+    never run from an answer at all.
+    """
+
+    def test_every_command_is_classified(self):
+        """An unclassified command would default to auto-executing."""
+        for kind in COMMANDS:
+            self.assertIn(safety_of(kind), SAFETY_CLASSES, kind)
+
+    def test_an_unclassified_kind_raises_rather_than_defaulting(self):
+        with self.assertRaises(SpatialError):
+            safety_of("SEND_ADVISORY")
+
+    def test_view_changes_are_the_only_automatic_commands(self):
+        for kind in COMMANDS:
+            command = SpatialCommand(
+                kind=kind,
+                subject=OPERATIONS if kind == "SET_LENS" else "x",
+                evidence_tool="t",
+            )
+            self.assertEqual(command.auto_executable, command.safety == UI, kind)
+
+    def test_branching_the_world_is_a_simulation_not_a_camera_move(self):
+        self.assertEqual(safety_of("COMPARE_SCENARIOS"), SIMULATION)
+        command = SpatialCommand(
+            kind="COMPARE_SCENARIOS", subject="x", evidence_tool="t",
+        )
+        self.assertFalse(command.auto_executable)
+
+    def test_the_safety_class_travels_on_the_wire(self):
+        payload = SpatialCommand(
+            kind="FOCUS_VESSEL", subject="PWD-001", evidence_tool="t",
+        ).to_dict()
+        self.assertEqual(payload["safety"], UI)
+        self.assertTrue(payload["autoExecutable"])
+
+    def test_no_command_is_classified_operational_yet(self):
+        """Nothing an agent can emit today reaches beyond the screen.
+
+        If that changes, this test fails and forces a deliberate decision about
+        how the approval boundary applies to it.
+        """
+        operational = [k for k in COMMANDS if safety_of(k) == OPERATIONAL]
+        self.assertEqual(operational, [])
 
 
 # --------------------------------------------------------------------------
