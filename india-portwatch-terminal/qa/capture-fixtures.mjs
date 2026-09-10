@@ -64,6 +64,10 @@ const GETS = [
   "/world/state",
   "/world/cascades",
   "/attention",
+  // The signal fabric. Health is the trust surface; providers is the licence
+  // matrix behind it.
+  "/fabric/health?mode=DEMO",
+  "/fabric/providers?mode=DEMO",
   ...PORTS.flatMap((code) => [
     `/port-twin/${code}`,
     `/port-twin/${code}/simulate`,

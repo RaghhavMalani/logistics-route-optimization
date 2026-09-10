@@ -33,6 +33,7 @@ import type {
   LearningSummary,
   PortTwinState,
   ReliabilityTable,
+  SignalHealth,
   ToolCatalogue,
   TwinOptimize,
   TwinSimulation,
@@ -354,3 +355,6 @@ export const fetchAttentionItem = (
     withAt(`/attention/${attentionId}`, at),
     headers,
   );
+
+export const fetchSignalHealth = (mode = "DEMO"): Promise<SignalHealth> =>
+  getJson<SignalHealth>(`/fabric/health?mode=${encodeURIComponent(mode)}`);

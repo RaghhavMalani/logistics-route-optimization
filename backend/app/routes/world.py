@@ -526,3 +526,65 @@ def fabric_resolve(
             ),
         )
     return SignalFabric(mode=active).resolve(capability).to_dict()
+
+
+@router.get("/fabric/health")
+def fabric_health(
+    mode: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """What every signal is actually doing right now.
+
+    The trust surface. A product that draws a vessel and a forecast on one chart
+    has to be able to say, without being asked twice, which of them was observed
+    two minutes ago and which is an artefact from this morning. Freshness here is
+    the *reading's* age, not the age of the HTTP call that just read a file --
+    the second number is always small and always meaningless.
+
+    Traffic mode is answered from the adapter's own availability rather than a
+    flag, so a deployment with a key but no websocket client cannot report LIVE.
+    """
+    from src.portwatch_os.fabric import COMMERCIAL, MODES as FABRIC_MODES
+    from src.portwatch_os.fabric import SignalFabric, ais_mode, build_adapters
+
+    active = (mode or COMMERCIAL).strip().upper()
+    if active not in FABRIC_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of: {', '.join(FABRIC_MODES)}.",
+        )
+
+    fabric = SignalFabric(mode=active)
+    signals: List[Dict[str, Any]] = []
+    for adapter in build_adapters(licence_mode=active):
+        availability = adapter.availability()
+        observations = adapter.fetch()
+        newest = observations[0] if observations else None
+        provider = fabric.get(adapter.provider_id)
+        signals.append({
+            "capability": adapter.capability,
+            "providerId": adapter.provider_id,
+            "providerName": provider.name if provider else adapter.provider_id,
+            "availability": availability.to_dict(),
+            "freshness": newest.freshness() if newest else "UNAVAILABLE",
+            "ageSeconds": None if newest is None else round(newest.age_seconds(), 1),
+            "quality": None if newest is None else newest.quality.to_dict(),
+            "licenceMode": active,
+            "commercialUse": provider.license.commercial_use if provider else None,
+            "attributionRequired": (
+                provider.license.attribution_required if provider else None
+            ),
+        })
+
+    return {
+        "mode": active,
+        "traffic": ais_mode(licence_mode=active),
+        "signals": sorted(signals, key=lambda row: row["capability"]),
+        # Capabilities the registry knows about that nothing reads yet, so the
+        # surface distinguishes "stale" from "never wired".
+        "unwired": [
+            capability
+            for capability in ("marine", "disaster", "seismic", "fire",
+                               "vessel_registry", "port_stats", "geography")
+            if not any(s["capability"] == capability for s in signals)
+        ],
+    }

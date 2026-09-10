@@ -1096,3 +1096,47 @@ export interface AttentionDetail {
   narrative: string[];
   cascade: { eventId: string; title: string; seed: string; at: string };
 }
+
+/* -------------------------------------------------------- signal fabric -- */
+
+export interface SignalAvailability {
+  status: string;
+  reason: string;
+  needs: string[];
+}
+
+export interface SignalQuality {
+  level: string;
+  usable: boolean;
+  reasons: string[];
+}
+
+export interface SignalHealthRow {
+  capability: string;
+  providerId: string;
+  providerName: string;
+  availability: SignalAvailability;
+  /** LIVE | CACHED | STALE | EXPIRED | UNKNOWN | UNAVAILABLE */
+  freshness: string;
+  /** Age of the reading, not of the request that fetched it. */
+  ageSeconds: number | null;
+  quality: SignalQuality | null;
+  licenceMode: string;
+  commercialUse: boolean | null;
+  attributionRequired: boolean | null;
+}
+
+export interface TrafficMode {
+  mode: "LIVE_AIS" | "SIMULATED_TRAFFIC" | "UNAVAILABLE";
+  providerId: string | null;
+  statement: string;
+  availability: SignalAvailability;
+}
+
+export interface SignalHealth {
+  mode: string;
+  traffic: TrafficMode;
+  signals: SignalHealthRow[];
+  /** Capabilities the registry knows and nothing reads yet. */
+  unwired: string[];
+}

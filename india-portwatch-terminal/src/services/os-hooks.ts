@@ -30,6 +30,7 @@ import {
   fetchPolicies,
   fetchPortTwin,
   fetchReliability,
+  fetchSignalHealth,
   fetchToolCatalogue,
   fetchTwinOptimize,
   fetchTwinSimulation,
@@ -56,6 +57,7 @@ import type {
   LearningSummary,
   PortTwinState,
   ReliabilityTable,
+  SignalHealth,
   ToolCatalogue,
   TwinOptimize,
   TwinSimulation,
@@ -361,4 +363,19 @@ export const useAttentionItem = (
     queryFn: () => fetchAttentionItem(attentionId as string, headers, at),
     enabled: Boolean(attentionId),
     staleTime: 30_000,
+  });
+
+/**
+ * Provider health, polled gently.
+ *
+ * Thirty seconds: fast enough that a source going stale is noticed within a
+ * shift-relevant window, slow enough that the strip is not itself a load on the
+ * thing it is reporting on.
+ */
+export const useSignalHealth = (mode = "DEMO"): UseQueryResult<SignalHealth> =>
+  useQuery({
+    queryKey: ["fabric", "health", mode],
+    queryFn: () => fetchSignalHealth(mode),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });

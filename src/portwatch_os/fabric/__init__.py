@@ -23,10 +23,42 @@ from src.portwatch_os.fabric.model import (
     Resolution,
     UNAVAILABLE,
 )
+from src.portwatch_os.fabric.adapters import (
+    AIS_UNAVAILABLE,
+    Availability,
+    BaseAdapter,
+    LIVE_AIS,
+    SIMULATED_TRAFFIC,
+    ais_mode,
+    build_adapters,
+)
+from src.portwatch_os.fabric.observation import (
+    DEGRADED,
+    OK,
+    Observation,
+    QualityVerdict,
+    REJECTED,
+    assess,
+    observe,
+)
 from src.portwatch_os.fabric.registry import SignalFabric, default_providers, get_fabric
 
 __all__ = [
+    "AIS_UNAVAILABLE",
     "AVAILABLE",
+    "Availability",
+    "BaseAdapter",
+    "DEGRADED",
+    "LIVE_AIS",
+    "OK",
+    "Observation",
+    "QualityVerdict",
+    "REJECTED",
+    "SIMULATED_TRAFFIC",
+    "ais_mode",
+    "assess",
+    "build_adapters",
+    "observe",
     "CAPABILITIES",
     "COMMERCIAL",
     "CONFIGURABLE",
