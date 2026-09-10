@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feat/portwatch-digital-twin, main]
+    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, main]
   workflow_dispatch:
 
 concurrency:
@@ -12,8 +12,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fast feedback first. These 218 tests need no artefacts, no network and no
+  # pipeline run: the twin, the ledger and the agents are all deterministic and
+  # seeded, so the whole operations layer verifies in a few seconds. If the
+  # safety boundary is broken, this job says so before anything slow starts.
+  operations:
+    name: Operations OS (agents, MCP, learning, twin, advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile the operations layer
+        run: python -m compileall -q src/portwatch_os tests
+
+      - name: Global Eye - ingest, dedupe, exposure, calibration
+        run: python -m unittest tests.test_global_eye -v
+
+      - name: Agents, tool access levels and the MCP protocol
+        run: python -m unittest tests.test_agents_and_mcp -v
+
+      - name: Ledger, scoring, reliability and attribution
+        run: python -m unittest tests.test_learning_ledger -v
+
+      - name: Port twin, policy benchmark and cargo
+        # Small deterministic environments only. The 250-episode training run and
+        # the TFT stay out of CI; the suite trains 20-40 episodes on fixed seeds.
+        run: python -m unittest tests.test_twin_and_cargo -v
+
+      - name: Advisory state machine and audit trail
+        run: python -m unittest tests.test_advisories -v
+
+      # The server has to start, speak the protocol and withhold EXECUTE. A
+      # catalogue that lists an EXECUTE tool at the default ceiling is a safety
+      # regression, so the shape of the response is asserted here rather than
+      # eyeballed.
+      - name: MCP server starts and withholds EXECUTE at the default ceiling
+        run: |
+          python -m src.portwatch_os.mcp.server --list-tools > mcp_tools.json
+          python - <<'PY'
+          import json
+          tools = json.load(open("mcp_tools.json"))
+          levels = {t["access"] for t in tools}
+          assert tools, "the MCP catalogue is empty"
+          assert "EXECUTE" not in levels, f"EXECUTE exposed at the default ceiling: {levels}"
+          assert all(t.get("computedBy") for t in tools), "a tool ships without computed_by"
+          print(f"{len(tools)} tools exposed, levels {sorted(levels)}")
+          PY
+
   intelligence:
-    name: Intelligence and API tests
+    name: Intelligence, pipeline and API tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +82,10 @@ jobs:
           python -m compileall -q src backend scripts app run_award_demo.py run_demo.py
 
       # The pipeline must survive with no network at all: the whole provenance
-      # design exists so a degraded run is honest rather than broken.
+      # design exists so a degraded run is honest rather than broken. This run
+      # also exercises the learning pass, which backfills the ledger from the
+      # run's own walk-forward history and puts a candidate policy through the
+      # promotion gate.
       - name: Run the pipeline offline end to end
         run: python run_award_demo.py --source sample --model baseline --offline
 
@@ -43,7 +99,10 @@ jobs:
       - name: Verify the exported artefacts
         run: python scripts/verify_artefacts.py
 
-      - name: Run the test suite
+      # Everything, including the operations suites again -- they are seconds,
+      # and running them against a real artefact tree catches an import that
+      # only works when nothing has been exported.
+      - name: Run the full test suite
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
   terminal:
@@ -70,6 +129,11 @@ jobs:
     # The interface has to be exercised, not just compiled: a screen that
     # renders while throwing a console error, dropping a request or pushing the
     # page sideways at 1366px is broken, and only a browser catches that.
+    #
+    # The suite also asserts the claims this product makes about itself -- the
+    # weather composite on by default, the schematic banner present, an
+    # uncalibrated event refusing to show a number, no committed vessel in the
+    # action queue, and no agent holding an EXECUTE ceiling.
     name: Browser regression (production build)
     runs-on: ubuntu-latest
     defaults:
@@ -87,9 +151,14 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       # The suite builds the app itself (node-server preset) and replays a
-      # recorded API, so it needs no backend and no network.
-      - name: Route, role-guard and degraded-mode tests
-        run: npm run test:browser
+      # recorded API, so it needs no backend and no network. Route, guard,
+      # traffic, routing, agentic and degraded-mode specs all run here.
+      #
+      # Two viewports in CI: 1920x1080 and 1366x768. The 1440x900 project exists
+      # for the local QA pass -- for layout risk 1366 strictly dominates it, so
+      # in CI it would add a third of the runtime and no coverage.
+      - name: Route, role, traffic, routing, agentic and degraded-mode tests
+        run: npm run test:browser:ci
       - name: Upload the report on failure
         if: failure()
         uses: actions/upload-artifact@v4

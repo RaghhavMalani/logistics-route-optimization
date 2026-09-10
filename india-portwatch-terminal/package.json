@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:browser": "playwright test",
+    "test:browser:ci": "playwright test --project=desktop-1920 --project=laptop-1366",
     "test:browser:ui": "playwright test --ui",
     "qa:fixtures": "node qa/capture-fixtures.mjs",
     "preview:stop": "node qa/stop-preview.mjs"
