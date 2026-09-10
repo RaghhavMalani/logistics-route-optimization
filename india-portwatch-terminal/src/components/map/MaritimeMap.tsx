@@ -106,6 +106,10 @@ const RUNTIME_KEYS: RuntimeSource[] = [
   "tracks",
   "chokepoints",
   "events",
+  // Consequence. Deliberately its own source rather than sharing `rings`,
+  // which the traffic layer writes for own-vessel marks -- two writers on one
+  // source means whichever renders last wins, silently.
+  "cascade",
 ];
 
 interface Overlay {

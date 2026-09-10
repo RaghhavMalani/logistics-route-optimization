@@ -166,7 +166,6 @@ export function GlobalEyeScreen({
         data={{
           ...workspace.data,
           cascade: layers.cascade,
-          rings: layers.rings,
         }}
         weatherRaster={workspace.raster}
         windFrame={workspace.frame}

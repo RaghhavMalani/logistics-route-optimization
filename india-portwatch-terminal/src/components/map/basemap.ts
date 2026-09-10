@@ -366,6 +366,19 @@ export function buildStyle(): StyleSpecification {
           "line-dasharray": [1.5, 3],
         },
       },
+      {
+        id: "cascade-ring",
+        type: "circle",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "ring"],
+        paint: {
+          "circle-radius": ["get", "radius"],
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-color": ["get", "color"],
+          "circle-stroke-width": ["get", "width"],
+          "circle-stroke-opacity": ["get", "opacity"],
+        },
+      },
 
       /* ---------------------------------------------------------- tracks -- */
       {
@@ -539,7 +552,7 @@ export const LAYER_GROUPS = {
   vectors: ["vector-line"],
   chokepoints: ["chokepoint-mark"],
   events: ["event-mark"],
-  cascade: ["cascade-halo", "cascade-lane", "cascade-flow"],
+  cascade: ["cascade-halo", "cascade-lane", "cascade-flow", "cascade-ring"],
   zones: ["zone-fill", "zone-edge", "zone-channel"],
   graticule: ["graticule-line"],
 } as const;
