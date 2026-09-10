@@ -177,6 +177,73 @@ class ToolVisibilityScopeTests(unittest.TestCase):
         self.assertTrue(call.result)
 
 
+class DraftScopeTests(unittest.TestCase):
+    """A draft names a port and an issuer, so both have to be earned.
+
+    `port_code` is a free tool argument and the store was called with no
+    principal, so `assert_may_issue` never ran. A draft never reaches a vessel,
+    but it does land in the named port's register attributed to a controller who
+    did not write it.
+    """
+
+    def setUp(self):
+        self.store = AdvisoryStore(":memory:")
+        self.registry = build_registry(
+            ledger=SqliteLedgerStore(":memory:"), advisory_store=self.store,
+        )
+
+    def _draft(self, scope, port_code="INMAA"):
+        return self.registry.call("portwatch.advisories.draft", {
+            "port_code": port_code,
+            "vessel_id": "PWD-001",
+            "kind": "arrival_window",
+            "recommendation": {"recommendedArrival": "2026-09-10T18:30:00+00:00"},
+            "reason": (
+                "The twin simulates 3.2 h at anchor for this call under the "
+                "greedy berth policy; arriving later removes the wait."
+            ),
+        }, scope=scope)
+
+    def test_a_controller_drafts_in_their_own_port(self):
+        call = self._draft(ToolScope(actor="S. Iyer", role="PORT_AUTHORITY",
+                                     port_code="INMAA"))
+        self.assertTrue(call.ok, call.error)
+        self.assertEqual(call.result["state"], DRAFT)
+        self.assertEqual(call.result["issuer"], "S. Iyer")
+
+    def test_a_controller_cannot_draft_into_another_port(self):
+        call = self._draft(
+            ToolScope(actor="S. Iyer", role="PORT_AUTHORITY", port_code="INMAA"),
+            port_code="INNSA",
+        )
+        self.assertFalse(call.ok)
+        self.assertIn("INNSA", call.error)
+
+    def test_a_carrier_cannot_draft_at_all(self):
+        call = self._draft(ToolScope(actor="M. Fernandes", role="SHIPPING_COMPANY",
+                                     organisation="PortWatch Demo Shipping"))
+        self.assertFalse(call.ok)
+        self.assertIn("cannot issue advisories", call.error)
+
+    def test_a_draft_cannot_claim_a_different_author(self):
+        call = self.registry.call("portwatch.advisories.draft", {
+            "port_code": "INMAA", "vessel_id": "PWD-001", "kind": "arrival_window",
+            "recommendation": {"recommendedArrival": "2026-09-10T18:30:00+00:00"},
+            "reason": (
+                "The twin simulates 3.2 h at anchor for this call under the "
+                "greedy berth policy; arriving later removes the wait."
+            ),
+            "issuer": "Someone Else",
+        }, scope=ToolScope(actor="S. Iyer", role="PORT_AUTHORITY", port_code="INMAA"))
+        self.assertFalse(call.ok)
+        self.assertIn("Someone Else", call.error)
+
+    def test_drafting_without_an_identity_is_refused(self):
+        call = self._draft(None)
+        self.assertFalse(call.ok)
+        self.assertIn("absent scope is not national access", call.error)
+
+
 class ExecuteScopeTests(unittest.TestCase):
     """The EXECUTE boundary, from both sides.
 

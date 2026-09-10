@@ -329,6 +329,16 @@ class ToolRegistry:
             raise ValueError(f"unknown access level {access}")
 
         def decorator(handler: Callable[..., Any]) -> Callable[..., Any]:
+            if scoped and not _takes_argument(handler, "scope"):
+                # _accepted_arguments drops arguments a handler does not declare,
+                # so a scoped tool whose handler forgot the parameter would be
+                # gated at the registry and then answer unscoped anyway. Catch it
+                # at registration, where it is a typo rather than a leak.
+                raise ValueError(
+                    f"{name} is registered scoped but its handler takes no 'scope' "
+                    "argument, so the authenticated identity would be silently "
+                    "dropped before it reached the query"
+                )
             self._tools[name] = ToolSpec(
                 name=name, access=access, summary=summary, handler=handler,
                 arguments=dict(arguments or {}), required=tuple(required),
@@ -459,6 +469,16 @@ class ToolRegistry:
                 error=f"{type(exc).__name__}: {exc}", computed_by=spec.computed_by,
                 scope=scope if spec.scoped else None,
             )
+
+
+def _takes_argument(handler: Callable[..., Any], name: str) -> bool:
+    try:
+        signature = inspect.signature(handler)
+    except (TypeError, ValueError):  # pragma: no cover - builtins only
+        return False
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in signature.parameters.values()):
+        return True
+    return name in signature.parameters
 
 
 def _accepted_arguments(

@@ -748,20 +748,38 @@ def build_registry(
         required=("port_code", "vessel_id", "kind", "recommendation", "reason"),
         returns="The draft advisory. Not visible to the recipient until issued.",
         computed_by="src.portwatch_os.advisories (the numbers must come from a model)",
-        failure_modes=("The advisory is not well formed; the vessel is unknown.",),
+        failure_modes=(
+            "The advisory is not well formed; the vessel is unknown.",
+            "The drafting identity does not hold the port it names.",
+            "No authenticated scope was supplied.",
+        ),
+        scoped=True,
     )
     def advisories_draft(
+        scope: ToolScope,
         port_code: str,
         vessel_id: str,
         kind: str,
         recommendation: Dict[str, Any],
         reason: str,
-        issuer: str = "PortWatch decision engine",
+        issuer: Optional[str] = None,
         model_confidence: Optional[float] = None,
         evidence: Optional[Dict[str, Any]] = None,
         prediction_ids: Optional[Sequence[str]] = None,
         valid_until: Optional[str] = None,
     ) -> Dict[str, Any]:
+        # The drafting identity is the authenticated one. `port_code` is a free
+        # argument, so without this a caller could raise a draft in any port's
+        # register under any controller's name -- a draft never reaches a vessel,
+        # but it does appear in that port's list attributed to someone who did
+        # not write it.
+        principal = _principal_for_scope(scope)
+        if issuer and issuer != scope.actor:
+            raise ToolError(
+                f"this draft claims {issuer} raised it, but the session is "
+                f"{scope.actor}. An advisory records the identity that drafted it.",
+                recoverable=False,
+            )
         vessel = fleet.vessel(vessel_id)
         record = port_registry.resolve(port_code)
         created = _now()
@@ -769,7 +787,7 @@ def build_registry(
             advisory_id=Advisory.make_id(port_code, vessel_id, kind, created),
             kind=kind,
             port_code=(record.locode if record else port_code),
-            issuer=issuer,
+            issuer=scope.actor,
             issuer_organisation=(record.authority if record else port_code),
             recipient_vessel_id=vessel_id,
             recipient_vessel_name=(vessel.name if vessel else vessel_id),
@@ -783,7 +801,9 @@ def build_registry(
             valid_until=valid_until,
         )
         try:
-            advisories.create(advisory)
+            advisories.create(advisory, principal=principal)
+        except AuthorisationError as exc:
+            raise ToolError(str(exc), recoverable=False) from exc
         except AdvisoryError as exc:
             raise ToolUnavailable(str(exc)) from exc
         return {

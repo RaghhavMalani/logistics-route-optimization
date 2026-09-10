@@ -720,7 +720,9 @@ class AdvisoryAgent(Agent):
                 "invent one.",
             )
 
-        created = self.call("portwatch.advisories.draft", draft, trace=calls)
+        created = self.call(
+            "portwatch.advisories.draft", draft, trace=calls, scope=request.scope,
+        )
         if created.ok:
             findings.append(Finding("Draft raised", created.result["advisoryId"],
                                     created.tool, created.result.get("note", "")))
