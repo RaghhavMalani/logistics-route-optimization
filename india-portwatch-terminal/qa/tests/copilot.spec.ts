@@ -102,9 +102,11 @@ test.describe("spatial copilot", () => {
     // The recorded run focuses an event and draws its cascade.
     expect(changes.toLowerCase()).toContain("cascade");
 
+    // The dispatch selects the event; the reveal then writes features over
+    // about a second and a half. Wait for it to settle rather than racing it.
     await settle(page);
-    const state = await worldState(page);
-    expect(state.cascadeFeatures).toBeGreaterThan(0);
+    const features = await settledCascade(page);
+    expect(features).toBeGreaterThan(0);
   });
 
   /**
