@@ -239,7 +239,14 @@ export function GlobalEyeScreen({
         overlay={
           <>
             {/* ---------------------------------------------- action rail -- */}
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex w-[286px] flex-col gap-2">
+            {/*
+              Bounded at the bottom rather than left to grow.
+              At 1366x768 the rail is tall enough to run underneath the
+              environment legend, which silently clips the live-consequence
+              list -- a collision no overflow check catches, because nothing
+              overflows the page.
+            */}
+            <div className="pointer-events-none absolute bottom-[184px] left-2.5 top-2.5 z-20 flex w-[286px] flex-col gap-2 overflow-hidden">
               <FloatPanel
                 title="Action required"
                 note={
@@ -248,7 +255,7 @@ export function GlobalEyeScreen({
                   </span>
                 }
                 testId="action-rail"
-                className="pointer-events-auto"
+                className="pointer-events-auto shrink-0"
                 footer={
                   "Ranked by the loss attention can still prevent: consequence × " +
                   "confidence × urgency, cut when no option remains."
@@ -269,7 +276,7 @@ export function GlobalEyeScreen({
                 title="Live consequence"
                 note={<span className="num">{live.length}</span>}
                 testId="cascade-register"
-                className="pointer-events-auto"
+                className="pointer-events-auto min-h-0 flex-1"
               >
                 {live.length === 0 ? (
                   <EmptyNote>
@@ -469,25 +476,50 @@ function LensBar({
     <div
       data-testid="lens-bar"
       className="pointer-events-auto flex items-center gap-0.5 rounded border border-[var(--line)] bg-[var(--surface)]/92 px-1 py-1 backdrop-blur"
+      role="tablist"
+      aria-label="World lens"
     >
-      {LENSES.map((option) => (
-        <button
-          key={option}
-          type="button"
-          data-testid="lens-option"
-          data-lens={option}
-          data-active={lens === option}
-          onClick={() => onChange(option)}
-          className={cn(
-            "rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide transition-colors",
-            lens === option
-              ? "bg-[var(--accent)] text-[var(--surface)]"
-              : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]",
-          )}
-        >
-          {option.slice(0, 4)}
-        </button>
-      ))}
+      {LENSES.map((option) => {
+        const definition = LENS_DEFINITIONS[option];
+        const unavailable = Boolean(definition.unavailable);
+        return (
+          <button
+            key={option}
+            type="button"
+            data-testid="lens-option"
+            data-lens={option}
+            data-active={lens === option}
+            data-unavailable={unavailable}
+            title={
+              unavailable
+                ? `${definition.purpose} — ${definition.unavailable!.headline}`
+                : definition.purpose
+            }
+            onClick={() => onChange(option)}
+            className={cn(
+              "flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors",
+              lens === option
+                ? "bg-[var(--accent)] text-[var(--surface)]"
+                : "text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]",
+            )}
+          >
+            {/*
+              A lens with nothing behind it is marked before it is opened.
+              Finding out only after switching wastes the click and, worse,
+              reads as a fault rather than a stated absence.
+            */}
+            {unavailable ? (
+              <span
+                className={cn(
+                  "h-1 w-1 shrink-0 rounded-full",
+                  lens === option ? "bg-[var(--surface)]" : "bg-[var(--text-3)]",
+                )}
+              />
+            ) : null}
+            {definition.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
