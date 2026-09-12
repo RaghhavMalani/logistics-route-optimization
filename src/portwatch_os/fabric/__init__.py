@@ -41,6 +41,7 @@ from src.portwatch_os.fabric.adapters import (
     BaseAdapter,
     LIVE_AIS,
     SIMULATED_TRAFFIC,
+    AIS_STALE,
     ais_mode,
     build_adapters,
 )
@@ -67,6 +68,7 @@ __all__ = [
     "QualityVerdict",
     "REJECTED",
     "SIMULATED_TRAFFIC",
+    "AIS_STALE",
     "ais_mode",
     "assess",
     "build_adapters",

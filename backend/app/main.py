@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,9 +26,27 @@ from backend.app.routes import (
     world,
 )
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Start the live feeds with the process, and stop them with it.
+
+    The AISStream client runs only when AISSTREAM_API_KEY is set; without it
+    the call is a no-op and the deployment shows the labelled replay. The key
+    is read here on the server and never leaves it.
+    """
+    from src.portwatch_os.fabric.ais.client import start_client, stop_client
+
+    start_client()
+    try:
+        yield
+    finally:
+        stop_client()
+
+
 app = FastAPI(
     title="India PortWatch Backend",
     version="2.0.0",
+    lifespan=lifespan,
     description=(
         "Evidence-backed API for India PortWatch: forecasting, global event "
         "intelligence, port digital twins, cargo, human-approved advisories, "

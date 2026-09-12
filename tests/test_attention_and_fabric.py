@@ -54,6 +54,7 @@ from src.portwatch_os.fabric import (
     ALLOWED,
     AVAILABLE,
     COMMERCIAL,
+    CONFIGURABLE,
     DEMO,
     GOVERNMENT,
     LicencePolicy,
@@ -699,6 +700,88 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual(body["status"], AVAILABLE)
         rejected = {r["productId"] for r in body["rejected"]}
         self.assertIn("aisstream-websocket", rejected)
+
+    # -- observed AIS over HTTP -------------------------------------------
+    def _with_client(self, api_key, feed=()):
+        """Install a scripted, unstarted AIS client as the process's one."""
+        from src.portwatch_os.fabric.ais import AisStreamClient, TrackStore
+        from src.portwatch_os.fabric.ais import client as client_module
+
+        client_module.reset_client()
+        client = AisStreamClient(TrackStore(), api_key=api_key)
+        for envelope in feed:
+            client.feed(envelope)
+        client_module._CLIENT = client
+        self.addCleanup(client_module.reset_client)
+        return client
+
+    @staticmethod
+    def _position(mmsi="419001234", at=None):
+        from datetime import datetime, timezone
+
+        moment = at or datetime.now(timezone.utc)
+        return {
+            "MessageType": "PositionReport",
+            "MetaData": {"MMSI": mmsi, "ShipName": "JOINED NAME", "latitude": 12.6,
+                         "longitude": 43.3,
+                         "time_utc": moment.strftime("%Y-%m-%d %H:%M:%S.%f") + "000 +0000 UTC"},
+            "Message": {"PositionReport": {"UserID": int(mmsi), "Sog": 11.0, "Cog": 90.0,
+                                           "TrueHeading": 511, "NavigationalStatus": 0}},
+        }
+
+    def test_health_without_a_key_reports_the_replay_by_name(self):
+        self._with_client(None)
+        body = self.client.get("/api/fabric/health?mode=RESEARCH").json()
+        self.assertEqual(body["traffic"]["mode"], "SIMULATED_TRAFFIC")
+        self.assertEqual(body["traffic"]["providerId"], "ais-replay")
+        ais = next(s for s in body["signals"] if s["capability"] == "ais")
+        self.assertEqual(ais["availability"]["status"], CONFIGURABLE)
+        self.assertEqual(ais["freshness"], "UNAVAILABLE")
+        self.assertEqual(ais["commercialUse"], "REQUIRES_REVIEW")
+
+    def test_health_with_a_key_and_no_messages_is_not_live(self):
+        self._with_client("k")
+        body = self.client.get("/api/fabric/health?mode=RESEARCH").json()
+        self.assertEqual(body["traffic"]["mode"], "UNAVAILABLE")
+        self.assertIsNone(body["traffic"]["providerId"])
+        self.assertIn("no valid observation has arrived", body["traffic"]["availability"]["reason"])
+        # And the key itself is in no field of the response.
+        self.assertNotIn('"k"', self.client.get("/api/fabric/health?mode=RESEARCH").text)
+
+    def test_health_becomes_live_only_when_a_message_arrived(self):
+        self._with_client("k", feed=[self._position()])
+        body = self.client.get("/api/fabric/health?mode=RESEARCH").json()
+        self.assertEqual(body["traffic"]["mode"], "LIVE_AIS")
+        self.assertEqual(body["traffic"]["health"]["messagesConsumed"], 1)
+        ais = next(s for s in body["signals"] if s["capability"] == "ais")
+        self.assertEqual(ais["availability"]["status"], AVAILABLE)
+        self.assertEqual(ais["freshness"], "LIVE")
+        self.assertLess(ais["ageSeconds"], 60)
+
+    def test_observed_tracks_carry_only_what_was_said(self):
+        self._with_client("k", feed=[self._position()])
+        body = self.client.get("/api/world/ais/tracks?mode=RESEARCH").json()
+        self.assertEqual(body["traffic"]["mode"], "LIVE_AIS")
+        self.assertEqual(body["count"], 1)
+        track = body["tracks"][0]
+        self.assertEqual(track["mmsi"], "419001234")
+        self.assertIsNone(track["name"])          # a position report names nobody
+        self.assertIsNone(track["imo"])
+        self.assertIsNone(track["latest"]["headingDegrees"])   # 511 is not a heading
+        self.assertEqual(track["source"], "OBSERVED_AIS")
+        self.assertEqual(track["freshness"], "LIVE")
+
+    def test_observed_tracks_are_empty_when_the_replay_is_showing(self):
+        self._with_client(None)
+        body = self.client.get("/api/world/ais/tracks?mode=RESEARCH").json()
+        self.assertEqual(body["traffic"]["mode"], "SIMULATED_TRAFFIC")
+        self.assertEqual(body["tracks"], [])
+
+    def test_observed_tracks_are_withheld_from_a_commercial_deployment(self):
+        self._with_client("k", feed=[self._position()])
+        body = self.client.get("/api/world/ais/tracks?mode=COMMERCIAL").json()
+        self.assertEqual(body["traffic"]["mode"], "UNAVAILABLE")
+        self.assertEqual(body["tracks"], [])
 
 
 if __name__ == "__main__":

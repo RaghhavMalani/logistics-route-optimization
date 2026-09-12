@@ -17,6 +17,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from src.portwatch_os.fabric.adapters import (
+    AIS_STALE,
     AIS_UNAVAILABLE,
     AisStreamAdapter,
     Availability,
@@ -28,6 +29,7 @@ from src.portwatch_os.fabric.adapters import (
     ais_mode,
     build_adapters,
 )
+from src.portwatch_os.fabric.ais import AUTH_FAILED, AisStreamClient, TrackStore
 from src.portwatch_os.fabric.model import AVAILABLE, CONFIGURABLE, UNAVAILABLE
 from src.portwatch_os.fabric.observation import (
     DEGRADED,
@@ -169,43 +171,113 @@ class AdapterContractTests(unittest.TestCase):
                 self.assertTrue(availability.reason, adapter.provider_id)
 
 
+def _envelope(mmsi="419001234", lat=12.6, lon=43.3, at=None):
+    moment = at or NOW
+    return {
+        "MessageType": "PositionReport",
+        "MetaData": {"MMSI": mmsi, "latitude": lat, "longitude": lon,
+                     "time_utc": moment.strftime("%Y-%m-%d %H:%M:%S.%f") + "000 +0000 UTC"},
+        "Message": {"PositionReport": {"UserID": int(mmsi), "Sog": 11.0, "Cog": 90.0,
+                                       "TrueHeading": 91, "NavigationalStatus": 0}},
+    }
+
+
 class AisModeTests(unittest.TestCase):
-    """The claim most likely to be misread, and the one a buyer asks first."""
+    """The claim most likely to be misread, and the one a buyer asks first.
 
-    def setUp(self):
-        self._saved = os.environ.pop(AisStreamAdapter.ENV_KEY, None)
+    The client is injected and never started, so these tests describe the
+    state machine and not the network. What the network does with a bad key
+    is covered where the socket is exercised.
+    """
 
-    def tearDown(self):
-        os.environ.pop(AisStreamAdapter.ENV_KEY, None)
-        if self._saved is not None:
-            os.environ[AisStreamAdapter.ENV_KEY] = self._saved
+    def _client(self, key):
+        return AisStreamClient(TrackStore(), api_key=key)
 
     def test_without_a_key_research_shows_simulated_traffic(self):
-        mode = ais_mode(licence_mode="RESEARCH")
+        mode = ais_mode(licence_mode="RESEARCH", client=self._client(None), now=NOW)
         self.assertEqual(mode["mode"], SIMULATED_TRAFFIC)
+        self.assertEqual(mode["providerId"], "ais-replay")
         self.assertIn("not observed AIS", mode["statement"])
+        self.assertEqual(mode["availability"]["status"], CONFIGURABLE)
 
     def test_a_commercial_deployment_has_no_eligible_traffic_source(self):
-        """AISStream's licence bars it however well configured it is."""
-        os.environ[AisStreamAdapter.ENV_KEY] = "a-key"
-        mode = ais_mode(licence_mode="COMMERCIAL")
+        """AISStream's licence bars it however well configured it is, and
+        however many messages are arriving."""
+        client = self._client("a-key")
+        client.feed(_envelope(), now=NOW)
+        mode = ais_mode(licence_mode="COMMERCIAL", client=client, now=NOW)
         self.assertEqual(mode["mode"], AIS_UNAVAILABLE)
         self.assertIn("commercial", mode["availability"]["reason"])
+        self.assertIsNone(mode["providerId"])
 
     def test_a_key_alone_does_not_make_traffic_live(self):
-        """The socket is not implemented, and the product says so.
-
-        This is the test that stops a future change flipping the label to
-        LIVE_AIS before anything is actually receiving positions.
-        """
-        os.environ[AisStreamAdapter.ENV_KEY] = "a-key"
-        mode = ais_mode(licence_mode="RESEARCH")
+        """The test that stops a future change flipping the label to LIVE_AIS
+        before anything has actually been received."""
+        mode = ais_mode(licence_mode="RESEARCH", client=self._client("a-key"), now=NOW)
         self.assertNotEqual(mode["mode"], LIVE_AIS)
-        self.assertIn("not implemented", mode["availability"]["reason"])
+        self.assertNotEqual(mode["mode"], SIMULATED_TRAFFIC)   # and not the replay
+        self.assertEqual(mode["mode"], AIS_UNAVAILABLE)
+        self.assertIn("no valid observation has arrived", mode["availability"]["reason"])
+
+    def test_one_valid_observation_makes_traffic_live(self):
+        client = self._client("a-key")
+        client.feed(_envelope(), now=NOW)
+        mode = ais_mode(licence_mode="RESEARCH", client=client, now=NOW)
+        self.assertEqual(mode["mode"], LIVE_AIS)
+        self.assertEqual(mode["providerId"], "aisstream")
+        self.assertEqual(mode["availability"]["status"], AVAILABLE)
+        self.assertEqual(mode["vessels"]["live"], 1)
+
+    def test_live_goes_stale_then_unavailable_never_simulated(self):
+        """The rule with a name: never silently LIVE_AIS -> SIMULATED_TRAFFIC."""
+        client = self._client("a-key")
+        client.feed(_envelope(), now=NOW)
+        later = ais_mode(licence_mode="RESEARCH", client=client, now=NOW + timedelta(minutes=12))
+        self.assertEqual(later["mode"], AIS_STALE)
+        self.assertIn("last known", later["statement"])
+        lapsed = ais_mode(licence_mode="RESEARCH", client=client, now=NOW + timedelta(hours=2))
+        self.assertEqual(lapsed["mode"], AIS_UNAVAILABLE)
+        self.assertIn("not been replaced by the replay", lapsed["statement"])
+
+    def test_a_refused_credential_is_unavailable_not_simulated(self):
+        client = self._client("bad")
+        client.status.health = AUTH_FAILED
+        client.status.last_error = "refused"
+        mode = ais_mode(licence_mode="RESEARCH", client=client, now=NOW)
+        self.assertEqual(mode["mode"], AIS_UNAVAILABLE)
+        self.assertIn("refused", mode["availability"]["reason"])
 
     def test_the_replay_is_never_served_through_the_ais_adapter(self):
-        os.environ[AisStreamAdapter.ENV_KEY] = "a-key"
-        self.assertEqual(AisStreamAdapter(licence_mode="RESEARCH").fetch(now=NOW), [])
+        adapter = AisStreamAdapter(licence_mode="RESEARCH", client=self._client("a-key"))
+        self.assertEqual(adapter.fetch(now=NOW), [])
+
+    def test_the_adapter_serves_observed_tracks_with_the_transponders_time(self):
+        client = self._client("a-key")
+        earlier = NOW - timedelta(minutes=3)
+        client.feed(_envelope(mmsi="419000001", at=earlier), now=NOW)
+        client.feed(_envelope(mmsi="419000002", at=NOW), now=NOW)
+        observations = AisStreamAdapter(licence_mode="RESEARCH", client=client).fetch(
+            now=NOW + timedelta(seconds=30)
+        )
+        self.assertEqual([o.value["mmsi"] for o in observations], ["419000002", "419000001"])
+        self.assertEqual(observations[1].source_timestamp, earlier)
+        self.assertEqual(observations[1].age_seconds(now=NOW + timedelta(seconds=30)), 210.0)
+        self.assertEqual(observations[0].value["source"], "OBSERVED_AIS")
+        self.assertTrue(observations[0].source_time_known)
+
+    def test_the_process_client_is_not_started_by_reading_status(self):
+        """Asking what mode we are in must not dial the server."""
+        from src.portwatch_os.fabric.ais import client as client_module
+
+        client_module.reset_client()
+        try:
+            os.environ[AisStreamAdapter.ENV_KEY] = "a-key"
+            client = client_module.get_client()
+            self.assertTrue(client.configured)
+            self.assertIsNone(client._thread)
+        finally:
+            os.environ.pop(AisStreamAdapter.ENV_KEY, None)
+            client_module.reset_client()
 
 
 class ArtefactAdapterTests(unittest.TestCase):

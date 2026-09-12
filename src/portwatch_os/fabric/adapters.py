@@ -36,14 +36,16 @@ from src.portwatch_os.fabric.observation import Observation, observe
 # AIS modes
 # --------------------------------------------------------------------------
 
-#: Positions observed by a real AIS receiver network.
+#: Positions observed by a real AIS receiver network, arriving now.
 LIVE_AIS = "LIVE_AIS"
+#: Observed positions that have stopped arriving. Still drawn, and said to be old.
+AIS_STALE = "AIS_STALE"
 #: The deterministic replay. Labelled as such on every surface it reaches.
 SIMULATED_TRAFFIC = "SIMULATED_TRAFFIC"
-#: No traffic source this mode may legally use. The honest third answer.
+#: No traffic source this mode may legally use, or a live one that has lapsed.
 AIS_UNAVAILABLE = "UNAVAILABLE"
 
-AIS_MODES: Tuple[str, ...] = (LIVE_AIS, SIMULATED_TRAFFIC, AIS_UNAVAILABLE)
+AIS_MODES: Tuple[str, ...] = (LIVE_AIS, AIS_STALE, SIMULATED_TRAFFIC, AIS_UNAVAILABLE)
 
 
 @dataclass(frozen=True)
@@ -143,29 +145,31 @@ class BaseAdapter:
 class AisStreamAdapter(BaseAdapter):
     """AISStream: observed positions, when a key is configured and the mode allows.
 
-    Two gates, and they are different gates. The licence gate is the catalogue's:
-    AISStream publishes no terms for its data service, so its commercial
-    standing is REQUIRES_REVIEW and a COMMERCIAL or GOVERNMENT deployment cannot
-    use it however well configured it is -- not because it is prohibited, but
-    because a permission nobody has verified is not a permission. The
-    configuration gate is this one: a RESEARCH or DEMO deployment may use it and
-    still has to have a key.
+    Three gates, and they are different gates. The licence gate is the
+    catalogue's: AISStream publishes no terms for its data service, so its
+    commercial standing is REQUIRES_REVIEW and a COMMERCIAL or GOVERNMENT
+    deployment cannot use it, because a permission nobody has verified is not a
+    permission. The configuration gate is the key. The third gate is the one
+    that matters most and is the easiest to forget: the socket has to have
+    actually delivered a valid observation. A configured, connected client that
+    has received nothing is not a source of positions yet, and this adapter
+    says so.
 
-    When either gate is shut this adapter yields nothing. It specifically does
-    not fall back to the replay, because the replay reaching the screen through
-    an adapter called "AISStream" is how a simulated position ends up labelled
-    as observed.
+    When any gate is shut this adapter yields nothing. It specifically does not
+    fall back to the replay, because the replay reaching the screen through an
+    adapter called "AISStream" is how a simulated position ends up labelled as
+    observed.
 
-    The websocket client itself is not implemented here. What exists is the
-    seam, the gating and the status, so that wiring a socket is a contained
-    change rather than a redesign -- and so the product tells the truth about
-    not having one today.
+    What it reads, when it reads, is the track store the websocket client
+    feeds: one observation per transponder, newest first, each carrying the
+    transponder's own timestamp so freshness is the reading's age and not the
+    age of this call.
     """
 
     provider_id = "aisstream"
     capability = AIS
-    coverage = "global, varying with receiver density"
-    stale_after_seconds = 300.0
+    coverage = "Indian Ocean subscription box; receiver density varies"
+    stale_after_seconds = 600.0
 
     #: The server reads this. It is never sent to a browser.
     ENV_KEY = "AISSTREAM_API_KEY"
@@ -174,22 +178,47 @@ class AisStreamAdapter(BaseAdapter):
     #: catalogue's verified policy rather than a sentence written here.
     product_id = "aisstream-websocket"
 
-    def availability(self) -> Availability:
+    def __init__(self, *, licence_mode: str = "RESEARCH", client: Any = None) -> None:
+        super().__init__(licence_mode=licence_mode)
+        # Injectable so the adapter can be exercised against a scripted client;
+        # otherwise the process-wide one.
+        self._client = client
+
+    @property
+    def client(self):
+        if self._client is None:
+            from src.portwatch_os.fabric.ais.client import get_client
+
+            self._client = get_client()
+        return self._client
+
+    def licence_gate(self) -> Optional[Availability]:
+        """The catalogue's verdict, or None when the mode may use the product."""
         from src.portwatch_os.fabric.registry import get_fabric
 
         product = get_fabric(self.licence_mode).product(self.product_id)
-        if product is not None:
-            permitted, reason = product.policy.permits(self.licence_mode)
-            if not permitted:
-                return Availability(
-                    UNAVAILABLE,
-                    reason=f"{product.name}: {reason}",
-                    needs=(
-                        "written confirmation of AISStream's terms, or a commercial "
-                        "AIS contract (Spire, Kpler)",
-                    ),
-                )
-        if not os.getenv(self.ENV_KEY):
+        if product is None:
+            return None
+        permitted, reason = product.policy.permits(self.licence_mode)
+        if permitted:
+            return None
+        return Availability(
+            UNAVAILABLE,
+            reason=f"{product.name}: {reason}",
+            needs=(
+                "written confirmation of AISStream's terms, or a commercial "
+                "AIS contract (Spire, Kpler)",
+            ),
+        )
+
+    def availability(self) -> Availability:
+        from src.portwatch_os.fabric.ais.client import AUTH_FAILED, LIVE, RATE_LIMITED
+
+        barred = self.licence_gate()
+        if barred is not None:
+            return barred
+        client = self.client
+        if not client.configured:
             return Availability(
                 CONFIGURABLE,
                 reason=(
@@ -199,53 +228,92 @@ class AisStreamAdapter(BaseAdapter):
                 ),
                 needs=(self.ENV_KEY,),
             )
+        status = client.status
+        if status.health == AUTH_FAILED:
+            return Availability(
+                UNAVAILABLE,
+                reason=f"AISStream refused the configured credential: {status.last_error}",
+                needs=("a valid " + self.ENV_KEY,),
+            )
+        if status.health == RATE_LIMITED:
+            return Availability(
+                UNAVAILABLE,
+                reason=f"the AISStream socket is rate limited: {status.last_error}",
+            )
+        if status.last_good_observation_at is None:
+            return Availability(
+                UNAVAILABLE,
+                reason=(
+                    f"a key is configured and the socket is {status.health}, but "
+                    "no valid observation has arrived yet, so there are no observed "
+                    "positions to show. The replay is not being shown in their place."
+                ),
+                needs=("the first valid message from AISStream",),
+            )
+        detail = "delivering" if status.health == LIVE else status.health.lower()
         return Availability(
-            UNAVAILABLE,
+            AVAILABLE,
             reason=(
-                "a key is configured but the AISStream websocket client is not "
-                "implemented in this build, so no observed positions are ingested"
+                f"observed AIS from AISStream; socket {detail}, "
+                f"{status.messages_consumed} observations consumed"
             ),
-            needs=("the AISStream websocket client",),
         )
 
-    def _read(self, *, now: datetime):  # pragma: no cover - never ready yet
-        return []
+    def _read(self, *, now: datetime):
+        tracks = sorted(
+            (t for t in self.client.store.tracks() if t.latest is not None),
+            key=lambda t: t.latest.source_timestamp,
+            reverse=True,
+        )
+        rows = []
+        for track in tracks:
+            head = track.latest
+            rows.append((
+                track.to_dict(now=now, history=0),
+                head.source_timestamp,
+                {
+                    "source_time_known": bool(head.provenance.get("source_time_known", True)),
+                    "message_type": head.message_type,
+                    "raw_ref": head.raw_ref,
+                    "positions_held": len(track.positions),
+                },
+            ))
+        return rows
 
 
-def ais_mode(*, licence_mode: str = "RESEARCH") -> Dict[str, Any]:
+def ais_mode(
+    *,
+    licence_mode: str = "RESEARCH",
+    client: Any = None,
+    now: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """What kind of traffic this deployment is actually showing.
 
-    The one question the traffic layer must never get wrong. It is answered from
-    the adapter's availability rather than from a flag somebody remembered to
-    set, so a configured-but-unimplemented socket cannot report LIVE.
+    The one question the traffic layer must never get wrong. The licence gate
+    is answered first, from the catalogue, so a COMMERCIAL deployment with a key
+    is UNAVAILABLE and not LIVE. Everything after that is answered by the
+    client's own state machine from evidence: LIVE_AIS because observations are
+    arriving, AIS_STALE because they stopped, SIMULATED_TRAFFIC only when the
+    replay was the chosen source, and never the replay by falling through.
     """
-    adapter = AisStreamAdapter(licence_mode=licence_mode)
+    adapter = AisStreamAdapter(licence_mode=licence_mode, client=client)
+    barred = adapter.licence_gate()
+    if barred is not None:
+        return {
+            "mode": AIS_UNAVAILABLE,
+            "providerId": None,
+            "statement": "No traffic source this deployment may legally use is configured.",
+            "availability": barred.to_dict(),
+            "health": None,
+            "vessels": None,
+        }
     availability = adapter.availability()
-    if availability.ready:
-        return {
-            "mode": LIVE_AIS,
-            "providerId": adapter.provider_id,
-            "statement": "Positions are observed AIS.",
-            "availability": availability.to_dict(),
-        }
-    if licence_mode in ("RESEARCH", "DEMO"):
-        return {
-            "mode": SIMULATED_TRAFFIC,
-            "providerId": "ais-replay",
-            "statement": (
-                "Positions are a deterministic replay, not observed AIS, and are "
-                "labelled as simulated wherever they are drawn."
-            ),
-            "availability": availability.to_dict(),
-        }
-    return {
-        "mode": AIS_UNAVAILABLE,
-        "providerId": None,
-        "statement": (
-            "No traffic source this deployment may legally use is configured."
-        ),
-        "availability": availability.to_dict(),
-    }
+    source = adapter.client.traffic_source(
+        now=now,
+        replay_chosen=licence_mode in ("RESEARCH", "DEMO"),
+    )
+    source["availability"] = availability.to_dict()
+    return source
 
 
 # --------------------------------------------------------------------------
@@ -394,6 +462,7 @@ def build_adapters(*, licence_mode: str = "RESEARCH") -> List[BaseAdapter]:
 __all__ = [
     "ADAPTERS",
     "AIS_MODES",
+    "AIS_STALE",
     "AIS_UNAVAILABLE",
     "Adapter",
     "AisStreamAdapter",

@@ -382,8 +382,12 @@ class AisStreamClient:
         last_good = self.status.last_good_observation_at
 
         if replay_chosen and not self.configured:
-            return _source(SIMULATED_TRAFFIC, "the deterministic replay was selected; "
-                           "positions are simulated and labelled as such", self, moment)
+            return _source(
+                SIMULATED_TRAFFIC,
+                "positions are a deterministic replay, not observed AIS, and are "
+                "labelled as simulated wherever they are drawn",
+                self, moment,
+            )
 
         if self.status.health == AUTH_FAILED:
             return _source(UNAVAILABLE, "AISStream refused the configured credential", self, moment)
@@ -452,14 +456,41 @@ _CLIENT_LOCK = threading.Lock()
 
 
 def get_client() -> AisStreamClient:
-    """The process's one AISStream client. Starts it if a key is configured."""
+    """The process's one AISStream client, unstarted.
+
+    Reading status must not open a socket: a test that asks "what mode are we
+    in" with a dummy key in the environment would otherwise dial the real
+    server. The application starts the client on startup, explicitly.
+    """
     global _CLIENT
     with _CLIENT_LOCK:
         if _CLIENT is None:
             _CLIENT = AisStreamClient()
-            if _CLIENT.configured:
-                _CLIENT.start()
         return _CLIENT
+
+
+def start_client() -> AisStreamClient:
+    """Start the process-wide client if a key is configured. Idempotent."""
+    client = get_client()
+    if client.configured:
+        client.start()
+    return client
+
+
+def stop_client() -> None:
+    global _CLIENT
+    with _CLIENT_LOCK:
+        if _CLIENT is not None:
+            _CLIENT.stop()
+
+
+def reset_client() -> None:
+    """Forget the process-wide client. For tests that swap the environment."""
+    global _CLIENT
+    with _CLIENT_LOCK:
+        if _CLIENT is not None:
+            _CLIENT.stop(timeout=0.5)
+        _CLIENT = None
 
 
 __all__ = [
@@ -482,4 +513,7 @@ __all__ = [
     "STALE",
     "UNAVAILABLE",
     "get_client",
+    "reset_client",
+    "start_client",
+    "stop_client",
 ]

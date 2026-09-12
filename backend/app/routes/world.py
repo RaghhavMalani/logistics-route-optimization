@@ -544,8 +544,9 @@ def fabric_health(
     the *reading's* age, not the age of the HTTP call that just read a file --
     the second number is always small and always meaningless.
 
-    Traffic mode is answered from the adapter's own availability rather than a
-    flag, so a deployment with a key but no websocket client cannot report LIVE.
+    Traffic mode is answered from the websocket client's own state machine
+    rather than a flag, so a deployment with a key that has received nothing
+    cannot report LIVE.
     """
     from src.portwatch_os.fabric import COMMERCIAL, MODES as FABRIC_MODES
     from src.portwatch_os.fabric import SignalFabric, ais_mode, build_adapters
@@ -602,4 +603,51 @@ def fabric_health(
                                "vessel_registry", "port_stats", "geography")
             if not any(s["capability"] == capability for s in signals)
         ],
+    }
+
+
+@router.get("/world/ais/tracks")
+def ais_tracks(
+    mode: Optional[str] = Query(None),
+    history: int = Query(30, ge=0, le=240),
+    limit: int = Query(2000, ge=1, le=20000),
+) -> Dict[str, Any]:
+    """Observed vessel tracks, and the source state that says what they are.
+
+    Only what a transponder said reaches this payload. A track has an IMO or
+    a name only if a static-data message carried it; a position report has
+    its MMSI and nothing else, and the surface drawing it must say so. The
+    ``traffic`` block is the same state machine ``/fabric/health`` reports, so
+    the chart and the trust surface cannot disagree about whether the
+    positions are live, stale or absent.
+
+    When the source is not observed AIS the list is empty -- the replay is
+    served elsewhere under its own name and is never returned here.
+    """
+    from src.portwatch_os.fabric import COMMERCIAL, MODES as FABRIC_MODES
+    from src.portwatch_os.fabric import AIS_STALE, LIVE_AIS, ais_mode
+    from src.portwatch_os.fabric.ais.client import get_client
+
+    active = (mode or COMMERCIAL).strip().upper()
+    if active not in FABRIC_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of: {', '.join(FABRIC_MODES)}.",
+        )
+    now = datetime.now(timezone.utc)
+    traffic = ais_mode(licence_mode=active, now=now)
+    tracks: List[Dict[str, Any]] = []
+    if traffic["mode"] in (LIVE_AIS, AIS_STALE):
+        store = get_client().store
+        ordered = sorted(
+            (t for t in store.tracks() if t.latest is not None),
+            key=lambda t: t.latest.source_timestamp,
+            reverse=True,
+        )
+        tracks = [t.to_dict(now=now, history=history) for t in ordered[:limit]]
+    return {
+        "generatedAt": now.isoformat(),
+        "traffic": traffic,
+        "count": len(tracks),
+        "tracks": tracks,
     }
