@@ -51,16 +51,20 @@ from src.portwatch_os.attention.model import (
     urgency_multiplier,
 )
 from src.portwatch_os.fabric import (
+    ALLOWED,
     AVAILABLE,
     COMMERCIAL,
     DEMO,
     GOVERNMENT,
+    LicencePolicy,
     PLANNED,
-    ProviderDefinition,
+    PROHIBITED,
+    Provider,
     ProviderHealth,
-    ProviderLicense,
+    ProviderProduct,
     RESEARCH,
     SignalFabric,
+    TermsEvidence,
     UNAVAILABLE,
 )
 from src.portwatch_os.global_eye.exposure import VesselVoyage
@@ -425,19 +429,22 @@ class FabricTests(unittest.TestCase):
     def setUp(self):
         self.fabric = SignalFabric(mode=COMMERCIAL)
 
-    def test_a_non_commercial_source_is_refused_for_a_paying_deployment(self):
+    def test_an_unverified_source_is_refused_for_a_paying_deployment(self):
+        """AISStream publishes no terms. That is REQUIRES_REVIEW, not prohibited."""
         resolution = self.fabric.resolve("ais")
         rejected = dict(resolution.rejected)
-        self.assertIn("aisstream", rejected)
-        self.assertIn("commercial use", rejected["aisstream"])
+        self.assertIn("aisstream-websocket", rejected)
+        self.assertIn("requires review", rejected["aisstream-websocket"])
+        self.assertNotIn("prohibit", rejected["aisstream-websocket"])
 
     def test_the_same_source_is_eligible_for_research(self):
         resolution = SignalFabric(mode=RESEARCH).resolve("ais")
-        self.assertEqual(resolution.provider.provider_id, "aisstream")
+        self.assertEqual(resolution.product.product_id, "aisstream-websocket")
 
-    def test_demo_may_use_a_non_commercial_source(self):
+    def test_demo_may_use_an_unverified_source(self):
         self.assertEqual(
-            SignalFabric(mode=DEMO).resolve("ais").provider.provider_id, "aisstream",
+            SignalFabric(mode=DEMO).resolve("ais").product.product_id,
+            "aisstream-websocket",
         )
 
     def test_a_capability_with_no_eligible_provider_is_unavailable(self):
@@ -453,24 +460,33 @@ class FabricTests(unittest.TestCase):
             self.assertTrue(reason)
 
     def test_a_government_deployment_needs_redistribution_rights(self):
-        contracted = ProviderDefinition(
-            provider_id="contracted", name="Contracted AIS", capabilities=("ais",),
-            license=ProviderLicense(
-                commercial_use=True, redistribution=False, attribution_required=False,
+        contracted = Provider(
+            provider_id="contracted", name="Contracted", products=(
+                ProviderProduct(
+                    product_id="contracted-ais", name="Contracted AIS",
+                    capabilities=("ais",), status=AVAILABLE, trust=0.99,
+                    policy=LicencePolicy(
+                        commercial_use=ALLOWED, government_use=ALLOWED,
+                        redistribution=PROHIBITED, attribution_required=False,
+                        evidence=TermsEvidence(
+                            checked_urls=(), reviewed_at="2026-09-12",
+                            finding="contract forbids onward sharing",
+                        ),
+                    ),
+                ),
             ),
-            status=AVAILABLE, trust=0.99,
         )
         fabric = SignalFabric([contracted], mode=GOVERNMENT)
         resolution = fabric.resolve("ais")
         self.assertFalse(resolution.available)
-        self.assertIn("agencies", dict(resolution.rejected)["contracted"])
+        self.assertIn("agencies", dict(resolution.rejected)["contracted-ais"])
 
-    def test_a_planned_provider_is_not_resolved_to(self):
+    def test_a_planned_product_is_not_resolved_to(self):
         """Naming a source must not imply an adapter exists."""
-        for provider_id in ("spire", "kpler", "global-fishing-watch"):
-            self.assertEqual(self.fabric.get(provider_id).status, PLANNED)
+        for product_id in ("spire-ais", "kpler-maritime", "gfw-api"):
+            self.assertEqual(self.fabric.product(product_id).status, PLANNED)
         self.assertNotEqual(
-            self.fabric.resolve("ais").provider.provider_id, "spire",
+            self.fabric.resolve("ais").product.product_id, "spire-ais",
         )
 
     def test_a_synthetic_source_says_so_structurally(self):
@@ -507,11 +523,43 @@ class WorldApiTests(unittest.TestCase):
             "X-PortWatch-Role": "NATIONAL_ADMIN",
         }
 
+    @classmethod
+    def _live_instant(cls):
+        """An instant at which the feed's events were within their horizon.
+
+        The register ages: every event carries a claim horizon, and once the
+        feed is older than that nothing is live at `now`. A test that skipped
+        in that case would silently stop proving anything the day after the
+        fixture was captured -- which is exactly what happened. The engine is
+        temporal, so the tests query it at a time the events were live rather
+        than pretending the present is that time.
+        """
+        from src.portwatch_os.global_eye.model import parse_time
+        from backend.app.routes.global_eye import _load_events
+
+        events, *_ = _load_events()
+        stamps = [parse_time(e.first_seen) for e in events if parse_time(e.first_seen)]
+        if not stamps:
+            return None
+        # One hour into the freshest event's window.
+        from datetime import timedelta
+        return (max(stamps) + timedelta(hours=1)).isoformat()
+
+    def _at(self) -> str:
+        from urllib.parse import quote
+
+        instant = self._live_instant()
+        if instant is None:
+            self.skipTest("the feed carries no dated events at all")
+        return f"at={quote(instant)}"
+
     def _live_event(self):
-        rows = self.client.get("/api/world/cascades", headers=self.headers).json()
+        rows = self.client.get(
+            f"/api/world/cascades?{self._at()}", headers=self.headers,
+        ).json()
         live = [r for r in rows["cascades"] if r.get("live")]
         if not live:
-            self.skipTest("no event propagates consequence against the current feed")
+            self.skipTest("no event propagates consequence even at its own instant")
         return live[0]["eventId"]
 
     def test_the_world_reports_its_own_rule_catalogue(self):
@@ -524,7 +572,7 @@ class WorldApiTests(unittest.TestCase):
     def test_a_cascade_carries_the_trace_behind_every_number(self):
         event_id = self._live_event()
         body = self.client.get(
-            f"/api/world/cascades/{event_id}", headers=self.headers,
+            f"/api/world/cascades/{event_id}?{self._at()}", headers=self.headers,
         ).json()
         self.assertTrue(body["steps"])
         for step in body["steps"]:
@@ -535,7 +583,7 @@ class WorldApiTests(unittest.TestCase):
     def test_every_propagated_quantity_keeps_its_unit_and_confidence(self):
         event_id = self._live_event()
         body = self.client.get(
-            f"/api/world/cascades/{event_id}", headers=self.headers,
+            f"/api/world/cascades/{event_id}?{self._at()}", headers=self.headers,
         ).json()
         for group in body["affected"].values():
             for subject in group:
@@ -548,7 +596,7 @@ class WorldApiTests(unittest.TestCase):
         """The map must not have to work out which lanes light up."""
         event_id = self._live_event()
         body = self.client.get(
-            f"/api/world/cascades/{event_id}", headers=self.headers,
+            f"/api/world/cascades/{event_id}?{self._at()}", headers=self.headers,
         ).json()
         self.assertEqual(
             sorted(body["affected"]), ["chokepoints", "lanes", "ports", "vessels"],
@@ -557,7 +605,7 @@ class WorldApiTests(unittest.TestCase):
     def test_no_vessel_appears_twice_in_a_cascade(self):
         event_id = self._live_event()
         body = self.client.get(
-            f"/api/world/cascades/{event_id}", headers=self.headers,
+            f"/api/world/cascades/{event_id}?{self._at()}", headers=self.headers,
         ).json()
         ids = [v["id"] for v in body["affected"]["vessels"]]
         self.assertEqual(len(ids), len(set(ids)))
@@ -569,7 +617,8 @@ class WorldApiTests(unittest.TestCase):
     def test_projection_queries_the_same_graph_at_each_horizon(self):
         event_id = self._live_event()
         body = self.client.post(
-            "/api/world/cascade/simulate", json={"eventId": event_id},
+            "/api/world/cascade/simulate",
+            json={"eventId": event_id, "at": self._live_instant()},
             headers=self.headers,
         ).json()
         offsets = [f["offsetHours"] for f in body["frames"]]
@@ -581,7 +630,7 @@ class WorldApiTests(unittest.TestCase):
         event_id = self._live_event()
         body = self.client.post(
             "/api/world/cascade/simulate",
-            json={"eventId": event_id, "offsets": [0, 168]},
+            json={"eventId": event_id, "offsets": [0, 168], "at": self._live_instant()},
             headers=self.headers,
         ).json()
         first, last = body["frames"][0], body["frames"][-1]
@@ -590,27 +639,27 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual(last["affected"]["vessels"], [])
 
     def test_an_attention_item_can_be_traced_to_its_computation(self):
-        queue = self.client.get("/api/attention", headers=self.headers).json()
+        queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
         if not queue["items"]:
-            self.skipTest("the queue is empty against the current feed")
+            self.skipTest("the queue is empty even at the events' own instant")
         item_id = queue["items"][0]["attentionId"]
         body = self.client.get(
-            f"/api/attention/{item_id}", headers=self.headers,
+            f"/api/attention/{item_id}?{self._at()}", headers=self.headers,
         ).json()
         self.assertTrue(body["evidence"])
         self.assertEqual(body["item"]["attentionId"], item_id)
 
     def test_the_evidence_chain_runs_from_the_event_not_just_the_last_hop(self):
-        queue = self.client.get("/api/attention", headers=self.headers).json()
+        queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
         if not queue["items"]:
-            self.skipTest("the queue is empty against the current feed")
+            self.skipTest("the queue is empty even at the events' own instant")
         item = next(
             (i for i in queue["items"] if i["subjectType"] in (PORT, VESSEL)), None,
         )
         if item is None:
             self.skipTest("no port or vessel item in the queue")
         body = self.client.get(
-            f"/api/attention/{item['attentionId']}", headers=self.headers,
+            f"/api/attention/{item['attentionId']}?{self._at()}", headers=self.headers,
         ).json()
         depths = [s["depth"] for s in body["evidence"]]
         self.assertEqual(depths, sorted(depths))
@@ -648,8 +697,8 @@ class WorldApiTests(unittest.TestCase):
     def test_the_fabric_reports_commercial_restrictions_over_http(self):
         body = self.client.get("/api/fabric/resolve/ais?mode=COMMERCIAL").json()
         self.assertEqual(body["status"], AVAILABLE)
-        rejected = {r["providerId"] for r in body["rejected"]}
-        self.assertIn("aisstream", rejected)
+        rejected = {r["productId"] for r in body["rejected"]}
+        self.assertIn("aisstream-websocket", rejected)
 
 
 if __name__ == "__main__":

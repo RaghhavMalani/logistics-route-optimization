@@ -84,8 +84,12 @@ def _at(at: Optional[str]) -> datetime:
     """The instant to query the world at. Defaults to now."""
     if not at:
         return utc()
+    # A "+" in a timezone offset arrives as a space when a client forgets to
+    # percent-encode it, which most do. Tolerate it rather than 400 an
+    # otherwise well-formed instant.
+    normalised = at.strip().replace(" ", "+").replace("Z", "+00:00")
     try:
-        parsed = datetime.fromisoformat(at.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalised)
     except ValueError:
         raise HTTPException(
             status_code=400,
@@ -560,19 +564,30 @@ def fabric_health(
         observations = adapter.fetch()
         newest = observations[0] if observations else None
         provider = fabric.get(adapter.provider_id)
+        product = fabric.product(getattr(adapter, "product_id", "")) if provider else None
+        if product is None and provider is not None and provider.products:
+            product = provider.products[0]
         signals.append({
             "capability": adapter.capability,
             "providerId": adapter.provider_id,
             "providerName": provider.name if provider else adapter.provider_id,
+            "productId": product.product_id if product else None,
+            "productName": product.name if product else None,
             "availability": availability.to_dict(),
             "freshness": newest.freshness() if newest else "UNAVAILABLE",
             "ageSeconds": None if newest is None else round(newest.age_seconds(), 1),
             "quality": None if newest is None else newest.quality.to_dict(),
+            "coverage": product.coverage if product else adapter.coverage,
             "licenceMode": active,
-            "commercialUse": provider.license.commercial_use if provider else None,
+            # Four-state, so the surface can say REQUIRES_REVIEW rather than
+            # collapsing "we do not know" into yes or no.
+            "commercialUse": product.policy.commercial_use if product else None,
+            "governmentUse": product.policy.government_use if product else None,
             "attributionRequired": (
-                provider.license.attribution_required if provider else None
+                product.policy.attribution_required if product else None
             ),
+            "termsUrl": product.policy.evidence.terms_url if product else None,
+            "termsReviewedAt": product.policy.evidence.reviewed_at if product else None,
         })
 
     return {

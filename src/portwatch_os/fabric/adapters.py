@@ -28,7 +28,6 @@ from src.portwatch_os.fabric.model import (
     AIS,
     AVAILABLE,
     CONFIGURABLE,
-    ProviderDefinition,
     UNAVAILABLE,
 )
 from src.portwatch_os.fabric.observation import Observation, observe
@@ -144,11 +143,13 @@ class BaseAdapter:
 class AisStreamAdapter(BaseAdapter):
     """AISStream: observed positions, when a key is configured and the mode allows.
 
-    Two gates, and they are different gates. The licence gate is the registry's:
-    AISStream is a community feed and its terms do not make it a commercial
-    production backbone, so COMMERCIAL and GOVERNMENT deployments cannot use it
-    however well configured they are. The configuration gate is this one: a
-    RESEARCH or DEMO deployment may use it and still has to have a key.
+    Two gates, and they are different gates. The licence gate is the catalogue's:
+    AISStream publishes no terms for its data service, so its commercial
+    standing is REQUIRES_REVIEW and a COMMERCIAL or GOVERNMENT deployment cannot
+    use it however well configured it is -- not because it is prohibited, but
+    because a permission nobody has verified is not a permission. The
+    configuration gate is this one: a RESEARCH or DEMO deployment may use it and
+    still has to have a key.
 
     When either gate is shut this adapter yields nothing. It specifically does
     not fall back to the replay, because the replay reaching the screen through
@@ -169,17 +170,25 @@ class AisStreamAdapter(BaseAdapter):
     #: The server reads this. It is never sent to a browser.
     ENV_KEY = "AISSTREAM_API_KEY"
 
+    #: The product this adapter serves, so eligibility comes from the
+    #: catalogue's verified policy rather than a sentence written here.
+    product_id = "aisstream-websocket"
+
     def availability(self) -> Availability:
-        if self.licence_mode in ("COMMERCIAL", "GOVERNMENT"):
-            return Availability(
-                UNAVAILABLE,
-                reason=(
-                    "AISStream's terms do not permit use as a commercial "
-                    "production backbone, so it is ineligible in this mode "
-                    "regardless of configuration"
-                ),
-                needs=("a commercial AIS contract: Spire or Kpler",),
-            )
+        from src.portwatch_os.fabric.registry import get_fabric
+
+        product = get_fabric(self.licence_mode).product(self.product_id)
+        if product is not None:
+            permitted, reason = product.policy.permits(self.licence_mode)
+            if not permitted:
+                return Availability(
+                    UNAVAILABLE,
+                    reason=f"{product.name}: {reason}",
+                    needs=(
+                        "written confirmation of AISStream's terms, or a commercial "
+                        "AIS contract (Spire, Kpler)",
+                    ),
+                )
         if not os.getenv(self.ENV_KEY):
             return Availability(
                 CONFIGURABLE,
