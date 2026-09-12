@@ -107,44 +107,6 @@ class FabricError(ValueError):
     """A provider declared something this registry cannot hold."""
 
 
-@dataclass(frozen=True)
-class ProviderLicense:
-    """What a source's terms permit. The field that decides eligibility."""
-
-    commercial_use: bool
-    redistribution: bool
-    attribution_required: bool
-    #: The human-readable terms, so a procurement question has an answer that is
-    #: not "somebody checked once".
-    summary: str = ""
-    url: Optional[str] = None
-
-    def permits(self, mode: str) -> Tuple[bool, Optional[str]]:
-        """Whether this licence allows a mode, and why not when it does not."""
-        if mode in (RESEARCH, DEMO):
-            return True, None
-        if not self.commercial_use:
-            return False, (
-                "the licence does not permit commercial use, so this source "
-                f"cannot serve a {mode} deployment"
-            )
-        if mode == GOVERNMENT and not self.redistribution:
-            return False, (
-                "a government deployment shares output between agencies, which "
-                "this licence does not permit"
-            )
-        return True, None
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "commercialUse": self.commercial_use,
-            "redistribution": self.redistribution,
-            "attributionRequired": self.attribution_required,
-            "summary": self.summary,
-            "url": self.url,
-        }
-
-
 @dataclass
 class ProviderHealth:
     """Whether a source is actually answering, and when it last did.
@@ -186,120 +148,6 @@ class ProviderHealth:
         }
 
 
-@dataclass
-class ProviderDefinition:
-    """One source of world data, and everything needed to decide about it."""
-
-    provider_id: str
-    name: str
-    capabilities: Tuple[str, ...]
-    license: ProviderLicense
-    status: str = PLANNED
-    latency_class: str = DAILY
-    cost_class: str = FREE
-    #: Free-text: "global", "Indian ports", "Indian Ocean". Not a geometry --
-    #: a claim to precision this registry does not have.
-    coverage: str = "unspecified"
-    auth_required: bool = False
-    #: 0..1. How much this source's observations have been worth historically.
-    #: Assigned, not learned, until the ledger has enough to fit it -- and it is
-    #: documented as assigned rather than dressed up as measured.
-    trust: float = 0.5
-    health: ProviderHealth = field(default_factory=ProviderHealth)
-    #: Providers to try, in order, when this one cannot serve.
-    fallbacks: Tuple[str, ...] = ()
-    #: True when this source produces modelled data rather than observations.
-    #: A structural flag rather than a sentence in `notes`, because "is this
-    #: real?" is the question a buyer asks last and cares about most, and prose
-    #: is not something a caller can check.
-    synthetic: bool = False
-    notes: str = ""
-
-    def __post_init__(self) -> None:
-        if self.status not in STATUSES:
-            raise FabricError(f"{self.status!r} is not a provider status")
-        if self.latency_class not in LATENCY_CLASSES:
-            raise FabricError(f"{self.latency_class!r} is not a latency class")
-        if self.cost_class not in COST_CLASSES:
-            raise FabricError(f"{self.cost_class!r} is not a cost class")
-        unknown = [c for c in self.capabilities if c not in CAPABILITIES]
-        if unknown:
-            raise FabricError(
-                f"{self.provider_id} declares capabilities this fabric does not "
-                f"model: {', '.join(unknown)}"
-            )
-
-    def eligible_for(self, mode: str, capability: str) -> Tuple[bool, Optional[str]]:
-        """Whether this provider may serve a capability in a mode, and why not."""
-        if capability not in self.capabilities:
-            return False, f"{self.name} does not provide {capability}"
-        if self.status in (PLANNED, UNAVAILABLE):
-            return False, (
-                f"{self.name} is {self.status.lower()} in this deployment"
-            )
-        permitted, reason = self.license.permits(mode)
-        if not permitted:
-            return False, f"{self.name}: {reason}"
-        return True, None
-
-    def to_dict(self, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-        return {
-            "providerId": self.provider_id,
-            "name": self.name,
-            "capabilities": list(self.capabilities),
-            "license": self.license.to_dict(),
-            "status": self.status,
-            "latencyClass": self.latency_class,
-            "costClass": self.cost_class,
-            "coverage": self.coverage,
-            "authRequired": self.auth_required,
-            "trust": round(self.trust, 3),
-            "health": self.health.to_dict(now=now),
-            "fallbacks": list(self.fallbacks),
-            "synthetic": self.synthetic,
-            "notes": self.notes,
-        }
-
-
-@dataclass(frozen=True)
-class Resolution:
-    """The answer to "what may serve this capability, here?"."""
-
-    capability: str
-    mode: str
-    provider: Optional[ProviderDefinition]
-    #: Every provider considered and why it was not chosen. The audit trail a
-    #: procurement review actually wants.
-    rejected: Tuple[Tuple[str, str], ...] = ()
-
-    @property
-    def available(self) -> bool:
-        return self.provider is not None
-
-    @property
-    def synthetic(self) -> bool:
-        """Whether the resolved source models its data rather than observing it.
-
-        Surfaced on the resolution, not only on the provider, so a caller that
-        acts on "AIS is available" cannot miss that what it resolved to is a
-        replay. Legally usable and not observed are different questions, and a
-        commercial deployment has to be able to tell them apart.
-        """
-        return bool(self.provider and self.provider.synthetic)
-
-    def to_dict(self, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-        return {
-            "capability": self.capability,
-            "mode": self.mode,
-            "status": AVAILABLE if self.available else UNAVAILABLE,
-            "synthetic": self.synthetic,
-            "provider": None if self.provider is None else self.provider.to_dict(now=now),
-            "rejected": [
-                {"providerId": pid, "reason": reason} for pid, reason in self.rejected
-            ],
-        }
-
-
 __all__ = [
     "AIS",
     "AVAILABLE",
@@ -326,12 +174,9 @@ __all__ = [
     "PAID",
     "PLANNED",
     "PORT_STATS",
-    "ProviderDefinition",
     "ProviderHealth",
-    "ProviderLicense",
     "REALTIME",
     "RESEARCH",
-    "Resolution",
     "SEISMIC",
     "STATIC",
     "STATUSES",

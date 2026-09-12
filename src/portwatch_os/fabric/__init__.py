@@ -16,12 +16,24 @@ from src.portwatch_os.fabric.model import (
     GOVERNMENT,
     MODES,
     PLANNED,
-    ProviderDefinition,
     ProviderHealth,
-    ProviderLicense,
     RESEARCH,
-    Resolution,
     UNAVAILABLE,
+)
+from src.portwatch_os.fabric.licence import (
+    ALLOWED,
+    LicencePolicy,
+    PROHIBITED,
+    REQUIRES_REVIEW,
+    TermsEvidence,
+    UNKNOWN,
+)
+from src.portwatch_os.fabric.products import (
+    ProductCatalogue,
+    ProductResolution,
+    Provider,
+    ProviderProduct,
+    default_catalogue,
 )
 from src.portwatch_os.fabric.adapters import (
     AIS_UNAVAILABLE,
@@ -41,7 +53,7 @@ from src.portwatch_os.fabric.observation import (
     assess,
     observe,
 )
-from src.portwatch_os.fabric.registry import SignalFabric, default_providers, get_fabric
+from src.portwatch_os.fabric.registry import SignalFabric, get_fabric
 
 __all__ = [
     "AIS_UNAVAILABLE",
@@ -66,13 +78,20 @@ __all__ = [
     "GOVERNMENT",
     "MODES",
     "PLANNED",
-    "ProviderDefinition",
+    "ALLOWED",
+    "LicencePolicy",
+    "PROHIBITED",
+    "ProductCatalogue",
+    "ProductResolution",
+    "Provider",
     "ProviderHealth",
-    "ProviderLicense",
+    "ProviderProduct",
+    "REQUIRES_REVIEW",
     "RESEARCH",
-    "Resolution",
+    "TermsEvidence",
+    "UNKNOWN",
     "SignalFabric",
     "UNAVAILABLE",
-    "default_providers",
+    "default_catalogue",
     "get_fabric",
 ]
