@@ -674,6 +674,22 @@ export interface AgentRun {
   } | null;
   critic: CriticVerdictView | null;
   decisionId: string | null;
+  /**
+   * What the world should show, derived from what the tools returned.
+   *
+   * Every command names the tool call that justifies it, and carries its own
+   * safety class: UI commands run on arrival, SIMULATION needs an open
+   * simulation context, OPERATIONAL never runs from an answer.
+   */
+  spatial: Array<{
+    kind: string;
+    subject: string | null;
+    evidenceTool: string;
+    reason: string;
+    params: Record<string, unknown>;
+    safety: "UI" | "SIMULATION" | "OPERATIONAL";
+    autoExecutable: boolean;
+  }>;
   note: string;
 }
 
@@ -895,4 +911,232 @@ export interface EventCalibration {
     inSample: Record<string, unknown>;
   };
   scores: LearningSummary["events"];
+}
+
+/* --------------------------------------------------------- world engine -- */
+
+/**
+ * A dimensioned magnitude the World State Engine produced.
+ *
+ * The unit travels with the value because a cascade changes unit as it
+ * propagates -- risk becomes exposed hulls becomes delay hours becomes yard
+ * pressure. A number without its unit is not a claim this product makes.
+ */
+export interface WorldQuantity {
+  value: number;
+  unit: string;
+  unitLabel: string;
+  confidence: number;
+  interval: { start: string | null; end: string | null };
+  attrs: Record<string, unknown>;
+}
+
+/** One hop of a cascade. The unit of Evidence Mode. */
+export interface CascadeStep {
+  depth: number;
+  from: string;
+  to: string;
+  edgeKind: string;
+  rule: string;
+  source: string;
+  incoming: WorldQuantity;
+  outgoing: WorldQuantity[];
+  declined: string | null;
+}
+
+/** One thing a cascade reached, with the geometry needed to place it. */
+export interface CascadeSubject {
+  key: string;
+  id: string;
+  kind: string;
+  label: string;
+  depth: number;
+  lat: number | null;
+  lon: number | null;
+  attrs: Record<string, unknown>;
+  quantities: Record<string, WorldQuantity>;
+  steps: number[];
+}
+
+export interface CascadeAffected {
+  chokepoints: CascadeSubject[];
+  lanes: CascadeSubject[];
+  vessels: CascadeSubject[];
+  ports: CascadeSubject[];
+}
+
+export interface WorldCascade {
+  eventId: string;
+  title: string;
+  live: boolean;
+  category?: string;
+  lat?: number | null;
+  lon?: number | null;
+  seed?: { node: string; quantity: WorldQuantity };
+  at: string | null;
+  reached?: Array<{ node: Record<string, unknown>; depth: number }>;
+  steps?: CascadeStep[];
+  narrative?: string[];
+  affected?: CascadeAffected;
+  totals?: Record<string, WorldQuantity>;
+  notes?: string[];
+  nodeCount: number;
+  truncated?: boolean;
+  attentionItems?: AttentionItem[];
+  reason?: string;
+}
+
+export interface WorldCascadeList {
+  at: string;
+  cascades: WorldCascade[];
+  total: number;
+}
+
+export interface WorldStateSummary {
+  at: string;
+  summary: {
+    nodes: number;
+    edges: number;
+    byNodeKind: Record<string, number>;
+    byEdgeKind: Record<string, number>;
+  };
+  nodes: Array<Record<string, unknown>>;
+  edges: Array<Record<string, unknown>>;
+  rules: Array<{
+    appliesTo: string; on: string; fromUnit: string; rule: string; explains: string;
+  }>;
+  projectionOffsets: number[];
+  maxHorizonHours: number;
+}
+
+export interface ProjectionFrame {
+  offsetHours: number;
+  at: string;
+  live: boolean;
+  nodeCount: number;
+  affected: CascadeAffected;
+  totals: Record<string, WorldQuantity>;
+  notes: string[];
+}
+
+export interface WorldProjection {
+  eventId: string;
+  title: string;
+  base: string;
+  horizonHours: number;
+  frames: ProjectionFrame[];
+}
+
+/* ------------------------------------------------------------ attention -- */
+
+export interface AttentionEffect {
+  value: number | null;
+  unit: string | null;
+  confidence: number | null;
+  statement: string;
+  available: boolean;
+  unavailableBecause: string | null;
+  rule: string | null;
+}
+
+export interface AttentionOption {
+  action: string;
+  summary: string;
+  closesInHours: number | null;
+  effect: AttentionEffect;
+  tradeoff: string;
+}
+
+export type AttentionStatus =
+  | "ACT_NOW"
+  | "ACT_SOON"
+  | "WATCH"
+  | "MONITOR_ONLY"
+  | "NO_ACTION_AVAILABLE";
+
+export interface AttentionItem {
+  attentionId: string;
+  subjectType: string;
+  subjectId: string;
+  subjectLabel: string;
+  scope: string;
+  headline: string;
+  reason: string;
+  severity: number;
+  confidence: number;
+  urgency: number;
+  status: AttentionStatus;
+  actionable: boolean;
+  actionDeadline: string | null;
+  interventionWindowHours: number | null;
+  baselineOutcome: string;
+  doNothingOutcome: string;
+  recommendedAction: AttentionOption | null;
+  alternativeActions: AttentionOption[];
+  expectedOperationalEffect: AttentionEffect;
+  expectedFinancialEffect: AttentionEffect;
+  financialEffectAvailable: boolean;
+  cascadeId: string;
+  evidenceNodeKey: string;
+  priority: number;
+  priorityBasis: Record<string, number>;
+}
+
+export interface AttentionQueue {
+  at: string;
+  scope: string;
+  items: AttentionItem[];
+  total: number;
+  actionable: number;
+}
+
+export interface AttentionDetail {
+  item: AttentionItem;
+  evidence: CascadeStep[];
+  narrative: string[];
+  cascade: { eventId: string; title: string; seed: string; at: string };
+}
+
+/* -------------------------------------------------------- signal fabric -- */
+
+export interface SignalAvailability {
+  status: string;
+  reason: string;
+  needs: string[];
+}
+
+export interface SignalQuality {
+  level: string;
+  usable: boolean;
+  reasons: string[];
+}
+
+export interface SignalHealthRow {
+  capability: string;
+  providerId: string;
+  providerName: string;
+  availability: SignalAvailability;
+  /** LIVE | CACHED | STALE | EXPIRED | UNKNOWN | UNAVAILABLE */
+  freshness: string;
+  /** Age of the reading, not of the request that fetched it. */
+  ageSeconds: number | null;
+  quality: SignalQuality | null;
+  licenceMode: string;
+  commercialUse: boolean | null;
+  attributionRequired: boolean | null;
+}
+
+export interface TrafficMode {
+  mode: "LIVE_AIS" | "SIMULATED_TRAFFIC" | "UNAVAILABLE";
+  providerId: string | null;
+  statement: string;
+  availability: SignalAvailability;
+}
+
+export interface SignalHealth {
+  mode: string;
+  traffic: TrafficMode;
+  signals: SignalHealthRow[];
+  /** Capabilities the registry knows and nothing reads yet. */
+  unwired: string[];
 }

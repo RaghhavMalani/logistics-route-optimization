@@ -17,6 +17,8 @@ import type {
   AdvisoryPolicy,
   AgentArchitecture,
   AgentRun,
+  AttentionDetail,
+  AttentionQueue,
   CargoOpportunities,
   CargoPlan,
   CompanyFleet,
@@ -31,9 +33,14 @@ import type {
   LearningSummary,
   PortTwinState,
   ReliabilityTable,
+  SignalHealth,
   ToolCatalogue,
   TwinOptimize,
   TwinSimulation,
+  WorldCascade,
+  WorldCascadeList,
+  WorldProjection,
+  WorldStateSummary,
 } from "@/types/portwatch-os";
 
 /* -------------------------------------------------------------- global eye -- */
@@ -293,3 +300,61 @@ export const approvePolicy = (
     approver,
     reason,
   });
+
+/* --------------------------------------------------------- world engine -- */
+
+const withAt = (path: string, at?: string | null, extra: Record<string, string> = {}) => {
+  const params = new URLSearchParams(extra);
+  if (at) params.set("at", at);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+};
+
+export const fetchWorldState = (at?: string | null): Promise<WorldStateSummary> =>
+  getJson<WorldStateSummary>(withAt("/world/state", at));
+
+export const fetchWorldCascades = (at?: string | null): Promise<WorldCascadeList> =>
+  getJson<WorldCascadeList>(withAt("/world/cascades", at));
+
+/**
+ * One event's consequence, with the trace behind every number.
+ *
+ * Identity headers are sent because the response carries the attention queue,
+ * which is scoped exactly as the advisory register is.
+ */
+export const fetchWorldCascade = (
+  eventId: string,
+  at?: string | null,
+  headers: Record<string, string> = {},
+): Promise<WorldCascade> =>
+  getJson<WorldCascade>(
+    withAt(`/world/cascades/${encodeURIComponent(eventId)}`, at),
+    headers,
+  );
+
+export const simulateProjection = (
+  eventId: string,
+  offsets?: number[],
+  at?: string | null,
+): Promise<WorldProjection> =>
+  postJson<WorldProjection>("/world/cascade/simulate", { eventId, offsets, at });
+
+export const fetchAttention = (
+  headers: Record<string, string> = {},
+  at?: string | null,
+  limit = 5,
+): Promise<AttentionQueue> =>
+  getJson<AttentionQueue>(withAt("/attention", at, { limit: String(limit) }), headers);
+
+export const fetchAttentionItem = (
+  attentionId: string,
+  headers: Record<string, string> = {},
+  at?: string | null,
+): Promise<AttentionDetail> =>
+  getJson<AttentionDetail>(
+    withAt(`/attention/${attentionId}`, at),
+    headers,
+  );
+
+export const fetchSignalHealth = (mode = "DEMO"): Promise<SignalHealth> =>
+  getJson<SignalHealth>(`/fabric/health?mode=${encodeURIComponent(mode)}`);
