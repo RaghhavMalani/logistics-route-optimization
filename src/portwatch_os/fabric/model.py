@@ -47,6 +47,23 @@ GOVERNMENT = "GOVERNMENT"
 
 MODES: Tuple[str, ...] = (RESEARCH, DEMO, COMMERCIAL, GOVERNMENT)
 
+#: The environment variable naming the mode a deployment runs in.
+MODE_ENV = "PORTWATCH_LICENCE_MODE"
+
+
+def deployment_mode() -> str:
+    """The licence mode this process runs in, from the environment.
+
+    Defaults to COMMERCIAL, the most restrictive reading: a deployment that
+    has not said what it is gets only the sources every deployment may use.
+    A request may still ask to view the world in another mode; this is the
+    answer when it does not.
+    """
+    import os
+
+    value = (os.getenv(MODE_ENV) or COMMERCIAL).strip().upper()
+    return value if value in MODES else COMMERCIAL
+
 # --------------------------------------------------------------------------
 # status
 # --------------------------------------------------------------------------
@@ -170,6 +187,8 @@ __all__ = [
     "LATENCY_CLASSES",
     "MARINE",
     "MODES",
+    "MODE_ENV",
+    "deployment_mode",
     "NEAR_REALTIME",
     "PAID",
     "PLANNED",

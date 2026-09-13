@@ -304,6 +304,42 @@ class VesselVoyage:
     service_speed_kn: float = DEFAULT_SERVICE_KN
     operator: Optional[str] = None
 
+    #: Where this voyage came from, and how much of it was inferred. A fleet
+    #: voyage declares everything; an observed one carries the confidence of
+    #: each derivation so consequence built on it is discounted, not trusted.
+    source: str = "FLEET"
+    destination_confidence: Optional[float] = None
+    lane_confidence: Optional[float] = None
+    timing_confidence: Optional[float] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    observed_at: Optional[str] = None
+    mmsi: Optional[str] = None
+    imo: Optional[str] = None
+    canonical_id: Optional[str] = None
+    #: False when the name is a placeholder because no static report was heard.
+    name_stated: bool = True
+
+    @property
+    def observed(self) -> bool:
+        return self.source == "OBSERVED_AIS"
+
+    @property
+    def placement_confidence(self) -> float:
+        """The joint confidence that this hull is where the graph puts it.
+
+        The product of what was inferred; a declared fleet voyage is 1.0.
+        """
+        if self.observed and self.destination_confidence is None:
+            # Nothing could be inferred: the hull is on the chart, and that is
+            # all. It has no place on a lane to be confident about.
+            return 0.0
+        result = 1.0
+        for part in (self.destination_confidence, self.lane_confidence, self.timing_confidence):
+            if part is not None:
+                result *= part
+        return result
+
 
 def lane_exposure(
     event: GlobalEvent,

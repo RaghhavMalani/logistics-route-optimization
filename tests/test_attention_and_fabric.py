@@ -783,6 +783,138 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual(body["traffic"]["mode"], "UNAVAILABLE")
         self.assertEqual(body["tracks"], [])
 
+    # -- observed hulls in the world graph ---------------------------------
+    @staticmethod
+    def _static(mmsi="419001234", imo=9000001, name="OBSERVED HULL", destination="INNSA", at=None):
+        from datetime import datetime, timezone
+
+        moment = at or datetime.now(timezone.utc)
+        return {
+            "MessageType": "ShipStaticData",
+            "MetaData": {"MMSI": mmsi, "latitude": 12.8, "longitude": 45.5,
+                         "time_utc": moment.strftime("%Y-%m-%d %H:%M:%S.%f") + "000 +0000 UTC"},
+            "Message": {"ShipStaticData": {"UserID": int(mmsi), "ImoNumber": imo, "Name": name,
+                                           "CallSign": "VT", "Destination": destination,
+                                           "Eta": {"Month": 9, "Day": 20, "Hour": 1, "Minute": 0}}},
+        }
+
+    @staticmethod
+    def _aden_position(mmsi="419001234", at=None, cog=100.0, sog=14.0):
+        """East of Bab-el-Mandeb, heading east: through the strait, bound for India."""
+        from datetime import datetime, timezone
+
+        moment = at or datetime.now(timezone.utc)
+        return {
+            "MessageType": "PositionReport",
+            "MetaData": {"MMSI": mmsi, "latitude": 12.8, "longitude": 45.5,
+                         "time_utc": moment.strftime("%Y-%m-%d %H:%M:%S.%f") + "000 +0000 UTC"},
+            "Message": {"PositionReport": {"UserID": int(mmsi), "Sog": sog, "Cog": cog,
+                                           "TrueHeading": int(cog), "NavigationalStatus": 0}},
+        }
+
+    def _with_fused_client(self, api_key, feed=()):
+        """A scripted client wired to a fresh fusion engine, as the process's."""
+        from src.portwatch_os.fusion import engine as fusion_module
+
+        fusion_module.reset_engine()
+        self.addCleanup(fusion_module.reset_engine)
+        client = self._with_client(api_key)
+        client._on_observation = lambda obs: fusion_module.get_engine().ingest_ais(obs)
+        for envelope in feed:
+            client.feed(envelope)
+        return client
+
+    def test_an_observed_hull_enters_the_world_with_its_confidences(self):
+        self._with_fused_client("k", feed=[self._aden_position(), self._static()])
+        body = self.client.get("/api/world/state?mode=RESEARCH").json()
+        self.assertEqual(body["summary"]["observedVessels"], 1)
+        node = next(n for n in body["nodes"] if n["attrs"].get("source") == "OBSERVED_AIS")
+        attrs = node["attrs"]
+        self.assertEqual(attrs["mmsi"], "419001234")
+        self.assertEqual(attrs["imo"], "9000001")
+        self.assertEqual(attrs["destination_port"], "INNSA")
+        self.assertEqual(attrs["destination_confidence"], 0.9)          # a LOCODE
+        self.assertEqual(attrs["lane_code"], "EUR_IND")
+        self.assertLess(attrs["lane_confidence"], 1.0)                  # inferred, and says so
+        self.assertLess(attrs["placement_confidence"], 0.5)
+        self.assertTrue(attrs["name_stated"])
+        self.assertEqual(attrs["lat"], 12.8)
+
+    def test_a_hull_without_a_destination_is_on_the_chart_but_not_on_a_lane(self):
+        self._with_fused_client("k", feed=[self._aden_position()])           # position only
+        body = self.client.get("/api/world/state?mode=RESEARCH").json()
+        node = next(n for n in body["nodes"] if n["attrs"].get("source") == "OBSERVED_AIS")
+        self.assertIsNone(node["attrs"]["destination_port"])
+        self.assertIsNone(node["attrs"]["lane_code"])
+        self.assertEqual(node["attrs"]["placement_confidence"], 0.0)
+        self.assertFalse(node["attrs"]["name_stated"])
+        self.assertTrue(node["label"].startswith("MMSI "))                   # no invented name
+        sails = [e for e in body["edges"] if e["dst"] == node["key"] and e["kind"] == "SAILS"]
+        self.assertEqual(sails, [])
+
+    def test_observed_hulls_are_absent_from_a_commercial_view(self):
+        self._with_fused_client("k", feed=[self._aden_position(), self._static()])
+        body = self.client.get("/api/world/state?mode=COMMERCIAL").json()
+        self.assertEqual(body["summary"]["observedVessels"], 0)
+
+    def test_an_observed_hull_is_reached_by_a_cascade_with_discounted_confidence(self):
+        """The point of the exercise: consequence reaches a real hull, and the
+        confidence on it is lower than on a fleet vessel by what was inferred."""
+        self._with_fused_client("k", feed=[self._aden_position(), self._static()])
+        listing = self.client.get(
+            f"/api/world/cascades?mode=RESEARCH&{self._at()}", headers=self.headers,
+        ).json()
+        bab = [c for c in listing["cascades"] if c["live"] and "BAB_EL_MANDEB" in
+               {s["id"] for s in c["affected"]["chokepoints"]}]
+        if not bab:
+            self.skipTest("no live Bab-el-Mandeb cascade in the register at this instant")
+        detail = self.client.get(
+            f"/api/world/cascades/{bab[0]['eventId']}?mode=RESEARCH&{self._at()}",
+            headers=self.headers,
+        ).json()
+        reached = [v for v in detail["affected"]["vessels"] if v["attrs"].get("source") == "OBSERVED_AIS"]
+        self.assertEqual(len(reached), 1)
+        fleet = [v for v in detail["affected"]["vessels"] if v["attrs"].get("source") != "OBSERVED_AIS"]
+        observed_conf = max(q["confidence"] for q in reached[0]["quantities"].values())
+        if fleet:
+            fleet_conf = max(max(q["confidence"] for q in v["quantities"].values()) for v in fleet)
+            self.assertLess(observed_conf, fleet_conf)
+
+    # -- entities over HTTP --------------------------------------------------
+    def test_entities_list_and_detail_carry_the_whole_record(self):
+        self._with_fused_client("k", feed=[self._aden_position(), self._static()])
+        listing = self.client.get("/api/world/entities?observedOnly=true").json()
+        self.assertEqual(listing["count"], 1)
+        hull = listing["vessels"][0]
+        self.assertEqual(hull["mmsis"], ["419001234"])
+        self.assertEqual(hull["imo"], "9000001")
+        self.assertTrue(hull["observed"])
+        detail = self.client.get(f"/api/world/entities/{hull['canonicalId']}").json()
+        self.assertGreaterEqual(len(detail["assertions"]), 6)
+        self.assertEqual({l["key"]["kind"] for l in detail["links"]}, {"MMSI", "IMO"})
+
+    def test_entity_lookup_is_by_strong_key_only(self):
+        self._with_fused_client("k", feed=[self._aden_position(), self._static()])
+        by_mmsi = self.client.get("/api/world/entities/lookup?mmsi=419001234").json()
+        by_imo = self.client.get("/api/world/entities/lookup?imo=9000001").json()
+        self.assertEqual(by_mmsi["canonicalId"], by_imo["canonicalId"])
+        self.assertEqual(self.client.get("/api/world/entities/lookup?mmsi=419009999").status_code, 404)
+        self.assertEqual(self.client.get("/api/world/entities/lookup").status_code, 400)
+        # No name parameter exists; passing one is ignored, not honoured.
+        self.assertEqual(self.client.get("/api/world/entities/lookup?name=OBSERVED%20HULL").status_code, 400)
+
+    def test_a_fleet_vessel_sharing_a_name_is_a_candidate_not_a_merge(self):
+        from backend.app.routes.global_eye import _company_voyages
+
+        fleet_name = _company_voyages(None)[0].name
+        self._with_fused_client("k", feed=[self._aden_position(), self._static(name=fleet_name)])
+        self.client.get("/api/world/state?mode=RESEARCH")                    # registers the fleet
+        listing = self.client.get("/api/world/entities").json()
+        observed = next(v for v in listing["vessels"] if v["observed"])
+        self.assertEqual(observed["fleetIds"], [])                            # not merged
+        self.assertTrue(observed["candidates"])                               # offered
+        self.assertFalse(observed["candidates"][0]["applied"])
+
 
 if __name__ == "__main__":
     unittest.main()

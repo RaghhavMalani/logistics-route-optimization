@@ -103,22 +103,68 @@ def _at(at: Optional[str]) -> datetime:
 # --------------------------------------------------------------------------
 
 
-def _world(company_id: Optional[str] = None):
+def _mode(mode: Optional[str]) -> str:
+    """The licence mode a request is asking the world to be viewed in."""
+    from src.portwatch_os.fabric import MODES as FABRIC_MODES, deployment_mode
+
+    active = (mode or deployment_mode()).strip().upper()
+    if active not in FABRIC_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"mode must be one of: {', '.join(FABRIC_MODES)}.",
+        )
+    return active
+
+
+def _observed_voyages(mode: str, now: datetime):
+    """Observed hulls as voyages, only when the traffic source is observed AIS.
+
+    The same gate as the chart: LIVE_AIS or AIS_STALE. A lapsed feed's hulls
+    leave the graph as they leave the chart, and a COMMERCIAL view sees none
+    of them because the product is not licensed for it.
+    """
+    from src.portwatch_os.fabric import AIS_STALE, LIVE_AIS, ais_mode
+    from src.portwatch_os.fusion.engine import get_engine
+    from src.portwatch_os.world.observed import observed_voyages
+
+    traffic = ais_mode(licence_mode=mode, now=now)
+    if traffic["mode"] not in (LIVE_AIS, AIS_STALE):
+        return [], traffic
+    placements = observed_voyages(get_engine(), now=now)
+    return placements, traffic
+
+
+def _world(company_id: Optional[str] = None, *, mode: Optional[str] = None, now: Optional[datetime] = None):
     """The graph, and the events that seeded it.
 
     Rebuilt per request rather than cached: the event register is re-ingested
     and re-calibrated on every Global Eye request already, and a world graph
     that lagged behind it would be the quiet inconsistency this product exists
     to avoid.
+
+    Observed hulls are added after the fleet, keyed by their canonical id, so
+    a replay vessel and an observed one never share a node. The fleet is also
+    registered with the fusion engine, which is how a fleet entry with an IMO
+    finds its transponder -- and how one without an IMO is offered a name
+    candidate rather than merged.
     """
     from backend.app.routes.global_eye import _company_voyages, _load_events
+    from src.portwatch_os.fusion.engine import get_engine
 
     # apply_calibration() stamps probabilities onto the events in place and
     # returns how many it stamped, so the event list itself is what carries the
     # calibrated values forward.
     events, _report, _calibrator, _stamped_count = _load_events()
-    voyages = _company_voyages(company_id)
-    graph = build_world(events=events, voyages=voyages)
+    voyages = list(_company_voyages(company_id))
+    engine = get_engine()
+    for voyage in voyages:
+        engine.register_fleet_vessel(
+            vessel_id=voyage.vessel_id, name=voyage.name, imo=getattr(voyage, "imo", None),
+        )
+    moment = now or utc()
+    placements, _traffic = _observed_voyages(_mode(mode), moment)
+    voyages.extend(p.voyage for p in placements)
+    graph = build_world(events=events, voyages=voyages, now=moment)
     return graph, events
 
 
@@ -183,6 +229,7 @@ def _subject(reached) -> Dict[str, Any]:
 def world_state(
     at: Optional[str] = Query(None, description="ISO instant. Defaults to now."),
     company_id: Optional[str] = Query(None, alias="companyId"),
+    mode: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """What the world contains at one instant, and how it is wired.
 
@@ -190,11 +237,12 @@ def world_state(
     know what exists before asking what any of it is doing.
     """
     moment = _at(at)
-    graph, events = _world(company_id)
+    graph, events = _world(company_id, mode=mode)
     view = graph.at(moment)
+    observed = [n for n in view.nodes() if n.kind == VESSEL and n.attrs.get("source") == "OBSERVED_AIS"]
     return {
         "at": moment.isoformat(),
-        "summary": view.summary(),
+        "summary": {**view.summary(), "observedVessels": len(observed)},
         "nodes": [n.to_dict() for n in view.nodes()],
         "edges": [e.to_dict() for e in view.edges()],
         "rules": registered(),
@@ -208,6 +256,7 @@ def world_cascades(
     at: Optional[str] = Query(None),
     company_id: Optional[str] = Query(None, alias="companyId"),
     limit: int = Query(12, ge=1, le=64),
+    mode: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
     """Every live event's consequence, worst first.
 
@@ -216,7 +265,7 @@ def world_cascades(
     frontend needs the traces only for the one a person actually opened.
     """
     moment = _at(at)
-    graph, events = _world(company_id)
+    graph, events = _world(company_id, mode=mode)
 
     rows: List[Dict[str, Any]] = []
     for event in events:
@@ -260,6 +309,7 @@ def world_cascade(
     event_id: str,
     at: Optional[str] = Query(None),
     company_id: Optional[str] = Query(None, alias="companyId"),
+    mode: Optional[str] = Query(None),
     actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
     role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
     header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
@@ -274,7 +324,7 @@ def world_cascade(
     rather than by a second explanation system that could drift from it.
     """
     moment = _at(at)
-    graph, events = _world(company_id)
+    graph, events = _world(company_id, mode=mode)
     event = _event_or_404(events, event_id)
     seed_key = key(EVENT, event_id)
     if graph.node(seed_key) is None:
@@ -335,7 +385,7 @@ def simulate_cascade(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         )
 
     base = _at(payload.get("at"))
-    graph, events = _world(payload.get("companyId"))
+    graph, events = _world(payload.get("companyId"), mode=payload.get("mode"))
     event = _event_or_404(events, event_id)
     seed_key = key(EVENT, event_id)
 
@@ -376,6 +426,7 @@ def attention_queue(
     at: Optional[str] = Query(None),
     company_id: Optional[str] = Query(None, alias="companyId"),
     limit: int = Query(5, ge=1, le=25),
+    mode: Optional[str] = Query(None),
     actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
     role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
     header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
@@ -391,7 +442,7 @@ def attention_queue(
     moment = _at(at)
     scope = _scope(role)
     held = [v.strip() for v in (vessel_ids or "").split(",") if v.strip()]
-    graph, events = _world(company_id)
+    graph, events = _world(company_id, mode=mode)
 
     collected: List[AttentionItem] = []
     for event in events:
@@ -430,6 +481,7 @@ def attention_item(
     attention_id: str,
     at: Optional[str] = Query(None),
     company_id: Optional[str] = Query(None, alias="companyId"),
+    mode: Optional[str] = Query(None),
     role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
     header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
     organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
@@ -439,7 +491,7 @@ def attention_item(
     moment = _at(at)
     scope = _scope(role)
     held = [v.strip() for v in (vessel_ids or "").split(",") if v.strip()]
-    graph, events = _world(company_id)
+    graph, events = _world(company_id, mode=mode)
 
     for event in events:
         seed_key = key(EVENT, event.event_id)
@@ -651,3 +703,68 @@ def ais_tracks(
         "count": len(tracks),
         "tracks": tracks,
     }
+
+
+# --------------------------------------------------------------------------
+# entities
+# --------------------------------------------------------------------------
+
+
+@router.get("/world/entities")
+def world_entities(
+    limit: int = Query(200, ge=1, le=5000),
+    observed_only: bool = Query(False, alias="observedOnly"),
+) -> Dict[str, Any]:
+    """Every canonical vessel the fusion engine currently holds.
+
+    Summaries only; the full record with every assertion is the detail route.
+    Candidates and conflicts are counted here so a reviewer can find the hulls
+    that need a person without opening each one.
+    """
+    from src.portwatch_os.fusion.engine import get_engine
+
+    engine = get_engine()
+    hulls = engine.vessels()
+    if observed_only:
+        hulls = [h for h in hulls if h.observed]
+    hulls.sort(key=lambda h: (h.last_observed_at or h.created_at), reverse=True)
+    return {
+        "stats": engine.stats(),
+        "count": len(hulls),
+        "vessels": [h.to_dict() for h in hulls[:limit]],
+    }
+
+
+@router.get("/world/entities/lookup")
+def world_entity_lookup(
+    mmsi: Optional[str] = Query(None),
+    imo: Optional[str] = Query(None),
+    fleet_id: Optional[str] = Query(None, alias="fleetId"),
+) -> Dict[str, Any]:
+    """Which hull a key currently refers to, by an active strong link only.
+
+    There is deliberately no ``name`` parameter: a name is not a key, and a
+    lookup by name would be the merge-by-name this engine refuses.
+    """
+    from src.portwatch_os.fusion.engine import get_engine
+    from src.portwatch_os.fusion.model import FLEET_ID, IMO, MMSI
+
+    engine = get_engine()
+    for kind, value in ((MMSI, mmsi), (IMO, imo), (FLEET_ID, fleet_id)):
+        if value:
+            hull = engine.lookup(kind, value)
+            if hull is None:
+                raise HTTPException(status_code=404, detail=f"no hull is linked to {kind} {value}")
+            return hull.to_dict(include_assertions=True)
+    raise HTTPException(status_code=400, detail="one of mmsi, imo or fleetId is required.")
+
+
+@router.get("/world/entities/{canonical_id}")
+def world_entity(canonical_id: str) -> Dict[str, Any]:
+    """One hull with everything ever asserted about it, and every decision."""
+    from src.portwatch_os.fusion.engine import get_engine
+
+    body = get_engine().explain(canonical_id)
+    if body is None:
+        raise HTTPException(status_code=404, detail=f"no hull {canonical_id}")
+    return body

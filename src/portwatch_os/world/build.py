@@ -60,6 +60,7 @@ SOURCE_LANE_CATALOGUE = "src.portwatch_os.global_eye.exposure.TRADE_LANES"
 SOURCE_PORT_REGISTRY = "src.utils.port_registry"
 SOURCE_EVENT_REGISTER = "src.portwatch_os.global_eye.ingest"
 SOURCE_FLEET = "src.portwatch_os.fleet.company"
+SOURCE_OBSERVED_AIS = "OBSERVED_AIS"
 
 
 def build_world(
@@ -249,6 +250,22 @@ def _add_voyages(
                     "eta": voyage.eta,
                     "service_speed_kn": voyage.service_speed_kn,
                     "operator": voyage.operator,
+                    # Provenance travels with the node so the inspector can
+                    # say observed or simulated without asking anyone.
+                    "source": voyage.source,
+                    **({
+                        "destination_confidence": voyage.destination_confidence,
+                        "lane_confidence": voyage.lane_confidence,
+                        "timing_confidence": voyage.timing_confidence,
+                        "placement_confidence": round(voyage.placement_confidence, 3),
+                        "lat": voyage.lat,
+                        "lon": voyage.lon,
+                        "observed_at": voyage.observed_at,
+                        "mmsi": voyage.mmsi,
+                        "imo": voyage.imo,
+                        "canonical_id": voyage.canonical_id,
+                        "name_stated": voyage.name_stated,
+                    } if voyage.observed else {}),
                 },
             )
         )
@@ -293,7 +310,7 @@ def _add_voyages(
                             if voyage.hours_to_chokepoint.get(code) is not None
                         },
                     },
-                    source=SOURCE_FLEET,
+                    source=SOURCE_OBSERVED_AIS if voyage.observed else SOURCE_FLEET,
                 )
             )
 
@@ -342,6 +359,7 @@ def seed_for(event: GlobalEvent) -> Quantity:
 __all__ = [
     "SOURCE_EVENT_REGISTER",
     "SOURCE_FLEET",
+    "SOURCE_OBSERVED_AIS",
     "SOURCE_LANE_CATALOGUE",
     "SOURCE_PORT_REGISTRY",
     "build_world",

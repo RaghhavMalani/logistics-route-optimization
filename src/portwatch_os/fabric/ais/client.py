@@ -465,8 +465,15 @@ def get_client() -> AisStreamClient:
     global _CLIENT
     with _CLIENT_LOCK:
         if _CLIENT is None:
-            _CLIENT = AisStreamClient()
+            _CLIENT = AisStreamClient(on_observation=_fuse)
         return _CLIENT
+
+
+def _fuse(observation: AisObservation) -> None:
+    """Every accepted observation becomes evidence about a hull."""
+    from src.portwatch_os.fusion.engine import get_engine
+
+    get_engine().ingest_ais(observation)
 
 
 def start_client() -> AisStreamClient:

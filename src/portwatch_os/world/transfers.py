@@ -36,7 +36,7 @@ other by a fudge factor.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.world.graph import (
@@ -254,6 +254,12 @@ def lane_reaches_vessel(
     Emits the vessel's risk and, above a floor, the fact that it is one exposed
     hull -- so a count and a probability arrive together without one being
     fudged out of the other.
+
+    An observed hull carries a ``placement_confidence``: how sure the fusion
+    layer is that it is on this lane, bound where it says, when it says. That
+    attenuates the *confidence* of what reaches it, never the magnitude -- the
+    risk on the water is what it is; what is uncertain is whether this hull is
+    in it.
     """
     chokepoint = quantity.attrs.get("chokepoint")
     timings = edge.attrs.get("hours_to_chokepoint") or {}
@@ -283,6 +289,13 @@ def lane_reaches_vessel(
             vessel=dst.identifier,
             chokepoint=chokepoint,
         )
+
+    placement = dst.attrs.get("placement_confidence")
+    if placement is not None:
+        carried = carried.scaled(1.0, confidence=float(placement))
+        carried = replace(carried, attrs={
+            **carried.attrs, "observed": True, "placement_confidence": float(placement),
+        })
 
     counted = (
         carried.converted(1.0, VESSELS, vessel=dst.identifier)
