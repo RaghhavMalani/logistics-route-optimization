@@ -652,19 +652,27 @@ budget is automatically downgraded to `STALE`.
 | Maritime events | GDELT DOC 2.0 + GDACS | `CACHED_LIVE` | Global Eye events, exposure, chokepoint risk |
 | Chokepoint transits | IMF PortWatch daily chokepoints | `CACHED_LIVE` | Disruption propagation onto exposed ports |
 | Macro conditions | FRED (Brent, USD/INR, CPI) | `LIVE` | Oil, FX and inflation stress in the regime model |
-| **Per-vessel AIS** | — | `SIMULATED_TRAFFIC` | The traffic layer is a deterministic replay engine, not observed AIS |
+| **Per-vessel AIS** | AISStream websocket (`AISSTREAM_API_KEY`, RESEARCH/DEMO only) | `SIMULATED_TRAFFIC` without a key; `LIVE_AIS` only once valid messages arrive | Observed tracks, fused into canonical hulls, placed on the consequence graph at graded confidence |
+| **Sea state** | Open-Meteo Marine (free host in RESEARCH/DEMO; `OPEN_METEO_API_KEY` for the subscription) | `CACHED` → `STALE` by fetch age | Wave, swell, SST and current cells on the WEATHER lens; route × environment exposure |
 | **Port geometry** | — | `SCHEMATIC` | Berth/yard/shed positions generated from berth counts |
 | **Cargo manifests** | — | `SYNTHETIC` | Demo shipments generated from observed throughput |
 | **Carrier fleet** | — | `SIMULATED_TRAFFIC` | A fictional demo carrier; the interface is the seam a real account plugs into |
 | Sentinel-1 SAR detection | — | `UNAVAILABLE` | Not wired. Reported as unavailable rather than drawn |
-| Significant wave height | — | `UNAVAILABLE` | The marine feed returned none. Not substituted |
 
 ### Stated plainly
 
-- **There is no licensed live vessel AIS in this deployment.** Every vessel on
-  the map comes from a deterministic replay engine, the status strip says
-  `SIMULATED REPLAY`, and swapping in a real provider is one implementation of
-  the `TrafficSource` interface and nothing else.
+- **Vessel traffic is labelled by what the server observed, never by what was
+  configured.** Without an AIS key every vessel on the map comes from a
+  deterministic replay engine and the status strip says `SIMULATED REPLAY`.
+  With `AISSTREAM_API_KEY` set on the server, the strip says `LIVE AIS` only
+  after valid observations have actually arrived, `AIS STALE` once they stop,
+  and `NO TRAFFIC FEED` if the feed lapses or the credential is refused — it
+  never falls back to the replay under a live label. Observed hulls are drawn
+  as rings, not hull shapes, because a position report does not say what
+  class a hull is, and their inspector says `OBSERVED AIS` with the
+  transponder's own timestamp. AISStream publishes no terms of use, so its
+  licence state is `REQUIRES_REVIEW` and it is barred from `COMMERCIAL` and
+  `GOVERNMENT` deployments. There is no commercial AIS in this build.
 - **No real carrier's voyages appear anywhere.** The fleet belongs to *PortWatch
   Demo Shipping*, a fictional operator whose vessels are named after Indian Ocean
   geography specifically so a screenshot cannot be mistaken for a real fleet. No
@@ -848,6 +856,23 @@ Useful flags:
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
+The process runs in the licence mode `PORTWATCH_LICENCE_MODE` names —
+`RESEARCH`, `DEMO`, `COMMERCIAL` or `GOVERNMENT`. It defaults to
+`COMMERCIAL`, the most restrictive reading, in which the non-commercial
+sources (the Open-Meteo free host, AISStream) are never called. For the
+demo:
+
+```bash
+PORTWATCH_LICENCE_MODE=DEMO uvicorn backend.app.main:app --reload --port 8000
+```
+
+Optional live sources, read on the server and never sent to a browser:
+
+| Variable | What it enables |
+|---|---|
+| `AISSTREAM_API_KEY` | The AISStream websocket. Traffic becomes `LIVE_AIS` only once valid messages arrive |
+| `OPEN_METEO_API_KEY` | The Open-Meteo subscription host, which permits commercial use of the same marine and weather data |
+
 ```bash
 cd india-portwatch-terminal && npm run dev
 ```
@@ -1019,7 +1044,8 @@ Each page goes deeper than this README and states its own boundaries.
 | [docs/API_CONTRACT.md](docs/API_CONTRACT.md) | Every route, the identity headers, and what each status code means |
 | [docs/DATA_AUDIT.md](docs/DATA_AUDIT.md) | Field by field: measured, derived, proxy, simulated, schematic or absent |
 | [docs/REPO_AUDIT.md](docs/REPO_AUDIT.md) | The repository map — which module produces any number on screen |
-| [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) | Every external feed, its licence and its freshness budget |
+| [docs/SIGNAL_FABRIC.md](docs/SIGNAL_FABRIC.md) | Licence at product granularity with evidence, the AIS socket and its two state machines, entity fusion, observed hulls in the world graph, the sea |
+| [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) | Every product, its verified licence state and the evidence — rendered from the catalogue |
 | [docs/AWARD_DEMO.md](docs/AWARD_DEMO.md) | The two-minute demo script, the questions you will be asked, and what to do if something breaks |
 
 ---
