@@ -23,6 +23,7 @@ from src.portwatch_os.fabric.ais.client import (
     UNAVAILABLE,
     get_client,
 )
+from src.portwatch_os.fabric.ais.recorder import ObservationRecorder, replay
 from src.portwatch_os.fabric.ais.messages import (
     AisMessageError,
     AisObservation,

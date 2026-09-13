@@ -107,6 +107,9 @@ class ProviderStatus:
     last_good_observation_at: Optional[datetime] = None
     last_error: Optional[str] = None
     reconnect_attempts: int = 0
+    #: Set when the positions came from a recording replayed through feed(),
+    #: so no surface can mistake a replayed recording for the socket.
+    replay_of: Optional[str] = None
     messages_seen: int = 0
     messages_consumed: int = 0
     messages_rejected: int = 0
@@ -126,6 +129,7 @@ class ProviderStatus:
                 None if last_good is None else round((moment - last_good).total_seconds(), 1)
             ),
             "lastError": self.last_error,
+            "replayOf": self.replay_of,
             "reconnectAttempts": self.reconnect_attempts,
             "messagesSeen": self.messages_seen,
             "messagesConsumed": self.messages_consumed,
@@ -156,6 +160,7 @@ class AisStreamClient:
         api_key: Optional[str] = None,
         on_observation: Optional[Callable[[AisObservation], None]] = None,
         connector: Optional[Callable[..., Any]] = None,
+        recorder: Optional[Any] = None,
     ) -> None:
         self.store = store or TrackStore()
         self.url = url
@@ -173,6 +178,9 @@ class AisStreamClient:
         self._sequence = 0
         self._empty_closes_before_refused = empty_closes_before_refused
         self._consecutive_empty_closes = 0
+        # Every raw envelope is kept here, bounded, so raw_ref points at
+        # something and a session can be replayed.
+        self.recorder = recorder
 
     # -- configuration ---------------------------------------------------
     @property
@@ -324,10 +332,11 @@ class AisStreamClient:
             return
 
         self._sequence += 1
+        raw_ref = f"aisstream:{self._sequence}"
+        if self.recorder is not None:
+            raw_ref = self.recorder.record(envelope, received_at=now)
         try:
-            observation = normalise(
-                envelope, now=now, raw_ref=f"aisstream:{self._sequence}",
-            )
+            observation = normalise(envelope, now=now, raw_ref=raw_ref)
         except AisMessageError as exc:
             kind = str(envelope.get("MessageType") or "?")
             if kind not in CONSUMED_TYPES:
@@ -404,7 +413,10 @@ class AisStreamClient:
 
         age = moment - last_good
         if age <= stale_after:
-            return _source(LIVE_AIS, "valid observations are arriving", self, moment)
+            statement = "valid observations are arriving"
+            if self.status.replay_of:
+                statement = f"valid observations from a replayed {self.status.replay_of}"
+            return _source(LIVE_AIS, statement, self, moment)
         if age <= stale_after * 6:
             return _source(
                 AIS_STALE,
@@ -465,8 +477,25 @@ def get_client() -> AisStreamClient:
     global _CLIENT
     with _CLIENT_LOCK:
         if _CLIENT is None:
-            _CLIENT = AisStreamClient(on_observation=_fuse)
+            _CLIENT = AisStreamClient(on_observation=_fuse, recorder=_recorder_from_env())
         return _CLIENT
+
+
+#: Where raw envelopes are appended, when set. Bounded in memory regardless.
+RECORD_ENV = "PORTWATCH_AIS_RECORD_PATH"
+#: A recording to replay through the client at startup instead of dialing.
+#: The recorded timestamps are kept, so the traffic state is whatever they
+#: imply -- a recording is never a way of manufacturing LIVE_AIS.
+REPLAY_ENV = "PORTWATCH_AIS_REPLAY_PATH"
+
+
+def _recorder_from_env():
+    from pathlib import Path
+
+    from src.portwatch_os.fabric.ais.recorder import ObservationRecorder
+
+    target = os.getenv(RECORD_ENV)
+    return ObservationRecorder(path=Path(target) if target else None)
 
 
 def _fuse(observation: AisObservation) -> None:
@@ -479,8 +508,26 @@ def _fuse(observation: AisObservation) -> None:
 
 
 def start_client() -> AisStreamClient:
-    """Start the process-wide client if a key is configured. Idempotent."""
+    """Start the process-wide client if a key is configured. Idempotent.
+
+    With ``PORTWATCH_AIS_REPLAY_PATH`` set, the recording is fed through the
+    client instead of the socket being opened, at the recorded times.
+    """
+    from pathlib import Path
+
+    from src.portwatch_os.fabric.ais.recorder import ObservationRecorder, replay
+
     client = get_client()
+    recording = os.getenv(REPLAY_ENV)
+    if recording:
+        path = Path(recording)
+        if path.exists():
+            outcome = replay(ObservationRecorder.read(path), client)
+            log.info("AIS recording replayed: %s", outcome)
+        else:
+            client.status.last_error = f"replay file not found: {path}"
+            log.warning("AIS replay requested but %s does not exist", path)
+        return client
     if client.configured:
         client.start()
     return client
@@ -491,6 +538,8 @@ def stop_client() -> None:
     with _CLIENT_LOCK:
         if _CLIENT is not None:
             _CLIENT.stop()
+            if _CLIENT.recorder is not None:
+                _CLIENT.recorder.flush()
 
 
 def reset_client() -> None:
@@ -521,6 +570,8 @@ __all__ = [
     "SOURCE_STATES",
     "STALE",
     "UNAVAILABLE",
+    "RECORD_ENV",
+    "REPLAY_ENV",
     "get_client",
     "reset_client",
     "start_client",
