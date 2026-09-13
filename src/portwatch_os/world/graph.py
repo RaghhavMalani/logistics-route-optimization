@@ -235,6 +235,31 @@ class WorldGraph:
         self._in[edge.dst].append(edge)
         return edge
 
+    def remove_edges(self, *, kind: Optional[str] = None, dst: Optional[str] = None,
+                     src: Optional[str] = None) -> int:
+        """Remove every edge matching all the given criteria. Returns the count.
+
+        Exists for scenario branches, which replace a relation on a *copy* of
+        the observed graph; the observed graph itself is never edited.
+        """
+        def matches(edge: Edge) -> bool:
+            return (
+                (kind is None or edge.kind == kind)
+                and (dst is None or edge.dst == dst)
+                and (src is None or edge.src == src)
+            )
+
+        gone = [e for e in self._edges if matches(e)]
+        if not gone:
+            return 0
+        self._edges = [e for e in self._edges if not matches(e)]
+        self._out = defaultdict(list)
+        self._in = defaultdict(list)
+        for edge in self._edges:
+            self._out[edge.src].append(edge)
+            self._in[edge.dst].append(edge)
+        return len(gone)
+
     # -- reading ---------------------------------------------------------
     def node(self, node_key: str) -> Optional[Node]:
         return self._nodes.get(node_key)

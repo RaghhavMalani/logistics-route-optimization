@@ -901,3 +901,119 @@ def route_exposure(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     body["availability"] = availability.to_dict()
     body["productId"] = adapter.product_id
     return body
+
+
+# --------------------------------------------------------------------------
+# scenario branches
+# --------------------------------------------------------------------------
+
+
+def _observed_state(company_id: Optional[str], mode: Optional[str]):
+    """The observed world, frozen now. What every branch forks from."""
+    from src.portwatch_os.fabric import ais_mode
+    from src.portwatch_os.world.branch import snapshot
+
+    build, _events = _world_build(company_id, mode=mode)
+    traffic = ais_mode(licence_mode=_mode(mode), now=utc())
+    return build, snapshot(build, traffic_mode=traffic["mode"], at=utc())
+
+
+@router.get("/world/observed")
+def world_observed(
+    company_id: Optional[str] = Query(None, alias="companyId"),
+    mode: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """The observed world's identity: what any branch would fork from now."""
+    from src.portwatch_os.world.branch import get_registry
+    from src.portwatch_os.world.live import get_live_world
+
+    build, state = _observed_state(company_id, mode)
+    return {
+        "state": state.summary(),
+        "live": get_live_world().status(),
+        "branches": [b.summary(current_revision=build.revision) for b in get_registry().all()],
+    }
+
+
+@router.post("/world/branches")
+def create_branch(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Fork the observed world with assumptions applied.
+
+    ``assumptions`` is a list of ``{kind, subject, value?, laneCode?, note?}``
+    with kind one of ``close_chokepoint``, ``divert_vessel``, ``derate_port``.
+    The observed world is copied, never edited; every assumed node and edge
+    carries ``source: ASSUMPTION``.
+    """
+    from src.portwatch_os.world.branch import Assumption, BranchError, get_registry
+
+    raw = payload.get("assumptions") or []
+    if not isinstance(raw, list) or not raw:
+        raise HTTPException(status_code=400, detail="assumptions must be a non-empty list.")
+    try:
+        assumptions = [Assumption.from_dict(item) for item in raw]
+    except BranchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    build, state = _observed_state(payload.get("companyId"), payload.get("mode"))
+    try:
+        created = get_registry().create(state, assumptions, now=utc())
+    except BranchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "branch": created.summary(current_revision=build.revision),
+        "observed": state.summary(),
+    }
+
+
+@router.get("/world/branches/{branch_id}/cascades/{event_id}")
+def branch_cascade(
+    branch_id: str,
+    event_id: str,
+    at: Optional[str] = Query(None),
+    company_id: Optional[str] = Query(None, alias="companyId"),
+    mode: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """One event's consequence on the branch beside its consequence as observed.
+
+    ``event_id`` may be a register event or one of the branch's own seeds
+    (``scenario:<branch>:<CHOKEPOINT>``). Observed and branched cascades are
+    both computed on the branch's *parent* snapshot, so the comparison is
+    between one world and the same world with the assumptions, not between
+    two instants.
+    """
+    from src.portwatch_os.world.branch import compare, get_registry, propagate as run
+
+    held = get_registry().get(branch_id)
+    if held is None:
+        raise HTTPException(status_code=404, detail=f"no branch {branch_id}")
+    moment = _at(at)
+    seed_key = key(EVENT, event_id)
+
+    seeded = dict(held.seeds).get(seed_key)
+    if seeded is None:
+        build, events = _world_build(company_id, mode=mode)
+        event = _event_or_404(events, event_id)
+        seeded = seed_for(event)
+        title = event.title
+    else:
+        title = held.graph.node(seed_key).label if held.graph.node(seed_key) else event_id
+
+    observed_graph = held.parent.graph
+    branched = run(held.graph, seed_key, seeded, at=moment) if held.graph.node(seed_key) else None
+    observed = run(observed_graph, seed_key, seeded, at=moment) if observed_graph.node(seed_key) else None
+    if branched is None:
+        raise HTTPException(status_code=404, detail=f"{event_id} is not in the branch's world")
+
+    from src.portwatch_os.world.live import get_live_world
+
+    current = get_live_world()
+    return {
+        "branch": held.summary(current_revision=None),
+        "eventId": event_id,
+        "title": title,
+        "at": moment.isoformat(),
+        "assumed": seed_key in dict(held.seeds),
+        "observed": None if observed is None else _cascade_payload(observed, observed_graph, include_steps=False),
+        "branched": _cascade_payload(branched, held.graph, include_steps=True),
+        "comparison": None if observed is None else compare(observed, branched),
+        "live": current.status(),
+    }
