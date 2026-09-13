@@ -9,14 +9,25 @@
  */
 
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  ChevronDown,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { ROLE_PROFILE, ROLES, type Role } from "@/auth/types";
+import { TRAFFIC_LABEL, TRAFFIC_TONE } from "@/components/fabric/signal-format";
 import { Pill, ProvenanceTag, formatUtc } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
+import {
+  useObservedTracks,
+  useSignalHealth,
+  useSignalRefreshListener,
+} from "@/services/os-hooks";
 import { NAVIGATION, activeNavItem } from "./navigation";
 import { TrafficProvider, useClockState, useTraffic } from "./traffic-context";
 
@@ -53,7 +64,8 @@ function Menu({
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(event.target as Node))
+        setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -81,7 +93,10 @@ function Menu({
         )}
       >
         {label}
-        <ChevronDown size={11} className={cn("transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          size={11}
+          className={cn("transition-transform", open && "rotate-180")}
+        />
       </button>
       {open ? (
         <div
@@ -106,8 +121,17 @@ function Brand() {
   return (
     <div className="flex items-center gap-2">
       <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
-        <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.6" />
-        <path d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z" fill="var(--info)" opacity="0.85" />
+        <path
+          d="M12 2 L21 12 L12 22 L3 12 Z"
+          fill="none"
+          stroke="var(--info)"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
+          fill="var(--info)"
+          opacity="0.85"
+        />
       </svg>
       <span className="text-[12px] font-semibold tracking-[0.05em] text-[var(--text)]">
         INDIA PORTWATCH
@@ -152,7 +176,9 @@ function RoleSwitcher() {
       label={
         <span className="flex items-center gap-1.5">
           <span className="eyebrow text-[9px]">View as</span>
-          <span className="font-medium">{ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}</span>
+          <span className="font-medium">
+            {ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}
+          </span>
         </span>
       }
     >
@@ -191,8 +217,8 @@ function RoleSwitcher() {
             );
           })}
           <p className="border-t border-[var(--line)] px-2 pb-1 pt-1.5 text-[10px] leading-snug text-[var(--text-3)]">
-            Switching context changes the workspace only. Command-level access is
-            retained.
+            Switching context changes the workspace only. Command-level access
+            is retained.
           </p>
         </div>
       )}
@@ -220,15 +246,21 @@ function ProfileMenu() {
           <span className="grid h-[19px] w-[19px] place-items-center rounded-[2px] bg-[var(--panel-4)] text-[9.5px] font-semibold text-[var(--text-2)]">
             {initials}
           </span>
-          <span className="hidden max-w-[120px] truncate xl:inline">{user.displayName}</span>
+          <span className="hidden max-w-[120px] truncate xl:inline">
+            {user.displayName}
+          </span>
         </span>
       }
     >
       {(close) => (
         <div>
           <div className="border-b border-[var(--line)] px-3 py-2.5">
-            <div className="text-[12px] font-medium text-[var(--text)]">{user.displayName}</div>
-            <div className="num mt-0.5 text-[10.5px] text-[var(--text-3)]">{user.email}</div>
+            <div className="text-[12px] font-medium text-[var(--text)]">
+              {user.displayName}
+            </div>
+            <div className="num mt-0.5 text-[10.5px] text-[var(--text-3)]">
+              {user.email}
+            </div>
             <div className="mt-1.5 text-[10.5px] leading-snug text-[var(--text-2)]">
               {user.organisation}
             </div>
@@ -297,7 +329,9 @@ function SideNav({
                 <span className="absolute inset-y-0 left-0 w-[2px] bg-[var(--info)]" />
               ) : null}
               <Icon size={15} strokeWidth={1.7} className="shrink-0" />
-              {collapsed ? null : <span className="truncate">{item.label}</span>}
+              {collapsed ? null : (
+                <span className="truncate">{item.label}</span>
+              )}
             </Link>
           );
         })}
@@ -324,6 +358,16 @@ function StatusLine() {
   const clock = useClockState();
   const utc = useUtcClock();
   const data = health.data;
+  // The traffic claim comes from the server's state machine, not from this
+  // build's configuration: a socket that has received nothing is not LIVE
+  // however it was configured, and the strip must never say otherwise.
+  const fabric = useSignalHealth("DEMO");
+  useSignalRefreshListener();
+  const serverTraffic = fabric.data?.traffic ?? null;
+  const observed = useObservedTracks(
+    "DEMO",
+    serverTraffic?.mode === "LIVE_AIS" || serverTraffic?.mode === "AIS_STALE",
+  );
 
   const twinTone =
     data?.intelligence === "live"
@@ -334,7 +378,7 @@ function StatusLine() {
           ? "warn"
           : "crit";
 
-  const trafficTone =
+  const localTone =
     source.info.kind === "LIVE_AIS"
       ? "ok"
       : source.info.kind === "AIS_REPLAY"
@@ -342,15 +386,38 @@ function StatusLine() {
         : source.info.kind === "SIMULATED_TRAFFIC"
           ? "unc"
           : "crit";
+  const trafficTone = serverTraffic
+    ? TRAFFIC_TONE[serverTraffic.mode]
+    : localTone;
+  const trafficLabel = serverTraffic
+    ? TRAFFIC_LABEL[serverTraffic.mode]
+    : source.info.kind === "SIMULATED_TRAFFIC"
+      ? "Simulated replay"
+      : source.info.label;
+  const observedCount =
+    observed.data?.count ?? serverTraffic?.vessels?.vessels ?? 0;
+  const liveTraffic =
+    serverTraffic?.mode === "LIVE_AIS" || serverTraffic?.mode === "AIS_STALE";
 
   return (
     <footer className="flex h-[var(--status-h)] shrink-0 items-center gap-3 border-t border-[var(--line)] bg-[var(--panel)] px-3 text-[10.5px] text-[var(--text-3)]">
-      <span className="flex items-center gap-1.5" title={source.info.detail}>
+      <span
+        className="flex items-center gap-1.5"
+        title={serverTraffic?.statement ?? source.info.detail}
+        data-testid="status-traffic"
+        data-mode={serverTraffic?.mode ?? source.info.kind}
+      >
         <span className="eyebrow text-[9px]">Traffic</span>
-        <Pill tone={trafficTone}>
-          {source.info.kind === "SIMULATED_TRAFFIC" ? "Simulated replay" : source.info.label}
-        </Pill>
-        <span className="num text-[var(--text-3)]">{source.roster().length} vessels</span>
+        <Pill tone={trafficTone}>{trafficLabel}</Pill>
+        {liveTraffic ? (
+          <span className="num text-[var(--text-3)]">
+            {observedCount} observed · {source.roster().length} simulated
+          </span>
+        ) : (
+          <span className="num text-[var(--text-3)]">
+            {source.roster().length} vessels
+          </span>
+        )}
       </span>
 
       <span className="h-3 w-px bg-[var(--line)]" />
@@ -371,7 +438,9 @@ function StatusLine() {
           <Pill tone="crit">API down</Pill>
         ) : (
           <>
-            <Pill tone={twinTone}>{(data?.intelligence ?? "…").replace("_", " ")}</Pill>
+            <Pill tone={twinTone}>
+              {(data?.intelligence ?? "…").replace("_", " ")}
+            </Pill>
             <ProvenanceTag
               status={data?.forecastOriginStatus ?? null}
               ageHours={data?.forecastOriginAgeHours ?? null}
@@ -384,7 +453,8 @@ function StatusLine() {
       <span className="h-3 w-px bg-[var(--line)]" />
 
       <Link to="/admin/data" className="hover:text-[var(--text-2)]">
-        Sources {data ? `${(data.sources.readiness * 100).toFixed(0)}% ready` : "—"}
+        Sources{" "}
+        {data ? `${(data.sources.readiness * 100).toFixed(0)}% ready` : "—"}
       </Link>
 
       <span className="ml-auto flex items-center gap-1.5">
@@ -422,8 +492,13 @@ function Chrome({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <SideNav collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
-        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</main>
+        <SideNav
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((v) => !v)}
+        />
+        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+          {children}
+        </main>
       </div>
 
       <StatusLine />

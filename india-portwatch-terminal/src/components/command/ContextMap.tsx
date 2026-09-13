@@ -10,6 +10,7 @@
 
 import type { ReactNode } from "react";
 
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
 import { VesselHoverCard } from "@/components/command/VesselInspector";
 import { EnvironmentLegend } from "@/components/command/TrafficFilters";
 import { MaritimeMap, type MapView } from "@/components/map/MaritimeMap";
@@ -39,7 +40,10 @@ export function ContextMap({
   return (
     <div className={cn("relative h-full w-full", className)}>
       <MaritimeMap
-        layers={{ ...workspace.layers, traffic: showTraffic && workspace.layers.traffic }}
+        layers={{
+          ...workspace.layers,
+          traffic: showTraffic && workspace.layers.traffic,
+        }}
         data={{ ...workspace.data, ...extraData }}
         weatherRaster={workspace.raster}
         windFrame={workspace.frame}
@@ -50,6 +54,7 @@ export function ContextMap({
         focus={workspace.focus}
         selectedVesselId={workspace.selectedVesselId}
         onSelectVessel={workspace.setSelectedVesselId}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         onHoverVessel={workspace.setHoveredVesselId}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
@@ -58,9 +63,18 @@ export function ContextMap({
           <>
             {showLegend ? (
               <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
-                <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+                <EnvironmentLegend
+                  workspace={workspace}
+                  frame={workspace.frame}
+                />
               </div>
             ) : null}
+            <div className="pointer-events-none absolute right-2.5 top-2.5 z-20 flex max-h-[calc(100%-20px)] w-[330px] flex-col">
+              <ObservedSelection
+                workspace={workspace}
+                className="min-h-0 flex-1"
+              />
+            </div>
             {note ? (
               <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 max-w-[300px] rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1 text-[9.5px] leading-snug text-[var(--text-3)]">
                 {note}

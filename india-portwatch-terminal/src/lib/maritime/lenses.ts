@@ -56,7 +56,7 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
     // Geopolitics stays visible: an event with operational consequence is
     // exactly what this lens is about, and hiding it would hide the cause.
     recede: ["events", "chokepoints", "corridors", "weather", "storms"],
-    hide: ["zones", "vectors"],
+    hide: ["zones", "vectors", "seastate"],
   },
 
   INTELLIGENCE: {
@@ -65,14 +65,14 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
     purpose: "Events, the water they threaten, and how consequence travels.",
     emphasise: ["events", "chokepoints", "cascade", "corridors"],
     recede: ["traffic", "ports", "routes", "weather"],
-    hide: ["zones", "vectors", "tracks", "ghosts"],
+    hide: ["zones", "vectors", "tracks", "ghosts", "seastate"],
   },
 
   WEATHER: {
     lens: "WEATHER",
     label: "Weather",
     purpose: "The environment a passage actually crosses.",
-    emphasise: ["weather", "storms", "vectors", "routes"],
+    emphasise: ["weather", "storms", "vectors", "routes", "seastate"],
     recede: ["traffic", "ports", "cascade"],
     hide: ["events", "zones", "ghosts"],
   },
@@ -83,7 +83,7 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
     purpose: "Identity, behaviour and proximity anomalies.",
     emphasise: ["traffic", "chokepoints", "tracks"],
     recede: ["routes", "ports", "weather", "cascade"],
-    hide: ["zones", "vectors", "events"],
+    hide: ["zones", "vectors", "events", "seastate"],
     unavailable: {
       headline: "No observed AIS in this deployment",
       detail:
@@ -105,7 +105,7 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
     purpose: "Consignments moving between hulls, yards and quays.",
     emphasise: ["ports", "routes", "zones", "cascade"],
     recede: ["traffic", "weather", "chokepoints"],
-    hide: ["events", "vectors", "ghosts"],
+    hide: ["events", "vectors", "ghosts", "seastate"],
     unavailable: {
       headline: "Cargo is demo data behind real feasibility rules",
       detail:
@@ -126,7 +126,7 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
     purpose: "What the operational consequence is worth.",
     emphasise: ["ports", "cascade", "routes"],
     recede: ["traffic", "weather", "chokepoints", "events"],
-    hide: ["zones", "vectors", "ghosts"],
+    hide: ["zones", "vectors", "ghosts", "seastate"],
     unavailable: {
       headline: "No cost basis is configured",
       detail:

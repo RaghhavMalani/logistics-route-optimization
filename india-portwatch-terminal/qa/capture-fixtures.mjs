@@ -68,6 +68,12 @@ const GETS = [
   // matrix behind it.
   "/fabric/health?mode=DEMO",
   "/fabric/providers?mode=DEMO",
+  // The sea and the observed layer. The traffic-state variants of health and
+  // tracks (live, stale) are produced by qa/record-ais-states.py, because a
+  // real socket cannot be asked to go stale on cue.
+  "/world/marine?mode=DEMO",
+  "/world/ais/tracks?mode=DEMO",
+  "/world/entities",
   ...PORTS.flatMap((code) => [
     `/port-twin/${code}`,
     `/port-twin/${code}/simulate`,

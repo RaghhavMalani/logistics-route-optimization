@@ -7,7 +7,13 @@
  * server time and is worth holding for longer than either.
  */
 
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useEffect } from "react";
+
+import {
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 
 import {
   fetchAdvisories,
@@ -30,6 +36,8 @@ import {
   fetchPolicies,
   fetchPortTwin,
   fetchReliability,
+  fetchMarineState,
+  fetchObservedTracks,
   fetchSignalHealth,
   fetchToolCatalogue,
   fetchTwinOptimize,
@@ -57,6 +65,8 @@ import type {
   LearningSummary,
   PortTwinState,
   ReliabilityTable,
+  MarineState,
+  ObservedTracks,
   SignalHealth,
   ToolCatalogue,
   TwinOptimize,
@@ -170,7 +180,8 @@ export const useTwinSimulation = (
 ): UseQueryResult<TwinSimulation> =>
   useQuery({
     queryKey: ["port-twin", "simulate", portCode, policy, horizonHours],
-    queryFn: () => fetchTwinSimulation(portCode as string, policy, horizonHours),
+    queryFn: () =>
+      fetchTwinSimulation(portCode as string, policy, horizonHours),
     enabled: Boolean(portCode),
     ...HEAVY,
   });
@@ -212,7 +223,11 @@ export const useCargoOpportunities = (
 /* -------------------------------------------------------------- advisories -- */
 
 export const useAdvisoryPolicy = (): UseQueryResult<AdvisoryPolicy> =>
-  useQuery({ queryKey: ["advisories", "policy"], queryFn: fetchAdvisoryPolicy, ...STATIC });
+  useQuery({
+    queryKey: ["advisories", "policy"],
+    queryFn: fetchAdvisoryPolicy,
+    ...STATIC,
+  });
 
 /**
  * Advisories visible to the signed-in identity.
@@ -251,9 +266,15 @@ export const useAdvisories = (
 /* ------------------------------------------------------------------ agents -- */
 
 export const useAgentArchitecture = (): UseQueryResult<AgentArchitecture> =>
-  useQuery({ queryKey: ["agents", "architecture"], queryFn: fetchAgentArchitecture, ...STATIC });
+  useQuery({
+    queryKey: ["agents", "architecture"],
+    queryFn: fetchAgentArchitecture,
+    ...STATIC,
+  });
 
-export const useToolCatalogue = (maxAccess = "EXECUTE"): UseQueryResult<ToolCatalogue> =>
+export const useToolCatalogue = (
+  maxAccess = "EXECUTE",
+): UseQueryResult<ToolCatalogue> =>
   useQuery({
     queryKey: ["agents", "tools", maxAccess],
     queryFn: () => fetchToolCatalogue(maxAccess),
@@ -263,9 +284,15 @@ export const useToolCatalogue = (maxAccess = "EXECUTE"): UseQueryResult<ToolCata
 /* ---------------------------------------------------------------- learning -- */
 
 export const useLearningSummary = (): UseQueryResult<LearningSummary> =>
-  useQuery({ queryKey: ["learning", "summary"], queryFn: fetchLearningSummary, ...FEED });
+  useQuery({
+    queryKey: ["learning", "summary"],
+    queryFn: fetchLearningSummary,
+    ...FEED,
+  });
 
-export const useReliability = (contributor?: string): UseQueryResult<ReliabilityTable> =>
+export const useReliability = (
+  contributor?: string,
+): UseQueryResult<ReliabilityTable> =>
   useQuery({
     queryKey: ["learning", "reliability", contributor ?? null],
     queryFn: () => fetchReliability(contributor),
@@ -280,7 +307,11 @@ export const useMisses = (limit = 10): UseQueryResult<LearningMisses> =>
   });
 
 export const usePolicies = (): UseQueryResult<LearningPolicies> =>
-  useQuery({ queryKey: ["learning", "policies"], queryFn: fetchPolicies, ...FEED });
+  useQuery({
+    queryKey: ["learning", "policies"],
+    queryFn: fetchPolicies,
+    ...FEED,
+  });
 
 /* --------------------------------------------------------- world engine -- */
 
@@ -291,7 +322,9 @@ export const usePolicies = (): UseQueryResult<LearningPolicies> =>
  * the first visit to each horizon rather than a refetch -- which is what lets
  * the transport feel like moving through time rather than loading it.
  */
-export const useWorldCascades = (at?: string | null): UseQueryResult<WorldCascadeList> =>
+export const useWorldCascades = (
+  at?: string | null,
+): UseQueryResult<WorldCascadeList> =>
   useQuery({
     queryKey: ["world", "cascades", at ?? "now"],
     queryFn: () => fetchWorldCascades(at),
@@ -306,7 +339,9 @@ export const useWorldCascade = (
 ): UseQueryResult<WorldCascade> =>
   useQuery({
     queryKey: [
-      "world", "cascade", eventId,
+      "world",
+      "cascade",
+      eventId,
       headers["X-PortWatch-Actor"] ?? null,
       headers["X-PortWatch-Role"] ?? null,
       headers["X-PortWatch-Port"] ?? null,
@@ -355,7 +390,9 @@ export const useAttentionItem = (
 ): UseQueryResult<AttentionDetail> =>
   useQuery({
     queryKey: [
-      "attention", "item", attentionId,
+      "attention",
+      "item",
+      attentionId,
       headers["X-PortWatch-Actor"] ?? null,
       headers["X-PortWatch-Role"] ?? null,
       at ?? "now",
@@ -378,4 +415,72 @@ export const useSignalHealth = (mode = "DEMO"): UseQueryResult<SignalHealth> =>
     queryFn: () => fetchSignalHealth(mode),
     staleTime: 30_000,
     refetchInterval: 30_000,
+    // An operator coming back to the tab gets the current answer, not the
+    // one from before they left; the request is small and the claim is not.
+    refetchOnWindowFocus: "always",
+  });
+
+/** The event that asks the trust surfaces to re-read their sources now. */
+export const SIGNAL_REFRESH_EVENT = "portwatch:signals-refresh";
+
+/** Ask for the health strip and the observed tracks to be re-read now. */
+export function requestSignalRefresh(): void {
+  window.dispatchEvent(new Event(SIGNAL_REFRESH_EVENT));
+}
+
+/**
+ * Re-read the polled sources on demand.
+ *
+ * Mounted once by the shell. A refresh control on the health panel, and the
+ * browser suite moving the API between recorded states, both go through
+ * this rather than waiting out a thirty-second poll.
+ */
+export function useSignalRefreshListener(): void {
+  const client = useQueryClient();
+  useEffect(() => {
+    const handler = () => {
+      void client.invalidateQueries({ queryKey: ["fabric"] });
+      void client.invalidateQueries({ queryKey: ["world", "ais"] });
+      void client.invalidateQueries({ queryKey: ["world", "marine"] });
+    };
+    window.addEventListener(SIGNAL_REFRESH_EVENT, handler);
+    return () => window.removeEventListener(SIGNAL_REFRESH_EVENT, handler);
+  }, [client]);
+}
+
+/**
+ * Observed tracks, polled at the cadence a position report actually arrives.
+ *
+ * Fifteen seconds is inside a class-A transponder's reporting interval under
+ * way, so a hull that has moved is drawn moved before its next report; it is
+ * also slow enough that a chart with nothing observed on it costs nothing.
+ */
+export const useObservedTracks = (
+  mode = "DEMO",
+  enabled = true,
+): UseQueryResult<ObservedTracks> =>
+  useQuery({
+    queryKey: ["world", "ais", "tracks", mode],
+    queryFn: () => fetchObservedTracks(mode),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: "always",
+    enabled,
+  });
+
+/**
+ * The sea at one instant. Keyed on the hour: the grid is hourly, so two
+ * instants in the same hour are the same answer and one fetch.
+ */
+export const useMarineState = (
+  at: string | null,
+  mode = "DEMO",
+  enabled = true,
+): UseQueryResult<MarineState> =>
+  useQuery({
+    queryKey: ["world", "marine", mode, at],
+    queryFn: () => fetchMarineState(at, mode),
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+    enabled,
   });

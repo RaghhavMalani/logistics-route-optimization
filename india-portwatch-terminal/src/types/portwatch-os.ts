@@ -13,13 +13,32 @@
 /* --------------------------------------------------------------- global eye -- */
 
 export type EventCategoryKey =
-  | "conflict" | "piracy" | "sanctions" | "strike" | "port_closure" | "protest"
-  | "earthquake" | "cyclone" | "tsunami" | "flood" | "canal_restriction"
-  | "chokepoint_disruption" | "energy_shock" | "commodity_shock" | "regulatory"
-  | "logistics_disruption" | "infrastructure";
+  | "conflict"
+  | "piracy"
+  | "sanctions"
+  | "strike"
+  | "port_closure"
+  | "protest"
+  | "earthquake"
+  | "cyclone"
+  | "tsunami"
+  | "flood"
+  | "canal_restriction"
+  | "chokepoint_disruption"
+  | "energy_shock"
+  | "commodity_shock"
+  | "regulatory"
+  | "logistics_disruption"
+  | "infrastructure";
 
 export type EventGroup =
-  | "security" | "policy" | "operations" | "natural" | "chokepoint" | "market" | "other";
+  | "security"
+  | "policy"
+  | "operations"
+  | "natural"
+  | "chokepoint"
+  | "market"
+  | "other";
 
 export interface EventSource {
   outlet: string;
@@ -38,7 +57,8 @@ export interface GlobalEvent {
   region: string | null;
   coordinates: { lat: number; lon: number } | null;
   /** How the position was established. Never presented as a geocode when it is not. */
-  geolocationBasis: "reported" | "chokepoint_centroid" | "port_location" | "unlocated";
+  geolocationBasis:
+    "reported" | "chokepoint_centroid" | "port_location" | "unlocated";
   firstSeen: string;
   lastSeen: string;
   sources: EventSource[];
@@ -84,8 +104,7 @@ export interface VesselExposure {
   delayHoursIfDiverted: number | null;
   destinationPort: string | null;
   currentEta: string | null;
-  recommendedAction:
-    | "evaluate_diversion" | "monitor" | "hold_or_reschedule";
+  recommendedAction: "evaluate_diversion" | "monitor" | "hold_or_reschedule";
   actionBasis: string;
 }
 
@@ -145,8 +164,12 @@ export interface GlobalEyeEvents {
     note: string;
   };
   categories: Array<{
-    key: string; label: string; group: string; actsOn: string;
-    description: string; count: number;
+    key: string;
+    label: string;
+    group: string;
+    actsOn: string;
+    description: string;
+    count: number;
   }>;
 }
 
@@ -166,7 +189,12 @@ export interface PortRiskEntry {
   portCode: string;
   portName: string;
   risk: number;
-  events: Array<{ eventId: string; title: string; category: string; exposure: number }>;
+  events: Array<{
+    eventId: string;
+    title: string;
+    category: string;
+    exposure: number;
+  }>;
   arrivalShiftHours: number;
   affectedVessels: number;
 }
@@ -219,8 +247,11 @@ export interface CompanyFleet {
   disclaimer: string;
   vessels: FleetVessel[];
   lanes: Array<{
-    code: string; name: string; chokepoints: string[];
-    alternative: string | null; detourNm: number | null;
+    code: string;
+    name: string;
+    chokepoints: string[];
+    alternative: string | null;
+    detourNm: number | null;
   }>;
 }
 
@@ -252,11 +283,26 @@ export interface CompanyRisk {
 export interface CompanyRoutes {
   companyId: string;
   lanes: Array<{
-    laneCode: string; laneName: string; chokepoints: string[];
-    primaryNm: number; alternative: string | null; detourNm: number | null;
-    description: string; exposure: number;
-    vessels: Array<{ vesselId: string; name: string; destination: string | null; eta: string | null }>;
-    events: Array<{ eventId: string; title: string; category: string; exposure: number }>;
+    laneCode: string;
+    laneName: string;
+    chokepoints: string[];
+    primaryNm: number;
+    alternative: string | null;
+    detourNm: number | null;
+    description: string;
+    exposure: number;
+    vessels: Array<{
+      vesselId: string;
+      name: string;
+      destination: string | null;
+      eta: string | null;
+    }>;
+    events: Array<{
+      eventId: string;
+      title: string;
+      category: string;
+      exposure: number;
+    }>;
   }>;
   disclaimer: string;
 }
@@ -525,8 +571,17 @@ export interface CargoOpportunities {
 /* -------------------------------------------------------------- advisories -- */
 
 export type AdvisoryState =
-  | "draft" | "under_review" | "issued" | "acknowledged" | "accepted"
-  | "queried" | "declined" | "rejected" | "withdrawn" | "expired" | "completed";
+  | "draft"
+  | "under_review"
+  | "issued"
+  | "acknowledged"
+  | "accepted"
+  | "queried"
+  | "declined"
+  | "rejected"
+  | "withdrawn"
+  | "expired"
+  | "completed";
 
 export interface AdvisoryAuditEntry {
   at: string;
@@ -567,8 +622,10 @@ export interface Advisory {
   modifiedFrom: Record<string, unknown> | null;
   audit: AdvisoryAuditEntry[];
   availableTransitions: Array<{
-    target: AdvisoryState; label: string;
-    actorRole: "issuer" | "recipient" | "system"; requiresReason: boolean;
+    target: AdvisoryState;
+    label: string;
+    actorRole: "issuer" | "recipient" | "system";
+    requiresReason: boolean;
   }>;
 }
 
@@ -576,20 +633,30 @@ export interface AdvisoryList {
   advisories: Advisory[];
   counts: Record<string, number>;
   principal: {
-    actor: string; role: string; portCode: string | null;
-    organisation: string | null; vesselIds: string[]; isAdmin: boolean;
+    actor: string;
+    role: string;
+    portCode: string | null;
+    organisation: string | null;
+    vesselIds: string[];
+    isAdmin: boolean;
   };
 }
 
 export interface AdvisoryPolicy {
   states: AdvisoryState[];
   kinds: Array<{
-    key: string; label: string; requiredField: string;
-    unit: string | null; description: string;
+    key: string;
+    label: string;
+    requiredField: string;
+    unit: string | null;
+    description: string;
   }>;
   transitions: Array<{
-    from: string; to: string; actorRole: string;
-    label: string; requiresReason: boolean;
+    from: string;
+    to: string;
+    actorRole: string;
+    label: string;
+    requiresReason: boolean;
   }>;
   rules: string[];
   identity: { source: string; verified: boolean; note: string };
@@ -668,9 +735,14 @@ export interface AgentRun {
   agents: AgentResultView[];
   trace: ToolCallTrace[];
   recommendation: {
-    kind: string; subject: string; action: string;
-    values: Record<string, unknown>; expectedImpact: Record<string, number>;
-    confidence: number | null; evidenceTools: string[]; reason: string;
+    kind: string;
+    subject: string;
+    action: string;
+    values: Record<string, unknown>;
+    expectedImpact: Record<string, number>;
+    confidence: number | null;
+    evidenceTools: string[];
+    reason: string;
   } | null;
   critic: CriticVerdictView | null;
   decisionId: string | null;
@@ -696,23 +768,43 @@ export interface AgentRun {
 export interface AgentArchitecture {
   command: { name: string; purpose: string; maxAccess: string };
   intents: Array<{
-    key: string; label: string; agents: string[];
-    highImpact: boolean; description: string;
+    key: string;
+    label: string;
+    agents: string[];
+    highImpact: boolean;
+    description: string;
   }>;
   agents: Array<{
-    name: string; purpose: string; allowedTools: string[];
-    maxAccess: string; failureModes: string[];
+    name: string;
+    purpose: string;
+    allowedTools: string[];
+    maxAccess: string;
+    failureModes: string[];
   }>;
-  critic: { name: string; purpose: string; verdicts: string[]; checks: string[]; note: string };
+  critic: {
+    name: string;
+    purpose: string;
+    verdicts: string[];
+    checks: string[];
+    note: string;
+  };
   boundary: { note: string };
 }
 
 export interface ToolCatalogue {
   ceiling: string;
   tools: Array<{
-    name: string; description: string; access: ToolAccess;
-    computedBy: string; returns: string; failureModes: string[];
-    inputSchema: { type: string; properties: Record<string, { type: string; description: string }>; required: string[] };
+    name: string;
+    description: string;
+    access: ToolAccess;
+    computedBy: string;
+    returns: string;
+    failureModes: string[];
+    inputSchema: {
+      type: string;
+      properties: Record<string, { type: string; description: string }>;
+      required: string[];
+    };
   }>;
   byAccess: Record<string, string[]>;
   boundary: Record<string, string>;
@@ -757,10 +849,14 @@ export interface BinaryScoreView {
     sampleCount: number;
   } | null;
   confusion: {
-    truePositive: number; falsePositive: number;
-    trueNegative: number; falseNegative: number;
-    precision: number | null; recall: number | null;
-    falsePositiveRate: number | null; f1: number | null;
+    truePositive: number;
+    falsePositive: number;
+    trueNegative: number;
+    falseNegative: number;
+    precision: number | null;
+    recall: number | null;
+    falsePositiveRate: number | null;
+    f1: number | null;
   } | null;
 }
 
@@ -793,7 +889,10 @@ export interface LearningSummary {
     takeUpRate?: number | null;
     meanReward?: number | null;
     meanImpactError?: number | null;
-    byKind?: Record<string, { count: number; takeUpRate: number | null; meanReward: number | null }>;
+    byKind?: Record<
+      string,
+      { count: number; takeUpRate: number | null; meanReward: number | null }
+    >;
   };
   activePolicyId: string | null;
   reliabilityRows: number;
@@ -857,8 +956,12 @@ export interface MissReport {
     shares: AttributionShare[];
   };
   reliabilityChanges: Array<{
-    contributor: string; context: string;
-    from: number; to: number; delta: number; samples: number;
+    contributor: string;
+    context: string;
+    from: number;
+    to: number;
+    delta: number;
+    samples: number;
   }>;
 }
 
@@ -904,9 +1007,15 @@ export interface EventCalibration {
     minCategorySamples: number;
     categoryBase: Record<string, { rate: number; count: number }>;
     buckets: Array<{
-      category: string; bucket: number; label: string; count: number;
-      occurrences: number; observedRate: number | null;
-      probability: number; prior: number; meanRawScore: number | null;
+      category: string;
+      bucket: number;
+      label: string;
+      count: number;
+      occurrences: number;
+      observedRate: number | null;
+      probability: number;
+      prior: number;
+      meanRawScore: number | null;
     }>;
     inSample: Record<string, unknown>;
   };
@@ -1003,7 +1112,11 @@ export interface WorldStateSummary {
   nodes: Array<Record<string, unknown>>;
   edges: Array<Record<string, unknown>>;
   rules: Array<{
-    appliesTo: string; on: string; fromUnit: string; rule: string; explains: string;
+    appliesTo: string;
+    on: string;
+    fromUnit: string;
+    rule: string;
+    explains: string;
   }>;
   projectionOffsets: number[];
   maxHorizonHours: number;
@@ -1048,11 +1161,7 @@ export interface AttentionOption {
 }
 
 export type AttentionStatus =
-  | "ACT_NOW"
-  | "ACT_SOON"
-  | "WATCH"
-  | "MONITOR_ONLY"
-  | "NO_ACTION_AVAILABLE";
+  "ACT_NOW" | "ACT_SOON" | "WATCH" | "MONITOR_ONLY" | "NO_ACTION_AVAILABLE";
 
 export interface AttentionItem {
   attentionId: string;
@@ -1111,26 +1220,211 @@ export interface SignalQuality {
   reasons: string[];
 }
 
+/**
+ * A permission as the catalogue verified it. Four states, because "we have
+ * not checked" and "we checked and it is forbidden" must not be one colour.
+ */
+export type LicenceState =
+  "ALLOWED" | "PROHIBITED" | "REQUIRES_REVIEW" | "UNKNOWN";
+
 export interface SignalHealthRow {
   capability: string;
   providerId: string;
   providerName: string;
+  /** The product within the provider that this deployment is using. */
+  productId: string | null;
+  productName: string | null;
   availability: SignalAvailability;
   /** LIVE | CACHED | STALE | EXPIRED | UNKNOWN | UNAVAILABLE */
   freshness: string;
   /** Age of the reading, not of the request that fetched it. */
   ageSeconds: number | null;
   quality: SignalQuality | null;
+  coverage: string;
   licenceMode: string;
-  commercialUse: boolean | null;
+  commercialUse: LicenceState | null;
+  governmentUse: LicenceState | null;
   attributionRequired: boolean | null;
+  termsUrl: string | null;
+  termsReviewedAt: string | null;
+}
+
+/** The AIS socket's own state: the pipe, as distinct from the picture. */
+export interface AisProviderHealth {
+  health:
+    | "CONNECTING"
+    | "LIVE"
+    | "DEGRADED"
+    | "STALE"
+    | "DISCONNECTED"
+    | "AUTH_FAILED"
+    | "RATE_LIMITED";
+  connectedAt: string | null;
+  lastMessageAt: string | null;
+  lastGoodObservationAt: string | null;
+  lastGoodAgeSeconds: number | null;
+  lastError: string | null;
+  reconnectAttempts: number;
+  messagesSeen: number;
+  messagesConsumed: number;
+  messagesRejected: number;
+  unconsumedTypes: Record<string, number>;
+  coverage: string;
 }
 
 export interface TrafficMode {
-  mode: "LIVE_AIS" | "SIMULATED_TRAFFIC" | "UNAVAILABLE";
+  mode: "LIVE_AIS" | "AIS_STALE" | "SIMULATED_TRAFFIC" | "UNAVAILABLE";
   providerId: string | null;
   statement: string;
   availability: SignalAvailability;
+  health: AisProviderHealth | null;
+  vessels: {
+    vessels: number;
+    live: number;
+    stale: number;
+    accepted: number;
+    rejected: number;
+    evicted: number;
+  } | null;
+}
+
+/* ---------------------------------------------------------- observed AIS -- */
+
+export interface ObservedPosition {
+  providerId: string;
+  messageType: string;
+  mmsi: string;
+  imo: string | null;
+  name: string | null;
+  callsign: string | null;
+  lat: number;
+  lon: number;
+  sogKnots: number | null;
+  cogDegrees: number | null;
+  headingDegrees: number | null;
+  navStatus: string | null;
+  destinationText: string | null;
+  etaText: string | null;
+  sourceTimestamp: string;
+  ingestedAt: string;
+  rawRef: string;
+  provenance: Record<string, unknown>;
+}
+
+/** One transponder's track, exactly as it reported itself. */
+export interface ObservedTrack {
+  mmsi: string;
+  /** Null unless a static-data message stated it. Never inferred. */
+  imo: string | null;
+  name: string | null;
+  callsign: string | null;
+  destinationText: string | null;
+  etaText: string | null;
+  latest: ObservedPosition | null;
+  lastSeen: string | null;
+  freshness: "LIVE" | "STALE" | "UNKNOWN";
+  positions: number;
+  history: Array<{
+    lat: number;
+    lon: number;
+    t: string;
+    sog: number | null;
+    cog: number | null;
+  }>;
+  duplicates: number;
+  outOfOrder: number;
+  source: "OBSERVED_AIS";
+}
+
+export interface ObservedTracks {
+  generatedAt: string;
+  traffic: TrafficMode;
+  count: number;
+  tracks: ObservedTrack[];
+}
+
+/* ------------------------------------------------------------- the sea -- */
+
+export interface MarineCell {
+  lat: number;
+  lon: number;
+  validAt: string;
+  fetchedAt: string;
+  waveHeightM: number | null;
+  waveDirectionDeg: number | null;
+  wavePeriodS: number | null;
+  swellHeightM: number | null;
+  swellDirectionDeg: number | null;
+  swellPeriodS: number | null;
+  windWaveHeightM: number | null;
+  sstC: number | null;
+  currentSpeedKn: number | null;
+  currentDirectionDeg: number | null;
+  providerId: string;
+  productId: string;
+  label: string;
+}
+
+export interface MarineState {
+  at: string;
+  availability: SignalAvailability;
+  productId: string;
+  providerId: string;
+  fetchedAt: string | null;
+  ageSeconds: number | null;
+  horizon: [string | null, string | null];
+  withinHorizon: boolean;
+  cells: MarineCell[];
+  attribution: string | null;
+}
+
+export interface RouteExposureSample {
+  index: number;
+  lat: number;
+  lon: number;
+  distanceNm: number;
+  eta: string;
+  headingDeg: number;
+  covered: boolean;
+  cell: MarineCell | null;
+  cellDistanceNm: number | null;
+  hoursOff: number | null;
+  aspect: "HEAD" | "BEAM" | "FOLLOWING" | null;
+  relativeWaveDeg: number | null;
+  currentAlongKn: number | null;
+  currentAcrossKn: number | null;
+  speedLossKn: number | null;
+}
+
+export interface RouteExposure {
+  waypoints: Array<[number, number]>;
+  departsAt: string;
+  speedKn: number;
+  totalNm: number;
+  nominalHours: number;
+  coverage: number;
+  confidence: number;
+  maxWaveM: number | null;
+  maxWaveAt: {
+    lat: number;
+    lon: number;
+    eta: string;
+    distanceNm: number;
+    aspect: string | null;
+  } | null;
+  meanWaveM: number | null;
+  maxSwellM: number | null;
+  hoursRough: number;
+  hoursHeavy: number;
+  hoursHeadSeasRough: number;
+  meanCurrentAlongKn: number | null;
+  addedHours: number | null;
+  flags: string[];
+  method: string;
+  samples: RouteExposureSample[] | null;
+  sampleCount: number;
+  availability: SignalAvailability;
+  productId: string;
 }
 
 export interface SignalHealth {

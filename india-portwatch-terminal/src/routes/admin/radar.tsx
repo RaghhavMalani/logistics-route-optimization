@@ -17,7 +17,10 @@ import { useAuth } from "@/auth/AuthProvider";
 import { AgentConsole } from "@/components/agent/AgentConsole";
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
 import { PortSummary } from "@/components/command/PortCockpit";
-import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import {
+  MaritimeSearch,
+  type SearchHit,
+} from "@/components/command/MaritimeSearch";
 import { TimeTransport } from "@/components/command/TimeTransport";
 import {
   EnvironmentLegend,
@@ -29,7 +32,12 @@ import {
   VesselInspector,
   useRouteExposure,
 } from "@/components/command/VesselInspector";
-import { EmptyNote, FloatPanel, PanelSection } from "@/components/command/panels";
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
+import {
+  EmptyNote,
+  FloatPanel,
+  PanelSection,
+} from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { Num, Pill, riskLabel, riskTone } from "@/components/kit/primitives";
@@ -38,7 +46,9 @@ import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { countByStatus, portTraffic } from "@/lib/maritime/traffic-views";
 import { useNews } from "@/services/hooks";
 
-export const Route = createFileRoute("/admin/radar")({ component: NationalRadar });
+export const Route = createFileRoute("/admin/radar")({
+  component: NationalRadar,
+});
 
 function NationalRadar() {
   const workspace = useWorkspaceMap();
@@ -53,7 +63,10 @@ function NationalRadar() {
     [fixes, workspace.selectedVesselId],
   );
   const exposure = useRouteExposure(selectedFix, workspace.timeline);
-  const geometry = useMemo(() => selectionGeometry(selectedFix, exposure), [exposure, selectedFix]);
+  const geometry = useMemo(
+    () => selectionGeometry(selectedFix, exposure),
+    [exposure, selectedFix],
+  );
 
   const selectedPort = workspace.selectedPortCode
     ? (workspace.portByCode.get(workspace.selectedPortCode) ?? null)
@@ -76,7 +89,9 @@ function NationalRadar() {
 
   const ranked = useMemo(
     () =>
-      [...workspace.ports].sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0)),
+      [...workspace.ports].sort(
+        (a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0),
+      ),
     [workspace.ports],
   );
 
@@ -119,6 +134,7 @@ function NationalRadar() {
         vesselFilter={workspace.vesselFilter}
         labels={workspace.labels}
         selectedVesselId={workspace.selectedVesselId}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         onSelectVessel={(id) => {
           workspace.setSelectedVesselId(id);
           if (id) workspace.setSelectedPortCode(null);
@@ -132,7 +148,11 @@ function NationalRadar() {
         }}
         focus={
           following && selectedFix
-            ? { center: [selectedFix.lon, selectedFix.lat], zoom: 8, token: Math.floor(at / 4000) }
+            ? {
+                center: [selectedFix.lon, selectedFix.lat],
+                zoom: 8,
+                token: Math.floor(at / 4000),
+              }
             : workspace.focus
         }
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
@@ -153,12 +173,18 @@ function NationalRadar() {
             {/* ------------------------------------------------- bottom left -- */}
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
               <VesselClassLegend />
-              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+              <EnvironmentLegend
+                workspace={workspace}
+                frame={workspace.frame}
+              />
             </div>
 
             {/* ------------------------------------------------------ bottom -- */}
             <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[352px] z-20">
-              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+              <TimeTransport
+                timeline={workspace.timeline}
+                weatherAt={workspace.weatherAt}
+              />
             </div>
 
             {/* ------------------------------------------------------- right -- */}
@@ -174,7 +200,9 @@ function NationalRadar() {
                     setFollowing(false);
                   }}
                   onIsolate={() =>
-                    workspace.setIsolate(workspace.filters.isolate ? null : selectedFix.id)
+                    workspace.setIsolate(
+                      workspace.filters.isolate ? null : selectedFix.id,
+                    )
                   }
                   isolated={workspace.filters.isolate === selectedFix.id}
                   onFollow={() => setFollowing((v) => !v)}
@@ -189,7 +217,10 @@ function NationalRadar() {
                   onClose={() => workspace.setSelectedPortCode(null)}
                   className="min-h-0 flex-1"
                 >
-                  <PortSummary port={selectedPort} traffic={selectedPortTraffic} />
+                  <PortSummary
+                    port={selectedPort}
+                    traffic={selectedPortTraffic}
+                  />
                   <PanelSection title="Open the twin">
                     <div className="flex flex-wrap gap-1.5">
                       <Link
@@ -214,7 +245,10 @@ function NationalRadar() {
                   note={<span className="num">{visibleCount} shown</span>}
                   className="min-h-0 flex-1"
                 >
-                  <PanelSection title="Traffic" right={`${fixes.length} tracked`}>
+                  <PanelSection
+                    title="Traffic"
+                    right={`${fixes.length} tracked`}
+                  >
                     <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
                       {(
                         [
@@ -238,7 +272,10 @@ function NationalRadar() {
                     </div>
                   </PanelSection>
 
-                  <PanelSection title="Ports by priority" right={`${ranked.length} ranked`}>
+                  <PanelSection
+                    title="Ports by priority"
+                    right={`${ranked.length} ranked`}
+                  >
                     <ul>
                       {ranked.map((port, index) => (
                         <li key={port.code}>
@@ -246,7 +283,11 @@ function NationalRadar() {
                             type="button"
                             onClick={() => {
                               workspace.setSelectedPortCode(port.code);
-                              if (port.location) workspace.flyTo([port.location.lon, port.location.lat], 7.4);
+                              if (port.location)
+                                workspace.flyTo(
+                                  [port.location.lon, port.location.lat],
+                                  7.4,
+                                );
                             }}
                             className="grid w-full grid-cols-[16px_1fr_38px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
                           >
@@ -262,7 +303,9 @@ function NationalRadar() {
                               className="text-right text-[11px]"
                             />
                             <span className="flex justify-end">
-                              <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>
+                              <Pill tone={riskTone(port.risk)}>
+                                {riskLabel(port.risk)}
+                              </Pill>
                             </span>
                             <span className="num text-right text-[10px] text-[var(--text-3)]">
                               {(port.delayHours ?? 0).toFixed(1)}h
@@ -273,17 +316,25 @@ function NationalRadar() {
                     </ul>
                   </PanelSection>
 
-                  <PanelSection title="Action queue" right={`${alerts.length} open`}>
+                  <PanelSection
+                    title="Action queue"
+                    right={`${alerts.length} open`}
+                  >
                     {alerts.length === 0 ? (
                       <EmptyNote>
-                        The decision layer issued no action for the current forecast.
+                        The decision layer issued no action for the current
+                        forecast.
                       </EmptyNote>
                     ) : (
                       <ul className="space-y-1.5">
                         {alerts.slice(0, 6).map((alert) => (
                           <li key={alert.id}>
                             <div className="flex items-baseline gap-1.5">
-                              <Pill tone={alert.severity === "high" ? "warn" : "info"}>
+                              <Pill
+                                tone={
+                                  alert.severity === "high" ? "warn" : "info"
+                                }
+                              >
                                 {alert.severity}
                               </Pill>
                               <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">

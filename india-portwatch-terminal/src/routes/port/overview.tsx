@@ -18,7 +18,10 @@ import { useMemo, useState } from "react";
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
 import { AgentConsole } from "@/components/agent/AgentConsole";
 import { usePortContext, PortSwitcher } from "@/components/app/port-context";
-import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import {
+  MaritimeSearch,
+  type SearchHit,
+} from "@/components/command/MaritimeSearch";
 import {
   ArrivalSequence,
   PortSummary,
@@ -26,12 +29,16 @@ import {
   TrafficBoard,
 } from "@/components/command/PortCockpit";
 import { TimeTransport } from "@/components/command/TimeTransport";
-import { EnvironmentLegend, TrafficFilters } from "@/components/command/TrafficFilters";
+import {
+  EnvironmentLegend,
+  TrafficFilters,
+} from "@/components/command/TrafficFilters";
 import {
   VesselHoverCard,
   VesselInspector,
   useRouteExposure,
 } from "@/components/command/VesselInspector";
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
 import { FloatPanel, PanelTabs } from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
@@ -42,7 +49,9 @@ import { seawardBearing } from "@/lib/maritime/port-geometry";
 import { arrivalSequence, portTraffic } from "@/lib/maritime/traffic-views";
 import { useDecision, useForecast } from "@/services/hooks";
 
-export const Route = createFileRoute("/port/overview")({ component: PortCockpitScreen });
+export const Route = createFileRoute("/port/overview")({
+  component: PortCockpitScreen,
+});
 
 type Tab = "state" | "arrivals" | "weather";
 
@@ -83,7 +92,10 @@ function PortCockpitScreen() {
 
   const plan = useMemo(() => {
     if (!port || !traffic) return null;
-    return arrivalSequence(traffic, port, { at, forecast: forecast.data ?? undefined });
+    return arrivalSequence(traffic, port, {
+      at,
+      forecast: forecast.data ?? undefined,
+    });
   }, [at, forecast.data, port, traffic]);
 
   const selectedFix = useMemo(
@@ -91,7 +103,10 @@ function PortCockpitScreen() {
     [fixes, workspace.selectedVesselId],
   );
   const exposure = useRouteExposure(selectedFix, workspace.timeline);
-  const geometry = useMemo(() => selectionGeometry(selectedFix, exposure), [exposure, selectedFix]);
+  const geometry = useMemo(
+    () => selectionGeometry(selectedFix, exposure),
+    [exposure, selectedFix],
+  );
 
   const localIds = useMemo(
     () => new Set((traffic?.all ?? []).map((fix) => fix.id)),
@@ -149,6 +164,7 @@ function PortCockpitScreen() {
         focus={workspace.focus}
         selectedVesselId={workspace.selectedVesselId}
         onSelectVessel={workspace.setSelectedVesselId}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         onHoverVessel={workspace.setHoveredVesselId}
         selectedPortCode={port.code}
         onSelectPort={() => undefined}
@@ -158,7 +174,11 @@ function PortCockpitScreen() {
         overlay={
           <>
             <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
-              <MaritimeSearch ports={workspace.ports} onPick={onPick} placeholder="Search traffic" />
+              <MaritimeSearch
+                ports={workspace.ports}
+                onPick={onPick}
+                placeholder="Search traffic"
+              />
               <TrafficFilters workspace={workspace} />
             </div>
 
@@ -174,7 +194,10 @@ function PortCockpitScreen() {
               className="pointer-events-none absolute left-2.5 z-20 w-[248px]"
               style={{ bottom: bottomStack + 8 }}
             >
-              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+              <EnvironmentLegend
+                workspace={workspace}
+                frame={workspace.frame}
+              />
             </div>
 
             {/* -------------------------------------------------- right rail -- */}
@@ -192,7 +215,9 @@ function PortCockpitScreen() {
                     workspace.setIsolate(null);
                   }}
                   onIsolate={() =>
-                    workspace.setIsolate(workspace.filters.isolate ? null : selectedFix.id)
+                    workspace.setIsolate(
+                      workspace.filters.isolate ? null : selectedFix.id,
+                    )
                   }
                   isolated={workspace.filters.isolate === selectedFix.id}
                   onSelectVessel={workspace.setSelectedVesselId}
@@ -211,7 +236,11 @@ function PortCockpitScreen() {
                       onChange={setTab}
                       tabs={[
                         { value: "state", label: "State" },
-                        { value: "arrivals", label: "Arrivals", count: plan?.slots.length },
+                        {
+                          value: "arrivals",
+                          label: "Arrivals",
+                          count: plan?.slots.length,
+                        },
                         { value: "weather", label: "Weather" },
                       ]}
                     />
@@ -251,7 +280,10 @@ function PortCockpitScreen() {
               className="pointer-events-none absolute z-20"
               style={{ left: 272, right: 330, bottom: boardHeight + 18 }}
             >
-              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+              <TimeTransport
+                timeline={workspace.timeline}
+                weatherAt={workspace.weatherAt}
+              />
             </div>
 
             <div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-20">
@@ -260,8 +292,8 @@ function PortCockpitScreen() {
                   title="Traffic board"
                   note={
                     <span className="num">
-                      {traffic.all.length} vessels · {traffic.inbound.length} inbound ·{" "}
-                      {traffic.waiting.length} waiting
+                      {traffic.all.length} vessels · {traffic.inbound.length}{" "}
+                      inbound · {traffic.waiting.length} waiting
                     </span>
                   }
                   actions={

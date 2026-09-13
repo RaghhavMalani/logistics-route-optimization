@@ -14,7 +14,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AgentConsole } from "@/components/agent/AgentConsole";
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
-import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import {
+  MaritimeSearch,
+  type SearchHit,
+} from "@/components/command/MaritimeSearch";
 import { TimeTransport } from "@/components/command/TimeTransport";
 import {
   EnvironmentLegend,
@@ -26,7 +29,12 @@ import {
   VesselInspector,
   useRouteExposure,
 } from "@/components/command/VesselInspector";
-import { EmptyNote, FloatPanel, PanelSection } from "@/components/command/panels";
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
+import {
+  EmptyNote,
+  FloatPanel,
+  PanelSection,
+} from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { Num, Pill } from "@/components/kit/primitives";
@@ -39,7 +47,9 @@ import { nearbyTraffic, STATUS_TONE } from "@/lib/maritime/traffic-views";
 import { useFleet } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/vessel/overview")({ component: VesselBridge });
+export const Route = createFileRoute("/vessel/overview")({
+  component: VesselBridge,
+});
 
 function VesselBridge() {
   const workspace = useWorkspaceMap();
@@ -49,7 +59,8 @@ function VesselBridge() {
   const [following, setFollowing] = useState(true);
   // The follow camera pulls back on a narrower frame for the same reason the
   // port view does: the point is the traffic around the ship, not the ship.
-  const followZoom = typeof window === "undefined" || window.innerWidth >= 1600 ? 7 : 6.4;
+  const followZoom =
+    typeof window === "undefined" || window.innerWidth >= 1600 ? 7 : 6.4;
 
   const owned = useMemo(() => fixes.filter((fix) => fix.owned), [fixes]);
 
@@ -60,7 +71,10 @@ function VesselBridge() {
   }, [owned, selectedVesselId, setSelectedVesselId]);
 
   const selectedFix = useMemo(
-    () => fixes.find((fix) => fix.id === workspace.selectedVesselId) ?? owned[0] ?? null,
+    () =>
+      fixes.find((fix) => fix.id === workspace.selectedVesselId) ??
+      owned[0] ??
+      null,
     [fixes, owned, workspace.selectedVesselId],
   );
 
@@ -87,7 +101,11 @@ function VesselBridge() {
   // Own ships and every named contact stay out of the merge and keep their
   // labels: they are the reason this screen exists.
   const pinnedIds = useMemo(
-    () => new Set([...owned.map((fix) => fix.id), ...contacts.map((contact) => contact.fix.id)]),
+    () =>
+      new Set([
+        ...owned.map((fix) => fix.id),
+        ...contacts.map((contact) => contact.fix.id),
+      ]),
     [contacts, owned],
   );
 
@@ -95,7 +113,9 @@ function VesselBridge() {
     return (
       <ScreenFallback
         title="Bridge"
-        context={<span>Own vessel, surrounding traffic and passage weather</span>}
+        context={
+          <span>Own vessel, surrounding traffic and passage weather</span>
+        }
         isLoading={fleet.isLoading}
         error={fleet.error}
         retry={() => void fleet.refetch()}
@@ -126,6 +146,7 @@ function VesselBridge() {
         pinnedIds={pinnedIds}
         labels={workspace.labels}
         selectedVesselId={workspace.selectedVesselId}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         onSelectVessel={(id) => {
           workspace.setSelectedVesselId(id);
           setFollowing(false);
@@ -159,16 +180,26 @@ function VesselBridge() {
 
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
               <VesselClassLegend />
-              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+              <EnvironmentLegend
+                workspace={workspace}
+                frame={workspace.frame}
+              />
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[336px] z-20">
-              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+              <TimeTransport
+                timeline={workspace.timeline}
+                weatherAt={workspace.weatherAt}
+              />
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2">
               {owned.length > 1 ? (
-                <FloatPanel title="Own fleet" note={`${owned.length} vessels`} className="shrink-0">
+                <FloatPanel
+                  title="Own fleet"
+                  note={`${owned.length} vessels`}
+                  className="shrink-0"
+                >
                   <ul className="p-1">
                     {owned.map((fix) => (
                       <li key={fix.id}>
@@ -203,17 +234,25 @@ function VesselBridge() {
                 </FloatPanel>
               ) : null}
 
+              <ObservedSelection
+                workspace={workspace}
+                className="min-h-0 flex-1"
+              />
               {selectedFix ? (
                 <VesselInspector
                   fix={selectedFix}
                   ports={workspace.ports}
                   timeline={workspace.timeline}
                   ownRow={ownRow}
-                  onClose={() => workspace.setSelectedVesselId(owned[0]?.id ?? null)}
+                  onClose={() =>
+                    workspace.setSelectedVesselId(owned[0]?.id ?? null)
+                  }
                   onFollow={() => setFollowing((v) => !v)}
                   following={following}
                   onIsolate={() =>
-                    workspace.setIsolate(workspace.filters.isolate ? null : selectedFix.id)
+                    workspace.setIsolate(
+                      workspace.filters.isolate ? null : selectedFix.id,
+                    )
                   }
                   isolated={workspace.filters.isolate === selectedFix.id}
                   onSelectVessel={(id) => {
@@ -225,7 +264,8 @@ function VesselBridge() {
               ) : (
                 <FloatPanel title="Own fleet" className="min-h-0 flex-1">
                   <EmptyNote>
-                    The routing artefact carried no vessel for this operator in this run.
+                    The routing artefact carried no vessel for this operator in
+                    this run.
                   </EmptyNote>
                 </FloatPanel>
               )}
@@ -260,7 +300,9 @@ function VesselBridge() {
                                   aria-hidden
                                   className="mr-1 inline-block h-[6px] w-[6px] rounded-[1px] align-middle"
                                   style={{
-                                    background: VESSEL_CLASSES[contact.fix.vesselClass].color,
+                                    background:
+                                      VESSEL_CLASSES[contact.fix.vesselClass]
+                                        .color,
                                   }}
                                 />
                                 {contact.fix.name}
@@ -273,13 +315,21 @@ function VesselBridge() {
                               </span>
                             </button>
                             <div className="px-1 pb-[2px] text-[9px] text-[var(--text-3)]">
-                              {waypoint(contact.fix.destinationId)?.name.split(" (")[0] ?? "—"} ·{" "}
-                              <Num value={contact.fix.sogKn} digits={1} unit="kn" />
+                              {waypoint(contact.fix.destinationId)?.name.split(
+                                " (",
+                              )[0] ?? "—"}{" "}
+                              ·{" "}
+                              <Num
+                                value={contact.fix.sogKn}
+                                digits={1}
+                                unit="kn"
+                              />
                               {contact.computable ? (
                                 <span
                                   className={cn(
                                     "ml-1",
-                                    contact.cpa.cpaNm < 1 && contact.cpa.tcpaMinutes > 0
+                                    contact.cpa.cpaNm < 1 &&
+                                      contact.cpa.tcpaMinutes > 0
                                       ? "text-[var(--warn)]"
                                       : "",
                                   )}

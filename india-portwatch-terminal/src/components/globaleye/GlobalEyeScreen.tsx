@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
 import { EmptyNote, FloatPanel } from "@/components/command/panels";
 import { TimeTransport } from "@/components/command/TimeTransport";
 import { EnvironmentLegend } from "@/components/command/TrafficFilters";
@@ -123,6 +124,14 @@ export function GlobalEyeScreen({
     at,
   );
 
+  // The sea state is the one layer a lens switches at the workspace rather
+  // than over it: the toggle is also what starts the forecast query, and a
+  // query for cells nobody is looking at would be a fetch for nothing.
+  const setLayer = workspace.setLayer;
+  useEffect(() => {
+    setLayer("seastate", lens === "WEATHER");
+  }, [lens, setLayer]);
+
   // The lens is applied over the workspace's own toggles rather than replacing
   // them, so a layer the operator turned off stays off when they change lens.
   const lensedLayers = useMemo(
@@ -191,7 +200,9 @@ export function GlobalEyeScreen({
     const target = world.vesselId ?? world.portCode ?? world.chokepoint;
     if (!target || !affected) return;
     const subject = [
-      ...affected.ports, ...affected.chokepoints, ...affected.vessels,
+      ...affected.ports,
+      ...affected.chokepoints,
+      ...affected.vessels,
     ].find((s) => s.id === target);
     if (subject?.lat != null && subject?.lon != null) {
       workspace.flyTo([subject.lon, subject.lat], 4.4);
@@ -232,6 +243,7 @@ export function GlobalEyeScreen({
         focusIds={layers.focusIds.size ? layers.focusIds : null}
         selectedVesselId={workspace.selectedVesselId}
         onSelectVessel={workspace.setSelectedVesselId}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         labels={workspace.labels}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
@@ -251,7 +263,8 @@ export function GlobalEyeScreen({
                 title="Action required"
                 note={
                   <span className="num">
-                    {attention.data?.actionable ?? 0}/{attention.data?.total ?? 0}
+                    {attention.data?.actionable ?? 0}/
+                    {attention.data?.total ?? 0}
                   </span>
                 }
                 testId="action-rail"
@@ -336,7 +349,9 @@ export function GlobalEyeScreen({
               >
                 <div className="rounded border border-[var(--line)] bg-[var(--surface)]/94 px-2.5 py-2 backdrop-blur">
                   <div className="flex items-center gap-1.5">
-                    <Pill tone="neutral">{lensDefinition.label} · unavailable</Pill>
+                    <Pill tone="neutral">
+                      {lensDefinition.label} · unavailable
+                    </Pill>
                   </div>
                   <p className="mt-1 text-[10.5px] font-medium text-[var(--text)]">
                     {lensDefinition.unavailable.headline}
@@ -346,7 +361,10 @@ export function GlobalEyeScreen({
                   </p>
                   <ul className="mt-1.5 flex flex-col gap-0.5">
                     {lensDefinition.unavailable.needs.map((need) => (
-                      <li key={need} className="text-[9px] text-[var(--text-3)]">
+                      <li
+                        key={need}
+                        className="text-[9px] text-[var(--text-3)]"
+                      >
                         · {need}
                       </li>
                     ))}
@@ -383,7 +401,8 @@ export function GlobalEyeScreen({
                     ) : null}
                     <SeedBasis cascade={selectedCascade} />
                     <span className="num ml-auto text-[var(--text-3)]">
-                      {affected?.lanes.length ?? 0} lanes · {affected?.ports.length ?? 0} ports
+                      {affected?.lanes.length ?? 0} lanes ·{" "}
+                      {affected?.ports.length ?? 0} ports
                     </span>
                   </div>
                 </div>
@@ -393,16 +412,28 @@ export function GlobalEyeScreen({
             {/* ----------------------------------------------- copilot -- */}
             <div className="pointer-events-none absolute right-2.5 top-2.5 z-30 flex flex-col items-end gap-2">
               <CommandBar />
-              <LensBar
-                lens={lens}
-                onChange={world.setLens}
-              />
+              <LensBar lens={lens} onChange={world.setLens} />
               <SignalHealth mode="DEMO" />
+              {/* An observed hull's inspector flows beneath the trust surface
+                  rather than beside it, so opening the health panel never
+                  covers what a click on the chart just opened. */}
+              {workspace.selectedObservedMmsi &&
+              !(evidenceOpen && selectedAttentionId) ? (
+                <div className="pointer-events-none flex max-h-[60vh] w-[330px] flex-col">
+                  <ObservedSelection
+                    workspace={workspace}
+                    className="min-h-0 flex-1"
+                  />
+                </div>
+              ) : null}
             </div>
 
             {/* -------------------------------------------------- legend -- */}
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
-              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+              <EnvironmentLegend
+                workspace={workspace}
+                frame={workspace.frame}
+              />
             </div>
 
             {/* ----------------------------------------------- transport -- */}
@@ -415,7 +446,10 @@ export function GlobalEyeScreen({
                 onPlay={reveal.play}
                 onReset={reveal.reset}
               />
-              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+              <TimeTransport
+                timeline={workspace.timeline}
+                weatherAt={workspace.weatherAt}
+              />
             </div>
           </>
         }
@@ -512,7 +546,9 @@ function LensBar({
               <span
                 className={cn(
                   "h-1 w-1 shrink-0 rounded-full",
-                  lens === option ? "bg-[var(--surface)]" : "bg-[var(--text-3)]",
+                  lens === option
+                    ? "bg-[var(--surface)]"
+                    : "bg-[var(--text-3)]",
                 )}
               />
             ) : null}
@@ -551,7 +587,9 @@ function CascadeRow({
       <div className="mt-0.5 flex items-center gap-2 text-[9px] text-[var(--text-3)]">
         <span className="num">{row.nodeCount} affected</span>
         {row.totals?.vessels ? (
-          <span className="num">{row.totals.vessels.value.toFixed(0)} hulls</span>
+          <span className="num">
+            {row.totals.vessels.value.toFixed(0)} hulls
+          </span>
         ) : null}
       </div>
     </button>

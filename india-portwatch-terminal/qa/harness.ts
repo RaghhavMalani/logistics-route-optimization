@@ -14,13 +14,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
 
-const FIXTURES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
+const FIXTURES = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+);
 
 export type Role =
-  | "VESSEL_OPERATOR"
-  | "SHIPPING_COMPANY"
-  | "PORT_AUTHORITY"
-  | "NATIONAL_ADMIN";
+  "VESSEL_OPERATOR" | "SHIPPING_COMPANY" | "PORT_AUTHORITY" | "NATIONAL_ADMIN";
 
 const DEMO_COMPANY_ID = "portwatch-demo-shipping";
 const DEMO_COMPANY_NAME = "PortWatch Demo Shipping";
@@ -83,7 +83,10 @@ const GET_FALLBACKS: Array<[RegExp, string]> = [
 
 function fixtureFor(pathname: string): string | null {
   const route = pathname.replace(/^.*\/api/, "");
-  const file = path.join(FIXTURES, `${route.replace(/^\//, "").replace(/\//g, "_") || "root"}.json`);
+  const file = path.join(
+    FIXTURES,
+    `${route.replace(/^\//, "").replace(/\//g, "_") || "root"}.json`,
+  );
   if (fs.existsSync(file)) return file;
 
   const fallback = GET_FALLBACKS.find(([pattern]) => pattern.test(route));
@@ -113,7 +116,9 @@ export async function mockApi(context: BrowserContext): Promise<void> {
     const url = new URL(request.url());
 
     if (request.method() === "POST") {
-      const match = POST_FIXTURES.find(([pattern]) => pattern.test(url.pathname));
+      const match = POST_FIXTURES.find(([pattern]) =>
+        pattern.test(url.pathname),
+      );
       const file = match ? path.join(FIXTURES, match[1]) : null;
       if (file && fs.existsSync(file)) {
         await route.fulfill({
@@ -138,7 +143,9 @@ export async function mockApi(context: BrowserContext): Promise<void> {
       await route.fulfill({
         status: 404,
         contentType: "application/json",
-        body: JSON.stringify({ detail: `No fixture recorded for ${url.pathname}` }),
+        body: JSON.stringify({
+          detail: `No fixture recorded for ${url.pathname}`,
+        }),
       });
       return;
     }
@@ -150,13 +157,56 @@ export async function mockApi(context: BrowserContext): Promise<void> {
   });
 }
 
+/**
+ * Replace one recorded route with another fixture, from now on.
+ *
+ * Playwright serves the most recently registered matching route first, so a
+ * test can move the API from one recorded state to the next -- the replay
+ * deployment to a live feed to a stale one -- without restarting anything.
+ * The fixture is a real recording of the real API in that state; see
+ * `qa/record-ais-states.py`.
+ */
+export async function withFixture(
+  context: BrowserContext,
+  pathname: string,
+  file: string,
+): Promise<void> {
+  const body = fs.readFileSync(path.join(FIXTURES, file), "utf8");
+  await context.route(
+    (url) => url.pathname.endsWith(pathname),
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body,
+      });
+    },
+  );
+}
+
+/**
+ * Ask the terminal to re-read its polled sources now.
+ *
+ * The health strip and the observed tracks refetch whenever the tab becomes
+ * visible, so the suite does not have to wait out a thirty-second poll to see
+ * a state change land.
+ */
+export async function refocus(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("portwatch:signals-refresh"));
+  });
+}
+
 /** Make every API call fail, the way a stopped backend does. */
 export async function killApi(context: BrowserContext): Promise<void> {
   await context.unrouteAll({ behavior: "ignoreErrors" });
   await context.route("**/api/**", (route) => route.abort("connectionrefused"));
 }
 
-export async function seedSession(context: BrowserContext, role: Role): Promise<void> {
+export async function seedSession(
+  context: BrowserContext,
+  role: Role,
+): Promise<void> {
   const now = Date.now();
   await context.addInitScript(
     ([session, viewAs]) => {
@@ -182,11 +232,18 @@ export interface Recorder {
 }
 
 export function record(page: Page): Recorder {
-  const recorder: Recorder = { consoleErrors: [], failedRequests: [], pageErrors: [] };
+  const recorder: Recorder = {
+    consoleErrors: [],
+    failedRequests: [],
+    pageErrors: [],
+  };
   page.on("console", (message) => {
-    if (message.type() === "error") recorder.consoleErrors.push(message.text().slice(0, 300));
+    if (message.type() === "error")
+      recorder.consoleErrors.push(message.text().slice(0, 300));
   });
-  page.on("pageerror", (error) => recorder.pageErrors.push(String(error).slice(0, 300)));
+  page.on("pageerror", (error) =>
+    recorder.pageErrors.push(String(error).slice(0, 300)),
+  );
   page.on("requestfailed", (request) => {
     const reason = request.failure()?.errorText ?? "";
     // An aborted request is the browser cancelling work the page no longer
@@ -212,7 +269,9 @@ export async function settle(page: Page): Promise<void> {
 
 export async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
   );
 }
 
