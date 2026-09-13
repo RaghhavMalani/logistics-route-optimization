@@ -124,6 +124,24 @@ def _vessel_item(
     hours_to_risk = exposure.attrs.get("hours_to_risk_area")
     chokepoint = exposure.attrs.get("chokepoint") or "the exposed water"
 
+    # An observed hull is somebody else's ship unless the identity holds it.
+    # A national centre can advise it; it cannot order it to divert, and an
+    # item that said "reroute" would be presenting a decision nobody here
+    # has. The exposure is the same; the option is different.
+    observed = reached.node.attrs.get("source") == "OBSERVED_AIS"
+    controlled = not observed or scope in (SHIPPING_COMPANY, VESSEL_OPERATOR)
+    provenance = {}
+    if observed:
+        provenance = {
+            "mmsi": reached.node.attrs.get("mmsi"),
+            "imo": reached.node.attrs.get("imo"),
+            "nameStated": bool(reached.node.attrs.get("name_stated", True)),
+            "observedAt": reached.node.attrs.get("observed_at"),
+            "placementConfidence": reached.node.attrs.get("placement_confidence"),
+            "destinationConfidence": reached.node.attrs.get("destination_confidence"),
+            "laneConfidence": reached.node.attrs.get("lane_confidence"),
+        }
+
     # The window is the time before the hull enters the water. Once inside, a
     # diversion is not a decision anybody still has -- which is exactly the
     # case the product must never present as an opportunity.
@@ -161,6 +179,34 @@ def _vessel_item(
             "to order."
         )
         headline = f"{reached.node.label} committed to {chokepoint}"
+    elif not controlled:
+        recommended = Option(
+            action="advise",
+            summary=(
+                f"Advise {reached.node.label} and its operator of the exposure at "
+                f"{chokepoint} before it enters"
+            ),
+            closes_in_hours=window,
+            effect=operational,
+            tradeoff=(
+                "The hull is observed, not commanded: the decision to divert is "
+                "the master's and the owner's, and an advisory is what this "
+                "centre can issue."
+            ),
+        )
+        alternatives = [
+            Option(
+                action="monitor",
+                summary="Watch the hull's next reports for a course change",
+                tradeoff="Costs nothing; the exposure is unchanged until it acts.",
+            ),
+        ]
+        do_nothing = (
+            f"{reached.node.label} enters {chokepoint} in about "
+            f"{window:.0f} h on its reported course." if window is not None
+            else f"{reached.node.label} remains exposed at {chokepoint}."
+        )
+        headline = f"{reached.node.label} (observed) exposed at {chokepoint}"
     else:
         recommended = Option(
             action="reroute",
@@ -205,6 +251,13 @@ def _vessel_item(
         reason=(
             f"Exposure {exposure.value:.2f} at {chokepoint}, propagated from "
             f"{cascade.seed_key.split(':', 1)[-1]}."
+            + (
+                f" Observed via AIS at {provenance.get('observedAt')}; placement "
+                f"confidence {provenance.get('placementConfidence')}"
+                + ("" if provenance.get("nameStated") else "; name not stated by the transponder")
+                + "."
+                if observed else ""
+            )
         ),
         severity=exposure.value,
         confidence=exposure.confidence,
@@ -212,7 +265,10 @@ def _vessel_item(
         status=status,
         action_deadline=_deadline(now, window),
         intervention_window_hours=window,
-        baseline_outcome="Voyage runs to its current ETA on the planned routing.",
+        baseline_outcome=(
+            "The hull continues on its reported course and speed."
+            if observed else "Voyage runs to its current ETA on the planned routing."
+        ),
         do_nothing_outcome=do_nothing,
         recommended_action=recommended,
         alternative_actions=alternatives,
@@ -220,6 +276,74 @@ def _vessel_item(
         expected_financial_effect=_no_price("a vessel-level cost basis"),
         cascade_id=cascade.seed_key,
         evidence_node_key=reached.node.key,
+        source="OBSERVED_AIS" if observed else "FLEET",
+        provenance=provenance,
+    )
+
+
+# --------------------------------------------------------------------------
+# the feed itself
+# --------------------------------------------------------------------------
+
+
+def feed_item(traffic: Dict[str, Any], *, scope: str, now: Optional[datetime] = None) -> Optional[AttentionItem]:
+    """An item about the observed picture when the picture is not current.
+
+    The attention engine ranks consequence the operator can still prevent.
+    A stale feed is not a consequence, but it changes every item built on
+    observed hulls, and a queue that ranked those items without saying so
+    would be quietly overstating what it knows. So the feed's state is an
+    item of its own: MONITOR_ONLY, never actionable, present whenever the
+    source was live and is not.
+    """
+    mode = traffic.get("mode")
+    health = traffic.get("health") or {}
+    vessels = traffic.get("vessels") or {}
+    if mode not in ("AIS_STALE", "UNAVAILABLE") or not health.get("lastGoodObservationAt"):
+        return None
+    age = health.get("lastGoodAgeSeconds")
+    minutes = None if age is None else age / 60.0
+    if mode == "AIS_STALE":
+        headline = "Observed AIS picture is stale"
+        do_nothing = (
+            f"{vessels.get('vessels', 0)} observed hulls are shown at their last known "
+            "positions; exposure built on them ages with them."
+        )
+    else:
+        headline = "Observed AIS picture has lapsed"
+        do_nothing = (
+            "No observed hull is current. Items built on observed hulls have been "
+            "withdrawn; the replay has not been substituted."
+        )
+    return AttentionItem(
+        attention_id=f"att:feed:aisstream:{mode}",
+        subject_type="feed",
+        subject_id="aisstream",
+        subject_label="Observed AIS",
+        scope=scope,
+        headline=headline,
+        reason=(
+            f"The last valid observation was {minutes:.0f} minutes ago; the socket is "
+            f"{health.get('health')}." if minutes is not None
+            else f"The socket is {health.get('health')} and nothing valid has arrived."
+        ),
+        severity=0.0,
+        confidence=1.0,
+        urgency=0.0,
+        status=MONITOR_ONLY,
+        baseline_outcome="Observed hulls report every few seconds under way.",
+        do_nothing_outcome=do_nothing,
+        expected_financial_effect=_no_price("a feed-level cost basis"),
+        cascade_id="feed:aisstream",
+        evidence_node_key="feed:aisstream",
+        source="FEED",
+        provenance={
+            "mode": mode,
+            "socket": health.get("health"),
+            "lastGoodObservationAt": health.get("lastGoodObservationAt"),
+            "lastGoodAgeSeconds": age,
+            "lastError": health.get("lastError"),
+        },
     )
 
 

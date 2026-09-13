@@ -336,6 +336,11 @@ class OpenMeteoAdapter(BaseAdapter):
     coverage = "global"
     stale_after_seconds = 6 * 3600.0
 
+    @property
+    def product_id(self) -> str:
+        """The subscription when a key is configured; the free tier otherwise."""
+        return "open-meteo-customer" if os.getenv("OPEN_METEO_API_KEY") else "open-meteo-free"
+
     def availability(self) -> Availability:
         try:
             from backend.app.services import cache_service as cache
@@ -383,6 +388,7 @@ class GdeltAdapter(BaseAdapter):
     """
 
     provider_id = "gdelt"
+    product_id = "gdelt-events"
     capability = "events"
     coverage = "global news"
     stale_after_seconds = 3 * 3600.0
@@ -456,7 +462,11 @@ ADAPTERS: Tuple[type, ...] = (
 
 
 def build_adapters(*, licence_mode: str = "RESEARCH") -> List[BaseAdapter]:
-    return [cls(licence_mode=licence_mode) for cls in ADAPTERS]
+    # The marine adapter lives in its own module (it carries a service and a
+    # cache); imported here rather than at the top to keep the import acyclic.
+    from src.portwatch_os.fabric.marine import OpenMeteoMarineAdapter
+
+    return [cls(licence_mode=licence_mode) for cls in (*ADAPTERS, OpenMeteoMarineAdapter)]
 
 
 __all__ = [

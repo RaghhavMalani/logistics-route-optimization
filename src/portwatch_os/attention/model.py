@@ -169,6 +169,13 @@ class AttentionItem:
     cascade_id: str = ""
     evidence_node_key: str = ""
 
+    #: Where the subject came from: FLEET for a declared voyage, OBSERVED_AIS
+    #: for a transponder's claims, FEED for an item about a source itself.
+    #: An observed subject carries what was inferred to place it, so the
+    #: queue can say "confidence 0.31, of which 0.43 is placement".
+    source: str = "FLEET"
+    provenance: Dict[str, Any] = field(default_factory=dict)
+
     #: Computed by :func:`rank`. Not a severity; see the module docstring.
     priority: float = 0.0
     priority_basis: Dict[str, float] = field(default_factory=dict)
@@ -187,6 +194,8 @@ class AttentionItem:
             "subjectType": self.subject_type,
             "subjectId": self.subject_id,
             "subjectLabel": self.subject_label,
+            "source": self.source,
+            "provenance": dict(self.provenance),
             "scope": self.scope,
             "headline": self.headline,
             "reason": self.reason,

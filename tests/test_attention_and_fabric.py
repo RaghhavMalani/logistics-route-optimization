@@ -814,12 +814,17 @@ class WorldApiTests(unittest.TestCase):
 
     def _with_fused_client(self, api_key, feed=()):
         """A scripted client wired to a fresh fusion engine, as the process's."""
+        from src.portwatch_os.fabric.ais import client as client_module
         from src.portwatch_os.fusion import engine as fusion_module
+        from src.portwatch_os.world.live import reset_live_world
 
         fusion_module.reset_engine()
+        reset_live_world()
         self.addCleanup(fusion_module.reset_engine)
+        self.addCleanup(reset_live_world)
         client = self._with_client(api_key)
-        client._on_observation = lambda obs: fusion_module.get_engine().ingest_ais(obs)
+        # The production hook: fuse the observation and move the world on.
+        client._on_observation = client_module._fuse
         for envelope in feed:
             client.feed(envelope)
         return client
@@ -902,6 +907,82 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/world/entities/lookup").status_code, 400)
         # No name parameter exists; passing one is ignored, not honoured.
         self.assertEqual(self.client.get("/api/world/entities/lookup?name=OBSERVED%20HULL").status_code, 400)
+
+    # -- attention reacting to observed state -------------------------------
+    def _red_sea_hull(self, mmsi="419001234", at=None):
+        """Mid Red Sea, southbound: Bab-el-Mandeb ahead, hours away."""
+        from datetime import datetime, timezone
+
+        moment = at or datetime.now(timezone.utc)
+        stamp = moment.strftime("%Y-%m-%d %H:%M:%S.%f") + "000 +0000 UTC"
+        return [
+            {"MessageType": "PositionReport",
+             "MetaData": {"MMSI": mmsi, "latitude": 20.0, "longitude": 38.5, "time_utc": stamp},
+             "Message": {"PositionReport": {"UserID": int(mmsi), "Sog": 14.0, "Cog": 150.0,
+                                            "TrueHeading": 150, "NavigationalStatus": 0}}},
+            {"MessageType": "ShipStaticData",
+             "MetaData": {"MMSI": mmsi, "latitude": 20.0, "longitude": 38.5, "time_utc": stamp},
+             "Message": {"ShipStaticData": {"UserID": int(mmsi), "ImoNumber": 9000002, "Name": "SEEN HULL",
+                                            "CallSign": "VT", "Destination": "INNSA",
+                                            "Eta": {"Month": 9, "Day": 20, "Hour": 1, "Minute": 0}}}},
+        ]
+
+    def test_an_observed_hull_is_advised_not_ordered(self):
+        """A national centre can tell a third-party hull about the water ahead;
+        it cannot order it to divert, and the queue must not say it can."""
+        self._with_fused_client("k", feed=self._red_sea_hull())
+        body = self.client.get(
+            f"/api/attention?mode=RESEARCH&limit=25&{self._at()}", headers=self.headers,
+        ).json()
+        observed = [i for i in body["items"] if i["source"] == "OBSERVED_AIS"]
+        if not observed:
+            self.skipTest("no live Red Sea cascade reaches the hull at this instant")
+        item = observed[0]
+        self.assertEqual(item["provenance"]["mmsi"], "419001234")
+        self.assertTrue(item["provenance"]["nameStated"])
+        self.assertLess(item["provenance"]["placementConfidence"], 1.0)
+        self.assertIn("Observed via AIS", item["reason"])
+        self.assertIn("(observed)", item["headline"])
+        if item["recommendedAction"]:
+            self.assertEqual(item["recommendedAction"]["action"], "advise")
+            self.assertNotEqual(item["recommendedAction"]["action"], "reroute")
+        self.assertEqual(body["traffic"], "LIVE_AIS")
+        self.assertGreaterEqual(body["observed"], 1)
+
+    def test_a_stale_feed_is_an_item_of_its_own_and_never_actionable(self):
+        from datetime import datetime, timedelta, timezone
+
+        self._with_fused_client("k", feed=self._red_sea_hull(at=datetime.now(timezone.utc) - timedelta(minutes=15)))
+        body = self.client.get(
+            f"/api/attention?mode=RESEARCH&limit=25&{self._at()}", headers=self.headers,
+        ).json()
+        self.assertEqual(body["traffic"], "AIS_STALE")
+        feed = [i for i in body["items"] if i["source"] == "FEED"]
+        self.assertEqual(len(feed), 1)
+        self.assertEqual(feed[0]["status"], "MONITOR_ONLY")
+        self.assertFalse(feed[0]["actionable"])
+        self.assertIn("stale", feed[0]["headline"].lower())
+        self.assertEqual(feed[0]["provenance"]["mode"], "AIS_STALE")
+        # The stale item ranks beneath anything actionable.
+        actionable = [i for i in body["items"] if i["actionable"]]
+        if actionable:
+            self.assertGreater(body["items"].index(feed[0]), body["items"].index(actionable[-1]))
+
+    def test_a_live_feed_produces_no_feed_item(self):
+        self._with_fused_client("k", feed=self._red_sea_hull())
+        body = self.client.get(
+            f"/api/attention?mode=RESEARCH&limit=25&{self._at()}", headers=self.headers,
+        ).json()
+        self.assertEqual([i for i in body["items"] if i["source"] == "FEED"], [])
+
+    def test_a_replay_deployment_produces_no_feed_item(self):
+        self._with_client(None)
+        body = self.client.get(
+            f"/api/attention?mode=RESEARCH&limit=25&{self._at()}", headers=self.headers,
+        ).json()
+        self.assertEqual(body["traffic"], "SIMULATED_TRAFFIC")
+        self.assertEqual([i for i in body["items"] if i["source"] == "FEED"], [])
+        self.assertTrue(all(i["source"] == "FLEET" for i in body["items"]))
 
     def test_a_fleet_vessel_sharing_a_name_is_a_candidate_not_a_merge(self):
         from backend.app.routes.global_eye import _company_voyages

@@ -137,10 +137,11 @@ def _observed_voyages(mode: str, now: datetime):
 def _world(company_id: Optional[str] = None, *, mode: Optional[str] = None, now: Optional[datetime] = None):
     """The graph, and the events that seeded it.
 
-    Rebuilt per request rather than cached: the event register is re-ingested
-    and re-calibrated on every Global Eye request already, and a world graph
-    that lagged behind it would be the quiet inconsistency this product exists
-    to avoid.
+    Versioned rather than cached: the event register is re-ingested and
+    re-calibrated on every request, as it always was, and the register's
+    stamp, the fleet's stamp and the observed-hull generation make up the
+    revision. A request at the same revision gets the same graph; a request
+    at a new one gets a rebuild. See :mod:`src.portwatch_os.world.live`.
 
     Observed hulls are added after the fleet, keyed by their canonical id, so
     a replay vessel and an observed one never share a node. The fleet is also
@@ -148,8 +149,14 @@ def _world(company_id: Optional[str] = None, *, mode: Optional[str] = None, now:
     finds its transponder -- and how one without an IMO is offered a name
     candidate rather than merged.
     """
+    build, _events = _world_build(company_id, mode=mode, now=now)
+    return build.graph, build.events
+
+
+def _world_build(company_id: Optional[str] = None, *, mode: Optional[str] = None, now: Optional[datetime] = None):
     from backend.app.routes.global_eye import _company_voyages, _load_events
     from src.portwatch_os.fusion.engine import get_engine
+    from src.portwatch_os.world.live import Revision, get_live_world
 
     # apply_calibration() stamps probabilities onto the events in place and
     # returns how many it stamped, so the event list itself is what carries the
@@ -162,10 +169,39 @@ def _world(company_id: Optional[str] = None, *, mode: Optional[str] = None, now:
             vessel_id=voyage.vessel_id, name=voyage.name, imo=getattr(voyage, "imo", None),
         )
     moment = now or utc()
-    placements, _traffic = _observed_voyages(_mode(mode), moment)
-    voyages.extend(p.voyage for p in placements)
-    graph = build_world(events=events, voyages=voyages, now=moment)
-    return graph, events
+    active = _mode(mode)
+    live = get_live_world()
+    revision = Revision(
+        mode=active,
+        company_id=company_id,
+        events_stamp=_events_stamp(events),
+        fleet_stamp="|".join(f"{v.vessel_id}:{v.eta}:{v.destination_port}" for v in voyages),
+        observed_generation=live.observed_generation,
+    )
+
+    def build():
+        placements, _traffic = _observed_voyages(active, moment)
+        all_voyages = voyages + [p.voyage for p in placements]
+        return build_world(events=events, voyages=all_voyages, now=moment), events
+
+    built, _reason = live.graph(revision, build=build, now=moment)
+    return built, events
+
+
+def _events_stamp(events) -> str:
+    """What the register looks like, cheaply: count, newest, and the probabilities."""
+    return "|".join(
+        f"{e.event_id}:{e.last_seen}:{e.probability if e.probability is not None else '-'}"
+        for e in events
+    )
+
+
+def _cascade_for(build, event, moment: datetime):
+    """One event's cascade at one instant, reused when nothing it reaches moved."""
+    from src.portwatch_os.world.live import get_live_world
+
+    seed_key = key(EVENT, event.event_id)
+    return get_live_world().cascade(build, seed_key, seed_for(event), at=moment, now=utc())
 
 
 def _event_or_404(events, event_id: str):
@@ -265,14 +301,15 @@ def world_cascades(
     frontend needs the traces only for the one a person actually opened.
     """
     moment = _at(at)
-    graph, events = _world(company_id, mode=mode)
+    build, events = _world_build(company_id, mode=mode)
+    graph = build.graph
 
     rows: List[Dict[str, Any]] = []
     for event in events:
         seed_key = key(EVENT, event.event_id)
         if graph.node(seed_key) is None:
             continue
-        cascade = propagate(graph, seed_key, seed_for(event), at=moment)
+        cascade, _reason = _cascade_for(build, event, moment)
         if len(cascade.reached) <= 1:
             # Nothing followed from it at this instant. Reported as a lapsed or
             # inert event rather than dropped, so the timeline can show it
@@ -324,7 +361,8 @@ def world_cascade(
     rather than by a second explanation system that could drift from it.
     """
     moment = _at(at)
-    graph, events = _world(company_id, mode=mode)
+    build, events = _world_build(company_id, mode=mode)
+    graph = build.graph
     event = _event_or_404(events, event_id)
     seed_key = key(EVENT, event_id)
     if graph.node(seed_key) is None:
@@ -332,8 +370,9 @@ def world_cascade(
             status_code=404, detail=f"event {event_id} is not in the world graph"
         )
 
-    cascade = propagate(graph, seed_key, seed_for(event), at=moment)
+    cascade, computed = _cascade_for(build, event, moment)
     payload = _cascade_payload(cascade, graph, include_steps=True)
+    payload["computation"] = computed
     payload.update({
         "eventId": event.event_id,
         "title": event.title,
@@ -464,7 +503,16 @@ def attention_queue(
             )
         )
 
+    from src.portwatch_os.attention.engine import feed_item
     from src.portwatch_os.attention.model import order as rank_all
+    from src.portwatch_os.fabric import ais_mode
+
+    # The feed's own state, when the observed picture is not current. Ranked
+    # with the rest so it sits where MONITOR_ONLY items sit, not on top.
+    traffic = ais_mode(licence_mode=_mode(mode), now=utc())
+    feed = feed_item(traffic, scope=scope, now=moment)
+    if feed is not None:
+        collected.append(feed)
 
     ranked = rank_all(collected)
     return {
@@ -473,6 +521,8 @@ def attention_queue(
         "items": [item.to_dict() for item in ranked[:limit]],
         "total": len(ranked),
         "actionable": sum(1 for i in ranked if i.actionable),
+        "observed": sum(1 for i in ranked if i.source == "OBSERVED_AIS"),
+        "traffic": traffic["mode"],
     }
 
 
@@ -767,4 +817,87 @@ def world_entity(canonical_id: str) -> Dict[str, Any]:
     body = get_engine().explain(canonical_id)
     if body is None:
         raise HTTPException(status_code=404, detail=f"no hull {canonical_id}")
+    return body
+
+
+# --------------------------------------------------------------------------
+# the sea
+# --------------------------------------------------------------------------
+
+
+def _marine_gate(mode: Optional[str]):
+    """The marine adapter for this view, or the availability that bars it."""
+    from src.portwatch_os.fabric.marine import OpenMeteoMarineAdapter
+
+    adapter = OpenMeteoMarineAdapter(licence_mode=_mode(mode))
+    return adapter, adapter.availability()
+
+
+@router.get("/world/marine")
+def world_marine(
+    at: Optional[str] = Query(None, description="ISO instant. Defaults to now."),
+    mode: Optional[str] = Query(None),
+) -> Dict[str, Any]:
+    """The sea at one instant: one cell per sample point, nearest forecast hour.
+
+    What the WEATHER lens draws. Every cell carries when it is for and when
+    it was fetched, and the block as a whole carries the product it came
+    from, so the surface can say "Open-Meteo free tier, fetched 40 minutes
+    ago, valid 13:00Z" rather than "weather".
+    """
+    moment = _at(at)
+    adapter, availability = _marine_gate(mode)
+    grid = adapter.service.grid(now=utc(), allow_fetch=False) if availability.ready else None
+    lo, hi = grid.horizon if grid else (None, None)
+    return {
+        "at": moment.isoformat(),
+        "availability": availability.to_dict(),
+        "productId": adapter.product_id,
+        "providerId": adapter.provider_id,
+        "fetchedAt": None if grid is None or grid.fetched_at is None else grid.fetched_at.isoformat(),
+        "ageSeconds": (
+            None if grid is None or grid.fetched_at is None
+            else round((utc() - grid.fetched_at).total_seconds(), 1)
+        ),
+        "horizon": [None if lo is None else lo.isoformat(), None if hi is None else hi.isoformat()],
+        "withinHorizon": bool(grid and lo and hi and lo <= moment <= hi),
+        "cells": [] if grid is None else [c.to_dict() for c in grid.at(moment)],
+        "attribution": "Weather data by Open-Meteo.com (CC-BY 4.0)" if grid else None,
+    }
+
+
+@router.post("/world/route/exposure")
+def route_exposure(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """A passage sampled against the sea it will run through.
+
+    ``waypoints`` is a list of [lat, lon]; ``departsAt`` an ISO instant
+    (default now); ``speedKn`` the planned speed. The answer is a profile
+    with its coverage and confidence on it; an uncovered passage returns a
+    profile that says so rather than a number.
+    """
+    from src.portwatch_os.world.route_exposure import sample_route
+
+    raw = payload.get("waypoints") or []
+    try:
+        waypoints = [(float(p[0]), float(p[1])) for p in raw]
+    except (TypeError, ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="waypoints must be a list of [lat, lon] pairs.")
+    if len(waypoints) < 2:
+        raise HTTPException(status_code=400, detail="at least two waypoints are required.")
+    if any(abs(lat) > 90 or abs(lon) > 180 for lat, lon in waypoints):
+        raise HTTPException(status_code=400, detail="a waypoint is out of range.")
+    try:
+        speed = float(payload.get("speedKn") or 12.0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="speedKn must be a number.")
+    if not 0.5 <= speed <= 40.0:
+        raise HTTPException(status_code=400, detail="speedKn must lie between 0.5 and 40.")
+    departs = _at(payload.get("departsAt"))
+
+    adapter, availability = _marine_gate(payload.get("mode"))
+    grid = adapter.service.grid(now=utc(), allow_fetch=False) if availability.ready else None
+    profile = sample_route(waypoints, grid=grid, departs_at=departs, speed_kn=speed)
+    body = profile.to_dict(include_samples=bool(payload.get("includeSamples", True)))
+    body["availability"] = availability.to_dict()
+    body["productId"] = adapter.product_id
     return body

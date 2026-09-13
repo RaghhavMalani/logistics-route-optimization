@@ -35,11 +35,14 @@ async def lifespan(_: FastAPI):
     is read here on the server and never leaves it.
     """
     from src.portwatch_os.fabric.ais.client import start_client, stop_client
+    from src.portwatch_os.fabric.marine import start_refresher, stop_refresher
 
     start_client()
+    start_refresher()
     try:
         yield
     finally:
+        stop_refresher()
         stop_client()
 
 

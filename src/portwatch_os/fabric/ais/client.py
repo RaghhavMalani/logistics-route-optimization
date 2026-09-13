@@ -470,10 +470,12 @@ def get_client() -> AisStreamClient:
 
 
 def _fuse(observation: AisObservation) -> None:
-    """Every accepted observation becomes evidence about a hull."""
+    """Every accepted observation becomes evidence about a hull, and moves the world on."""
     from src.portwatch_os.fusion.engine import get_engine
+    from src.portwatch_os.world.live import get_live_world
 
     get_engine().ingest_ais(observation)
+    get_live_world().bump()
 
 
 def start_client() -> AisStreamClient:
