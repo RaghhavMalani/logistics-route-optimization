@@ -283,6 +283,16 @@ class AisModeTests(unittest.TestCase):
 class ArtefactAdapterTests(unittest.TestCase):
     """The artefact-backed adapters report the artefact's age, not the read's."""
 
+    def test_the_free_weather_artefact_is_barred_from_a_commercial_deployment(self):
+        """Found by the demo acceptance run: the weather adapter reported the
+        free-tier artefact AVAILABLE in COMMERCIAL while the marine adapter,
+        reading the same product, refused it. Same product, same verdict."""
+        os.environ.pop("OPEN_METEO_API_KEY", None)
+        availability = OpenMeteoAdapter(licence_mode="COMMERCIAL").availability()
+        self.assertEqual(availability.status, UNAVAILABLE)
+        self.assertIn("commercial", availability.reason)
+        self.assertEqual(OpenMeteoAdapter(licence_mode="COMMERCIAL").fetch(now=NOW), [])
+
     def test_the_weather_adapter_reads_the_pipeline_artefact(self):
         adapter = OpenMeteoAdapter(licence_mode="RESEARCH")
         if not adapter.availability().ready:

@@ -341,7 +341,31 @@ class OpenMeteoAdapter(BaseAdapter):
         """The subscription when a key is configured; the free tier otherwise."""
         return "open-meteo-customer" if os.getenv("OPEN_METEO_API_KEY") else "open-meteo-free"
 
+    def licence_gate(self) -> Optional[Availability]:
+        """The catalogue's verdict on the product the artefact was fetched with.
+
+        The artefact on disk was produced by the free host unless a key was
+        configured when the pipeline ran, and a COMMERCIAL deployment may not
+        use what the free host produced however long ago it was fetched.
+        """
+        from src.portwatch_os.fabric.registry import get_fabric
+
+        product = get_fabric(self.licence_mode).product(self.product_id)
+        if product is None:
+            return None
+        permitted, reason = product.policy.permits(self.licence_mode)
+        if permitted:
+            return None
+        return Availability(
+            UNAVAILABLE,
+            reason=f"{product.name}: {reason}",
+            needs=("OPEN_METEO_API_KEY for the Open-Meteo API subscription",),
+        )
+
     def availability(self) -> Availability:
+        barred = self.licence_gate()
+        if barred is not None:
+            return barred
         try:
             from backend.app.services import cache_service as cache
 
