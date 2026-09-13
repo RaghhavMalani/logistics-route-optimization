@@ -386,6 +386,24 @@ class SocketLifecycleTests(unittest.TestCase):
         self.assertEqual(connector.attempts, 3)              # stopped, not six
         self.assertIn("closed immediately after subscribing", client.status.last_error)
 
+    def test_stopping_a_client_that_already_refused_is_quiet_and_keeps_the_verdict(self):
+        """Found by probing the live endpoint: run() returns on AUTH_FAILED and
+        closes its loop, and stop() then woke a closed loop and raised."""
+        import time
+
+        connector = _Connector([_Socket([], then="close") for _ in range(6)])
+        client = AisStreamClient(
+            TrackStore(), api_key="bad", connector=connector, empty_closes_before_refused=2,
+        )
+        client.start()                                        # the real thread and loop
+        deadline = time.time() + 5.0
+        while client.status.health != AUTH_FAILED and time.time() < deadline:
+            time.sleep(0.05)
+        self.assertEqual(client.status.health, AUTH_FAILED)
+        client._thread.join(timeout=2.0)                      # run() has returned; the loop is closed
+        client.stop()                                         # must not raise
+        self.assertEqual(client.status.health, AUTH_FAILED)   # and must not rewrite the verdict
+
     def test_a_delivered_message_resets_the_refusal_counter(self):
         """Two blips around a good session are blips, not a refusal."""
         connector = _Connector([

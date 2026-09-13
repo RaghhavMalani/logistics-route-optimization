@@ -210,11 +210,18 @@ class AisStreamClient:
     def stop(self, *, timeout: float = 5.0) -> None:
         """Graceful shutdown: signal, then wait for the loop to unwind."""
         self._stop.set()
-        if self._loop is not None:
-            self._loop.call_soon_threadsafe(lambda: None)
+        # A client that exited on its own -- AUTH_FAILED returns from run() --
+        # has already closed its loop; waking a closed loop is an error, and
+        # a stop that raised would leave the caller thinking it had not.
+        if self._loop is not None and not self._loop.is_closed():
+            try:
+                self._loop.call_soon_threadsafe(lambda: None)
+            except RuntimeError:
+                pass
         if self._thread is not None:
             self._thread.join(timeout=timeout)
-        self.status.health = DISCONNECTED
+        if self.status.health != AUTH_FAILED:
+            self.status.health = DISCONNECTED
 
     def _run_thread(self) -> None:
         self._loop = asyncio.new_event_loop()
