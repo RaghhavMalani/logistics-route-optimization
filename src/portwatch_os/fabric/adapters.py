@@ -31,6 +31,7 @@ from src.portwatch_os.fabric.model import (
     UNAVAILABLE,
 )
 from src.portwatch_os.fabric.observation import Observation, observe
+from src.portwatch_os.clock import world_now
 
 # --------------------------------------------------------------------------
 # AIS modes
@@ -109,7 +110,7 @@ class BaseAdapter:
         rather than substituting. The caller learns that from `availability()`,
         which is a different question and has a different answer.
         """
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         if not self.availability().ready:
             return []
         return [

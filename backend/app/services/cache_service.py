@@ -12,6 +12,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from src.portwatch_os.clock import wall_now
 
 ROOT = Path(__file__).resolve().parents[3]
 CACHE_DIR = ROOT / "data" / "cache"
@@ -58,7 +59,8 @@ def artefact_age_seconds(path: Path) -> int | None:
     if not os.path.exists(path):
         return None
     modified = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-    return max(0, int((datetime.now(timezone.utc) - modified).total_seconds()))
+    # wall-clock: how old a file is on disk is a fact about the real present
+    return max(0, int((wall_now() - modified).total_seconds()))
 
 
 # --- primary artefacts -----------------------------------------------------

@@ -44,6 +44,8 @@ from src.portwatch_os.fabric.ais.messages import (
     normalise,
 )
 from src.portwatch_os.fabric.ais.tracks import DEFAULT_STALE_AFTER, TrackStore
+from src.portwatch_os.clock import world_now
+from src.portwatch_os.clock import wall_now
 
 log = logging.getLogger(__name__)
 
@@ -118,7 +120,7 @@ class ProviderStatus:
     coverage: str = "Indian Ocean subscription box"
 
     def to_dict(self, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         last_good = self.last_good_observation_at
         return {
             "health": self.health,
@@ -289,12 +291,12 @@ class AisStreamClient:
     async def _session(self) -> None:
         connect = self._connector or _default_connector
         async with connect(self.url) as socket:
-            self.status.connected_at = datetime.now(timezone.utc)
+            self.status.connected_at = wall_now()  # wall-clock: a socket connected in the real present
             # Subscribe inside the window the server allows.
             await asyncio.wait_for(
                 socket.send(json.dumps(self.subscription())), timeout=SUBSCRIBE_WITHIN,
             )
-            window_start = datetime.now(timezone.utc)
+            window_start = wall_now()  # wall-clock: the server's rate window is real time
             window_count = 0
 
             while not self._stop.is_set():
@@ -305,7 +307,7 @@ class AisStreamClient:
                     self.status.health = DEGRADED
                     continue
 
-                now = datetime.now(timezone.utc)
+                now = wall_now()  # wall-clock: a message's arrival is a fact about the real present
                 self.status.messages_seen += 1
                 self.status.last_message_at = now
 
@@ -375,7 +377,7 @@ class AisStreamClient:
         besides the socket, and it runs the same validation, so a recorded
         message cannot bypass a check a live one would face.
         """
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         self.status.messages_seen += 1
         self.status.last_message_at = moment
         self._handle(envelope, now=moment)
@@ -394,7 +396,7 @@ class AisStreamClient:
         provider that has stopped delivering yields AIS_STALE and then
         UNAVAILABLE; it never becomes the replay by falling through.
         """
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         last_good = self.status.last_good_observation_at
 
         if replay_chosen and not self.configured:

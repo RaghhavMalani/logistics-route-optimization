@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
+import time
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.routes import (
+    admin,
     advisories,
     agents,
     company,
@@ -31,21 +33,31 @@ from backend.app.routes import (
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Start the live feeds with the process, and stop them with it.
+    """Start the live feeds and the freshness coordinator with the process.
 
     The AISStream client runs only when AISSTREAM_API_KEY is set; without it
     the call is a no-op and the deployment shows the labelled replay. The key
     is read here on the server and never leaves it.
+
+    The coordinator replaces the marine module's own refresh thread and the
+    operator's memory of when the event register lapses: every artifact has a
+    policy, and the scheduler refreshes it before its SLA elapses. Set
+    PORTWATCH_FRESHNESS_SCHEDULER=0 to run without the scheduler (tests, the
+    benchmark), in which case every artifact still reports its real age.
     """
     from src.portwatch_os.fabric.ais.client import start_client, stop_client
-    from src.portwatch_os.fabric.marine import start_refresher, stop_refresher
+    from src.portwatch_os.freshness import get_coordinator
+    from src.portwatch_os.freshness.jobs import install_product_jobs
 
     start_client()
-    start_refresher()
+    coordinator = install_product_jobs(get_coordinator())
+    scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
+    if scheduler:
+        coordinator.start()
     try:
         yield
     finally:
-        stop_refresher()
+        coordinator.stop()
         stop_client()
 
 
@@ -76,6 +88,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def _telemetry(request: Request, call_next):
+    """Latency and error counts per route, for the diagnostics page.
+
+    The route template is used where FastAPI resolved one, so a thousand
+    vessel ids do not become a thousand timers.
+    """
+    from src.portwatch_os import telemetry
+
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        telemetry.incr("api.errors", route=request.url.path, status=500)
+        telemetry.event("api.errors", route=request.url.path, status=500)
+        raise
+    route = request.scope.get("route")
+    template = getattr(route, "path", None) or request.url.path
+    telemetry.observe("api.latency", time.perf_counter() - started, route=template)
+    telemetry.incr("api.requests", route=template)
+    if response.status_code >= 500:
+        telemetry.incr("api.errors", route=template, status=response.status_code)
+        telemetry.event("api.errors", route=template, status=response.status_code)
+    elif response.status_code >= 400:
+        telemetry.incr("api.refusals", route=template, status=response.status_code)
+    return response
+
 app.include_router(health.router, prefix="/api")
 app.include_router(provenance.router, prefix="/api")
 app.include_router(model.router, prefix="/api")
@@ -101,6 +141,9 @@ app.include_router(world.router, prefix="/api")
 app.include_router(decisions.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
 app.include_router(missions.router, prefix="/api")
+
+# Administration: freshness, diagnostics, readiness. National Command only.
+app.include_router(admin.router, prefix="/api")
 
 
 @app.get("/")

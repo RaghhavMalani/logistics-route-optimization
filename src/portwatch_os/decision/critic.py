@@ -33,6 +33,8 @@ from src.portwatch_os.decision.model import (
     DecisionProblem,
     REJECTED,
 )
+from src.portwatch_os.clock import world_now
+from src.portwatch_os.clock import wall_now
 
 PASS = "PASS"
 PASS_WITH_WARNINGS = "PASS_WITH_WARNINGS"
@@ -70,7 +72,8 @@ class Check:
 class Verdict:
     verdict: str
     checks: List[Check] = field(default_factory=list)
-    ran_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    # wall-clock: audit stamp of when the Critic ran
+    ran_at: str = field(default_factory=lambda: wall_now().isoformat(timespec="seconds"))
 
     @property
     def failed(self) -> List[Check]:
@@ -110,7 +113,7 @@ class DecisionCritic:
         *,
         now: Optional[datetime] = None,
     ) -> Verdict:
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         checks: List[Check] = []
         checks.append(self._hard_constraints(option))
         checks.append(self._decision_window(option, problem))

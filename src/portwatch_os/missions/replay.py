@@ -21,6 +21,7 @@ import itertools
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from src.portwatch_os.clock import get_clock
 from src.portwatch_os.decision.engine import DecisionEngine
 from src.portwatch_os.decision.model import DecisionActor, DecisionProblem
 from src.portwatch_os.decision.routing import ROUTE_DISCLAIMER, routes_for
@@ -64,6 +65,19 @@ class MissionReplay:
         if moment > limit:
             raise MissionError(f"the replay clock cannot run past the evaluation window ({limit.isoformat()})")
         self.clock = moment
+
+    def pinned(self):
+        """The WorldClock in HISTORICAL_MISSION mode at this replay's clock.
+
+        Everything the replay computes runs inside this: the world build,
+        the decision engine, the Critic's staleness checks, the branch
+        registry. A subsystem that reads ``world_now()`` inside a replay
+        gets the mission's instant, never the wall's -- which is what keeps
+        a 2021 claim horizon from lapsing against the real present.
+        """
+        return get_clock().pin_mission(
+            self.clock, mission_id=self.mission.mission_id, replayId=self.replay_id,
+        )
 
     @property
     def elapsed_hours(self) -> float:
@@ -113,6 +127,10 @@ class MissionReplay:
         ]
 
     def state(self) -> ObservedWorldState:
+        with self.pinned():
+            return self._state()
+
+    def _state(self) -> ObservedWorldState:
         event = self.event()
         graph = build_world(events=[event], voyages=self.voyages(), now=self.clock)
         visible = self.mission.visible(self.clock)
@@ -145,7 +163,11 @@ class MissionReplay:
     def decide(self, vessel_id: str, actor: DecisionActor) -> DecisionProblem:
         if self.revealed:
             raise MissionError("decisions are made before the reveal, not after it")
-        state = self.state()
+        with self.pinned():
+            return self._decide(vessel_id, actor)
+
+    def _decide(self, vessel_id: str, actor: DecisionActor) -> DecisionProblem:
+        state = self._state()
         event = self.event()
         problem = self.engine.solve_vessel(
             state, event_key=key(EVENT, event.event_id), seed=seed_for(event), vessel_id=vessel_id,
@@ -195,6 +217,10 @@ class MissionReplay:
         }
 
     def geography(self) -> Dict[str, Any]:
+        with self.pinned():
+            return self._geography()
+
+    def _geography(self) -> Dict[str, Any]:
         """Where the chart should draw the mission at the clock.
 
         The hulls are illustrative and their positions are derived from the

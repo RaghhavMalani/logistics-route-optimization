@@ -40,6 +40,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 
 from src.portwatch_os.fabric.adapters import Availability, BaseAdapter
 from src.portwatch_os.fabric.model import AVAILABLE, CONFIGURABLE, MARINE, UNAVAILABLE
+from src.portwatch_os.clock import wall_now
 
 log = logging.getLogger(__name__)
 
@@ -398,7 +399,7 @@ class MarineService:
 
     def refresh(self, *, now: Optional[datetime] = None) -> Optional[MarineGrid]:
         """Ask the service. Returns the new grid, or None and records why not."""
-        moment = now or datetime.now(timezone.utc)
+        moment = now or wall_now()  # wall-clock: a fetch happens in the real present
         self.last_attempt_at = moment
         self.fetches += 1
         try:
@@ -419,7 +420,7 @@ class MarineService:
             return None
 
     def grid(self, *, now: Optional[datetime] = None, allow_fetch: bool = True) -> Optional[MarineGrid]:
-        moment = now or datetime.now(timezone.utc)
+        moment = now or wall_now()  # wall-clock: the TTL is a fetch cadence, not a world age
         with self._lock:
             self._load_cache()
             fresh = (
@@ -433,7 +434,7 @@ class MarineService:
             return refreshed if refreshed is not None else self._grid
 
     def status(self, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-        moment = now or datetime.now(timezone.utc)
+        moment = now or wall_now()  # wall-clock: the feed's fetch age is measured against the wall
         grid = self._grid
         lo, hi = grid.horizon if grid else (None, None)
         return {

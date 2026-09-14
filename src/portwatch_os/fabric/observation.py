@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.fabric.model import MODES
+from src.portwatch_os.clock import world_now
 
 # --------------------------------------------------------------------------
 # quality
@@ -125,7 +126,7 @@ class Observation:
     # -- time ------------------------------------------------------------
     def age_seconds(self, *, now: Optional[datetime] = None) -> float:
         """How old the *reading* is, measured from when it was observed."""
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         return max(0.0, (moment - self.source_timestamp).total_seconds())
 
     def latency_seconds(self) -> float:
@@ -135,7 +136,7 @@ class Observation:
     def expired(self, *, now: Optional[datetime] = None) -> bool:
         if self.valid_to is None:
             return False
-        return (now or datetime.now(timezone.utc)) > self.valid_to
+        return (now or world_now()) > self.valid_to
 
     def freshness(
         self,
@@ -203,7 +204,7 @@ def assess(
     because a source that has started producing poor readings is something an
     operator needs to see happening rather than have hidden from them.
     """
-    moment = now or datetime.now(timezone.utc)
+    moment = now or world_now()
     reasons: List[str] = []
     level = OK
 
@@ -272,7 +273,7 @@ def observe(
     without having been assessed. A caller that built one by hand and forgot to
     check it would produce a reading that claims OK quality it never earned.
     """
-    moment = now or datetime.now(timezone.utc)
+    moment = now or world_now()
     valid_to = (
         None if valid_for_hours is None
         else source_timestamp + timedelta(hours=valid_for_hours)

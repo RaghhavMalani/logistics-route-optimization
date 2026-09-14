@@ -44,6 +44,7 @@ from src.portwatch_os.ledger.schema import (
     utc_now,
 )
 from src.utils.config import OUTPUTS_DIR
+from src.portwatch_os.clock import world_now
 
 DEFAULT_LEDGER_PATH = OUTPUTS_DIR / "portwatch_ledger.db"
 
@@ -535,7 +536,7 @@ class SqliteLedgerStore(LedgerStore):
 
     def due_predictions(self, now: Optional[str] = None) -> List[PredictionRecord]:
         """Open claims whose ``valid_at`` has passed and can now be scored."""
-        return self.predictions(status=OPEN, valid_before=now or utc_now())
+        return self.predictions(status=OPEN, valid_before=now or world_now().isoformat(timespec="seconds"))
 
     # -- decisions ---------------------------------------------------------
     def record_decision(self, record: DecisionRecord) -> str:
@@ -980,7 +981,7 @@ def _hours_between(start: Optional[str], end: Optional[str]) -> Optional[float]:
 
 
 def shift_iso(value: str, hours: float) -> str:
-    parsed = _parse(value) or datetime.now(timezone.utc)
+    parsed = _parse(value) or world_now()
     return (parsed + timedelta(hours=hours)).isoformat(timespec="seconds")
 
 

@@ -29,6 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Sequence, Tuple
+from src.portwatch_os.clock import world_now
 
 # --------------------------------------------------------------------------
 # units
@@ -174,7 +175,7 @@ def window(start: datetime, hours: float) -> Interval:
 def utc(moment: Optional[datetime] = None) -> datetime:
     """A timezone-aware UTC instant. Naive input is read as UTC, not local."""
     if moment is None:
-        return datetime.now(timezone.utc)
+        return world_now()
     if moment.tzinfo is None:
         return moment.replace(tzinfo=timezone.utc)
     return moment.astimezone(timezone.utc)

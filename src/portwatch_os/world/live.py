@@ -198,7 +198,7 @@ class LiveWorld:
         with self._lock:
             return {
                 "observedGeneration": self._observed_generation,
-                "builds": len(self._builds),
+                "heldBuilds": len(self._builds),
                 "cascadesHeld": len(self._cascades),
                 **self.stats,
             }

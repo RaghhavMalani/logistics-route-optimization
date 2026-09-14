@@ -45,6 +45,7 @@ from src.portwatch_os.advisories.store import (
 from src.portwatch_os.ledger.schema import ACTION_PENDING, DecisionRecord, utc_now
 from src.portwatch_os.ledger.store import get_ledger
 from src.utils import port_registry
+from src.portwatch_os.clock import world_now
 
 router = APIRouter()
 
@@ -579,14 +580,14 @@ def _instant(epoch: Optional[str], hour: float) -> str:
         except ValueError:
             base = None
     if base is None:
-        base = datetime.now(timezone.utc)
+        base = world_now()
     if base.tzinfo is None:
         base = base.replace(tzinfo=timezone.utc)
     return (base + timedelta(hours=float(hour))).isoformat(timespec="seconds")
 
 
 def _default_validity() -> str:
-    return (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(timespec="seconds")
+    return (world_now() + timedelta(hours=24)).isoformat(timespec="seconds")
 
 
 def _sync_decision(advisory: Advisory) -> None:

@@ -44,6 +44,7 @@ from src.portwatch_os.fusion.model import (
 from src.portwatch_os.global_eye.exposure import TRADE_LANES, VesselVoyage
 from src.portwatch_os.global_eye.ingest import CHOKEPOINT_GEO
 from src.utils import port_registry
+from src.portwatch_os.clock import world_now
 
 SOURCE_OBSERVED_AIS = "OBSERVED_AIS"
 
@@ -252,7 +253,7 @@ def observed_voyages(
     max_age: timedelta = timedelta(hours=2),
 ) -> List[ObservedPlacement]:
     """Every observed hull recent enough to be on the chart, placed."""
-    moment = now or datetime.now(timezone.utc)
+    moment = now or world_now()
     placements: List[ObservedPlacement] = []
     for hull in engine.vessels():
         if not hull.observed or hull.last_observed_at is None:

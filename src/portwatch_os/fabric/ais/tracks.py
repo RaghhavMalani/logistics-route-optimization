@@ -36,6 +36,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Deque, Dict, Iterator, List, Optional, Tuple
 
 from src.portwatch_os.fabric.ais.messages import AisObservation
+from src.portwatch_os.clock import world_now
 
 #: A track is live within this, stale after it, and evicted after the second.
 DEFAULT_STALE_AFTER = timedelta(minutes=10)
@@ -82,7 +83,7 @@ class Track:
         seen = self.last_seen
         if seen is None:
             return "UNKNOWN"
-        age = (now or datetime.now(timezone.utc)) - seen
+        age = (now or world_now()) - seen
         return "LIVE" if age <= stale_after else "STALE"
 
     def to_dict(self, *, now: Optional[datetime] = None, history: int = 60) -> Dict[str, Any]:
@@ -230,7 +231,7 @@ class TrackStore:
         layer needs -- a vessel that was there and is not is not the same as a
         vessel that was never observed.
         """
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         removed: List[str] = []
         with self._lock:
             for mmsi, track in list(self._tracks.items()):
@@ -265,7 +266,7 @@ class TrackStore:
             return len(self._tracks)
 
     def stats(self, *, now: Optional[datetime] = None) -> Dict[str, Any]:
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         with self._lock:
             live = sum(1 for t in self._tracks.values()
                        if t.freshness(now=moment, stale_after=self.stale_after) == "LIVE")

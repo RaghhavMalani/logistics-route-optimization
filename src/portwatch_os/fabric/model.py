@@ -28,6 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+from src.portwatch_os.clock import world_now
 
 # --------------------------------------------------------------------------
 # modes
@@ -147,7 +148,7 @@ class ProviderHealth:
             seen = datetime.fromisoformat(self.last_success.replace("Z", "+00:00"))
         except ValueError:
             return "unknown"
-        moment = now or datetime.now(seen.tzinfo)
+        moment = now or world_now().astimezone(seen.tzinfo)
         age = (moment - seen).total_seconds() / 3600.0
         if age <= stale_after_hours:
             return "fresh"

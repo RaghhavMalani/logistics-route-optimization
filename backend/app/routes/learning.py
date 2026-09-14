@@ -23,6 +23,7 @@ from src.portwatch_os.ledger.store import LedgerError, get_ledger
 from src.portwatch_os.learning.attribution import attribute, rank_misses, verify_decomposition
 from src.portwatch_os.learning.outcome_agent import OutcomeAgent
 from src.portwatch_os.twin.promotion import active_policy
+from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
@@ -292,7 +293,7 @@ def learning_calibration() -> Dict[str, Any]:
     ledger = get_ledger()
     calibrator = fit_calibrator(
         ledger.event_outcomes(),
-        fitted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        fitted_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: when this fit ran
     )
     return {
         "calibrator": calibrator.to_dict(),

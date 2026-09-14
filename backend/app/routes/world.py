@@ -27,6 +27,15 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from src.portwatch_os.attention.engine import attention_for
+from src.portwatch_os.clock import (
+    HISTORICAL_MISSION,
+    LIVE,
+    MODES as CLOCK_MODES,
+    REPLAY,
+    SCENARIO,
+    ClockError,
+    get_clock,
+)
 from src.portwatch_os.attention.model import AttentionItem
 from src.portwatch_os.roles import (
     DEFAULT_ROLE,
@@ -47,6 +56,7 @@ from src.portwatch_os.world.graph import (
 )
 from src.portwatch_os.world.quantity import utc
 from src.portwatch_os.world.transfers import registered
+from src.portwatch_os.clock import world_now
 
 router = APIRouter()
 
@@ -259,6 +269,65 @@ def _subject(reached) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 # routes
 # --------------------------------------------------------------------------
+
+
+# --------------------------------------------------------------------------
+# the clock
+# --------------------------------------------------------------------------
+
+
+@router.get("/world/clock")
+def world_clock() -> Dict[str, Any]:
+    """What time it is in the world, and why.
+
+    LIVE reads the wall. REPLAY, HISTORICAL_MISSION and SCENARIO read the
+    instant an administrator or a replay set, and every route whose ``at`` is
+    omitted answers at that instant. The offset from the wall is stated so a
+    screen can never show a replayed world as the present without saying so.
+    """
+    return get_clock().describe()
+
+
+@router.post("/world/clock")
+def set_world_clock(
+    payload: Dict[str, Any] = Body(...),
+    actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+) -> Dict[str, Any]:
+    """Move the process clock. National Command only; every change is attributed."""
+    scope = _scope(role)
+    if scope != NATIONAL_ADMIN:
+        raise HTTPException(status_code=403, detail="only National Command may move the world clock")
+    if not actor:
+        raise HTTPException(status_code=401, detail="a clock change must name its actor (X-PortWatch-Actor)")
+    mode = str(payload.get("mode") or "").strip().upper()
+    if mode not in CLOCK_MODES:
+        raise HTTPException(status_code=400, detail=f"mode must be one of: {', '.join(CLOCK_MODES)}")
+    clock = get_clock()
+    reason = str(payload.get("reason") or "")
+    try:
+        if mode == LIVE:
+            clock.set_live(by=actor, reason=reason)
+        else:
+            at = _at(payload.get("at"))
+            if payload.get("at") is None:
+                raise HTTPException(status_code=400, detail=f"a {mode} clock needs an 'at' instant")
+            if mode == REPLAY:
+                clock.set_replay(at, rate=float(payload.get("rate", 1.0)), by=actor, reason=reason,
+                                 subject=payload.get("subject") or {})
+            elif mode == HISTORICAL_MISSION:
+                mission_id = payload.get("missionId")
+                if not mission_id:
+                    raise HTTPException(status_code=400, detail="a HISTORICAL_MISSION clock needs a missionId")
+                clock.set_mission(at, mission_id=str(mission_id), by=actor, reason=reason)
+            else:
+                scenario_id = payload.get("scenarioId")
+                if not scenario_id:
+                    raise HTTPException(status_code=400, detail="a SCENARIO clock needs a scenarioId")
+                clock.set_scenario(at, scenario_id=str(scenario_id), by=actor, reason=reason)
+    except ClockError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return clock.describe()
 
 
 @router.get("/world/state")
@@ -741,7 +810,7 @@ def ais_tracks(
             status_code=400,
             detail=f"mode must be one of: {', '.join(FABRIC_MODES)}.",
         )
-    now = datetime.now(timezone.utc)
+    now = world_now()
     traffic = ais_mode(licence_mode=active, now=now)
     tracks: List[Dict[str, Any]] = []
     if traffic["mode"] in (LIVE_AIS, AIS_STALE):

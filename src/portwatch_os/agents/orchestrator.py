@@ -54,6 +54,7 @@ from src.portwatch_os.agents.spatial import SpatialCommand, commands_from_trace
 from src.portwatch_os.agents.tools import PROPOSE, ToolCall, ToolRegistry, ToolScope
 from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.utils.logging_utils import get_logger
+from src.portwatch_os.clock import wall_now
 
 log = get_logger(__name__)
 
@@ -409,7 +410,7 @@ class CommandAgent:
             intent_label=intent.label,
             intent_basis=basis,
             role=role,
-            started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            started_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: audit stamp of the run
         )
 
         for agent_name in intent.agents:
@@ -641,7 +642,7 @@ class CommandAgent:
 def _run_id(question: str) -> str:
     import hashlib
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    stamp = wall_now().strftime("%Y%m%dT%H%M%S")  # wall-clock: a run id is unique per real run
     digest = hashlib.sha1(f"{stamp}|{question}".encode("utf-8")).hexdigest()[:8]
     return f"RUN-{stamp}-{digest}"
 

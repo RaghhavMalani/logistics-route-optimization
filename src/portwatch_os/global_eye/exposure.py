@@ -35,6 +35,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.global_eye.model import CATEGORIES, GlobalEvent, decay_factor
 from src.utils import port_registry
+from src.portwatch_os.clock import world_now
 
 #: Trade lanes, and the chokepoints each one transits.
 #:
@@ -347,7 +348,7 @@ def lane_exposure(
     now: Optional[datetime] = None,
 ) -> List[LaneExposure]:
     """Which trade lanes this event touches, and by how much."""
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     spec = CATEGORIES.get(event.category)
     half_life = (spec.base_persistence_hours / 2.0) if spec else 48.0
     decay = decay_factor(event.last_seen, now, half_life)
@@ -404,7 +405,7 @@ def vessel_exposure(
     Bab-el-Mandeb can be rerouted; one already north of it cannot, and telling an
     operator to divert it would be worse than saying nothing.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     by_lane = {lane.lane_code: lane for lane in lanes}
     out: List[VesselExposure] = []
 
@@ -633,7 +634,7 @@ def build_impact(
     port_names: Optional[Dict[str, str]] = None,
 ) -> EventImpact:
     """The whole chain for one event."""
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     spec = CATEGORIES.get(event.category)
     half_life = (spec.base_persistence_hours / 2.0) if spec else 48.0
     decay = decay_factor(event.last_seen, now, half_life)

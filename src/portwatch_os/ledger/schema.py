@@ -32,6 +32,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from src.portwatch_os.clock import wall_now
 
 # --------------------------------------------------------------------------
 # kinds
@@ -74,7 +75,8 @@ STATUSES = (OPEN, RESOLVED, EXPIRED, SUPERSEDED)
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # wall-clock: recorded_at audit stamps on ledger rows
+    return wall_now().isoformat(timespec="seconds")
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:

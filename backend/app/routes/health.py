@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 
 from backend.app.services import cache_service as cache
+from src.portwatch_os.clock import get_clock, wall_now
 
 router = APIRouter()
 
@@ -34,7 +35,7 @@ def _intelligence_state(age_seconds: int | None) -> str:
 
 @router.get("/health")
 def health_check() -> dict:
-    now = datetime.now(timezone.utc)
+    now = wall_now()  # wall-clock: serverTimeUtc is the server's own time
     export_age = cache.artefact_age_seconds(cache.STATUS_CACHE)
     status = cache.get_live_status()
     provenance = cache.get_provenance()
@@ -63,6 +64,9 @@ def health_check() -> dict:
         "status": "ok" if artefacts["forecast"] else "degraded",
         "service": "india-portwatch-backend",
         "serverTimeUtc": now.isoformat(),
+        # The world's own clock: LIVE reads the wall; a replay, mission or
+        # scenario reads its anchor and says how far from the wall it sits.
+        "worldClock": get_clock().describe(),
         "intelligence": _intelligence_state(export_age),
         "cacheAgeSeconds": export_age,
         "lastRefreshUtc": status.get("exportedAt"),

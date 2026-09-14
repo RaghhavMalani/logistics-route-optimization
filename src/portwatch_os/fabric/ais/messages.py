@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
+from src.portwatch_os.clock import world_now
 
 #: The subset of AISStream message classes this deployment consumes. Anything
 #: else is counted and dropped -- not an error, just not a claim we model.
@@ -230,7 +231,7 @@ def normalise(
     an unconsumed message type, a malformed MMSI, a position at the sentinel --
     so the caller can count and drop rather than reason about garbage.
     """
-    moment = now or datetime.now(timezone.utc)
+    moment = now or world_now()
     message_type = str(envelope.get("MessageType") or "")
     if message_type not in CONSUMED_TYPES:
         raise AisMessageError(f"{message_type!r} is not a message type this world consumes")

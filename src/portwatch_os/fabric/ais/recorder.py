@@ -26,6 +26,7 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Deque, Dict, Iterable, Iterator, List, Optional, Tuple
+from src.portwatch_os.clock import wall_now
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class ObservationRecorder:
     # -- recording -------------------------------------------------------
     def record(self, envelope: Dict[str, Any], *, received_at: Optional[datetime] = None) -> str:
         """Keep one envelope. Returns the reference the observation should carry."""
-        moment = received_at or datetime.now(timezone.utc)
+        moment = received_at or wall_now()  # wall-clock: the envelope arrived in the real present
         stamp = moment.isoformat()
         line = json.dumps(envelope, separators=(",", ":"))
         with self._lock:

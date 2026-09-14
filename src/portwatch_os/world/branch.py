@@ -58,6 +58,7 @@ from src.portwatch_os.world.graph import (
     key,
 )
 from src.portwatch_os.world.quantity import Quantity, RISK, window
+from src.portwatch_os.clock import get_clock, world_now
 
 SOURCE_ASSUMPTION = "ASSUMPTION"
 
@@ -200,7 +201,7 @@ class ScenarioBranch:
 
 def snapshot(build: Any, *, traffic_mode: str, at: Optional[datetime] = None) -> ObservedWorldState:
     """Freeze a live build. The graph is deep-copied so nothing shares it."""
-    moment = at or datetime.now(timezone.utc)
+    moment = at or world_now()
     return ObservedWorldState(
         state_id=f"obs-{int(moment.timestamp())}-{build.revision.observed_generation}",
         revision=build.revision,
@@ -374,7 +375,18 @@ def branch(
     now: Optional[datetime] = None,
 ) -> ScenarioBranch:
     """A copy of the observed world with the assumptions applied, in order."""
-    moment = now or datetime.now(timezone.utc)
+    moment = now or world_now()
+    with get_clock().pin_scenario(moment, scenario_id=branch_id, parentStateId=state.state_id):
+        return _branch(state, assumptions, branch_id=branch_id, moment=moment)
+
+
+def _branch(
+    state: ObservedWorldState,
+    assumptions: List[Assumption],
+    *,
+    branch_id: str,
+    moment: datetime,
+) -> ScenarioBranch:
     graph = _copy_graph(state.graph)
     result = ScenarioBranch(branch_id=branch_id, parent=state, assumptions=list(assumptions),
                             graph=graph, created_at=moment)

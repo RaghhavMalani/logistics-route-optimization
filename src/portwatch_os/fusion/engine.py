@@ -63,6 +63,7 @@ from src.portwatch_os.fusion.model import (
     SIMULATED_TRAFFIC,
     STRONG,
 )
+from src.portwatch_os.clock import world_now
 
 #: An MMSI not heard from for this long, returning under a different name,
 #: is treated as possibly reassigned rather than assumed the same hull.
@@ -340,7 +341,7 @@ class FusionEngine:
     # -- AIS -------------------------------------------------------------
     def ingest_ais(self, observation: AisObservation, *, now: Optional[datetime] = None) -> FusionOutcome:
         """Attach one observation to the hull it is evidence about."""
-        moment = now or observation.ingested_at or datetime.now(timezone.utc)
+        moment = now or observation.ingested_at or world_now()
         with self._lock:
             assertions = self._ais_assertions(observation)
             evidence = [a.assertion_id for a in assertions]
@@ -527,7 +528,7 @@ class FusionEngine:
         extra: Optional[Dict[str, Any]] = None,
     ) -> FusionOutcome:
         """A registry entry: strong on IMO when it has one, a hull of its own when not."""
-        moment = now or datetime.now(timezone.utc)
+        moment = now or world_now()
         with self._lock:
             common = dict(
                 source_id=source_id, source_kind=FLEET_REGISTRY, subject_kind=FLEET_ID,

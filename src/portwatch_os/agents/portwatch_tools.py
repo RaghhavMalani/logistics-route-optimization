@@ -69,6 +69,7 @@ from src.portwatch_os.twin.rl import PortEnvironment, ScenarioSpec, benchmark, d
 from src.portwatch_os.twin.simulation import SimulationConfig, reward, reward_breakdown, simulate
 from src.portwatch_os.twin.state import state_from_snapshot
 from src.utils import port_registry
+from src.portwatch_os.clock import wall_now
 
 CACHE_DIR = Path(__file__).resolve().parents[3] / "data" / "cache"
 
@@ -102,7 +103,8 @@ def _port_snapshot(port_code: str) -> Dict[str, Any]:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # wall-clock: fitted_at / ran_at audit stamps of computations
+    return wall_now().isoformat(timespec="seconds")
 
 
 # --------------------------------------------------------------------------

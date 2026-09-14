@@ -43,6 +43,8 @@ from src.portwatch_os.finance.money import (
     TEU_DAY,
     TONNE,
 )
+from src.portwatch_os.clock import world_now
+from src.portwatch_os.clock import wall_now
 
 CUSTOMER_CONTRACT = "CUSTOMER_CONTRACT"
 PUBLIC_TARIFF = "PUBLIC_TARIFF"
@@ -240,7 +242,8 @@ def assumption(
         confidence=0.5,
         provenance={
             "enteredBy": entered_by, "purpose": purpose, "note": note,
-            "enteredAt": entered_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            # wall-clock: audit stamp of a person entering an assumption
+            "enteredAt": entered_at or wall_now().isoformat(timespec="seconds"),
         },
     )
 
@@ -389,7 +392,7 @@ class CostBasis:
         return out
 
     def to_dict(self, *, at: Optional[datetime] = None) -> Dict[str, Any]:
-        moment = at or datetime.now(timezone.utc)
+        moment = at or world_now()
         return {
             "rates": [r.to_dict() for r in self._rates],
             "schedules": [s.to_dict() for s in self._schedules],
