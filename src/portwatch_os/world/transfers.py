@@ -350,6 +350,30 @@ def vessel_reaches_port(
     )
 
 
+@transfer(BOUND_FOR, HOURS)
+def delay_reaches_port(
+    quantity: Quantity, edge: Edge, src: Node, dst: Node
+) -> Transferred:
+    """A vessel's delay is an arrival shift at the port it is bound for.
+
+    The hop a *decision* travels along. Exposure reaching a port is an expected
+    shift -- detour weighted by how likely the diversion is -- and arrives by
+    the risk rule above. A chosen action produces a delay that is not expected
+    but certain: the Cape adds its hours whether or not the strait closes. That
+    delay reaches the port unchanged, so a scenario branch can be run back
+    through the same yard-pressure and cost derivations as the observed world,
+    and the two never disagree about what an hour at the quay means.
+    """
+    if quantity.value <= 0:
+        return declined(f"{src.label} carries no delay to land at {dst.label}")
+    return yields(
+        quantity.converted(
+            quantity.value, HOURS, port=dst.identifier, vessel=src.identifier,
+            **{k: v for k, v in quantity.attrs.items() if k in ("option", "action", "certain")},
+        )
+    )
+
+
 # --------------------------------------------------------------------------
 # port: hours -> yard pressure
 # --------------------------------------------------------------------------

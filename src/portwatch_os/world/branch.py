@@ -23,6 +23,13 @@ actually asks:
 A branch remembers the revision it forked from. When the observed world moves
 on, the branch says so rather than silently comparing against a world that
 no longer exists.
+
+V2 adds the assumptions a *decision* needs -- retime a hull for slow steaming
+or a faster passage, rebind it to another destination, detach it from its
+lane while it holds -- and gives every branch the fields a decision option is
+accountable for: the actions applied, the derived state, the cascade
+consequences, the metrics, the constraint results and the provenance of each.
+The observed world is still never edited; a branch is still a copy.
 """
 
 from __future__ import annotations
@@ -37,6 +44,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from src.portwatch_os.global_eye.exposure import TRADE_LANES
 from src.portwatch_os.world.cascade import Cascade, propagate
 from src.portwatch_os.world.graph import (
+    BOUND_FOR,
     CHOKEPOINT,
     EVENT,
     LANE,
@@ -56,7 +64,18 @@ SOURCE_ASSUMPTION = "ASSUMPTION"
 CLOSE_CHOKEPOINT = "close_chokepoint"
 DIVERT_VESSEL = "divert_vessel"
 DERATE_PORT = "derate_port"
-ASSUMPTION_KINDS: Tuple[str, ...] = (CLOSE_CHOKEPOINT, DIVERT_VESSEL, DERATE_PORT)
+#: V2: a hull runs at another speed on the same routing (value = knots).
+RETIME_VESSEL = "retime_vessel"
+#: V2: a hull lands at another port the lane serves (target = locode).
+REBIND_DESTINATION = "rebind_destination"
+#: V2: a hull leaves its lane without taking the alternative -- it holds
+#: clear of the threatened water. The cascade stops reaching it; the delay it
+#: takes is carried by the decision branch that applied this.
+DETACH_VESSEL = "detach_vessel"
+ASSUMPTION_KINDS: Tuple[str, ...] = (
+    CLOSE_CHOKEPOINT, DIVERT_VESSEL, DERATE_PORT, RETIME_VESSEL, REBIND_DESTINATION,
+    DETACH_VESSEL,
+)
 
 
 class BranchError(ValueError):
@@ -72,10 +91,13 @@ class Assumption:
     value: Optional[float] = None
     lane_code: Optional[str] = None
     note: str = ""
+    #: A port code for a rebinding; unused by the other kinds.
+    target: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {"kind": self.kind, "subject": self.subject, "value": self.value,
-                "laneCode": self.lane_code, "note": self.note, "source": SOURCE_ASSUMPTION}
+                "laneCode": self.lane_code, "target": self.target, "note": self.note,
+                "source": SOURCE_ASSUMPTION}
 
     @classmethod
     def from_dict(cls, body: Dict[str, Any]) -> "Assumption":
@@ -91,7 +113,8 @@ class Assumption:
         except (TypeError, ValueError):
             raise BranchError("value must be a number") from None
         return cls(kind=kind, subject=subject, value=value,
-                   lane_code=body.get("laneCode"), note=str(body.get("note") or ""))
+                   lane_code=body.get("laneCode"), note=str(body.get("note") or ""),
+                   target=(str(body["target"]).upper() if body.get("target") else None))
 
 
 @dataclass(frozen=True)
@@ -136,13 +159,35 @@ class ScenarioBranch:
     #: Seeds the assumptions introduced, so the branch can be cascaded from them.
     seeds: List[Tuple[str, Quantity]] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    #: V2. The decision actions this branch realises, in the action
+    #: catalogue's vocabulary; the state derived from applying them; what the
+    #: world engine concluded on the branch; the metrics read off it; the
+    #: constraints checked; and where every input came from.
+    actions: List[Dict[str, Any]] = field(default_factory=list)
+    derived: Dict[str, Any] = field(default_factory=dict)
+    consequences: List[Dict[str, Any]] = field(default_factory=list)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    constraint_results: List[Dict[str, Any]] = field(default_factory=list)
+    provenance: Dict[str, Any] = field(default_factory=dict)
 
     def summary(self, *, current_revision: Any = None) -> Dict[str, Any]:
         return {
             "branchId": self.branch_id,
             "parentStateId": self.parent.state_id,
+            "parentRevision": {
+                "mode": self.parent.revision.mode,
+                "eventsStamp": _short(self.parent.revision.events_stamp),
+                "fleetStamp": _short(self.parent.revision.fleet_stamp),
+                "observedGeneration": self.parent.revision.observed_generation,
+            },
             "createdAt": self.created_at.isoformat(),
             "assumptions": [a.to_dict() for a in self.assumptions],
+            "actions": list(self.actions),
+            "derived": dict(self.derived),
+            "consequences": list(self.consequences),
+            "metrics": dict(self.metrics),
+            "constraintResults": list(self.constraint_results),
+            "provenance": dict(self.provenance),
             "seeds": [k for k, _ in self.seeds],
             "notes": list(self.notes),
             # True when the observed world has moved on since the fork. The
@@ -238,6 +283,74 @@ def _divert_vessel(graph: WorldGraph, assumption: Assumption) -> str:
     )
 
 
+def _retime_vessel(graph: WorldGraph, assumption: Assumption) -> str:
+    """The hull runs at ``value`` knots: its timing to every strait rescales.
+
+    Distance is what the hull's declared timing encodes -- hours at the
+    declared speed -- so the new timing is that distance over the new speed.
+    The detour it would take rescales the same way.
+    """
+    vessel_key = key(VESSEL, assumption.subject)
+    node = graph.node(vessel_key)
+    if node is None:
+        raise BranchError(f"{assumption.subject} is not a vessel in this world")
+    if assumption.value is None or assumption.value <= 0:
+        raise BranchError("a retiming needs a speed in knots")
+    old_speed = max(1.0, float(node.attrs.get("service_speed_kn") or 12.0))
+    new_speed = float(assumption.value)
+    factor = old_speed / new_speed
+    replaced = 0
+    for edge in list(graph.in_edges(vessel_key, kind=SAILS)):
+        timings = {code: (h * factor if h is not None else None)
+                   for code, h in (edge.attrs.get("hours_to_chokepoint") or {}).items()}
+        graph.remove_edges(kind=SAILS, src=edge.src, dst=vessel_key)
+        graph.add_edge(Edge(src=edge.src, dst=vessel_key, kind=SAILS, weight=edge.weight,
+                            interval=edge.interval, attrs={**edge.attrs, "hours_to_chokepoint": timings},
+                            source=SOURCE_ASSUMPTION))
+        replaced += 1
+    detour_nm = node.attrs.get("detour_nm")
+    attrs = {**node.attrs, "assumption": assumption.to_dict(), "service_speed_kn": new_speed,
+             "service_speed_observed_kn": old_speed}
+    if detour_nm is not None:
+        attrs["detour_hours"] = float(detour_nm) / new_speed
+    graph.add_node(Node(key=vessel_key, kind=VESSEL, label=node.label, interval=node.interval, attrs=attrs))
+    return f"assumed {node.label} at {new_speed:.1f} kn (was {old_speed:.1f}); {replaced} lane link(s) retimed"
+
+
+def _rebind_destination(graph: WorldGraph, assumption: Assumption) -> str:
+    """The hull lands at another port the world holds."""
+    vessel_key = key(VESSEL, assumption.subject)
+    node = graph.node(vessel_key)
+    if node is None:
+        raise BranchError(f"{assumption.subject} is not a vessel in this world")
+    if not assumption.target:
+        raise BranchError("a rebinding needs a target port")
+    port_key = key(PORT, assumption.target.upper())
+    if graph.node(port_key) is None:
+        raise BranchError(f"{assumption.target} is not a port in this world")
+    previous = node.attrs.get("destination_port")
+    removed = graph.remove_edges(kind=BOUND_FOR, src=vessel_key)
+    graph.add_edge(Edge(src=vessel_key, dst=port_key, kind=BOUND_FOR, weight=1.0,
+                        attrs={"eta": None}, source=SOURCE_ASSUMPTION))
+    attrs = {**node.attrs, "assumption": assumption.to_dict(),
+             "destination_port": assumption.target.upper(), "rebound_from": previous}
+    graph.add_node(Node(key=vessel_key, kind=VESSEL, label=node.label, interval=node.interval, attrs=attrs))
+    return f"assumed {node.label} bound for {assumption.target.upper()} (was {previous}); {removed} port link(s) replaced"
+
+
+def _detach_vessel(graph: WorldGraph, assumption: Assumption) -> str:
+    """The hull holds clear of its lane: no exposure reaches it while it waits."""
+    vessel_key = key(VESSEL, assumption.subject)
+    node = graph.node(vessel_key)
+    if node is None:
+        raise BranchError(f"{assumption.subject} is not a vessel in this world")
+    removed = graph.remove_edges(kind=SAILS, dst=vessel_key)
+    attrs = {**node.attrs, "assumption": assumption.to_dict(), "holding": True,
+             "held_from_lane": node.attrs.get("lane_code")}
+    graph.add_node(Node(key=vessel_key, kind=VESSEL, label=node.label, interval=node.interval, attrs=attrs))
+    return f"assumed {node.label} holding clear of its lane; {removed} lane link(s) removed"
+
+
 def _derate_port(graph: WorldGraph, assumption: Assumption) -> str:
     port_key = key(PORT, assumption.subject.upper())
     node = graph.node(port_key)
@@ -273,6 +386,12 @@ def branch(
             note = _divert_vessel(graph, assumption)
         elif assumption.kind == DERATE_PORT:
             note = _derate_port(graph, assumption)
+        elif assumption.kind == RETIME_VESSEL:
+            note = _retime_vessel(graph, assumption)
+        elif assumption.kind == REBIND_DESTINATION:
+            note = _rebind_destination(graph, assumption)
+        elif assumption.kind == DETACH_VESSEL:
+            note = _detach_vessel(graph, assumption)
         else:  # pragma: no cover - guarded by Assumption.from_dict
             raise BranchError(f"unknown assumption {assumption.kind}")
         result.notes.append(note)
@@ -376,7 +495,10 @@ __all__ = [
     "BranchRegistry",
     "CLOSE_CHOKEPOINT",
     "DERATE_PORT",
+    "DETACH_VESSEL",
     "DIVERT_VESSEL",
+    "REBIND_DESTINATION",
+    "RETIME_VESSEL",
     "ObservedWorldState",
     "SOURCE_ASSUMPTION",
     "ScenarioBranch",

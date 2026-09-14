@@ -11,10 +11,13 @@ from backend.app.routes import (
     advisories,
     agents,
     company,
+    decisions,
+    finance,
     fleet,
     global_eye,
     health,
     learning,
+    missions,
     model,
     news,
     port_twin,
@@ -92,6 +95,12 @@ app.include_router(advisories.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(learning.router, prefix="/api")
 app.include_router(world.router, prefix="/api")
+
+# The decision intelligence engine, its financial twin and the historical
+# missions that score it. All deterministic; all on the world above.
+app.include_router(decisions.router, prefix="/api")
+app.include_router(finance.router, prefix="/api")
+app.include_router(missions.router, prefix="/api")
 
 
 @app.get("/")
