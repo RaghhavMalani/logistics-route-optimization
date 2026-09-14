@@ -65,6 +65,27 @@ export interface MapView {
   zoom: number;
 }
 
+/** [[west, south], [east, north]]. */
+export type MapBounds = [[number, number], [number, number]];
+export type MapPadding = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+};
+
+/**
+ * One camera request. A centre with an optional zoom, or a box to frame with
+ * room left for the panels over the chart; the token makes repeats fire.
+ */
+export type MapFocus = {
+  center?: [number, number];
+  zoom?: number;
+  bounds?: MapBounds;
+  padding?: MapPadding;
+  token: number;
+};
+
 export interface MaritimeMapProps {
   layers: Partial<Record<LayerKey, boolean>>;
   data?: Partial<Record<RuntimeSource, GeoJSON.FeatureCollection>>;
@@ -90,7 +111,7 @@ export interface MaritimeMapProps {
   labels?: MapLabel[];
   view?: MapView;
   /** Bump `token` to fly somewhere without owning the camera. */
-  focus?: { center: [number, number]; zoom?: number; token: number } | null;
+  focus?: MapFocus | null;
   renderHoverCard?: (fix: VesselFix) => ReactNode;
   overlay?: ReactNode;
   className?: string;
@@ -458,6 +479,28 @@ export function MaritimeMap({
   useEffect(() => {
     const instance = mapRef.current;
     if (!instance || !ready || !focus) return;
+    if (focus.bounds) {
+      const box = instance.getContainer();
+      const padding = focus.padding ?? {
+        top: 40,
+        bottom: 40,
+        left: 40,
+        right: 40,
+      };
+      // Padding wider than the chart itself would throw; a narrow pane frames
+      // the box with what room it has.
+      const fits =
+        padding.left + padding.right < box.clientWidth - 80 &&
+        padding.top + padding.bottom < box.clientHeight - 80;
+      instance.fitBounds(focus.bounds, {
+        padding: fits ? padding : 24,
+        duration: 900,
+        essential: true,
+        maxZoom: 7,
+      });
+      return;
+    }
+    if (!focus.center) return;
     instance.flyTo({
       center: focus.center,
       zoom: focus.zoom ?? Math.max(instance.getZoom(), 7),
@@ -579,8 +622,10 @@ export function MaritimeMap({
         placedLabels.push({ label, x: point.x, y: point.y });
       }
 
+      // No traffic, no traffic names: a chart whose hulls are hidden must not
+      // keep naming them.
       const placedVessels: Overlay["vessels"] = [];
-      for (const label of latest.labels) {
+      for (const label of settings.current.trafficOn ? latest.labels : []) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
         const width = 12 + label.text.length * 5.6;
@@ -590,7 +635,9 @@ export function MaritimeMap({
       }
 
       const placedClusters: Overlay["clusters"] = [];
-      for (const mark of latest.clusterMarks) {
+      for (const mark of settings.current.trafficOn
+        ? latest.clusterMarks
+        : []) {
         const point = project(mark.lon, mark.lat);
         if (!inFrame(point)) continue;
         placedClusters.push({ mark, x: point.x, y: point.y });

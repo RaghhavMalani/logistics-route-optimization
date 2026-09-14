@@ -507,6 +507,67 @@ EXECUTE tool at any ceiling, because no agent is constructed above PROPOSE.
 
 ---
 
+## Decisions
+
+The decision engine. Every figure in a response is a `Measure` — `value`,
+`unit`, `confidence`, `basis` — or `available: false` with `unknownBecause`.
+Identity headers name the actor; the role decides which actions the problem
+may hold.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/decisions/actions` | The typed catalogue by domain with the actors who may execute each action, the workflow transitions and the Critic's checks |
+| `POST /api/decisions/problems` | `{ "domain": "vessel" / "port" / "cargo", ... }` → one `DecisionProblem`: options (the do-nothing baseline among them), rejected options with the constraint that rejected them, the actions not offered with the reason, the frontier with its picks, the BALANCED ranking with its weights, the recommendation with its Critic verdict and expected avoidable cost, the evidence |
+| `GET /api/decisions/problems?limit=` | The ledger's problems, newest first, without their options |
+| `GET /api/decisions/problems/{id}` | One problem as computed |
+| `POST /api/decisions/problems/{id}/transition` | `{ "target", "optionId"? }` → the problem after the move. `APPROVED` needs an `optionId` and refuses a rejected one; every move records who and when |
+| `POST /api/decisions/problems/{id}/handoff` | Issuers only. The approved non-baseline option as DRAFT advisories in the advisory store; the problem moves to `PROPOSED` |
+| `POST /api/decisions/problems/{id}/outcome` | `{ "actualAction", "observed": { objective: value }, "note" }` → `OBSERVED`, scored against the prediction |
+| `GET /api/decisions/learning` | Agreement rate, ranking accuracy, mean regret and reward, constraint violations, prediction error per objective, calibration — from the ledger only, with the `method` saying so |
+
+A vessel problem takes `eventId` + `vesselId` (or `branchId` + `seed` to
+decide on an assumed world), `attentionId`, `at`; a port problem `portCode`,
+`horizonHours`, `bunchArrivals`; a cargo problem `portCode`, `shipmentId`.
+`assumptions` (`[{ primitive, value, currency, scope? }]`) price the scenario
+with the operator's own rates and `vesselAssumptions` (`{ "grt": n }`)
+supply a figure the hull does not declare; both come back labelled
+`ASSUMPTION`.
+
+`400` for a domain the engine does not know, a subject it cannot find, a
+transition the workflow does not allow, an assumption it cannot read; `403`
+when a company tries the advisory door or a role cannot hold the decision;
+`404` for an unknown problem. The ledger refuses to rewrite a resolved
+problem's payload; a decision id is minted from the subject, the instant and
+the event, so the same question at a new instant is a new problem.
+
+## Finance
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/finance/basis?scope=&at=` | Coverage per cost primitive — available, from which source type, or the reason it is not — plus the FX table |
+| `GET /api/finance/tariffs` | The public tariff schedules held, each rate with its page, section and verbatim text, validity and reuse state |
+| `POST /api/finance/assumptions` | `{ primitive, value, currency, scope?, purpose?, note? }` → the rate, labelled `ASSUMPTION`, entered by the named actor (`401` without one) |
+| `POST /api/finance/assumptions/clear` | Removes the caller's assumptions |
+| `POST /api/finance/observations` | A market observation with its source and instant |
+| `POST /api/finance/fx` | `{ base, quote, rate, observedAt, source }` → an explicit exchange observation. The only way a cross-currency total exists; `400` without an instant and a source |
+
+## Missions
+
+Historical replays. Nothing later than the replay clock is served until the
+reveal; `403` names the leak.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/missions` | The catalogue: id, name, start, chokepoint, sources |
+| `GET /api/missions/{id}` | The replay state at its clock: visible observations with their sources, the count of hidden ones, the illustrative fleet, `geography` (derived hull positions with their basis), decisions and choices so far |
+| `POST /api/missions/{id}/replay` | `{ "offsetHours" }` → a fresh replay opened at start + offset |
+| `POST /api/missions/{id}/seek` | `{ "offsetHours" }` → the clock moved; the world rebuilt from what was visible then |
+| `GET /api/missions/{id}/world` | The world state at the clock |
+| `POST /api/missions/{id}/decide` | `{ "vesselId" }` → a `DecisionProblem` computed from the visible world, stamped `replay` |
+| `POST /api/missions/{id}/choose` | `{ "vesselId", "optionId" }` → the operator's choice, recorded before the future opens |
+| `POST /api/missions/{id}/reveal` | The chronology and outcome opened; a scorecard per decided hull — forecast error, every option's realised delay, the realised best, regret, lessons |
+| `GET /api/missions/{id}/outcome` | The outcome and the hidden observations; `403` before the reveal |
+
 ## Learning
 
 | Endpoint | Returns |

@@ -515,10 +515,15 @@ def attention_queue(
         collected.append(feed)
 
     ranked = rank_all(collected)
+    # The feed's state qualifies every item above it, so a page that is cut
+    # before it still carries it -- at the bottom, where it ranks.
+    page = ranked[:limit]
+    if feed is not None and feed not in page:
+        page = page + [feed]
     return {
         "at": moment.isoformat(),
         "scope": scope,
-        "items": [item.to_dict() for item in ranked[:limit]],
+        "items": [item.to_dict() for item in page],
         "total": len(ranked),
         "actionable": sum(1 for i in ranked if i.actionable),
         "observed": sum(1 for i in ranked if i.source == "OBSERVED_AIS"),

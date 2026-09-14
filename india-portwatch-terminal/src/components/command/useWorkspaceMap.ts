@@ -12,7 +12,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useClockState, useTraffic } from "@/components/app/traffic-context";
-import type { MapLabel, MapView } from "@/components/map/MaritimeMap";
+import type {
+  MapBounds,
+  MapFocus,
+  MapLabel,
+  MapPadding,
+  MapView,
+} from "@/components/map/MaritimeMap";
 import type { LayerKey } from "@/components/map/basemap";
 import type { WeatherRaster } from "@/components/map/weather-layers";
 import {
@@ -304,8 +310,10 @@ export interface WorkspaceMap {
   hoveredVesselId: string | null;
   setHoveredVesselId: (id: string | null) => void;
 
-  focus: { center: [number, number]; zoom?: number; token: number } | null;
+  focus: MapFocus | null;
   flyTo: (center: [number, number], zoom?: number) => void;
+  /** Frame a box, leaving room for the panels that sit over the chart. */
+  fitBounds: (bounds: MapBounds, padding?: MapPadding) => void;
 
   /** The instant the weather panel is showing. */
   weatherAt: number;
@@ -513,15 +521,15 @@ export function useWorkspaceMap(
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
   const [hoveredVesselId, setHoveredVesselId] = useState<string | null>(null);
 
-  const [focus, setFocus] = useState<{
-    center: [number, number];
-    zoom?: number;
-    token: number;
-  } | null>(null);
+  const [focus, setFocus] = useState<MapFocus | null>(null);
   const token = useRef(0);
   const flyTo = useCallback((center: [number, number], zoom?: number) => {
     token.current += 1;
     setFocus({ center, zoom, token: token.current });
+  }, []);
+  const fitBounds = useCallback((bounds: MapBounds, padding?: MapPadding) => {
+    token.current += 1;
+    setFocus({ bounds, padding, token: token.current });
   }, []);
 
   /* --------------------------------------------------------------- sources -- */
@@ -647,6 +655,7 @@ export function useWorkspaceMap(
     setHoveredVesselId,
     focus,
     flyTo,
+    fitBounds,
     weatherAt,
     offsetHours,
   };

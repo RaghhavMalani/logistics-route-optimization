@@ -45,7 +45,18 @@ import {
 import type { AttentionItem, WorldCascade } from "@/types/portwatch-os";
 
 import { CommandBar } from "@/components/copilot/CommandBar";
+import { DecisionPanel } from "@/components/decision/DecisionPanel";
 import { SignalHealth } from "@/components/fabric/SignalHealth";
+import {
+  decisionLabels,
+  decisionLayers,
+  decisionBounds,
+} from "@/lib/maritime/decision-layers";
+import {
+  type ScenarioAssumptions,
+  useCreateDecision,
+  useDecision,
+} from "@/services/decisions";
 import { LENS_DEFINITIONS, lensLayers } from "@/lib/maritime/lenses";
 import { LENSES, useWorld, type Lens } from "@/world/WorldContext";
 
@@ -57,6 +68,9 @@ export type GlobalEyeScope = "national" | "company" | "port";
 
 /** The horizons the projection offers, in hours from now. */
 const PROJECTION_OFFSETS = [0, 3, 6, 12, 24, 48, 72] as const;
+
+/** Room for the action rail on the left and the decision panel on the right. */
+const DECISION_PADDING = { top: 56, bottom: 72, left: 372, right: 412 };
 
 export function GlobalEyeScreen({
   scope,
@@ -71,6 +85,7 @@ export function GlobalEyeScreen({
     layerOverrides: { events: true, routes: true, cascade: true },
   });
   const { identityHeaders } = useAuth();
+  const { role } = useWorkspace();
 
   // Selection, lens and horizon live in the world context rather than here, so
   // the Copilot can drive them. A component that owned this privately could not
@@ -117,6 +132,122 @@ export function GlobalEyeScreen({
     () => cascadeLayers(affected, reveal.reveal),
     [affected, reveal.reveal],
   );
+
+  // ------------------------------------------------------------ decision --
+  // "What should we do?" builds a DecisionProblem from the same frozen world
+  // this cascade came from. While one is open the map draws its options
+  // instead of the cascade, and switching option switches the world branch.
+  const createDecision = useCreateDecision(identityHeaders);
+  const decision = useDecision(world.decisionId);
+  const decisionOpen = Boolean(world.decisionId);
+  const decisionLayerData = useMemo(
+    () =>
+      decisionLayers(
+        decision.data,
+        world.decisionOptionId,
+        world.decisionCompare,
+      ),
+    [decision.data, world.decisionOptionId, world.decisionCompare],
+  );
+  const decisionLabelRows = useMemo(
+    () =>
+      decisionLabels(
+        decision.data,
+        world.decisionOptionId,
+        world.decisionCompare,
+      ),
+    [decision.data, world.decisionOptionId, world.decisionCompare],
+  );
+  const mapLabels = useMemo(
+    () =>
+      decisionOpen
+        ? [...workspace.labels, ...decisionLabelRows]
+        : workspace.labels,
+    [decisionOpen, workspace.labels, decisionLabelRows],
+  );
+  const decide = useCallback(
+    (item: AttentionItem) => {
+      const eventId = item.cascadeId.split(":").pop() ?? "";
+      createDecision.mutate(
+        {
+          domain: "vessel",
+          eventId,
+          vesselId: item.subjectId,
+          attentionId: item.attentionId,
+          at,
+          mode: "DEMO",
+        },
+        {
+          onSuccess: (problem) => {
+            world.selectVessel(item.subjectId);
+            world.openDecision(
+              problem.decisionId,
+              problem.recommendation?.optionId ?? problem.baselineOptionId,
+              true,
+            );
+          },
+        },
+      );
+    },
+    [at, createDecision, world],
+  );
+  // The same decision, priced again with the operator's scenario figures. A
+  // new problem, not an edit: the computed one stays as it was in the ledger.
+  const recompute = useCallback(
+    (assumptions: ScenarioAssumptions) => {
+      const current = decision.data;
+      if (!current) return;
+      // The evidence names the event by its world key, "event:<id>".
+      const eventKey =
+        (current.evidence?.event as { key?: string } | undefined)?.key ?? "";
+      const eventId = eventKey.replace(/^event:/, "");
+      if (!eventId) return;
+      createDecision.mutate(
+        {
+          domain: "vessel",
+          eventId,
+          vesselId: current.subject.id,
+          attentionId: current.attentionItemId ?? undefined,
+          at,
+          mode: "DEMO",
+          assumptions: assumptions.rates,
+          vesselAssumptions: assumptions.vessel,
+        },
+        {
+          onSuccess: (problem) => {
+            const keep = problem.options.some(
+              (o) => o.optionId === world.decisionOptionId,
+            );
+            world.openDecision(
+              problem.decisionId,
+              keep
+                ? world.decisionOptionId
+                : (problem.recommendation?.optionId ??
+                    problem.baselineOptionId),
+              world.decisionCompare,
+            );
+          },
+        },
+      );
+    },
+    [at, createDecision, decision.data, world],
+  );
+  // When a decision opens (or its option changes) the camera shows every
+  // visible passage: the Cape routing pulls the view out to the basin.
+  const decisionViewKey = decision.data
+    ? `${decision.data.decisionId}|${world.decisionCompare}`
+    : null;
+  useEffect(() => {
+    if (!decisionViewKey || !decision.data) return;
+    const box = decisionBounds(
+      decision.data,
+      world.decisionOptionId,
+      world.decisionCompare,
+    );
+    if (box) workspace.fitBounds(box, DECISION_PADDING);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decisionViewKey]);
+  const canHandoff = role === "PORT_AUTHORITY" || role === "NATIONAL_ADMIN";
 
   const detail = useAttentionItem(
     evidenceOpen ? selectedAttentionId : null,
@@ -234,17 +365,25 @@ export function GlobalEyeScreen({
         layers={lensedLayers}
         data={{
           ...workspace.data,
-          cascade: layers.cascade,
+          cascade: decisionOpen ? decisionLayerData.cascade : layers.cascade,
         }}
         weatherRaster={workspace.raster}
         windFrame={workspace.frame}
         showWind={workspace.showWind && workspace.layers.weather}
         vesselFilter={workspace.vesselFilter}
-        focusIds={layers.focusIds.size ? layers.focusIds : null}
+        focusIds={
+          decisionOpen
+            ? decisionLayerData.focusIds.size
+              ? decisionLayerData.focusIds
+              : null
+            : layers.focusIds.size
+              ? layers.focusIds
+              : null
+        }
         selectedVesselId={workspace.selectedVesselId}
         onSelectVessel={workspace.setSelectedVesselId}
         onSelectObserved={workspace.setSelectedObservedMmsi}
-        labels={workspace.labels}
+        labels={mapLabels}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
         focus={workspace.focus}
@@ -280,8 +419,22 @@ export function GlobalEyeScreen({
                   selectedId={selectedAttentionId}
                   onSelect={selectItem}
                   onInspect={inspect}
+                  onDecide={decide}
+                  decidingId={
+                    createDecision.isPending
+                      ? (createDecision.variables?.attentionId ?? null)
+                      : null
+                  }
                   loading={attention.isLoading}
                 />
+                {createDecision.isError ? (
+                  <p
+                    className="px-2 py-1 text-[9.5px] text-[var(--crit)]"
+                    data-testid="decide-error"
+                  >
+                    {(createDecision.error as Error).message}
+                  </p>
+                ) : null}
               </FloatPanel>
 
               {/* ------------------------------------------- world events -- */}
@@ -315,8 +468,44 @@ export function GlobalEyeScreen({
               </FloatPanel>
             </div>
 
+            {/* ------------------------------------------------- decision -- */}
+            {decisionOpen ? (
+              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] flex-col">
+                <FloatPanel
+                  title="Decision"
+                  note={<span className="num">{world.decisionId}</span>}
+                  className="pointer-events-auto min-h-0 flex-1"
+                  scroll={false}
+                  testId="decision-float"
+                  onClose={() => world.openDecision(null)}
+                  footer="Every figure is a measure the engine produced on that option's branch; unavailable means unavailable."
+                >
+                  {decision.data ? (
+                    <DecisionPanel
+                      problem={decision.data}
+                      selectedOptionId={world.decisionOptionId}
+                      compare={world.decisionCompare}
+                      onSelectOption={world.selectDecisionOption}
+                      onToggleCompare={world.setDecisionCompare}
+                      canHandoff={canHandoff}
+                      onRecompute={recompute}
+                      recomputing={createDecision.isPending}
+                    />
+                  ) : decision.isError ? (
+                    <p className="px-2 py-3 text-[10.5px] text-[var(--crit)]">
+                      {(decision.error as Error).message}
+                    </p>
+                  ) : (
+                    <p className="px-2 py-3 text-[10.5px] text-[var(--text-3)]">
+                      Simulating every option on its own branch…
+                    </p>
+                  )}
+                </FloatPanel>
+              </div>
+            ) : null}
+
             {/* ------------------------------------------------- evidence -- */}
-            {evidenceOpen && selectedAttentionId ? (
+            {evidenceOpen && selectedAttentionId && !decisionOpen ? (
               <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[330px] flex-col">
                 <FloatPanel
                   title="Why this"
@@ -376,7 +565,14 @@ export function GlobalEyeScreen({
             {/* ------------------------------------------------- headline -- */}
             {selectedCascade ? (
               <div
-                className="pointer-events-none absolute left-1/2 top-2.5 z-20 w-[420px] -translate-x-1/2"
+                className={cn(
+                  "pointer-events-none absolute top-2.5 z-20 -translate-x-1/2",
+                  // With the decision panel open the free water is left of
+                  // centre; the headline sits over it, clear of the copilot.
+                  decisionOpen
+                    ? "left-[calc(50%-190px)] w-[380px]"
+                    : "left-1/2 w-[420px]",
+                )}
                 data-testid="cascade-headline"
               >
                 <div className="rounded border border-[var(--line)] bg-[var(--surface)]/92 px-2.5 py-1.5 backdrop-blur">
@@ -410,7 +606,16 @@ export function GlobalEyeScreen({
             ) : null}
 
             {/* ----------------------------------------------- copilot -- */}
-            <div className="pointer-events-none absolute right-2.5 top-2.5 z-30 flex flex-col items-end gap-2">
+            <div
+              className={cn(
+                "pointer-events-none absolute top-2.5 z-30 flex flex-col items-end gap-2",
+                decisionOpen
+                  ? "right-[392px]"
+                  : evidenceOpen && selectedAttentionId
+                    ? "right-[350px]"
+                    : "right-2.5",
+              )}
+            >
               <CommandBar />
               <LensBar lens={lens} onChange={world.setLens} />
               <SignalHealth mode="DEMO" />
@@ -418,7 +623,8 @@ export function GlobalEyeScreen({
                   rather than beside it, so opening the health panel never
                   covers what a click on the chart just opened. */}
               {workspace.selectedObservedMmsi &&
-              !(evidenceOpen && selectedAttentionId) ? (
+              !(evidenceOpen && selectedAttentionId) &&
+              !decisionOpen ? (
                 <div className="pointer-events-none flex max-h-[60vh] w-[330px] flex-col">
                   <ObservedSelection
                     workspace={workspace}

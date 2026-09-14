@@ -27,6 +27,115 @@ from src.portwatch_os.fabric.licence import (  # noqa: E402
 from src.portwatch_os.fabric.products import default_catalogue  # noqa: E402
 
 OUT = ROOT / "docs" / "DATA_SOURCES.md"
+TARIFFS = ROOT / "data" / "tariffs" / "public_tariffs.json"
+
+UNIT_OF = {
+    "port_dues_grt": "per GRT per entry",
+    "berth_hire_grt_hour": "per GRT per hour",
+    "anchorage_grt_hour": "per GRT per hour",
+    "pilotage_grt": "per GRT per movement",
+}
+
+
+def tariff_lines() -> list:
+    """The published port tariffs the financial twin prices against.
+
+    Read from the tariff file itself, so a schedule cannot be described here
+    that the engine does not hold, and the reuse state shown is the one
+    recorded with the evidence.
+    """
+    import json
+
+    body = json.loads(TARIFFS.read_text(encoding="utf-8"))
+    lines = [
+        "## Published port tariffs",
+        "",
+        body["note"],
+        "",
+        f"Reviewed by {body['reviewedBy']}.",
+        "",
+        "| Schedule | Authority | Scope | Validity | Reuse | Retrieved | Document |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for s in body["schedules"]:
+        prov = s["provenance"]
+        lines.append(
+            f"| `{s['scheduleId']}` | {s['authority']} | `{s['scope']}` | "
+            f"{s.get('validFrom') or '—'} → {s.get('validTo') or '—'} | `{s['reuse']}` | "
+            f"{prov['retrievedAt']} | [{s['title']}]({prov['url']}) · sha256 `{prov['sha256'][:12]}…` |"
+        )
+    lines.append("")
+    for s in body["schedules"]:
+        lines.append(f"### {s['title']}")
+        lines.append("")
+        evidence = s.get("reuseEvidence")
+        if isinstance(evidence, dict):
+            lines.append(f"Reuse checked at {evidence.get('checked')} on {evidence.get('checkedAt')}:")
+            lines.append("")
+            if evidence.get("verbatim"):
+                lines.append(f"> {evidence['verbatim']}")
+                lines.append("")
+            if evidence.get("finding"):
+                lines.append(evidence["finding"])
+                lines.append("")
+        elif evidence:
+            lines.append(f"> {evidence}")
+            lines.append("")
+        if s["provenance"].get("fxRule"):
+            lines.append(f"FX rule, verbatim: *{s['provenance']['fxRule']}*")
+            lines.append("")
+        if s["provenance"].get("validityNote"):
+            lines.append(s["provenance"]["validityNote"])
+            lines.append("")
+        lines.append("| Primitive | Rate | Unit | Applies to | Page · section |")
+        lines.append("|---|---:|---|---|---|")
+        for r in s["rates"]:
+            applies = ", ".join(v for v in (r.get("vesselStatus"), r.get("vesselType")) if v) or "all"
+            unit = r.get("unit") or UNIT_OF.get(r["primitive"], "")
+            # Tonnage bands: a flat per-GRT rate for the band, or a base amount
+            # for the first N GRT plus the rate on every additional one.
+            tier = ""
+            lo, hi, base = r.get("tierMinGrt"), r.get("tierMaxGrt"), r.get("tierBaseAmount")
+            if base is not None:
+                tier = f" per additional GRT above {lo:,}, after {base:,} {r['currency']} for the first {lo:,}"
+            elif lo or hi:
+                band = f"up to {hi:,} GRT" if not lo else (f"{lo + 1:,}–{hi:,} GRT" if hi else f"above {lo:,} GRT")
+                tier = f" ({band})"
+            lines.append(
+                f"| `{r['primitive']}` | {r['value']} {r['currency']}{tier} | {unit} | {applies} | "
+                f"p.{r['page']} · {r['section']} |"
+            )
+        lines.append("")
+    if body.get("investigated"):
+        lines.append("### Investigated and not ingested")
+        lines.append("")
+        for row in body["investigated"]:
+            lines.append(f"- **{row['authority']}** — {row['url']} — checked {row['checkedAt']}: {row['finding']}")
+        lines.append("")
+    return lines
+
+
+def mission_lines() -> list:
+    """The sources a historical mission's chronology is transcribed from."""
+    from src.portwatch_os.missions.catalogue import MISSIONS
+
+    lines = [
+        "## Historical mission sources",
+        "",
+        "A mission's chronology and outcome are transcribed from the sources below and",
+        "nothing else; the hulls in it are illustrative and say so. The replay serves an",
+        "observation only once the replay clock has passed it.",
+        "",
+    ]
+    for mission in MISSIONS.values():
+        lines.append(f"### {mission.name}")
+        lines.append("")
+        lines.append("| Source | Kind | Retrieved | Note |")
+        lines.append("|---|---|---|---|")
+        for s in mission.sources:
+            lines.append(f"| [{s.name}]({s.url}) | {s.kind} | {s.retrieved_at} | {s.note or ''} |")
+        lines.append("")
+    return lines
 
 STATE_WORD = {
     ALLOWED: "allowed",
@@ -162,6 +271,10 @@ def render() -> str:
         "Registered with a licence and read by nothing yet: `disaster`, `seismic`,",
         "`fire`, `vessel_registry`, `port_stats`, `geography`.",
         "",
+    ]
+    lines += tariff_lines()
+    lines += mission_lines()
+    lines += [
         "## Deployment mode",
         "",
         "`PORTWATCH_LICENCE_MODE` names the mode a process runs in (`RESEARCH`,",

@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from src.portwatch_os.decision.engine import DecisionEngine
 from src.portwatch_os.decision.model import DecisionActor, DecisionProblem
+from src.portwatch_os.decision.routing import ROUTE_DISCLAIMER, routes_for
 from src.portwatch_os.global_eye.exposure import VesselVoyage
 from src.portwatch_os.global_eye.ingest import CHOKEPOINT_GEO
 from src.portwatch_os.global_eye.model import GlobalEvent
@@ -193,6 +194,48 @@ class MissionReplay:
             "scorecards": cards,
         }
 
+    def geography(self) -> Dict[str, Any]:
+        """Where the chart should draw the mission at the clock.
+
+        The hulls are illustrative and their positions are derived from the
+        declared timing on the modelled lane -- the same derivation the
+        decision engine uses, with its basis on every point -- so the chart
+        never places a hull the engine did not. Nothing here is a real 2021
+        position; the disclaimer on the mission says so.
+        """
+        geo = CHOKEPOINT_GEO.get(self.mission.chokepoint)
+        hulls: List[Dict[str, Any]] = []
+        for voyage in self.voyages():
+            routes = routes_for(
+                voyage.lane_code, voyage.destination_port,
+                voyage.hours_to_chokepoint, voyage.service_speed_kn,
+            )
+            if routes is None:
+                hulls.append({
+                    "vesselId": voyage.vessel_id, "name": voyage.name,
+                    "lat": None, "lon": None, "basis": "no modelled lane for this voyage",
+                    "lane": [], "destinationPort": voyage.destination_port,
+                    "hoursToChokepoint": dict(voyage.hours_to_chokepoint),
+                })
+                continue
+            hulls.append({
+                "vesselId": voyage.vessel_id, "name": voyage.name,
+                "lat": round(routes.position[0], 3), "lon": round(routes.position[1], 3),
+                "basis": routes.position_basis,
+                "lane": [[round(lat, 3), round(lon, 3)] for lat, lon in routes.remaining_primary],
+                "destinationPort": voyage.destination_port,
+                "hoursToChokepoint": dict(voyage.hours_to_chokepoint),
+            })
+        return {
+            "chokepoint": {
+                "code": self.mission.chokepoint,
+                "lat": geo[0] if geo else None,
+                "lon": geo[1] if geo else None,
+            },
+            "hulls": hulls,
+            "disclaimer": ROUTE_DISCLAIMER,
+        }
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             **self.mission.to_dict(clock=self.clock, revealed=self.revealed),
@@ -200,6 +243,7 @@ class MissionReplay:
             "elapsedHours": round(self.elapsed_hours, 1),
             "decisions": {v: p.decision_id for v, p in self.problems.items()},
             "choices": dict(self.choices),
+            "geography": self.geography(),
         }
 
 

@@ -46,6 +46,7 @@ from src.portwatch_os.decision.actions import (
     SPEED_UP,
     availability_of,
     for_domain,
+    ADVISING_ACTORS, EXECUTING_ACTOR, executing_actor_for,
 )
 from src.portwatch_os.decision.model import (
     AVAILABLE,
@@ -72,7 +73,7 @@ from src.portwatch_os.decision.routing import (
     routes_for,
 )
 from src.portwatch_os.finance.basis import CostBasis
-from src.portwatch_os.finance.evaluate import Pricer
+from src.portwatch_os.finance.evaluate import KNOWN as KNOWN_STATE, Pricer
 from src.portwatch_os.finance.money import DAY, FxTable, HOUR, Quantity as MoneyQuantity, TONNE
 from src.portwatch_os.global_eye.exposure import TRADE_LANES
 from src.portwatch_os.world.branch import (
@@ -301,15 +302,9 @@ class OptionPlan:
             self.notes = []
 
 
-#: Actors who cannot execute a routing action themselves but may advise the
-#: one who can. Their problem is evaluated for the executing actor and the
-#: recommendation is framed as an advisory.
-ADVISING_ACTORS: Tuple[str, ...] = ("PORT_AUTHORITY", "NATIONAL_ADMIN")
-EXECUTING_ACTOR = "SHIPPING_COMPANY"
-
-
-def executing_actor_for(actor: str) -> str:
-    return EXECUTING_ACTOR if actor in ADVISING_ACTORS else actor
+#: Hull attributes an operator may supply for a scenario when the hull does
+#: not declare them, with the unit each is read in.
+ASSUMABLE_ATTRIBUTES: Dict[str, str] = {"grt": "grt"}
 
 
 def _plans(context: VesselContext, actor: str) -> Tuple[List[OptionPlan], List[Dict[str, Any]]]:
@@ -588,6 +583,7 @@ def _price(
 ) -> Dict[str, Any]:
     vessel_status = "foreign" if not str(context.lane_code).startswith("COAST") else "coastal"
     grt = context.attrs.get("grt")
+    grt_assumed = bool(context.attrs.get("grt_assumed"))
     pricer = Pricer(basis, at=at, currency=currency, fx=fx, scope=plan.destination_port,
                     vessel_status=vessel_status, vessel_type="container")
     eta = measures.get("eta")
@@ -619,7 +615,7 @@ def _price(
         components.append(pricer.zero("action", "Cost of action", "the option incurs no direct charge"))
     # One entry's dues at the destination. Alongside hours are a port decision,
     # not a routing one, so berth hire is not priced here.
-    components.append(_port_dues(pricer, plan, grt))
+    components.append(_port_dues(pricer, plan, grt, assumed=grt_assumed))
     missed = measures.get("missed_connection")
     if missed is None or not missed.available:
         components.append(pricer.unknown("cargo", "Cargo impact",
@@ -631,16 +627,28 @@ def _price(
     return pricer.evaluation(components).to_dict()
 
 
-def _port_dues(pricer: Pricer, plan: OptionPlan, grt: Optional[float]):
-    """Port dues for one entry at the option's destination, per GRT."""
-    from src.portwatch_os.finance.money import GRT as GRT_UNIT
+def _port_dues(pricer: Pricer, plan: OptionPlan, grt: Optional[float], *, assumed: bool = False):
+    """Port dues for one entry at the option's destination, per GRT.
+
+    A tonnage the operator assumed prices against the real tariff, but the
+    component is an assumption all the same: the rate is public, the hull it
+    is applied to is not.
+    """
+    from src.portwatch_os.finance.money import CALL
 
     if grt is None:
         return pricer.unknown("port", "Port dues at destination",
                               "the hull declares no gross tonnage, so per-GRT dues cannot be computed; "
                               "supply one as a scenario assumption", driver="destination")
-    return pricer.priced("port", "Port dues at destination", "port_dues_grt",
-                         MoneyQuantity(float(grt), GRT_UNIT), driver="destination", scope=plan.destination_port)
+    # One entry: the tariff's tonnage arithmetic prices the hull, the quantity
+    # is the single call it makes.
+    component = pricer.priced("port", "Port dues at destination", "port_dues_grt",
+                              MoneyQuantity(1.0, CALL), driver="destination",
+                              scope=plan.destination_port, grt=float(grt))
+    if assumed and component.state == KNOWN_STATE:
+        component.is_assumption = True
+        component.basis = f"{component.basis} · GT {float(grt):,.0f} assumed by the operator"
+    return component
 
 
 def evaluate_plan(
@@ -907,9 +915,25 @@ def build_vessel_problem(
     currency: str = "USD",
     grid: Any = None,
     attention_item_id: Optional[str] = None,
+    attribute_assumptions: Optional[Dict[str, float]] = None,
 ) -> DecisionProblem:
-    """Every option this actor has for this hull, evaluated. Not yet ranked."""
+    """Every option this actor has for this hull, evaluated. Not yet ranked.
+
+    ``attribute_assumptions`` are figures the hull does not declare and the
+    operator supplies for this scenario -- its gross tonnage, say. They are
+    applied to the context, marked as assumed, and listed in the evidence;
+    nothing priced on them leaves the ASSUMPTION label behind.
+    """
     context = context_for(state, event_key=event_key, seed=seed, vessel_id=vessel_id, at=at)
+    assumed_attrs: Dict[str, float] = {}
+    for name, value in (attribute_assumptions or {}).items():
+        if name not in ASSUMABLE_ATTRIBUTES:
+            raise VesselDecisionError(f"{name!r} is not an attribute an operator may assume for a hull")
+        if context.attrs.get(name) is not None:
+            continue  # the hull declares it; the declaration wins
+        context.attrs[name] = float(value)
+        context.attrs[f"{name}_assumed"] = True
+        assumed_attrs[name] = float(value)
     plans, catalogue_rows = _plans(context, actor.role)
     if not any(p.is_baseline for p in plans):
         raise VesselDecisionError(f"{actor.role} holds no baseline action for a vessel routing decision")
@@ -969,6 +993,10 @@ def build_vessel_problem(
             "execution": {
                 "by": executing, "requestedBy": actor.role,
                 "mechanism": "ISSUE_ADVISORY" if executing != actor.role else "OWN_ACTION",
+            },
+            "attributeAssumptions": {
+                name: {"value": value, "label": "ASSUMPTION", "unit": ASSUMABLE_ATTRIBUTES[name]}
+                for name, value in assumed_attrs.items()
             },
         },
         headline=f"{context.label} · {context.event_label}",

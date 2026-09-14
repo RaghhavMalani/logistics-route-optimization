@@ -22,7 +22,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { Button, Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import { DecisionLearningPanel } from "@/components/decision/DecisionLearningPanel";
+import {
+  Button,
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Num, Pill } from "@/components/kit/primitives";
 import { DataTable, type Column } from "@/components/kit/table";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
@@ -41,7 +49,9 @@ import type {
   ReliabilityWeight,
 } from "@/types/portwatch-os";
 
-export const Route = createFileRoute("/admin/learning")({ component: LearningDashboard });
+export const Route = createFileRoute("/admin/learning")({
+  component: LearningDashboard,
+});
 
 function LearningDashboard() {
   const summary = useLearningSummary();
@@ -62,7 +72,9 @@ function LearningDashboard() {
     return (
       <ScreenFallback
         title="Learning"
-        context={<span>What PortWatch said, what happened, and what changed</span>}
+        context={
+          <span>What PortWatch said, what happened, and what changed</span>
+        }
         isLoading={summary.isLoading}
         error={summary.error}
         retry={() => void summary.refetch()}
@@ -83,12 +95,16 @@ function LearningDashboard() {
     <Page>
       <PageHeader
         title="Learning"
-        context={<span>What PortWatch said, what happened, and what changed</span>}
+        context={
+          <span>What PortWatch said, what happened, and what changed</span>
+        }
         meta={
           <>
             <span className="num">{resolved} resolved</span>
             <span className="num">{open} open</span>
-            <span className="num">{summary.data?.reliabilityRows ?? 0} weights</span>
+            <span className="num">
+              {summary.data?.reliabilityRows ?? 0} weights
+            </span>
           </>
         }
         actions={
@@ -119,7 +135,10 @@ function LearningDashboard() {
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
           {/* ------------------------------------------------- left column -- */}
           <div className="space-y-3">
-            <Panel title="Forecast accuracy" note={`${resolved} resolved claims`}>
+            <Panel
+              title="Forecast accuracy"
+              note={`${resolved} resolved claims`}
+            >
               {overall ? (
                 <Section title="Overall">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
@@ -145,7 +164,9 @@ function LearningDashboard() {
                           {value == null ? "n/a" : value.toFixed(3)}
                         </div>
                         {hint ? (
-                          <div className="num text-[9px] text-[var(--text-3)]">{hint}</div>
+                          <div className="num text-[9px] text-[var(--text-3)]">
+                            {hint}
+                          </div>
                         ) : null}
                       </div>
                     ))}
@@ -153,10 +174,11 @@ function LearningDashboard() {
                   {overall.coverageError != null ? (
                     <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-3)]">
                       The bands cover{" "}
-                      {(overall.intervalCoverage! * 100).toFixed(0)}% of observations
-                      against a nominal{" "}
-                      {(overall.nominalCoverage! * 100).toFixed(0)}%, a coverage error of{" "}
-                      {(overall.coverageError * 100).toFixed(1)} points.{" "}
+                      {(overall.intervalCoverage! * 100).toFixed(0)}% of
+                      observations against a nominal{" "}
+                      {(overall.nominalCoverage! * 100).toFixed(0)}%, a coverage
+                      error of {(overall.coverageError * 100).toFixed(1)}{" "}
+                      points.{" "}
                       {Math.abs(overall.coverageError) < 0.05
                         ? "The intervals are well calibrated."
                         : overall.coverageError > 0
@@ -168,7 +190,8 @@ function LearningDashboard() {
               ) : (
                 <Section title="Unavailable">
                   <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                    No continuous claim has resolved, so there is no error to report.
+                    No continuous claim has resolved, so there is no error to
+                    report.
                   </p>
                 </Section>
               )}
@@ -198,7 +221,9 @@ function LearningDashboard() {
                       expanded={expanded === miss.predictionId}
                       onToggle={() =>
                         setExpanded(
-                          expanded === miss.predictionId ? null : miss.predictionId,
+                          expanded === miss.predictionId
+                            ? null
+                            : miss.predictionId,
                         )
                       }
                     />
@@ -226,8 +251,9 @@ function LearningDashboard() {
               {!reliability.data || reliability.data.weights.length === 0 ? (
                 <Section title="Not yet fitted">
                   <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                    Reliability is fitted from resolved claims only. Nothing has resolved,
-                    so every contributor is still at its neutral weight of 1.00.
+                    Reliability is fitted from resolved claims only. Nothing has
+                    resolved, so every contributor is still at its neutral
+                    weight of 1.00.
                   </p>
                 </Section>
               ) : (
@@ -267,9 +293,9 @@ function LearningDashboard() {
                       ))}
                     </div>
                     <p className="mt-1.5 text-[9.5px] leading-relaxed text-[var(--text-3)]">
-                      Brier skill compares against always predicting the base rate. A
-                      value at or below zero means the claims carry no information the
-                      climatology did not.
+                      Brier skill compares against always predicting the base
+                      rate. A value at or below zero means the claims carry no
+                      information the climatology did not.
                     </p>
                   </Section>
                   {events.overall.calibration ? (
@@ -277,8 +303,9 @@ function LearningDashboard() {
                       <CalibrationBars bins={events.overall.calibration.bins} />
                       <p className="mt-1.5 text-[9.5px] leading-relaxed text-[var(--text-3)]">
                         Expected calibration error{" "}
-                        {events.overall.calibration.expectedCalibrationError?.toFixed(3) ??
-                          "n/a"}
+                        {events.overall.calibration.expectedCalibrationError?.toFixed(
+                          3,
+                        ) ?? "n/a"}
                         {events.overall.calibration.overForecast != null
                           ? `; the system ${
                               events.overall.calibration.overForecast > 0
@@ -330,19 +357,22 @@ function LearningDashboard() {
                     ))}
                   </div>
                   <p className="mt-1.5 text-[9.5px] leading-relaxed text-[var(--text-3)]">
-                    Take-up is how the product finds out whether operators trust it. A
-                    recommendation nobody accepts has no operational value however good
-                    its simulated reward looks.
+                    Take-up is how the product finds out whether operators trust
+                    it. A recommendation nobody accepts has no operational value
+                    however good its simulated reward looks.
                   </p>
                 </Section>
               ) : (
                 <Section title="Unavailable">
                   <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                    No recommendation has been recorded in the decision ledger yet.
+                    No recommendation has been recorded in the decision ledger
+                    yet.
                   </p>
                 </Section>
               )}
             </Panel>
+
+            <DecisionLearningPanel />
 
             <Panel
               title="Policies"
@@ -356,8 +386,8 @@ function LearningDashboard() {
               {!policies.data || policies.data.policies.length === 0 ? (
                 <Section title="No candidate">
                   <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                    No learned policy has been trained and submitted. Operational
-                    recommendations use the hand-written optimiser.
+                    No learned policy has been trained and submitted.
+                    Operational recommendations use the hand-written optimiser.
                   </p>
                 </Section>
               ) : (
@@ -403,7 +433,9 @@ function MissRow({
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
-            <span className="num text-[10.5px] text-[var(--text-2)]">{miss.subject}</span>
+            <span className="num text-[10.5px] text-[var(--text-2)]">
+              {miss.subject}
+            </span>
             <span className="truncate text-[10.5px] text-[var(--text-3)]">
               {miss.target}
             </span>
@@ -427,17 +459,24 @@ function MissRow({
             <span
               className={cn(
                 "num",
-                (miss.error ?? 0) > 0 ? "text-[var(--warn)]" : "text-[var(--info)]",
+                (miss.error ?? 0) > 0
+                  ? "text-[var(--warn)]"
+                  : "text-[var(--info)]",
               )}
             >
-              {miss.error == null ? "" : `${miss.error > 0 ? "+" : ""}${miss.error.toFixed(2)}`}
+              {miss.error == null
+                ? ""
+                : `${miss.error > 0 ? "+" : ""}${miss.error.toFixed(2)}`}
             </span>
           </div>
           {attribution.available && worst ? (
             <div className="mt-[3px] text-[9.5px] text-[var(--text-3)]">
               Dominated by{" "}
-              <span className="text-[var(--text-2)]">{attribution.dominant}</span>, which
-              accounted for {((worst.share ?? 0) * 100).toFixed(0)}% of the miss.
+              <span className="text-[var(--text-2)]">
+                {attribution.dominant}
+              </span>
+              , which accounted for {((worst.share ?? 0) * 100).toFixed(0)}% of
+              the miss.
             </div>
           ) : (
             <div className="mt-[3px] text-[9.5px] text-[var(--unc)]">
@@ -451,7 +490,9 @@ function MissRow({
         <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-3 py-2">
           {attribution.available ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">Contribution to the error</h4>
+              <h4 className="eyebrow text-[8.5px]">
+                Contribution to the error
+              </h4>
               <div className="mt-1 space-y-1">
                 {attribution.shares.map((share) => (
                   <div key={share.contributor}>
@@ -480,16 +521,20 @@ function MissRow({
                         style={{
                           width: `${Math.min(100, (share.share ?? 0) * 100)}%`,
                           background:
-                            share.contribution > 0 ? "var(--warn)" : "var(--info)",
+                            share.contribution > 0
+                              ? "var(--warn)"
+                              : "var(--info)",
                         }}
                       />
                     </div>
                   </div>
                 ))}
-                {attribution.residual != null && Math.abs(attribution.residual) > 1e-6 ? (
+                {attribution.residual != null &&
+                Math.abs(attribution.residual) > 1e-6 ? (
                   <p className="text-[9.5px] leading-snug text-[var(--text-3)]">
-                    Residual {attribution.residual.toFixed(3)} — error the contributors do
-                    not account for, reported rather than smeared across them.
+                    Residual {attribution.residual.toFixed(3)} — error the
+                    contributors do not account for, reported rather than
+                    smeared across them.
                   </p>
                 ) : null}
               </div>
@@ -518,7 +563,9 @@ function MissRow({
                     <span
                       className={cn(
                         "num w-[46px] text-right",
-                        change.delta < 0 ? "text-[var(--crit)]" : "text-[var(--ok)]",
+                        change.delta < 0
+                          ? "text-[var(--crit)]"
+                          : "text-[var(--ok)]",
                       )}
                     >
                       {change.delta > 0 ? "+" : ""}
@@ -573,7 +620,9 @@ function CalibrationBars({ bins }: { bins: CalibrationBinView[] }) {
             <span className="num text-[var(--text)]">
               happened {((bin.observedRate ?? 0) * 100).toFixed(0)}%
             </span>
-            <span className="num ml-auto text-[var(--text-3)]">n={bin.count}</span>
+            <span className="num ml-auto text-[var(--text-3)]">
+              n={bin.count}
+            </span>
           </div>
           <div className="relative mt-[2px] h-[5px] rounded-[1px] bg-[var(--panel-3)]">
             <div
@@ -593,24 +642,34 @@ function CalibrationBars({ bins }: { bins: CalibrationBinView[] }) {
 
 /* -------------------------------------------------------------- policies -- */
 
-const POLICY_TONE: Record<string, "ok" | "info" | "unc" | "crit" | "neutral"> = {
-  approved: "ok",
-  evaluating: "info",
-  candidate: "unc",
-  rejected: "crit",
-  retired: "neutral",
-};
+const POLICY_TONE: Record<string, "ok" | "info" | "unc" | "crit" | "neutral"> =
+  {
+    approved: "ok",
+    evaluating: "info",
+    candidate: "unc",
+    rejected: "crit",
+    retired: "neutral",
+  };
 
 function PolicyCard({ policy }: { policy: PolicyRecordView }) {
   const checks = Object.entries(policy.safetyChecks);
   const failed = checks.filter(([, ok]) => !ok);
 
   return (
-    <Section title={policy.name} right={<Pill tone={POLICY_TONE[policy.state] ?? "neutral"}>{policy.state}</Pill>}>
+    <Section
+      title={policy.name}
+      right={
+        <Pill tone={POLICY_TONE[policy.state] ?? "neutral"}>
+          {policy.state}
+        </Pill>
+      }
+    >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
         <span className="num">v{policy.version}</span>
         <span className="num">{policy.family}</span>
-        {policy.environment ? <span className="truncate">{policy.environment}</span> : null}
+        {policy.environment ? (
+          <span className="truncate">{policy.environment}</span>
+        ) : null}
         {policy.approvedBy ? (
           <span>approved by {policy.approvedBy}</span>
         ) : null}
@@ -628,7 +687,9 @@ function PolicyCard({ policy }: { policy: PolicyRecordView }) {
               >
                 {ok ? "PASS" : "FAIL"}
               </span>
-              <span className="text-[var(--text-3)]">{name.replace(/_/g, " ")}</span>
+              <span className="text-[var(--text-3)]">
+                {name.replace(/_/g, " ")}
+              </span>
             </li>
           ))}
         </ul>
@@ -642,8 +703,8 @@ function PolicyCard({ policy }: { policy: PolicyRecordView }) {
 
       {failed.length && !policy.rejectionReason ? (
         <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--unc)]">
-          {failed.length} promotion check(s) have not passed, so this policy is not
-          eligible for approval.
+          {failed.length} promotion check(s) have not passed, so this policy is
+          not eligible for approval.
         </p>
       ) : null}
     </Section>
@@ -658,7 +719,9 @@ const reliabilityColumns: Array<Column<ReliabilityWeight>> = [
     header: "Contributor",
     sort: (row) => row.contributor,
     render: (row) => (
-      <span className="truncate text-[11px] text-[var(--text)]">{row.contributor}</span>
+      <span className="truncate text-[11px] text-[var(--text)]">
+        {row.contributor}
+      </span>
     ),
   },
   {
@@ -666,7 +729,9 @@ const reliabilityColumns: Array<Column<ReliabilityWeight>> = [
     header: "Context",
     sort: (row) => row.context,
     render: (row) => (
-      <span className="num truncate text-[10px] text-[var(--text-3)]">{row.context}</span>
+      <span className="num truncate text-[10px] text-[var(--text-3)]">
+        {row.context}
+      </span>
     ),
   },
   {

@@ -37,6 +37,7 @@ from src.portwatch_os.decision.actions import (
     TRANSFER_TO_VESSEL,
     availability_of,
     for_domain,
+    executing_actor_for,
 )
 from src.portwatch_os.decision.model import (
     AVAILABLE,
@@ -134,11 +135,17 @@ def _plans(
             for z in usable
         ) else Availability(UNAVAILABLE, "no usable zone is nearer the quay than the current one"),
     }
+    # An advising actor -- a port authority, national command -- gets the
+    # options the shipping company would get, each marked as reaching the
+    # consignment only through an advisory. The consequences are the same
+    # whoever is looking; what differs is who can act on them.
+    executing = executing_actor_for(actor)
     plans: List[CargoPlan] = []
     rows: List[Dict[str, Any]] = []
     for spec in for_domain(CARGO_CONNECTION):
-        availability = availability_of(spec, subject, actor=actor, checks=checks)
-        rows.append({**spec.to_dict(), "availability": availability.to_dict()})
+        availability = availability_of(spec, subject, actor=executing, checks=checks)
+        rows.append({**spec.to_dict(), "availability": availability.to_dict(),
+                     "evaluatedFor": executing, "requiresAdvisory": executing != actor})
         if not availability.available:
             continue
         if spec.kind == KEEP_CONNECTION and booked is not None:
@@ -278,7 +285,11 @@ def build_cargo_problem(
         raise CargoDecisionError(f"{shipment.shipment_id} is booked on no vessel; there is no connection to decide about")
     plans, rows = _plans(shipment, vessels, zones, actor.role)
     if not any(p.is_baseline for p in plans):
-        raise CargoDecisionError(f"{shipment.shipment_id}'s booked vessel {shipment.booked_vessel_id} is not in the capacity list")
+        if not any(v.vessel_id == shipment.booked_vessel_id for v in vessels):
+            raise CargoDecisionError(
+                f"{shipment.shipment_id}'s booked vessel {shipment.booked_vessel_id} is not in the capacity list")
+        raise CargoDecisionError(f"{actor.role} holds no baseline action for a cargo connection decision")
+    executing = executing_actor_for(actor.role)
     table = fx if fx is not None else FxTable()
     options = [evaluate_plan(p, shipment, now_hour=now_hour, basis=basis, fx=table, currency=currency, at=at,
                              port_code=port_code) for p in plans]
@@ -305,10 +316,19 @@ def build_cargo_problem(
             "costBasis": basis.coverage(at=at, scope=port_code),
             "frontierObjectives": list(FRONTIER_OBJECTIVES),
             "disclaimer": "demo manifest; see CARGO_DISCLAIMER",
+            "execution": {
+                "by": executing, "requestedBy": actor.role,
+                "mechanism": "ISSUE_ADVISORY" if executing != actor.role else "OWN_ACTION",
+            },
         },
         headline=f"{shipment.shipment_id} · connection to {shipment.destination_port}",
         do_nothing_statement=_do_nothing(baseline, shipment),
     )
+    if executing != actor.role:
+        problem.notes.append(
+            f"Evaluated for {executing}: {actor.role} cannot move this consignment itself. "
+            "The recommendation reaches the booking party as an advisory, never as a command."
+        )
     problems = problem.validate()
     if problems:
         raise CargoDecisionError("; ".join(problems))

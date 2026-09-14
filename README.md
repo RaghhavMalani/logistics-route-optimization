@@ -3,20 +3,26 @@
 **An agentic maritime operations OS: predictive port digital twins, global event
 intelligence, fleet and port optimisation, and a closed learning loop.**
 
-India PortWatch observes maritime operations, predicts disruption, simulates the
-consequences, recommends an operational response, tracks what actually happened,
-and learns from the difference.
+India PortWatch observes maritime operations, predicts disruption, generates
+the options an operator actually has, simulates each one on a branch of the
+observed world, ranks them, has a Critic check the ranking, puts the choice in
+front of a named person, records what happened, and learns from the difference.
 
 ```
-OBSERVE → UNDERSTAND → FORECAST → SIMULATE → DECIDE → ACT → LEARN
-   ▲                                                            │
-   └────────────────────────────────────────────────────────────┘
+SENSE → UNDERSTAND → PREDICT → GENERATE OPTIONS → SIMULATE → OPTIMISE → CRITIQUE
+  ▲                                                                          │
+  │                        HUMAN DECISION → OBSERVE OUTCOME → LEARN          │
+  └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The last arrow is the one most systems leave out. Every claim this product makes
-is written to a ledger *before* the world answers it, scored against what
-happened, and used to adjust what the system trusts next time. The screen that
-shows you where it was wrong is a first-class feature, not an appendix.
+The primary question the product answers is **"what should I do?"** — for a
+hull, a quay or a consignment — and every number in the answer is a
+measurement a simulator produced on its own branch of the world. A language
+model may explain or orchestrate; it never produces an operational figure. The
+last arrow is the one most systems leave out: every recommendation is written
+to a ledger *before* the world answers it, scored against what happened, and
+used to adjust what the system trusts next time. The screen that shows you
+where it was wrong is a first-class feature, not an appendix.
 
 ---
 
@@ -41,6 +47,7 @@ says so instead of substituting a plausible number.
 - [Agentic AI](#agentic-ai)
 - [MCP](#mcp)
 - [Global Eye](#global-eye)
+- [Decision intelligence](#decision-intelligence)
 - [The port digital twin](#the-port-digital-twin)
 - [Cargo and transshipment](#cargo-and-transshipment)
 - [Advisories: the human boundary](#advisories-the-human-boundary)
@@ -343,6 +350,90 @@ Lanes carry their real alternative and its cost, so an event becomes hours:
 
 A lane with no alternative is weighted *higher*, not lower: traffic cannot route
 around the problem at all.
+
+---
+
+## Decision intelligence
+
+Global Eye tells you a hull is exposed. The decision engine tells you what it
+can do about it, and what each choice costs.
+
+**One decision model, three domains.** A `DecisionProblem` — subject, actor,
+the options, the constraints they were checked against, the objectives, the
+frontier, the recommendation — is the same object whether the subject is a
+vessel choosing a passage, a port choosing a berth plan, or a consignment
+choosing a sailing. It is tied to the immutable world revision it was computed
+from; every option forks a branch from that world and none edits it.
+
+**Options are typed, and absence is explained.** The catalogue is fixed:
+`KEEP_PLAN`, `REROUTE`, `SLOW_STEAM`, `SPEED_UP`, `DELAY_DEPARTURE`,
+`DELAY_ARRIVAL`, `CHANGE_DESTINATION_PORT`, `CHANGE_TRANSSHIPMENT`, `REBUNKER`
+for a hull; `SHIFT_ARRIVAL_SLOT`, `REASSIGN_BERTH`, `ALTER_HOLDING_WINDOW`,
+`CHANGE_CRANE_ALLOCATION`, `CHANGE_YARD_ALLOCATION`, `PRIORITISE_VESSEL`,
+`ISSUE_ADVISORY` for a port; `KEEP_CONNECTION`, `CHANGE_CONNECTION`,
+`CHANGE_YARD`, `TRANSFER_TO_VESSEL`, `DEFER_SHIPMENT` for cargo. An action is
+offered only when its data exists, its constraints can be evaluated and a
+simulator here supports it; otherwise it is listed as `UNAVAILABLE`,
+`UNSUPPORTED` or `INSUFFICIENT_DATA` with the reason. A hull that has entered
+the Suez Canal is not offered the Cape: the routing branches at Gibraltar, and
+the panel says so.
+
+**Hard constraints reject.** They are never a score penalty. A rejected option
+keeps the constraint that rejected it, has no score, and is shown under
+*Rejected — impossible, not merely worse*.
+
+**Doing nothing is computed.** The baseline runs through the same simulator on
+its own branch, so "if unchanged: +30 h expected arrival shift, exposure 0.68 at
+Bab-el-Mandeb" is a measurement, and the port baseline equals the twin's own
+first-come-first-served run.
+
+**The frontier is real.** Pareto dominance over typed objectives (an unknown
+measure makes a pair incomparable, not dominated), named picks — fastest,
+lowest risk, lowest fuel, best schedule reliability, lowest cost — and a
+BALANCED ranking whose weights come back with the answer. The recommendation
+is never a dominated option. The optimiser is deterministic: the same world,
+the same answer. The repository carries the case where greedy loses — one
+working berth, a committed long call behind two short ones — as a test.
+
+**The Critic reads the computation.** Every option gets `PASS`,
+`PASS_WITH_WARNINGS` or `REJECT` from named checks that cite what they read:
+the decision window, source freshness, weather confidence, the disagreement
+between the catalogue detour and the drawn geometry, the assumptions.
+
+**Money without invention.** Every cost component is `KNOWN` with its rate and
+source type, `ZERO` with the reason, or `UNKNOWN` with the reason; a total
+exists only when every component is known, and **unknown is never zero**. The
+JNPA and Chennai scales of rates are transcribed verbatim, cited by page and
+section, labelled `PUBLIC_TARIFF` — a port's published charge, not a customer's
+cost — and used only inside their validity. An operator can price a scenario
+with their own figures; every number those touch is labelled `ASSUMPTION` with
+the operator's name. A cross-currency total needs an explicit exchange
+observation; without one the engine refuses.
+
+**Decision ≠ execution.** A port authority is never told to reassign a
+shipping company's routing — it gets the company's options as advisories. A
+named person moves the workflow `COMPUTED → REVIEWED → APPROVED → PROPOSED →
+ISSUED → ACCEPTED / DECLINED → OBSERVED`; an approved option is handed into the
+existing advisory boundary as DRAFT advisories. The ledger holds the problem
+as computed and refuses to rewrite it; learning scores from the records only
+and never re-runs the engine with hindsight.
+
+**The world changes between options.** On the chart the baseline is thin and
+neutral, the selected option solid in its colour, the alternatives dashed, the
+rejected faint; the ring on the destination quay is that option's own yard
+pressure. In the 3D twin, choosing a berth plan rewrites the berths, cranes and
+calls to it. The Copilot answers "What should MV Konkan do?" from the same
+computed options and opens the same panel.
+
+**A historical mission closes the loop.** Replay the Ever Given grounding with
+only what was knowable at the clock, decide, choose, then reveal what happened
+and watch PortWatch score itself — forecast error, every option's realised
+delay, regret, and what it learned. The future is hidden by construction until
+the reveal.
+
+The engine's contract is in [docs/DECISION_ENGINE.md](docs/DECISION_ENGINE.md);
+the eight decision views at three resolutions are under
+[docs/qa/decision](docs/qa/decision).
 
 ---
 
@@ -933,6 +1024,9 @@ npm run test:browser                                   # 132 specs across three 
 |---|---|
 | `test_api_contract.py` | Every API route's shape, and its 503 when an artefact is missing |
 | `test_award_intelligence.py` | Experts, regimes, ensemble, provenance, decision layer |
+| `test_decision_engine.py` | Hard infeasibility, actor permissions, baseline on its own branch, branch isolation, cascade propagation, Pareto dominance, ranking, Critic rejection, unknown ≠ zero, assumption labelling, the ledger, outcome scoring, the greedy-loses port case |
+| `test_finance_and_missions.py` | Money and rate unit safety, FX refusal, cited tariffs that lapse, mission chronology, no future leakage, the scorecard, the decision routes, the advisory handoff, scenario assumptions |
+| `test_decision_copilot.py` | "What should MV Konkan do?" answered from computed options only; preferences, comparisons, the spatial `SHOW_DECISION` |
 | `test_forecast_evaluation.py` | Walk-forward protocol, calibration, leakage |
 | `test_decision_and_scenarios.py` | Decision cascade, scenario propagation, routing |
 | `test_weather_expert.py` | Weather features and the known-future covariate |
@@ -1008,6 +1102,8 @@ its own boundaries too.
 
 - Maritime digital twin with a shared logical port state
 - Global Eye: event → chokepoint → lane → vessel → port → action
+- Decision intelligence: typed options, hard constraints, a Pareto frontier, a deterministic optimiser, a Critic, a financial twin that never invents a figure, and a human approval workflow into the advisory boundary
+- Historical missions: replay a sourced incident with no future leakage, decide, reveal, score
 - Fleet command for a carrier account
 - Agent orchestration with a Critic and an enforced approval boundary
 - MCP tool layer with READ / SIMULATE / PROPOSE / EXECUTE
@@ -1039,6 +1135,8 @@ Each page goes deeper than this README and states its own boundaries.
 | [docs/AGENTIC_AI.md](docs/AGENTIC_AI.md) | The access boundary, the agents, the Critic's checks, confidence propagation, where a language model fits |
 | [docs/MCP.md](docs/MCP.md) | Running the server, the 24 tools with their access levels, the refusal shape, the resources |
 | [docs/GLOBAL_EYE.md](docs/GLOBAL_EYE.md) | Corroboration and dedupe, the lane catalogue, the timing gate, why the probability is unavailable |
+| [docs/DECISION_ENGINE.md](docs/DECISION_ENGINE.md) | The decision model, the action catalogue, hard constraints, the frontier, the Critic, the financial twin, actors, the approval workflow, the ledger, missions |
+| [docs/FLAGSHIP_DEMO.md](docs/FLAGSHIP_DEMO.md) | The two-minute decision demo: from "what should we do?" to the revealed outcome |
 | [docs/PORT_TWIN.md](docs/PORT_TWIN.md) | What is real and what is schematic, the work-rate model, the reward function, the measured policy results |
 | [docs/LEARNING.md](docs/LEARNING.md) | The ledger's enforced properties, proper scoring, contextual reliability, the exact attribution identity |
 | [docs/API_CONTRACT.md](docs/API_CONTRACT.md) | Every route, the identity headers, and what each status code means |

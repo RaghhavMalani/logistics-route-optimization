@@ -193,6 +193,18 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
         raise HTTPException(status_code=400, detail="vesselId is required for a vessel decision")
     branch_id = payload.get("branchId")
     grid, marine = _marine_grid(mode)
+    # Figures the hull does not declare, supplied for this scenario. Numbers
+    # only, positive, and named -- the builder refuses anything it does not
+    # know how to read.
+    attributes: Dict[str, float] = {}
+    for name, value in (payload.get("vesselAssumptions") or {}).items():
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"vessel assumption {name} must be a number")
+        if number <= 0:
+            raise HTTPException(status_code=400, detail=f"vessel assumption {name} must be positive")
+        attributes[str(name)] = number
     if branch_id:
         held = get_registry().get(str(branch_id))
         if held is None:
@@ -210,6 +222,7 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
         problem = engine.solve_vessel(
             state, event_key=seed_key, seed=seeds[seed_key], vessel_id=vessel_id, actor=actor,
             at=moment, grid=grid, attention_item_id=payload.get("attentionId"), basis=basis,
+            attribute_assumptions=attributes or None,
         )
         problem.evidence["branch"] = held.summary(current_revision=None)
     else:
@@ -221,6 +234,7 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
         problem = engine.solve_vessel(
             state, event_key=key(EVENT, event_id), seed=seed_for(event), vessel_id=vessel_id, actor=actor,
             at=moment, grid=grid, attention_item_id=payload.get("attentionId"), basis=basis,
+            attribute_assumptions=attributes or None,
         )
     problem.evidence["marine"] = {**(problem.evidence.get("marine") or {}), "availability": marine}
     return problem

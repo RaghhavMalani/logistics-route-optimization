@@ -304,6 +304,31 @@ class FinancialTests(unittest.TestCase):
         self.assertTrue(problem.option("slow_steam").evaluation.financial["assumption"])
         self.assertIn("assumptions", problem.option("slow_steam").critic["failed"])
 
+    def test_an_assumed_tonnage_prices_dues_at_the_public_tariff_and_stays_an_assumption(self):
+        """The hull declares no GT; the operator supplies one for the scenario.
+
+        The rate is the public tariff, the tonnage is not, so the component
+        is labelled an assumption -- and it is one call at the tariff's
+        tonnage arithmetic, not the tonnage squared.
+        """
+        event = red_sea_event()
+        state = observed_world(event=event)
+        engine = DecisionEngine(basis=basis_with_public_tariffs())
+        problem = engine.solve_vessel(state, event_key=key(EVENT, event.event_id), seed=seed_for(event),
+                                      vessel_id="PWD-001", actor=DecisionActor(SHIPPING_COMPANY), at=NOW,
+                                      attribute_assumptions={"grt": 52000})
+        self.assertEqual(problem.evidence["attributeAssumptions"]["grt"]["label"], "ASSUMPTION")
+        port = next(c for c in problem.baseline.evaluation.financial["components"] if c["key"] == "port")
+        self.assertEqual(port["state"], "KNOWN")
+        self.assertTrue(port["isAssumption"])
+        self.assertEqual(port["sourceType"], "PUBLIC_TARIFF")
+        self.assertAlmostEqual(port["money"]["amount"], 0.1558 * 52000, places=2)
+        self.assertIn("assumed by the operator", port["basis"])
+        with self.assertRaises(Exception):
+            engine.solve_vessel(state, event_key=key(EVENT, event.event_id), seed=seed_for(event),
+                                vessel_id="PWD-001", actor=DecisionActor(SHIPPING_COMPANY), at=NOW,
+                                attribute_assumptions={"displacement": 1})
+
     def test_public_tariffs_price_only_inside_their_validity(self):
         basis = basis_with_public_tariffs()
         live = basis.lookup("berth_hire_grt_hour", at=NOW, scope="INNSA", vessel_status="foreign")

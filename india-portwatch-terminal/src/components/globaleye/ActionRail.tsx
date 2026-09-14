@@ -48,6 +48,8 @@ export function ActionRail({
   selectedId,
   onSelect,
   onInspect,
+  onDecide,
+  decidingId,
   total,
   loading,
 }: {
@@ -55,6 +57,9 @@ export function ActionRail({
   selectedId: string | null;
   onSelect: (item: AttentionItem) => void;
   onInspect: (item: AttentionItem) => void;
+  /** "What should we do?" -- runs the decision engine for an actionable hull. */
+  onDecide?: (item: AttentionItem) => void;
+  decidingId?: string | null;
   total: number;
   loading?: boolean;
 }) {
@@ -93,59 +98,85 @@ export function ActionRail({
               selected && "bg-[var(--surface-2)]",
             )}
           >
-          <button
-            type="button"
-            onClick={() => onSelect(item)}
-            onDoubleClick={() => onInspect(item)}
-            className="w-full px-2 py-2 text-left"
-          >
-            <div className="flex items-center gap-1.5">
-              <Pill tone={STATUS_TONE[item.status]}>{STATUS_LABEL[item.status]}</Pill>
-              <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--text)]">
-                {item.subjectLabel}
-              </span>
-              {window ? (
-                <span
-                  className="num shrink-0 text-[10px] text-[var(--text-2)]"
-                  title="Time until this option closes"
-                >
-                  {window}
+            <button
+              type="button"
+              onClick={() => onSelect(item)}
+              onDoubleClick={() => onInspect(item)}
+              className="w-full px-2 py-2 text-left"
+            >
+              <div className="flex items-center gap-1.5">
+                <Pill tone={STATUS_TONE[item.status]}>
+                  {STATUS_LABEL[item.status]}
+                </Pill>
+                <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--text)]">
+                  {item.subjectLabel}
                 </span>
-              ) : null}
-            </div>
+                {window ? (
+                  <span
+                    className="num shrink-0 text-[10px] text-[var(--text-2)]"
+                    title="Time until this option closes"
+                  >
+                    {window}
+                  </span>
+                ) : null}
+              </div>
 
-            <p className="mt-1 truncate text-[10px] text-[var(--text-2)]">
-              {item.recommendedAction?.summary ?? item.doNothingOutcome}
-            </p>
+              <p className="mt-1 truncate text-[10px] text-[var(--text-2)]">
+                {item.recommendedAction?.summary ?? item.doNothingOutcome}
+              </p>
 
-            <div className="mt-1 flex items-center gap-2 text-[9.5px] text-[var(--text-3)]">
-              {effect.available ? (
-                <span className="num truncate">{effect.statement}</span>
-              ) : (
-                <span className="truncate italic">
-                  {effect.unavailableBecause}
+              <div className="mt-1 flex items-center gap-2 text-[9.5px] text-[var(--text-3)]">
+                {effect.available ? (
+                  <span className="num truncate">{effect.statement}</span>
+                ) : (
+                  <span className="truncate italic">
+                    {effect.unavailableBecause}
+                  </span>
+                )}
+                <span className="num ml-auto shrink-0" title="Model confidence">
+                  {(item.confidence * 100).toFixed(0)}%
                 </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              data-testid="inspect-item"
+              onClick={() => onInspect(item)}
+              title="Show the computation behind this"
+              className={cn(
+                "absolute right-1.5 top-1.5 rounded px-1 py-0.5 text-[9px] uppercase tracking-wide",
+                "text-[var(--text-3)] opacity-0 transition-opacity",
+                "hover:bg-[var(--surface)] hover:text-[var(--text)]",
+                "focus:opacity-100 group-hover:opacity-100",
               )}
-              <span className="num ml-auto shrink-0" title="Model confidence">
-                {(item.confidence * 100).toFixed(0)}%
-              </span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            data-testid="inspect-item"
-            onClick={() => onInspect(item)}
-            title="Show the computation behind this"
-            className={cn(
-              "absolute right-1.5 top-1.5 rounded px-1 py-0.5 text-[9px] uppercase tracking-wide",
-              "text-[var(--text-3)] opacity-0 transition-opacity",
-              "hover:bg-[var(--surface)] hover:text-[var(--text)]",
-              "focus:opacity-100 group-hover:opacity-100",
-            )}
-          >
-            why
-          </button>
+            >
+              why
+            </button>
+            {/*
+            The product's primary question. Only an actionable hull gets it:
+            a committed one has no option left to compute, and offering the
+            button would be offering a fiction.
+          */}
+            {onDecide && item.subjectType === "vessel" && item.actionable ? (
+              <div className="flex justify-end px-2 pb-1.5">
+                <button
+                  type="button"
+                  data-testid="decide-item"
+                  onClick={() => onDecide(item)}
+                  disabled={decidingId === item.attentionId}
+                  className={cn(
+                    "rounded border border-[var(--line-strong)] px-1.5 py-0.5",
+                    "text-[9px] font-semibold uppercase tracking-wide text-[var(--text)]",
+                    "hover:bg-[var(--accent)] hover:text-[var(--surface)] disabled:opacity-50",
+                  )}
+                >
+                  {decidingId === item.attentionId
+                    ? "computing…"
+                    : "what should we do?"}
+                </button>
+              </div>
+            ) : null}
           </div>
         );
       })}

@@ -125,6 +125,7 @@ class DecisionEngine:
         basis: Optional[CostBasis] = None,
         replay: Optional[Dict[str, Any]] = None,
         decision_id: Optional[str] = None,
+        attribute_assumptions: Optional[Dict[str, float]] = None,
     ) -> DecisionProblem:
         from src.portwatch_os.decision.vessel import build_vessel_problem
 
@@ -133,6 +134,7 @@ class DecisionEngine:
             event_key=event_key, seed=seed, vessel_id=vessel_id, actor=actor, at=at,
             registry=self.branches, basis=basis if basis is not None else self.basis, fx=self.fx,
             currency=self.currency, grid=grid, attention_item_id=attention_item_id,
+            attribute_assumptions=attribute_assumptions,
         )
         if replay:
             problem.evidence["replay"] = replay

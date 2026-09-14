@@ -190,6 +190,17 @@ CATALOGUE: Dict[str, ActionSpec] = {
 }
 
 
+#: Actors who cannot execute a routing or cargo action themselves but may
+#: advise the one who can. Their problem is evaluated for the executing actor
+#: and the recommendation is framed as an advisory.
+ADVISING_ACTORS: Tuple[str, ...] = (PORT_AUTHORITY, NATIONAL_ADMIN)
+EXECUTING_ACTOR = SHIPPING_COMPANY
+
+
+def executing_actor_for(actor: str) -> str:
+    return EXECUTING_ACTOR if actor in ADVISING_ACTORS else actor
+
+
 def for_domain(domain: str) -> List[ActionSpec]:
     return [spec for spec in CATALOGUE.values() if spec.domain == domain]
 

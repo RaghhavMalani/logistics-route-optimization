@@ -287,6 +287,47 @@ class ApiTests(unittest.TestCase):
                              headers={"X-PortWatch-Role": "SHIPPING_COMPANY"})
         self.assertEqual(r.status_code, 401)                                  # unnamed actor
 
+    def test_a_port_authority_holds_a_cargo_decision_as_an_advisory_to_the_booking_party(self):
+        """The port cannot move a consignment; it gets the shipping company's
+        options, each marked as reaching the booking only through an advisory."""
+        r = self.client.post("/api/decisions/problems",
+                             json={"domain": "cargo", "portCode": "INNSA", "mode": "DEMO"}, headers=self.port)
+        self.assertEqual(r.status_code, 200, r.text)
+        problem = r.json()
+        self.assertEqual(problem["actor"]["role"], "PORT_AUTHORITY")
+        self.assertEqual(problem["evidence"]["execution"],
+                         {"by": "SHIPPING_COMPANY", "requestedBy": "PORT_AUTHORITY", "mechanism": "ISSUE_ADVISORY"})
+        rows = {a["kind"]: a for a in problem["availableActions"]}
+        self.assertTrue(rows["KEEP_CONNECTION"]["requiresAdvisory"])
+        self.assertEqual(rows["TRANSFER_TO_VESSEL"]["evaluatedFor"], "SHIPPING_COMPANY")
+        self.assertTrue(any("advisory" in n for n in problem["notes"]))
+        self.assertGreaterEqual(len([o for o in problem["options"] if o["status"] == "FEASIBLE"]), 1)
+
+    def test_a_vessel_decision_takes_scenario_rates_and_a_tonnage_and_labels_them(self):
+        events = self.client.get("/api/global-eye/events").json()["events"]
+        queue = self.client.get("/api/attention").json()["items"]
+        item = next((i for i in queue if i["subjectType"] == "vessel" and i.get("actionable")), None)
+        if item is None:
+            self.skipTest("no actionable hull in the demo register at this instant")
+        event_id = item["cascadeId"].split(":")[-1]
+        self.assertTrue(any(e["eventId"] == event_id for e in events))
+        body = {"domain": "vessel", "eventId": event_id, "vesselId": item["subjectId"], "mode": "DEMO",
+                "assumptions": [{"primitive": "charter_day", "value": 28000, "currency": "USD"}],
+                "vesselAssumptions": {"grt": 52000}}
+        r = self.client.post("/api/decisions/problems", json=body, headers=self.company)
+        self.assertEqual(r.status_code, 200, r.text)
+        problem = r.json()
+        self.assertEqual(problem["evidence"]["attributeAssumptions"]["grt"]["label"], "ASSUMPTION")
+        baseline = next(o for o in problem["options"] if o["isBaseline"])
+        components = {c["key"]: c for c in baseline["evaluation"]["financial"]["components"]}
+        self.assertEqual(components["port"]["state"], "KNOWN")
+        self.assertTrue(components["port"]["isAssumption"])
+        self.assertLess(components["port"]["money"]["amount"], 100000)       # one call, not GT squared
+        self.assertEqual(baseline["evaluation"]["financial"]["label"], "ASSUMPTION")
+        r = self.client.post("/api/decisions/problems", json={**body, "vesselAssumptions": {"grt": -1}},
+                             headers=self.company)
+        self.assertEqual(r.status_code, 400)
+
     def test_finance_routes_label_assumptions_and_refuse_nothing_silently(self):
         r = self.client.get("/api/finance/basis?scope=INNSA")
         coverage = r.json()["coverage"]

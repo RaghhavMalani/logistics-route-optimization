@@ -75,6 +75,11 @@ export interface WorldState {
   focusTarget: { lon: number; lat: number; zoom?: number } | null;
   /** Set while a simulation context is open; SIMULATION commands need it. */
   simulationOpen: boolean;
+  /** The decision the world is currently showing, and which option of it. */
+  decisionId: string | null;
+  decisionOptionId: string | null;
+  /** Draw every feasible option at once, not just the selected one. */
+  decisionCompare: boolean;
 }
 
 const INITIAL: WorldState = {
@@ -89,6 +94,9 @@ const INITIAL: WorldState = {
   focusToken: 0,
   focusTarget: null,
   simulationOpen: false,
+  decisionId: null,
+  decisionOptionId: null,
+  decisionCompare: false,
 };
 
 interface WorldApi extends WorldState {
@@ -101,6 +109,14 @@ interface WorldApi extends WorldState {
   openEvidence: (attentionId: string | null) => void;
   flyTo: (lon: number, lat: number, zoom?: number) => void;
   setSimulationOpen: (open: boolean) => void;
+  /** Open a computed decision, optionally on one option and in compare mode. */
+  openDecision: (
+    decisionId: string | null,
+    optionId?: string | null,
+    compare?: boolean,
+  ) => void;
+  selectDecisionOption: (optionId: string | null) => void;
+  setDecisionCompare: (compare: boolean) => void;
   clearContext: () => void;
   /** Run one command. Returns what happened, including refusals. */
   dispatch: (command: SpatialCommand) => DispatchOutcome;
@@ -165,6 +181,30 @@ export function WorldProvider({ children }: { children: ReactNode }) {
       }),
     [patch],
   );
+  const openDecision = useCallback(
+    (
+      decisionId: string | null,
+      optionId: string | null = null,
+      compare = false,
+    ) =>
+      patch({
+        decisionId,
+        decisionOptionId: decisionId ? optionId : null,
+        decisionCompare: decisionId ? compare : false,
+        // A decision and an evidence drawer contend for the same edge of the
+        // screen; opening one closes the other.
+        evidenceFor: decisionId ? null : latest.current.evidenceFor,
+      }),
+    [patch],
+  );
+  const selectDecisionOption = useCallback(
+    (decisionOptionId: string | null) => patch({ decisionOptionId }),
+    [patch],
+  );
+  const setDecisionCompare = useCallback(
+    (decisionCompare: boolean) => patch({ decisionCompare }),
+    [patch],
+  );
   const clearContext = useCallback(
     () =>
       patch({
@@ -174,6 +214,9 @@ export function WorldProvider({ children }: { children: ReactNode }) {
         chokepoint: null,
         attentionSubjects: [],
         evidenceFor: null,
+        decisionId: null,
+        decisionOptionId: null,
+        decisionCompare: false,
       }),
     [patch],
   );
@@ -255,7 +298,9 @@ export function WorldProvider({ children }: { children: ReactNode }) {
           );
           patch({ projectionHours: nearest });
           return applied(
-            nearest === 0 ? "moved the world to now" : `projected to +${nearest}h`,
+            nearest === 0
+              ? "moved the world to now"
+              : `projected to +${nearest}h`,
           );
         }
 
@@ -280,6 +325,24 @@ export function WorldProvider({ children }: { children: ReactNode }) {
         case "COMPARE_SCENARIOS":
           patch({ simulationOpen: true });
           return applied("opened scenario comparison");
+
+        case "SHOW_DECISION": {
+          if (!subject) return refuse("no decision named");
+          const optionId =
+            (command.params?.optionId as string | undefined) ?? null;
+          const compare = command.params?.compare !== false;
+          patch({
+            decisionId: subject,
+            decisionOptionId: optionId,
+            decisionCompare: compare,
+            evidenceFor: null,
+          });
+          return applied(
+            optionId
+              ? `opened decision ${subject} on option ${optionId}`
+              : `opened decision ${subject}`,
+          );
+        }
 
         default:
           return refuse(`${command.kind} is not a command this world runs`);
@@ -309,15 +372,32 @@ export function WorldProvider({ children }: { children: ReactNode }) {
       openEvidence,
       flyTo,
       setSimulationOpen,
+      openDecision,
+      selectDecisionOption,
+      setDecisionCompare,
       clearContext,
       dispatch,
       dispatchAll,
       lastOutcomes,
     }),
     [
-      state, setLens, selectEvent, selectVessel, selectPort, setProjectionHours,
-      setAttentionSubjects, openEvidence, flyTo, setSimulationOpen,
-      clearContext, dispatch, dispatchAll, lastOutcomes,
+      state,
+      setLens,
+      selectEvent,
+      selectVessel,
+      selectPort,
+      setProjectionHours,
+      setAttentionSubjects,
+      openEvidence,
+      flyTo,
+      setSimulationOpen,
+      openDecision,
+      selectDecisionOption,
+      setDecisionCompare,
+      clearContext,
+      dispatch,
+      dispatchAll,
+      lastOutcomes,
     ],
   );
 
@@ -338,7 +418,9 @@ export function WorldProvider({ children }: { children: ReactNode }) {
     };
   }, [dispatch, dispatchAll, state]);
 
-  return <WorldContext.Provider value={value}>{children}</WorldContext.Provider>;
+  return (
+    <WorldContext.Provider value={value}>{children}</WorldContext.Provider>
+  );
 }
 
 export function useWorld(): WorldApi {

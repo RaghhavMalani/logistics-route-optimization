@@ -317,6 +317,83 @@ Coverage: global.
 Registered with a licence and read by nothing yet: `disaster`, `seismic`,
 `fire`, `vessel_registry`, `port_stats`, `geography`.
 
+## Published port tariffs
+
+Public tariff schedules retrieved from the issuing port authorities' own websites and transcribed verbatim. These are PUBLIC_TARIFF rates: what the port publishes, not what any carrier pays under contract. Every rate cites the document, page, section and verbatim text it was read from. Nothing in this file is a default or an estimate.
+
+Reviewed by PortWatch X engineering, 2026-09-13.
+
+| Schedule | Authority | Scope | Validity | Reuse | Retrieved | Document |
+|---|---|---|---|---|---|---|
+| `jnpa-sor-2026-27` | Jawaharlal Nehru Port Authority | `INNSA` | 2026-05-01T00:00:00+05:30 → 2027-04-30T23:59:59+05:30 | `REQUIRES_REVIEW` | 2026-09-13T17:45:00Z | [JNPA Scale of Rates with effect from 01 May 2026 (including MBPA)](https://www.jnport.gov.in/uploads/content_manager/SOR_w_e_f_01_05_2026_including_MBPA.pdf) · sha256 `6a0853b86c08…` |
+| `chpa-indexed-sor-2025-26` | Chennai Port Authority | `INMAA` | 2025-05-01T00:00:00+05:30 → 2026-04-30T23:59:59+05:30 | `REQUIRES_REVIEW` | 2026-09-13T17:47:00Z | [Chennai Port Authority Indexed Scale of Rates (Gazette notification No.51 dt. 21.12.2022), with effect from 01.05.2025 to 30.04.2026](https://chennaiport.gov.in/api/static/default/inner_content/Indexed%20SOR%20270625.pdf) · sha256 `d5dc79e9d0b0…` |
+
+### JNPA Scale of Rates with effect from 01 May 2026 (including MBPA)
+
+Reuse checked at https://www.jnport.gov.in/ (footer) on 2026-09-13T17:45:00Z:
+
+> © 2026 JNPA. All rights reserved | This website belongs to JNPA and this is managed by JNPA Management Services Team.
+
+A published Scale of Rates is a public tariff notification; the site asserts all rights reserved and states no reuse terms. Rates are transcribed as facts with citation; the document itself is not redistributed.
+
+FX rule, verbatim: *not stated in the retrieved document*
+
+It is to clarify that since the revised rates will come into effect from midnight of 30th April 2026, all vessels which are berthed upto midnight of 30th April 2026 shall attract Port Dues and Pilotage at old rates and for berth hire beyond midnight of 30th April 2026, new rates will apply since it is on hourly basis.
+
+| Primitive | Rate | Unit | Applies to | Page · section |
+|---|---:|---|---|---|
+| `port_dues_grt` | 0.1558 USD | per GRT per entry | foreign, container | p.2 · 2.1. SCHEDULE OF PORT DUES |
+| `port_dues_grt` | 4.074 INR | per GRT per entry | coastal, container | p.2 · 2.1. SCHEDULE OF PORT DUES |
+| `pilotage_grt` | 0.3464 USD (up to 30,000 GRT) | per GRT per movement | foreign | p.3 · 2.2. A. SCHEDULE OF PILOTAGE-CUM-TOWAGE FEE |
+| `pilotage_grt` | 0.2776 USD per additional GRT above 30,000, after 10,393 USD for the first 30,000 | per GRT per movement | foreign | p.3 · 2.2. A. SCHEDULE OF PILOTAGE-CUM-TOWAGE FEE |
+| `pilotage_grt` | 0.2429 USD per additional GRT above 60,000, after 18,722 USD for the first 60,000 | per GRT per movement | foreign | p.3 · 2.2. A. SCHEDULE OF PILOTAGE-CUM-TOWAGE FEE |
+| `pilotage_grt` | 9.0792 INR (up to 30,000 GRT) | per GRT per movement | coastal | p.3 · 2.2. A. SCHEDULE OF PILOTAGE-CUM-TOWAGE FEE |
+| `berth_hire_grt_hour` | 0.0053 USD | per GRT per hour | foreign | p.6 · 2.3. SCHEDULE OF BERTH HIRE CHARGES |
+| `berth_hire_grt_hour` | 0.1309 INR | per GRT per hour | coastal | p.6 · 2.3. SCHEDULE OF BERTH HIRE CHARGES |
+| `anchorage_grt_hour` | 0.0026 USD | per GRT per hour | foreign | p.6 · 2.3. SCHEDULE OF BERTH HIRE CHARGES |
+| `anchorage_grt_hour` | 0.0582 INR | per GRT per hour | coastal | p.6 · 2.3. SCHEDULE OF BERTH HIRE CHARGES |
+
+### Chennai Port Authority Indexed Scale of Rates (Gazette notification No.51 dt. 21.12.2022), with effect from 01.05.2025 to 30.04.2026
+
+Reuse checked at https://chennaiport.gov.in/api/static/default/inner_content/Indexed%20SOR%20270625.pdf on 2026-09-13T17:47:00Z:
+
+> no copyright or reuse statement found in the retrieved document
+
+A Gazette-notified Scale of Rates published by the port authority. No reuse terms stated; rates are transcribed as facts with citation and the document is not redistributed.
+
+FX rule, verbatim: *(v) (a) ... All US dollar denominated tariff will be recovered in Indian Rupees after conversion of charges in US dollar terms into its equivalent Indian Rupees at the Reference rate notified by the Reserve Bank of India and in case of non-availability of RBI reference rate, the market buying rate notified by State Bank of India. ... (b) The day of entry of the vessel into the port limits shall be reckoned as the day for such conversion.*
+
+| Primitive | Rate | Unit | Applies to | Page · section |
+|---|---:|---|---|---|
+| `port_dues_grt` | 0.3315 USD | per GRT per entry | foreign, container | p.10 · 2.1.1 Schedule of Port Dues |
+| `port_dues_grt` | 8.7691 INR | per GRT per entry | coastal, container | p.10 · 2.1.1 Schedule of Port Dues |
+| `pilotage_grt` | 0.438 USD (up to 10,000 GRT) | per GRT per movement | foreign, container | p.11 · 2.2.1 Schedule of Pilotage Fees |
+| `pilotage_grt` | 0.5021 USD (10,001–15,000 GRT) | per GRT per movement | foreign, container | p.11 · 2.2.1 Schedule of Pilotage Fees |
+| `pilotage_grt` | 0.5781 USD (15,001–30,000 GRT) | per GRT per movement | foreign, container | p.11 · 2.2.1 Schedule of Pilotage Fees |
+| `pilotage_grt` | 0.8215 USD (30,001–60,000 GRT) | per GRT per movement | foreign, container | p.11 · 2.2.1 Schedule of Pilotage Fees |
+| `pilotage_grt` | 0.9509 USD (above 60,000 GRT) | per GRT per movement | foreign, container | p.11 · 2.2.1 Schedule of Pilotage Fees |
+| `berth_hire_grt_hour` | 0.0047 USD | per GRT per hour | foreign, container | p.13 · 2.3.1 Schedule of Berth Hire Charges |
+| `berth_hire_grt_hour` | 0.124 INR | per GRT per hour | coastal, container | p.13 · 2.3.1 Schedule of Berth Hire Charges |
+
+### Investigated and not ingested
+
+- **Tariff Authority for Major Ports (TAMP), Ministry of Ports, Shipping and Waterways** — https://www.tariffauthority.gov.in/ViewData/SubPort?mid=1256&CategoryId=133 — checked 2026-09-13T17:40:00Z: Publishes Gazette-notified Scales of Rates for every major port. The host refused the connection from this environment (ECONNREFUSED 164.100.210.21:443) during retrieval, so nothing was ingested from it; the port authorities' own copies were used instead.
+
+## Historical mission sources
+
+A mission's chronology and outcome are transcribed from the sources below and
+nothing else; the hulls in it are illustrative and say so. The replay serves an
+observation only once the replay clock has passed it.
+
+### Ever Given: the Suez Canal blockage, March 2021
+
+| Source | Kind | Retrieved | Note |
+|---|---|---|---|
+| [Wikipedia: 2021 Suez Canal obstruction](https://en.wikipedia.org/wiki/2021_Suez_Canal_obstruction) | encyclopaedic summary citing primary reports | 2026-09-13T18:05:00Z | Times are given in EGY (UTC+2) and UTC; cited to Reuters, BBC, the SCA and Leth Agencies. |
+| [Boskalis press release: Suez Canal unblocked](https://boskalis.com/press/press-releases-and-company-news/suez-canal-unblocked-we-pulled-it-off) | salvor's statement | 2026-09-13T18:05:00Z |  |
+| [CNN: Ever Given ship freed in the Suez Canal, authority confirms](https://www.cnn.com/2021/03/29/africa/suez-canal-refloating-intl-hnk) | news report | 2026-09-13T18:05:00Z |  |
+| [Supply Chain Dive: container ships steer toward longer route around Cape of Good Hope](https://www.supplychaindive.com/news/suez-cape-good-hope-ever-given-evergreen-blocked-stuck/597402/) | news report | 2026-09-13T18:05:00Z | Reports Hapag-Lloyd's service alert naming vessels rerouted via the Cape. |
+
 ## Deployment mode
 
 `PORTWATCH_LICENCE_MODE` names the mode a process runs in (`RESEARCH`,

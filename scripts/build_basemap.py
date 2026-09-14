@@ -16,16 +16,20 @@ Usage:
   curl -sSLO https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_boundary_lines_land.geojson
   python scripts/build_basemap.py --land ne_50m_land.geojson       --borders ne_50m_admin_0_boundary_lines_land.geojson
 
-Geometry is clipped (Sutherland-Hodgman) to the Indian Ocean theatre -- wide
-enough to hold Suez, Hormuz, Bab-el-Mandeb and Malacca alongside the Indian
-coast -- and rounded, which takes 2.4 MB of source down to ~190 KB.
+Geometry is clipped (Sutherland-Hodgman) to the theatre the decision engine
+routes over -- Gibraltar and the whole Mediterranean approach to Suez in the
+north-west, the Cape of Good Hope in the south-west, Malacca in the east --
+with a margin round it so the camera can frame that theatre between the
+panels that sit over the chart, and rounded. The chart used to stop at 24E;
+a Cape diversion drawn from the Mediterranean left the frame at its first
+waypoint, so the frame grew.
 """
 
 import argparse
 import json
 from pathlib import Path
 
-BBOX = (24.0, -14.0, 114.0, 44.0)  # minlon, minlat, maxlon, maxlat
+BBOX = (-49.0, -52.0, 114.0, 58.0)  # minlon, minlat, maxlon, maxlat
 
 
 def _inside(p, edge):

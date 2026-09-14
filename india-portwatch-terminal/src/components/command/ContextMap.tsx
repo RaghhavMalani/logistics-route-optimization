@@ -13,7 +13,11 @@ import type { ReactNode } from "react";
 import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
 import { VesselHoverCard } from "@/components/command/VesselInspector";
 import { EnvironmentLegend } from "@/components/command/TrafficFilters";
-import { MaritimeMap, type MapView } from "@/components/map/MaritimeMap";
+import {
+  MaritimeMap,
+  type MapLabel,
+  type MapView,
+} from "@/components/map/MaritimeMap";
 import type { RuntimeSource } from "@/components/map/basemap";
 import { cn } from "@/lib/utils";
 import type { WorkspaceMap } from "./useWorkspaceMap";
@@ -22,6 +26,7 @@ export function ContextMap({
   workspace,
   extraData,
   view,
+  labels,
   showTraffic = true,
   showLegend = true,
   overlay,
@@ -31,6 +36,8 @@ export function ContextMap({
   workspace: WorkspaceMap;
   extraData?: Partial<Record<RuntimeSource, GeoJSON.FeatureCollection>>;
   view?: MapView;
+  /** Replace the workspace's port labels -- a screen whose world is not the live one. */
+  labels?: MapLabel[];
   showTraffic?: boolean;
   showLegend?: boolean;
   overlay?: ReactNode;
@@ -49,7 +56,7 @@ export function ContextMap({
         windFrame={workspace.frame}
         showWind={workspace.showWind && workspace.layers.weather}
         vesselFilter={workspace.vesselFilter}
-        labels={workspace.labels}
+        labels={labels ?? workspace.labels}
         view={view}
         focus={workspace.focus}
         selectedVesselId={workspace.selectedVesselId}

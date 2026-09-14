@@ -25,10 +25,17 @@ import borders from "@/assets/geo/region-borders.json";
 import land from "@/assets/geo/region-land.json";
 import { corridorFeatures } from "@/lib/maritime/searoutes";
 
-/** Indian Ocean theatre: Suez and Hormuz on one edge, Malacca on the other. */
+/**
+ * The theatre: Gibraltar and the Cape of Good Hope on one side, Malacca on the
+ * other, so a diversion the decision engine routes from the Mediterranean
+ * round Africa is drawn whole rather than leaving the frame at 24E -- with a
+ * margin of open water round it, so the camera can frame that theatre in the
+ * part of the chart the panels leave uncovered. The bundled coastline is
+ * clipped to the same box.
+ */
 export const REGION_BOUNDS: [[number, number], [number, number]] = [
-  [24, -14],
-  [114, 44],
+  [-49, -52],
+  [114, 58],
 ];
 
 export const INDIA_VIEW = {
@@ -42,27 +49,27 @@ export const BLANK_IMAGE =
 
 function graticule(step = 10): GeoJSON.FeatureCollection {
   const lines: GeoJSON.Feature[] = [];
-  for (let lon = 20; lon <= 120; lon += step) {
+  for (let lon = -50; lon <= 120; lon += step) {
     lines.push({
       type: "Feature",
       properties: { kind: lon % 30 === 0 ? "major" : "minor" },
       geometry: {
         type: "LineString",
         coordinates: [
-          [lon, -20],
-          [lon, 50],
+          [lon, -60],
+          [lon, 60],
         ],
       },
     });
   }
-  for (let lat = -20; lat <= 50; lat += step) {
+  for (let lat = -60; lat <= 60; lat += step) {
     lines.push({
       type: "Feature",
       properties: { kind: lat === 0 ? "major" : "minor" },
       geometry: {
         type: "LineString",
         coordinates: [
-          [20, lat],
+          [-50, lat],
           [120, lat],
         ],
       },
