@@ -16,7 +16,11 @@
 
 import { Pill } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
-import type { AttentionItem, CascadeStep, WorldQuantity } from "@/types/portwatch-os";
+import type {
+  AttentionItem,
+  CascadeStep,
+  WorldQuantity,
+} from "@/types/portwatch-os";
 
 function quantityText(quantity: WorldQuantity): string {
   const { value, unit, unitLabel } = quantity;
@@ -86,18 +90,22 @@ export function EvidenceDrawer({
           </Row>
         ) : null}
         <Row label="Operational effect">
-          {item.expectedOperationalEffect.available
-            ? item.expectedOperationalEffect.statement
-            : <span className="italic text-[var(--text-3)]">
-                {item.expectedOperationalEffect.unavailableBecause}
-              </span>}
+          {item.expectedOperationalEffect.available ? (
+            item.expectedOperationalEffect.statement
+          ) : (
+            <span className="italic text-[var(--text-3)]">
+              {item.expectedOperationalEffect.unavailableBecause}
+            </span>
+          )}
         </Row>
         <Row label="Financial effect">
-          {item.expectedFinancialEffect.available
-            ? item.expectedFinancialEffect.statement
-            : <span className="italic text-[var(--text-3)]">
-                {item.expectedFinancialEffect.unavailableBecause}
-              </span>}
+          {item.expectedFinancialEffect.available ? (
+            item.expectedFinancialEffect.statement
+          ) : (
+            <span className="italic text-[var(--text-3)]">
+              {item.expectedFinancialEffect.unavailableBecause}
+            </span>
+          )}
         </Row>
       </div>
 
@@ -114,7 +122,10 @@ export function EvidenceDrawer({
             </span>
           ))}
           <span className="num ml-auto">
-            priority <span className="text-[var(--text)]">{item.priority.toFixed(3)}</span>
+            priority{" "}
+            <span className="text-[var(--text)]">
+              {item.priority.toFixed(3)}
+            </span>
           </span>
         </div>
       </div>
@@ -148,9 +159,7 @@ export function EvidenceDrawer({
                   <span className="truncate text-[10px] text-[var(--text)]">
                     {ruleLabel(step.rule)}
                   </span>
-                  {step.declined ? (
-                    <Pill tone="warn">declined</Pill>
-                  ) : null}
+                  {step.declined ? <Pill tone="warn">declined</Pill> : null}
                 </div>
 
                 {step.declined ? (
@@ -166,7 +175,8 @@ export function EvidenceDrawer({
                 )}
 
                 <p className="mt-0.5 truncate text-[9px] text-[var(--text-3)]">
-                  {step.from.split(":")[1] ?? step.from} → {step.to.split(":")[1] ?? step.to}
+                  {step.from.split(":")[1] ?? step.from} →{" "}
+                  {step.to.split(":")[1] ?? step.to}
                   {step.source ? ` · ${step.source}` : ""}
                 </p>
               </li>
@@ -181,7 +191,10 @@ export function EvidenceDrawer({
             </p>
             <ul className="px-2 pb-3">
               {narrative.map((line) => (
-                <li key={line} className="num text-[9.5px] leading-relaxed text-[var(--text-2)]">
+                <li
+                  key={line}
+                  className="num text-[9.5px] leading-relaxed text-[var(--text-2)]"
+                >
                   {line}
                 </li>
               ))}
@@ -193,11 +206,21 @@ export function EvidenceDrawer({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mb-1.5 last:mb-0">
-      <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">{label}</p>
-      <p className="text-[10px] leading-relaxed text-[var(--text)]">{children}</p>
+      <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        {label}
+      </p>
+      <p className="text-[10px] leading-relaxed text-[var(--text)]">
+        {children}
+      </p>
     </div>
   );
 }

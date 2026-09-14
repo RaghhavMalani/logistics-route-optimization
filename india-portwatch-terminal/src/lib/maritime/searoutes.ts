@@ -79,7 +79,9 @@ export const WAYPOINTS: Record<string, Waypoint> = Object.fromEntries(
 export const WAYPOINT_LIST: Waypoint[] = Object.values(WAYPOINTS);
 
 export const PORT_WAYPOINTS = WAYPOINT_LIST.filter((w) => w.kind === "port");
-export const GATEWAY_WAYPOINTS = WAYPOINT_LIST.filter((w) => w.kind === "gateway");
+export const GATEWAY_WAYPOINTS = WAYPOINT_LIST.filter(
+  (w) => w.kind === "gateway",
+);
 
 export function waypoint(id: string): Waypoint | null {
   return WAYPOINTS[id] ?? null;
@@ -141,7 +143,11 @@ export function hasSeaRoute(fromId: string, toId: string): boolean {
 
 /** Every leg in the catalogue, as unordered pairs. */
 export function legPairs(): Array<{ from: string; to: string; km: number }> {
-  return Object.values(raw.legs).map((leg) => ({ from: leg.from, to: leg.to, km: leg.km }));
+  return Object.values(raw.legs).map((leg) => ({
+    from: leg.from,
+    to: leg.to,
+    km: leg.km,
+  }));
 }
 
 /* ------------------------------------------------------------ geometry --- */
@@ -168,7 +174,8 @@ export function sampleAhead(
   count: number,
 ): Array<{ position: Position; km: number; fractionOfLeg: number }> {
   const remaining = Math.max(0, route.path.km - travelledKm);
-  const out: Array<{ position: Position; km: number; fractionOfLeg: number }> = [];
+  const out: Array<{ position: Position; km: number; fractionOfLeg: number }> =
+    [];
   for (let i = 0; i <= count; i += 1) {
     const km = travelledKm + (remaining * i) / count;
     out.push({
@@ -213,7 +220,11 @@ export function nearestWaypoint(
  * are catalogue legs, not new geometry, so they inherit the same water-only
  * guarantee.
  */
-export const CORRIDORS: Array<{ id: string; name: string; legs: Array<[string, string]> }> = [
+export const CORRIDORS: Array<{
+  id: string;
+  name: string;
+  legs: Array<[string, string]>;
+}> = [
   {
     id: "west-coast",
     name: "West coast corridor",

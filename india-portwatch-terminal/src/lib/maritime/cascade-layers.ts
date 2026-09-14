@@ -15,7 +15,11 @@
  * that blinks permanently is one whose operators stop seeing the blinking.
  */
 
-import type { CascadeAffected, CascadeSubject, WorldQuantity } from "@/types/portwatch-os";
+import type {
+  CascadeAffected,
+  CascadeSubject,
+  WorldQuantity,
+} from "@/types/portwatch-os";
 
 import { CHOKEPOINT_BY_CODE } from "./chokepoints";
 import { seaRoute } from "./searoutes";
@@ -33,7 +37,13 @@ export const CASCADE_COLOR = {
 } as const;
 
 /** The order the reveal walks, and the share of `reveal` each stage owns. */
-export const CASCADE_STAGES = ["event", "chokepoint", "lanes", "vessels", "ports"] as const;
+export const CASCADE_STAGES = [
+  "event",
+  "chokepoint",
+  "lanes",
+  "vessels",
+  "ports",
+] as const;
 export type CascadeStage = (typeof CASCADE_STAGES)[number];
 
 /**
@@ -123,8 +133,9 @@ function legGeometry(
   affected: CascadeAffected,
   port: CascadeSubject,
 ): Array<[number, number]> | null {
-  const chokepoint = affected.chokepoints.find((c) => codes.includes(c.id))
-    ?? affected.chokepoints[0];
+  const chokepoint =
+    affected.chokepoints.find((c) => codes.includes(c.id)) ??
+    affected.chokepoints[0];
   if (!chokepoint) return null;
 
   const route = seaRoute(chokepoint.id, port.id);
@@ -180,9 +191,7 @@ export function cascadeRingFeatures(
     // port always draws at the strongest thing actually known about it.
     const pressure = port.quantities.ratio;
     const delay = port.quantities.hours;
-    const weight = pressure
-      ? magnitude(pressure, 0.6)
-      : magnitude(delay, 480);
+    const weight = pressure ? magnitude(pressure, 0.6) : magnitude(delay, 480);
     features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [port.lon, port.lat] },
@@ -236,7 +245,10 @@ export function cascadeVesselEmphasis(
  * writers on one source means whichever renders last wins, and it wins
  * silently -- which is how the first version of this drew nothing at all.
  */
-export function cascadeLayers(affected: CascadeAffected | undefined, reveal: number) {
+export function cascadeLayers(
+  affected: CascadeAffected | undefined,
+  reveal: number,
+) {
   const lanes = cascadeLaneFeatures(affected, reveal);
   const rings = cascadeRingFeatures(affected, reveal);
   return {

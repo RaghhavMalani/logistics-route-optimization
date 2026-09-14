@@ -11,9 +11,15 @@
 import { seaRoute } from "@/lib/maritime/searoutes";
 import { slicePath, type Position } from "@/lib/maritime/geo";
 import type { VesselFix } from "@/lib/maritime/traffic-types";
-import { EXPOSURE_COLOR, type ExposureSegment } from "@/lib/maritime/weather-field";
+import {
+  EXPOSURE_COLOR,
+  type ExposureSegment,
+} from "@/lib/maritime/weather-field";
 
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const EMPTY: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 export interface SelectionGeometry {
   routes: GeoJSON.FeatureCollection;
@@ -68,13 +74,20 @@ export function selectionGeometry(
   }
 
   if (options.alternativeTo && options.alternativeTo !== fix.destinationId) {
-    const alternative = seaRoute(fix.destinationId === from ? to : from, options.alternativeTo);
+    const alternative = seaRoute(
+      fix.destinationId === from ? to : from,
+      options.alternativeTo,
+    );
     const direct = seaRoute(from, options.alternativeTo);
     const chosen = direct ?? alternative;
     if (chosen) {
       features.push({
         type: "Feature",
-        properties: { part: "alternative", color: "#8a7fc4", id: `${fix.id}:alt` },
+        properties: {
+          part: "alternative",
+          color: "#8a7fc4",
+          id: `${fix.id}:alt`,
+        },
         geometry: {
           type: "LineString",
           coordinates: nearestForward(chosen.path.coords, [fix.lon, fix.lat]),
@@ -84,7 +97,11 @@ export function selectionGeometry(
   }
 
   const trackKm = options.trackKm ?? 900;
-  const track = slicePath(route.path, Math.max(0, fix.travelledKm - trackKm), fix.travelledKm);
+  const track = slicePath(
+    route.path,
+    Math.max(0, fix.travelledKm - trackKm),
+    fix.travelledKm,
+  );
 
   return {
     routes: { type: "FeatureCollection", features },

@@ -41,11 +41,16 @@ export function bearingDeg(a: Position, b: Position): number {
   const φ2 = b[1] * DEG;
   const Δλ = (b[0] - a[0]) * DEG;
   const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
   return (Math.atan2(y, x) / DEG + 360) % 360;
 }
 
-export function destination(from: Position, bearing: number, km: number): Position {
+export function destination(
+  from: Position,
+  bearing: number,
+  km: number,
+): Position {
   const δ = km / EARTH_KM;
   const θ = bearing * DEG;
   const φ1 = from[1] * DEG;
@@ -69,8 +74,22 @@ export function bearingDelta(from: number, to: number): number {
 
 export function compassPoint(bearing: number): string {
   const points = [
-    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
   ];
   return points[Math.round((((bearing % 360) + 360) % 360) / 22.5) % 16];
 }
@@ -132,13 +151,18 @@ export function fixAt(path: MeasuredPath, km: number): PathFix {
 }
 
 /** The sub-path between two along-track distances, endpoints included. */
-export function slicePath(path: MeasuredPath, fromKm: number, toKm: number): Position[] {
+export function slicePath(
+  path: MeasuredPath,
+  fromKm: number,
+  toKm: number,
+): Position[] {
   const start = Math.min(Math.max(fromKm, 0), path.km);
   const end = Math.min(Math.max(toKm, 0), path.km);
   if (end <= start) return [fixAt(path, start).position];
   const out: Position[] = [fixAt(path, start).position];
   for (let i = 0; i < path.coords.length; i += 1) {
-    if (path.cumulative[i] > start && path.cumulative[i] < end) out.push(path.coords[i]);
+    if (path.cumulative[i] > start && path.cumulative[i] < end)
+      out.push(path.coords[i]);
   }
   out.push(fixAt(path, end).position);
   return out;

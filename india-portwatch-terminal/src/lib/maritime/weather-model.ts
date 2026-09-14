@@ -21,12 +21,7 @@ import type { PortSnapshot, WeatherSignal } from "@/types/portwatch";
 import { DEG } from "./geo";
 
 export type WeatherFieldKey =
-  | "precipitation"
-  | "wind"
-  | "gust"
-  | "visibility"
-  | "impact"
-  | "storm";
+  "precipitation" | "wind" | "gust" | "visibility" | "impact" | "storm";
 
 export interface WeatherFieldSpec {
   key: WeatherFieldKey;
@@ -44,9 +39,33 @@ export interface WeatherFieldSpec {
 /* A radar ramp: cold and translucent at the bottom, hot and opaque at the top.
    It stays clear of the five status hues so a weather cell never reads as an
    alert severity. */
-const RAIN_RAMP = ["#1c5e77", "#1f7f7a", "#3f9b5c", "#8faa3c", "#c99a2f", "#cf6a3c", "#b8433f"];
-const WIND_RAMP = ["#1a5470", "#237392", "#3796a6", "#69a271", "#b4993a", "#c3703c", "#b8433f"];
-const RISK_RAMP = ["#1c5e77", "#2a7b93", "#5d9482", "#a4a144", "#c48437", "#c05a41", "#a63f3f"];
+const RAIN_RAMP = [
+  "#1c5e77",
+  "#1f7f7a",
+  "#3f9b5c",
+  "#8faa3c",
+  "#c99a2f",
+  "#cf6a3c",
+  "#b8433f",
+];
+const WIND_RAMP = [
+  "#1a5470",
+  "#237392",
+  "#3796a6",
+  "#69a271",
+  "#b4993a",
+  "#c3703c",
+  "#b8433f",
+];
+const RISK_RAMP = [
+  "#1c5e77",
+  "#2a7b93",
+  "#5d9482",
+  "#a4a144",
+  "#c48437",
+  "#c05a41",
+  "#a63f3f",
+];
 
 export const WEATHER_FIELDS: Record<WeatherFieldKey, WeatherFieldSpec> = {
   precipitation: {
@@ -169,11 +188,22 @@ export interface WeatherTimeline {
  * to north-easterly from November -- and every surface that shows it says
  * MODELLED. Speed on the same screen is measured; direction is not.
  */
-export function climatologicalWindFrom(lon: number, lat: number, at: number): number {
+export function climatologicalWindFrom(
+  lon: number,
+  lat: number,
+  at: number,
+): number {
   const month = new Date(at).getUTCMonth();
   // Southwest monsoon runs June to September; northeast monsoon December to
   // February; the rest is transition, interpolated between the two.
-  const summer = month >= 5 && month <= 8 ? 1 : month === 4 || month === 9 ? 0.5 : month >= 11 || month <= 1 ? 0 : 0.35;
+  const summer =
+    month >= 5 && month <= 8
+      ? 1
+      : month === 4 || month === 9
+        ? 0.5
+        : month >= 11 || month <= 1
+          ? 0
+          : 0.35;
 
   // Over the Bay of Bengal the summer flow is more southerly than over the
   // Arabian Sea, and the winter flow comes off the subcontinent from the north.
@@ -191,7 +221,9 @@ export function climatologicalWindFrom(lon: number, lat: number, at: number): nu
 
 function parse(value: string | null | undefined): number | null {
   if (!value) return null;
-  const ms = Date.parse(value.endsWith("Z") || value.includes("+") ? value : `${value}Z`);
+  const ms = Date.parse(
+    value.endsWith("Z") || value.includes("+") ? value : `${value}Z`,
+  );
   return Number.isNaN(ms) ? null : ms;
 }
 
@@ -243,8 +275,7 @@ export function buildWeatherTimeline(
 
   if (!located.length) return EMPTY_TIMELINE;
 
-  const observedAt =
-    parse(located[0].signal.observedAt) ?? Date.now();
+  const observedAt = parse(located[0].signal.observedAt) ?? Date.now();
 
   const seriesByCode = new Map<string, Series>();
   const stepSet = new Set<number>();
@@ -274,7 +305,8 @@ export function buildWeatherTimeline(
       // The forecast moves the impact index; the surface fields ride on it in
       // proportion, which is the only defensible way to animate observations
       // the feed only reports once.
-      const ratio = baseImpact > 1e-6 && impact != null ? impact / baseImpact : 1;
+      const ratio =
+        baseImpact > 1e-6 && impact != null ? impact / baseImpact : 1;
       const scale = (value: number | null, sensitivity = 1) =>
         value == null ? null : value * (1 + (ratio - 1) * sensitivity);
 
@@ -313,7 +345,9 @@ export function buildWeatherTimeline(
     const values = frame.stations
       .map((station) => station.impact)
       .filter((value): value is number => value != null);
-    return values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+    return values.length
+      ? values.reduce((sum, v) => sum + v, 0) / values.length
+      : 0;
   });
 
   return {
@@ -339,7 +373,11 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-function mix(a: [number, number, number], b: [number, number, number], t: number) {
+function mix(
+  a: [number, number, number],
+  b: [number, number, number],
+  t: number,
+) {
   return [
     Math.round(a[0] + (b[0] - a[0]) * t),
     Math.round(a[1] + (b[1] - a[1]) * t),
@@ -372,7 +410,10 @@ export function rampColor(
   const bands = spec.bands;
   if (value <= bands[0]) {
     const t = Math.max(0, value / Math.max(bands[0], 1e-9));
-    return { rgb: mix(colors[0], colors[1] ?? colors[0], t * 0.4), intensity: t * (1 / bands.length) };
+    return {
+      rgb: mix(colors[0], colors[1] ?? colors[0], t * 0.4),
+      intensity: t * (1 / bands.length),
+    };
   }
   const last = bands[bands.length - 1];
   if (value >= last) return { rgb: colors[colors.length - 1], intensity: 1 };

@@ -32,9 +32,20 @@ import { cn } from "@/lib/utils";
 function clockLabel(ms: number): string {
   const date = new Date(ms);
   const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
-    date.getUTCMonth()
-  ];
+  const month = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ][date.getUTCMonth()];
   return `${day} ${month} ${String(date.getUTCHours()).padStart(2, "0")}:${String(
     date.getUTCMinutes(),
   ).padStart(2, "0")}Z`;
@@ -62,7 +73,10 @@ export function TimeTransport({
   // Which bar in the impact strip the cursor is currently over, so the strip
   // reads as a position indicator rather than as decoration.
   const activeBar = timeline.meanImpact.length
-    ? Math.round((state.offsetHours / Math.max(1, maxHours)) * (timeline.meanImpact.length - 1))
+    ? Math.round(
+        (state.offsetHours / Math.max(1, maxHours)) *
+          (timeline.meanImpact.length - 1),
+      )
     : -1;
 
   return (
@@ -97,7 +111,9 @@ export function TimeTransport({
 
       <div className="shrink-0 leading-none">
         <div className="eyebrow text-[8.5px]">Traffic</div>
-        <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">{clockLabel(state.at)}</div>
+        <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
+          {clockLabel(state.at)}
+        </div>
       </div>
 
       <div className="flex shrink-0 overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
@@ -125,7 +141,9 @@ export function TimeTransport({
       <button
         type="button"
         aria-label={
-          state.weatherPlaying ? "Pause the forecast animation" : "Play the forecast forward"
+          state.weatherPlaying
+            ? "Pause the forecast animation"
+            : "Play the forecast forward"
         }
         title={
           state.weatherPlaying
@@ -151,8 +169,12 @@ export function TimeTransport({
       <div className="shrink-0 leading-none">
         <div className="eyebrow text-[8.5px]">Weather</div>
         <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
-          <span data-testid="weather-offset">{offsetLabel(state.offsetHours)}</span>
-          <span className="ml-1.5 text-[10px] text-[var(--text-3)]">{clockLabel(weatherAt)}</span>
+          <span data-testid="weather-offset">
+            {offsetLabel(state.offsetHours)}
+          </span>
+          <span className="ml-1.5 text-[10px] text-[var(--text-3)]">
+            {clockLabel(weatherAt)}
+          </span>
         </div>
       </div>
 
@@ -164,7 +186,9 @@ export function TimeTransport({
               key={index}
               className={cn(
                 "flex-1 rounded-[1px] transition-colors",
-                index === activeBar ? "bg-[var(--info)]" : "bg-[var(--info)]/35",
+                index === activeBar
+                  ? "bg-[var(--info)]"
+                  : "bg-[var(--info)]/35",
               )}
               style={{ height: `${Math.max(8, (value / peak) * 100)}%` }}
             />
@@ -209,7 +233,9 @@ export function TimeTransport({
       </div>
 
       {!timeline.available ? (
-        <span className="shrink-0 text-[9.5px] text-[var(--crit)]">Forecast unavailable</span>
+        <span className="shrink-0 text-[9.5px] text-[var(--crit)]">
+          Forecast unavailable
+        </span>
       ) : null}
     </div>
   );

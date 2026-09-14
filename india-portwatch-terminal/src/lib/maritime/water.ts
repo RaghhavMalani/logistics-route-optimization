@@ -40,10 +40,9 @@ function decode(base64: string): Uint8Array {
   }
   // Node, during server rendering and in the test runner.
   return new Uint8Array(
-    (globalThis as { Buffer?: { from(s: string, e: string): Uint8Array } }).Buffer!.from(
-      base64,
-      "base64",
-    ),
+    (
+      globalThis as { Buffer?: { from(s: string, e: string): Uint8Array } }
+    ).Buffer!.from(base64, "base64"),
   );
 }
 
@@ -121,7 +120,11 @@ export function crossesLand(coords: Position[], entryKm = 30): boolean {
  * which occasionally lands a mark inside a bay the raster calls land; nudging it
  * to real water is better than drawing a ship in a field.
  */
-export function nudgeToWater(lon: number, lat: number, maxRings = 12): Position {
+export function nudgeToWater(
+  lon: number,
+  lat: number,
+  maxRings = 12,
+): Position {
   if (isWater(lon, lat)) return [lon, lat];
   const { minLon, minLat, step, cols, rows } = SEA_GRID;
   const col0 = Math.floor((lon - minLon) / step);

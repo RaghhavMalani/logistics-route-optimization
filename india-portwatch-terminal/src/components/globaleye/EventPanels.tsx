@@ -91,8 +91,12 @@ export function EventRow({
             {event.title}
           </div>
           <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
-            <Pill tone={groupTone(event.categoryGroup)}>{event.categoryLabel}</Pill>
-            {event.region ? <span className="truncate">{event.region}</span> : null}
+            <Pill tone={groupTone(event.categoryGroup)}>
+              {event.categoryLabel}
+            </Pill>
+            {event.region ? (
+              <span className="truncate">{event.region}</span>
+            ) : null}
             <span className="num" title="Distinct outlets that reported this">
               {event.sourceCount} src
             </span>
@@ -101,7 +105,9 @@ export function EventRow({
             </span>
             <span className="num">conf {event.confidence.toFixed(2)}</span>
             {exposure != null ? (
-              <span className={cn("num", `text-[var(--${exposureTone(exposure)})]`)}>
+              <span
+                className={cn("num", `text-[var(--${exposureTone(exposure)})]`)}
+              >
                 exp {exposure.toFixed(2)}
               </span>
             ) : null}
@@ -193,11 +199,15 @@ function Hop({
           <span className="num text-[13px] leading-none text-[var(--text)]">
             {count}
             {unit ? (
-              <span className="ml-0.5 text-[9px] text-[var(--text-3)]">{unit}</span>
+              <span className="ml-0.5 text-[9px] text-[var(--text-3)]">
+                {unit}
+              </span>
             ) : null}
           </span>
         </div>
-        <p className="mt-[2px] text-[10px] leading-snug text-[var(--text-3)]">{basis}</p>
+        <p className="mt-[2px] text-[10px] leading-snug text-[var(--text-3)]">
+          {basis}
+        </p>
         {children}
       </div>
     </li>
@@ -233,7 +243,9 @@ export function ImpactChain({ impact }: { impact: EventImpact }) {
         index={2}
         label="Trade lanes"
         count={impact.lanes.length}
-        tone={impact.lanes.length ? exposureTone(impact.worstExposure) : "neutral"}
+        tone={
+          impact.lanes.length ? exposureTone(impact.worstExposure) : "neutral"
+        }
         basis={
           impact.lanes.length
             ? "Lanes whose primary routing transits an affected chokepoint."
@@ -243,7 +255,10 @@ export function ImpactChain({ impact }: { impact: EventImpact }) {
         {impact.lanes.length ? (
           <div className="mt-1 space-y-[3px]">
             {impact.lanes.slice(0, 4).map((lane) => (
-              <LaneRow key={`${lane.laneCode}-${lane.chokepoint}`} lane={lane} />
+              <LaneRow
+                key={`${lane.laneCode}-${lane.chokepoint}`}
+                lane={lane}
+              />
             ))}
           </div>
         ) : null}
@@ -252,7 +267,9 @@ export function ImpactChain({ impact }: { impact: EventImpact }) {
         index={3}
         label="Vessels"
         count={impact.vessels.length}
-        tone={actionable.length ? "warn" : impact.vessels.length ? "unc" : "neutral"}
+        tone={
+          actionable.length ? "warn" : impact.vessels.length ? "unc" : "neutral"
+        }
         basis={
           impact.vessels.length
             ? `${actionable.length} can still divert · ${committed.length} already inside the exposed water`
@@ -263,10 +280,17 @@ export function ImpactChain({ impact }: { impact: EventImpact }) {
         index={4}
         label="Ports"
         count={impact.ports.length}
-        tone={impact.ports.length ? exposureTone(impact.ports[0]?.exposure ?? 0) : "neutral"}
+        tone={
+          impact.ports.length
+            ? exposureTone(impact.ports[0]?.exposure ?? 0)
+            : "neutral"
+        }
         basis={
           impact.ports.length
-            ? impact.ports.slice(0, 4).map((p) => `${p.portCode} ${p.exposure.toFixed(2)}`).join(" · ")
+            ? impact.ports
+                .slice(0, 4)
+                .map((p) => `${p.portCode} ${p.exposure.toFixed(2)}`)
+                .join(" · ")
             : "No Indian port is reached by an exposed lane."
         }
       />
@@ -292,7 +316,12 @@ export function LaneRow({ lane }: { lane: LaneExposure }) {
         <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">
           {lane.laneName}
         </span>
-        <span className={cn("num text-[10.5px]", `text-[var(--${exposureTone(lane.exposure)})]`)}>
+        <span
+          className={cn(
+            "num text-[10.5px]",
+            `text-[var(--${exposureTone(lane.exposure)})]`,
+          )}
+        >
           {lane.exposure.toFixed(2)}
         </span>
       </div>
@@ -302,11 +331,14 @@ export function LaneRow({ lane }: { lane: LaneExposure }) {
             <span className="truncate">via {lane.alternative}</span>
             <ArrowRight size={8} className="shrink-0" />
             <span className="num shrink-0">
-              +{lane.detourNm?.toLocaleString()} nm · +{lane.detourHours?.toFixed(0)} h
+              +{lane.detourNm?.toLocaleString()} nm · +
+              {lane.detourHours?.toFixed(0)} h
             </span>
           </>
         ) : (
-          <span className="text-[var(--crit)]">No alternative routing exists</span>
+          <span className="text-[var(--crit)]">
+            No alternative routing exists
+          </span>
         )}
       </div>
     </div>
@@ -347,7 +379,12 @@ export function VesselExposureRow({
         <span className="min-w-0 flex-1 truncate text-[11.5px] text-[var(--text)]">
           {row.vesselName}
         </span>
-        <span className={cn("num text-[11px]", `text-[var(--${exposureTone(row.exposure)})]`)}>
+        <span
+          className={cn(
+            "num text-[11px]",
+            `text-[var(--${exposureTone(row.exposure)})]`,
+          )}
+        >
           {row.exposure.toFixed(2)}
         </span>
       </div>
@@ -357,15 +394,22 @@ export function VesselExposureRow({
         ) : row.hoursToRiskArea != null ? (
           <span className="num flex items-center gap-1">
             <Clock size={8} />
-            {row.hoursToRiskArea.toFixed(0)}h to {row.chokepoint.replace(/_/g, "-")}
+            {row.hoursToRiskArea.toFixed(0)}h to{" "}
+            {row.chokepoint.replace(/_/g, "-")}
           </span>
         ) : null}
-        {row.destinationPort ? <span className="num">→ {row.destinationPort}</span> : null}
+        {row.destinationPort ? (
+          <span className="num">→ {row.destinationPort}</span>
+        ) : null}
         {!committed && row.delayHoursIfDiverted != null ? (
-          <span className="num">diversion +{row.delayHoursIfDiverted.toFixed(0)}h</span>
+          <span className="num">
+            diversion +{row.delayHoursIfDiverted.toFixed(0)}h
+          </span>
         ) : null}
       </div>
-      <p className="mt-[3px] text-[9.5px] leading-snug text-[var(--text-3)]">{row.actionBasis}</p>
+      <p className="mt-[3px] text-[9.5px] leading-snug text-[var(--text-3)]">
+        {row.actionBasis}
+      </p>
     </button>
   );
 }
@@ -385,7 +429,10 @@ export function PortExposureRow({ row }: { row: PortExposure }) {
         </span>
       ) : null}
       <span
-        className={cn("num shrink-0 text-[11px]", `text-[var(--${exposureTone(row.exposure)})]`)}
+        className={cn(
+          "num shrink-0 text-[11px]",
+          `text-[var(--${exposureTone(row.exposure)})]`,
+        )}
       >
         {row.exposure.toFixed(2)}
       </span>
@@ -396,7 +443,10 @@ export function PortExposureRow({ row }: { row: PortExposure }) {
 /* -------------------------------------------------------------- sources -- */
 
 export function SourceList({ event }: { event: GlobalEvent }) {
-  const byOutlet = new Map<string, { outlet: string; url: string | null; feed: string }>();
+  const byOutlet = new Map<
+    string,
+    { outlet: string; url: string | null; feed: string }
+  >();
   for (const source of event.sources) {
     if (!byOutlet.has(source.outlet)) {
       byOutlet.set(source.outlet, {
@@ -410,8 +460,13 @@ export function SourceList({ event }: { event: GlobalEvent }) {
   return (
     <ul className="space-y-[3px]">
       {[...byOutlet.values()].map((source) => (
-        <li key={source.outlet} className="flex items-baseline gap-1.5 text-[10px]">
-          <span className="num shrink-0 text-[9px] text-[var(--text-3)]">{source.feed}</span>
+        <li
+          key={source.outlet}
+          className="flex items-baseline gap-1.5 text-[10px]"
+        >
+          <span className="num shrink-0 text-[9px] text-[var(--text-3)]">
+            {source.feed}
+          </span>
           {source.url ? (
             <a
               href={source.url}
@@ -422,14 +477,17 @@ export function SourceList({ event }: { event: GlobalEvent }) {
               {source.outlet}
             </a>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-[var(--text-2)]">{source.outlet}</span>
+            <span className="min-w-0 flex-1 truncate text-[var(--text-2)]">
+              {source.outlet}
+            </span>
           )}
         </li>
       ))}
       {event.reportCount > byOutlet.size ? (
         <li className="text-[9.5px] text-[var(--text-3)]">
-          {event.reportCount} reports merged into this event from {byOutlet.size} distinct
-          outlets. Confidence is built from the outlet count, not the report count.
+          {event.reportCount} reports merged into this event from{" "}
+          {byOutlet.size} distinct outlets. Confidence is built from the outlet
+          count, not the report count.
         </li>
       ) : null}
     </ul>
@@ -442,8 +500,8 @@ export function ActionList({ actions }: { actions: EventImpact["actions"] }) {
   if (!actions.length) {
     return (
       <p className="px-2 py-3 text-[11px] leading-relaxed text-[var(--text-3)]">
-        This event supports no computable action. That is a finding, not a gap: the
-        chain reached no vessel or port with a measurable consequence.
+        This event supports no computable action. That is a finding, not a gap:
+        the chain reached no vessel or port with a measurable consequence.
       </p>
     );
   }
@@ -455,8 +513,12 @@ export function ActionList({ actions }: { actions: EventImpact["actions"] }) {
           className="rounded-[2px] border border-[var(--line)] px-1.5 py-1"
         >
           <div className="flex items-baseline gap-2">
-            <span className="min-w-0 flex-1 text-[11px] text-[var(--text)]">{action.label}</span>
-            <span className="num shrink-0 text-[11px] text-[var(--text-2)]">{action.count}</span>
+            <span className="min-w-0 flex-1 text-[11px] text-[var(--text)]">
+              {action.label}
+            </span>
+            <span className="num shrink-0 text-[11px] text-[var(--text-2)]">
+              {action.count}
+            </span>
           </div>
           {action.meanCostHours != null ? (
             <div className="num mt-[2px] text-[9.5px] text-[var(--text-3)]">
@@ -471,7 +533,9 @@ export function ActionList({ actions }: { actions: EventImpact["actions"] }) {
               mean arrival shift {action.meanShiftHours.toFixed(1)} h
             </div>
           ) : null}
-          <p className="mt-[3px] text-[9.5px] leading-snug text-[var(--text-3)]">{action.basis}</p>
+          <p className="mt-[3px] text-[9.5px] leading-snug text-[var(--text-3)]">
+            {action.basis}
+          </p>
         </li>
       ))}
     </ul>

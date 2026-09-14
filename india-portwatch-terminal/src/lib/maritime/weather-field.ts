@@ -57,7 +57,10 @@ export interface SampledField {
   sample(lon: number, lat: number): FieldSample;
 }
 
-export function sampleField(frame: WeatherFrame, key: WeatherFieldKey): SampledField {
+export function sampleField(
+  frame: WeatherFrame,
+  key: WeatherFieldKey,
+): SampledField {
   const spec = WEATHER_FIELDS[key];
   const readings = readingsFor(frame, spec);
   const missing = frame.stations
@@ -115,7 +118,11 @@ export interface WindSample {
  * either side of a shear line average to something between them rather than
  * cancelling.
  */
-export function sampleWind(frame: WeatherFrame, lon: number, lat: number): WindSample | null {
+export function sampleWind(
+  frame: WeatherFrame,
+  lon: number,
+  lat: number,
+): WindSample | null {
   let ux = 0;
   let uy = 0;
   let weights = 0;
@@ -162,7 +169,10 @@ export interface ExposureSegment {
   label: string;
 }
 
-export function exposureLevel(impact: number | null, storm: number | null): ExposureLevel {
+export function exposureLevel(
+  impact: number | null,
+  storm: number | null,
+): ExposureLevel {
   const worst = Math.max(impact ?? 0, (storm ?? 0) * 2.2);
   if (worst >= 0.24) return "severe";
   if (worst >= 0.12) return "watch";
@@ -210,17 +220,30 @@ export function routeExposure(
   for (let i = 0; i <= samples; i += 1) {
     const km = (totalKm * i) / samples;
     let index = 0;
-    while (index < cumulative.length - 1 && cumulative[index + 1] < km) index += 1;
+    while (index < cumulative.length - 1 && cumulative[index + 1] < km)
+      index += 1;
     points.push({ index, leadHours: km / kmPerHour });
   }
 
   const raw = points.map((point) => {
     const position = ahead[Math.min(point.index, ahead.length - 1)];
     const frame = options.frameAt(options.at + point.leadHours * 3_600_000);
-    const impact = sampleField(frame, "impact").sample(position[0], position[1]).value;
-    const storm = sampleField(frame, "storm").sample(position[0], position[1]).value;
-    const wind = sampleField(frame, "wind").sample(position[0], position[1]).value;
-    const rain = sampleField(frame, "precipitation").sample(position[0], position[1]).value;
+    const impact = sampleField(frame, "impact").sample(
+      position[0],
+      position[1],
+    ).value;
+    const storm = sampleField(frame, "storm").sample(
+      position[0],
+      position[1],
+    ).value;
+    const wind = sampleField(frame, "wind").sample(
+      position[0],
+      position[1],
+    ).value;
+    const rain = sampleField(frame, "precipitation").sample(
+      position[0],
+      position[1],
+    ).value;
     return {
       ...point,
       impact,
@@ -238,7 +261,10 @@ export function routeExposure(
     const last = i === raw.length - 1;
     if (!changed && !last) continue;
     const end = changed ? i : raw.length - 1;
-    const coords = ahead.slice(raw[start].index, Math.max(raw[start].index + 2, raw[end].index + 1));
+    const coords = ahead.slice(
+      raw[start].index,
+      Math.max(raw[start].index + 2, raw[end].index + 1),
+    );
     if (coords.length >= 2) {
       const head = raw[start];
       segments.push({
@@ -263,8 +289,14 @@ export function routeExposure(
 }
 
 /** The single worst thing along a passage, for a one-line summary. */
-export function worstExposure(segments: ExposureSegment[]): ExposureSegment | null {
-  const order: Record<ExposureLevel, number> = { normal: 0, watch: 1, severe: 2 };
+export function worstExposure(
+  segments: ExposureSegment[],
+): ExposureSegment | null {
+  const order: Record<ExposureLevel, number> = {
+    normal: 0,
+    watch: 1,
+    severe: 2,
+  };
   let worst: ExposureSegment | null = null;
   for (const segment of segments) {
     if (!worst || order[segment.level] > order[worst.level]) worst = segment;

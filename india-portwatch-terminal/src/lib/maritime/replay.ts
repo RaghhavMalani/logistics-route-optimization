@@ -99,27 +99,100 @@ function between(random: () => number, lo: number, hi: number): number {
  * industry without belonging to anyone in it.
  */
 const OPERATORS = [
-  "Coromandel", "Konkan", "Malabar", "Deccan", "Andaman", "Nicobar",
-  "Laccadive", "Kachchh", "Godavari", "Mahanadi", "Narmada", "Zuari",
-  "Palar", "Vaigai", "Periyar", "Sharavathi", "Chilika", "Rann",
+  "Coromandel",
+  "Konkan",
+  "Malabar",
+  "Deccan",
+  "Andaman",
+  "Nicobar",
+  "Laccadive",
+  "Kachchh",
+  "Godavari",
+  "Mahanadi",
+  "Narmada",
+  "Zuari",
+  "Palar",
+  "Vaigai",
+  "Periyar",
+  "Sharavathi",
+  "Chilika",
+  "Rann",
 ] as const;
 
 const SHIP_NAMES = [
-  "Aurora", "Meridian", "Vanguard", "Horizon", "Sentinel", "Voyager",
-  "Endeavour", "Trader", "Pioneer", "Mariner", "Ranger", "Kestrel",
-  "Lyra", "Orion", "Vega", "Rigel", "Altair", "Sirius", "Corvus",
-  "Compass", "Beacon", "Tempest", "Monsoon", "Zephyr", "Spinnaker",
-  "Halyard", "Capstan", "Fathom", "Leeward", "Windward", "Bearing",
-  "Azimuth", "Sextant", "Astrolabe", "Quadrant", "Bowline", "Jetstream",
-  "Cascade", "Trident", "Nautilus", "Corsair", "Pelican", "Frigate",
-  "Albatross", "Cormorant", "Petrel", "Skua", "Tern", "Gannet",
+  "Aurora",
+  "Meridian",
+  "Vanguard",
+  "Horizon",
+  "Sentinel",
+  "Voyager",
+  "Endeavour",
+  "Trader",
+  "Pioneer",
+  "Mariner",
+  "Ranger",
+  "Kestrel",
+  "Lyra",
+  "Orion",
+  "Vega",
+  "Rigel",
+  "Altair",
+  "Sirius",
+  "Corvus",
+  "Compass",
+  "Beacon",
+  "Tempest",
+  "Monsoon",
+  "Zephyr",
+  "Spinnaker",
+  "Halyard",
+  "Capstan",
+  "Fathom",
+  "Leeward",
+  "Windward",
+  "Bearing",
+  "Azimuth",
+  "Sextant",
+  "Astrolabe",
+  "Quadrant",
+  "Bowline",
+  "Jetstream",
+  "Cascade",
+  "Trident",
+  "Nautilus",
+  "Corsair",
+  "Pelican",
+  "Frigate",
+  "Albatross",
+  "Cormorant",
+  "Petrel",
+  "Skua",
+  "Tern",
+  "Gannet",
 ] as const;
 
 const SERVICE_NAMES = [
-  "Pilot", "Tug", "Bunker", "Survey", "Dredger", "Patrol", "Line Boat",
+  "Pilot",
+  "Tug",
+  "Bunker",
+  "Survey",
+  "Dredger",
+  "Patrol",
+  "Line Boat",
 ] as const;
 
-const FLAGS = ["IN", "SG", "PA", "LR", "MT", "HK", "MH", "CY", "AE", "LK"] as const;
+const FLAGS = [
+  "IN",
+  "SG",
+  "PA",
+  "LR",
+  "MT",
+  "HK",
+  "MH",
+  "CY",
+  "AE",
+  "LK",
+] as const;
 
 /* --------------------------------------------------------------- classes -- */
 
@@ -132,7 +205,9 @@ const CUMULATIVE_SHARE = (() => {
     total += VESSEL_CLASSES[key].share;
     out.push([key, total]);
   }
-  return out.map(([key, value]) => [key, value / total] as [VesselClass, number]);
+  return out.map(
+    ([key, value]) => [key, value / total] as [VesselClass, number],
+  );
 })();
 
 function pickClass(random: () => number): VesselClass {
@@ -187,7 +262,14 @@ function buildPortLore(ports: PortSnapshot[]): Map<string, PortLore> {
 /* -------------------------------------------------------------- voyages --- */
 
 /** The state a designed vessel is meant to be in at the replay epoch. */
-type Seat = "transit" | "approach" | "inbound" | "outbound" | "anchored" | "moored" | "service";
+type Seat =
+  | "transit"
+  | "approach"
+  | "inbound"
+  | "outbound"
+  | "anchored"
+  | "moored"
+  | "service";
 
 interface Voyage {
   vessel: Vessel;
@@ -225,7 +307,11 @@ interface Voyage {
 
 function anchoragePoint(lore: PortLore, random: () => number): Position {
   const spread = between(random, -46, 46);
-  const km = between(random, 6, 11 + Math.min(20, lore.anchorageCount * 3.2 + lore.queuePressure * 15));
+  const km = between(
+    random,
+    6,
+    11 + Math.min(20, lore.anchorageCount * 3.2 + lore.queuePressure * 15),
+  );
   const point = destination([lore.lon, lore.lat], lore.seaward + spread, km);
   return nudgeToWater(point[0], point[1]);
 }
@@ -269,11 +355,19 @@ function phaseForSeat(
       return at(legHours * between(random, 0.62, 0.95));
     case "outbound":
       // Recently clear of the home port on the return leg.
-      return at(legHours + stayAtToHours + legHours * between(random, 0.005, 0.2));
+      return at(
+        legHours + stayAtToHours + legHours * between(random, 0.005, 0.2),
+      );
     case "anchored":
-      return at(legHours + stayAtToHours * between(random, 0.02, Math.max(0.05, anchorShare - 0.02)));
+      return at(
+        legHours +
+          stayAtToHours *
+            between(random, 0.02, Math.max(0.05, anchorShare - 0.02)),
+      );
     case "moored":
-      return at(legHours + stayAtToHours * between(random, anchorShare + 0.03, 0.97));
+      return at(
+        legHours + stayAtToHours * between(random, anchorShare + 0.03, 0.97),
+      );
     case "service":
     case "transit":
     default:
@@ -293,9 +387,12 @@ function designVoyage(
   if (!route) return null;
 
   const random = rng(hashSeed(id));
-  const vesselClass = options.forcedClass ?? (seat === "service" ? "service" : pickClass(random));
+  const vesselClass =
+    options.forcedClass ?? (seat === "service" ? "service" : pickClass(random));
   const spec = VESSEL_CLASSES[vesselClass];
-  const serviceSpeedKn = Number(between(random, spec.speedKn[0], spec.speedKn[1]).toFixed(1));
+  const serviceSpeedKn = Number(
+    between(random, spec.speedKn[0], spec.speedKn[1]).toFixed(1),
+  );
   const lengthM = Math.round(between(random, spec.lengthM[0], spec.lengthM[1]));
 
   const operator = pick(random, OPERATORS);
@@ -323,7 +420,10 @@ function designVoyage(
   const anchorLore = toLore ?? fromLore;
   const homeLore = fromLore ?? toLore;
 
-  const digits = hashSeed(`${id}:replay`).toString().padStart(9, "0").slice(0, 8);
+  const digits = hashSeed(`${id}:replay`)
+    .toString()
+    .padStart(9, "0")
+    .slice(0, 8);
 
   return {
     vessel: {
@@ -331,7 +431,10 @@ function designVoyage(
       replayId: `SIM-${digits}`,
       imo: null,
       name,
-      operator: vesselClass === "service" ? `${toLore?.name ?? toId} port services` : `${operator} Lines`,
+      operator:
+        vesselClass === "service"
+          ? `${toLore?.name ?? toId} port services`
+          : `${operator} Lines`,
       callsign: `V${digits.slice(0, 4)}`,
       flag: pick(random, FLAGS),
       vesselClass,
@@ -341,7 +444,12 @@ function designVoyage(
       dwt: Math.round(lengthM * between(random, 180, 420)),
       originId: fromId,
       destinationId: toId,
-      homePortId: WAYPOINTS[toId]?.kind === "port" ? toId : (WAYPOINTS[fromId]?.kind === "port" ? fromId : null),
+      homePortId:
+        WAYPOINTS[toId]?.kind === "port"
+          ? toId
+          : WAYPOINTS[fromId]?.kind === "port"
+            ? fromId
+            : null,
       serviceSpeedKn,
       owned: options.owned === true,
     },
@@ -352,12 +460,28 @@ function designVoyage(
     stayAtToHours,
     stayAtFromHours,
     cycleHours,
-    phase: phaseForSeat(seat, random, legHours, stayAtToHours, stayAtFromHours, cycleHours, anchorShare),
+    phase: phaseForSeat(
+      seat,
+      random,
+      legHours,
+      stayAtToHours,
+      stayAtFromHours,
+      cycleHours,
+      anchorShare,
+    ),
     anchorShare,
-    anchorAt: anchorLore ? anchoragePoint(anchorLore, random) : [route.path.coords[0][0], route.path.coords[0][1]],
-    anchorFrom: homeLore ? anchoragePoint(homeLore, random) : [route.path.coords[0][0], route.path.coords[0][1]],
-    berthAt: anchorLore ? berthPoint(anchorLore, random) : [WAYPOINTS[toId].lon, WAYPOINTS[toId].lat],
-    berthFrom: homeLore ? berthPoint(homeLore, random) : [WAYPOINTS[fromId].lon, WAYPOINTS[fromId].lat],
+    anchorAt: anchorLore
+      ? anchoragePoint(anchorLore, random)
+      : [route.path.coords[0][0], route.path.coords[0][1]],
+    anchorFrom: homeLore
+      ? anchoragePoint(homeLore, random)
+      : [route.path.coords[0][0], route.path.coords[0][1]],
+    berthAt: anchorLore
+      ? berthPoint(anchorLore, random)
+      : [WAYPOINTS[toId].lon, WAYPOINTS[toId].lat],
+    berthFrom: homeLore
+      ? berthPoint(homeLore, random)
+      : [WAYPOINTS[fromId].lon, WAYPOINTS[fromId].lat],
     waits: (toLore?.queuePressure ?? 0) >= 0.42 && random() < 0.66,
     laneKm: between(random, 0.6, 4.2),
     orbit:
@@ -380,7 +504,8 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
 
   if (voyage.orbit) {
     // Harbour craft do not run a passage; they work a sector of the approach.
-    const turns = ((at - epoch) / HOUR_MS) / voyage.orbit.periodHours + voyage.phase;
+    const turns =
+      (at - epoch) / HOUR_MS / voyage.orbit.periodHours + voyage.phase;
     const angle = (turns % 1) * 360;
     const point = nudgeToWater(
       ...destination(voyage.orbit.centre, angle, voyage.orbit.km),
@@ -424,7 +549,11 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
     const fix = fixAt(route.path, along);
     const course = outbound ? fix.course : (fix.course + 180) % 360;
     // Starboard of the centreline, so opposing traffic passes port-to-port.
-    const offset = destination(fix.position, (course + 90) % 360, voyage.laneKm);
+    const offset = destination(
+      fix.position,
+      (course + 90) % 360,
+      voyage.laneKm,
+    );
     const position = isWater(offset[0], offset[1]) ? offset : fix.position;
 
     const remainingKm = route.path.km - travelledKm;
@@ -439,9 +568,14 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
     const sogKn = Number((vessel.serviceSpeedKn * approachFactor).toFixed(1));
 
     const status: NavStatus =
-      remainingKm < APPROACH_KM ? "inbound" : travelledKm < APPROACH_KM ? "outbound" : "underway";
+      remainingKm < APPROACH_KM
+        ? "inbound"
+        : travelledKm < APPROACH_KM
+          ? "outbound"
+          : "underway";
 
-    const hoursOut = remainingKm / Math.max(1, vessel.serviceSpeedKn * KN_TO_KMH);
+    const hoursOut =
+      remainingKm / Math.max(1, vessel.serviceSpeedKn * KN_TO_KMH);
     const destinationId = outbound ? voyage.toId : voyage.fromId;
     const originId = outbound ? voyage.fromId : voyage.toId;
 
@@ -462,7 +596,9 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
       etaMs: at + hoursOut * HOUR_MS,
       etaMinutes: hoursOut * 60,
       etaKind: "arrival",
-      routeKey: outbound ? `${voyage.fromId}>${voyage.toId}` : `${voyage.toId}>${voyage.fromId}`,
+      routeKey: outbound
+        ? `${voyage.fromId}>${voyage.toId}`
+        : `${voyage.toId}>${voyage.fromId}`,
     };
   }
 
@@ -480,11 +616,19 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
 
   // A ship at anchor swings on the tide; a ship alongside does not.
   const swing = anchored
-    ? (Math.sin(((at - epoch) / HOUR_MS) * 0.5 + voyage.phase * 12) * 28 + voyage.phase * 360) % 360
+    ? (Math.sin(((at - epoch) / HOUR_MS) * 0.5 + voyage.phase * 12) * 28 +
+        voyage.phase * 360) %
+      360
     : (voyage.phase * 360 + (WAYPOINTS[portId] ? 0 : 0)) % 360;
 
-  const status: NavStatus = anchored ? (voyage.waits ? "waiting" : "anchored") : "moored";
-  const nextEventHours = anchored ? anchorHours - stayElapsed : stayHours - stayElapsed;
+  const status: NavStatus = anchored
+    ? voyage.waits
+      ? "waiting"
+      : "anchored"
+    : "moored";
+  const nextEventHours = anchored
+    ? anchorHours - stayElapsed
+    : stayHours - stayElapsed;
 
   return {
     ...vessel,
@@ -542,10 +686,33 @@ export interface OwnedVesselSeed {
 function partnersFor(portId: string): string[] {
   const west = ["INMUN", "INIXY", "INNSA", "INBOM", "INMRM", "INNML", "INCOK"];
   const isWest = west.includes(portId);
-  const coastal = isWest ? west : ["INMAA", "INENR", "INVTZ", "INPRT", "INCCU", "INTUT"];
+  const coastal = isWest
+    ? west
+    : ["INMAA", "INENR", "INVTZ", "INPRT", "INCCU", "INTUT"];
   const foreign = isWest
-    ? ["AEJEA", "AEFJR", "HORMUZ", "OMSLL", "SUEZ", "EGPSD", "BAB_EL_MANDEB", "PKKHI", "KEMBA", "MVMLE", "LKCMB"]
-    : ["SGSIN", "MYPKG", "MALACCA", "BDCGP", "MMRGN", "LKCMB", "IDBLW", "AEJEA"];
+    ? [
+        "AEJEA",
+        "AEFJR",
+        "HORMUZ",
+        "OMSLL",
+        "SUEZ",
+        "EGPSD",
+        "BAB_EL_MANDEB",
+        "PKKHI",
+        "KEMBA",
+        "MVMLE",
+        "LKCMB",
+      ]
+    : [
+        "SGSIN",
+        "MYPKG",
+        "MALACCA",
+        "BDCGP",
+        "MMRGN",
+        "LKCMB",
+        "IDBLW",
+        "AEJEA",
+      ];
   return [
     ...coastal.filter((id) => id !== portId),
     ...coastal.filter((id) => id !== portId),
@@ -559,7 +726,8 @@ function seatCounts(lore: PortLore): Record<Seat, number> {
   const calls = lore.calls;
   return {
     moored: Math.min(lore.berths, 4 + Math.round(calls * 0.55)),
-    anchored: 3 + Math.round(lore.anchorageCount * 1.7 + lore.queuePressure * 9),
+    anchored:
+      3 + Math.round(lore.anchorageCount * 1.7 + lore.queuePressure * 9),
     approach: 4 + Math.round(calls * 0.4),
     inbound: 4 + Math.round(calls * 0.7),
     outbound: 3 + Math.round(calls * 0.45),
@@ -584,7 +752,14 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
   for (const port of lore.values()) {
     const partners = partnersFor(port.id);
     const counts = seatCounts(port);
-    const seats: Seat[] = ["moored", "anchored", "approach", "inbound", "outbound", "service"];
+    const seats: Seat[] = [
+      "moored",
+      "anchored",
+      "approach",
+      "inbound",
+      "outbound",
+      "service",
+    ];
     for (const seat of seats) {
       for (let i = 0; i < counts[seat]; i += 1) {
         const id = `${seed}:${port.id}:${seat}:${i}`;
@@ -592,7 +767,9 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
         const partner =
           seat === "service"
             ? partners[0]
-            : partners[Math.floor(random() * partners.length) % partners.length];
+            : partners[
+                Math.floor(random() * partners.length) % partners.length
+              ];
         // The designed seat describes the far end of the leg, so the port under
         // inspection has to be the `to` waypoint.
         add(designVoyage(id, partner, port.id, seat, lore));
@@ -606,9 +783,11 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
   for (let i = 0; i < oceanTarget; i += 1) {
     const id = `${seed}:ocean:${i}`;
     const random = rng(hashSeed(id));
-    const home = portIds[Math.floor(random() * portIds.length) % portIds.length];
+    const home =
+      portIds[Math.floor(random() * portIds.length) % portIds.length];
     const partners = partnersFor(home);
-    const partner = partners[Math.floor(random() * partners.length) % partners.length];
+    const partner =
+      partners[Math.floor(random() * partners.length) % partners.length];
     add(designVoyage(id, home, partner, "transit", lore));
   }
 
@@ -622,13 +801,22 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
         const partners = partnersFor(destinationId).filter(
           (id) => WAYPOINTS[id]?.kind === "gateway",
         );
-        return partners[Math.floor(random() * partners.length) % partners.length];
+        return partners[
+          Math.floor(random() * partners.length) % partners.length
+        ];
       })();
-    const voyage = designVoyage(`own:${own.id}`, originId, destinationId, "transit", lore, {
-      owned: true,
-      name: own.name,
-      forcedClass: own.vesselClass ?? "container",
-    });
+    const voyage = designVoyage(
+      `own:${own.id}`,
+      originId,
+      destinationId,
+      "transit",
+      lore,
+      {
+        owned: true,
+        name: own.name,
+        forcedClass: own.vesselClass ?? "container",
+      },
+    );
     if (!voyage) continue;
 
     // Anchor the phase so the vessel arrives when the routing artefact says it
@@ -659,7 +847,8 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
   return {
     info,
     roster: () => roster,
-    fixes: (at: number) => voyages.map((voyage) => resolve(voyage, at, options.epoch)),
+    fixes: (at: number) =>
+      voyages.map((voyage) => resolve(voyage, at, options.epoch)),
     fix: (id: string, at: number) => {
       const voyage = byId.get(id);
       return voyage ? resolve(voyage, at, options.epoch) : null;
@@ -700,7 +889,11 @@ export function trackAndAhead(
   const route = seaRoute(from, to);
   if (!route) return null;
   return {
-    track: slicePath(route.path, Math.max(0, fix.travelledKm - 900), fix.travelledKm),
+    track: slicePath(
+      route.path,
+      Math.max(0, fix.travelledKm - 900),
+      fix.travelledKm,
+    ),
     ahead: slicePath(route.path, fix.travelledKm, route.path.km),
   };
 }
