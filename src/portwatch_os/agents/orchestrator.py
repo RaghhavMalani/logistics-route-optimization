@@ -80,6 +80,19 @@ class Intent:
 
 INTENTS: Tuple[Intent, ...] = (
     Intent(
+        "decision", "What should this vessel do?",
+        ("decision",),
+        ("what should", "should we do", "should it do", "safest option", "cheapest option",
+         "fastest option", "best option", "best trade-off", "what happens if it keeps",
+         "keeps its current route", "current route", "do nothing", "compare rerouting",
+         "compare reroute", "slow steaming", "avoid the storm", "still make", "what are the options",
+         "which option"),
+        True,
+        "Runs the deterministic decision engine for one hull: every feasible option simulated on its "
+        "own branch, infeasible ones rejected with their constraint, a Pareto frontier and a "
+        "recommendation. The agent explains computed options; it invents none. Ends at the Critic.",
+    ),
+    Intent(
         "fleet_exposure", "Which vessels need intervention?",
         ("global_eye", "fleet", "route"),
         ("which ships", "which vessels", "my fleet", "fleet exposure", "need action",
@@ -279,7 +292,21 @@ class AgentRun:
         dropped -- an agent inventing a subject to fly the camera to would be
         the spatial equivalent of inventing a number.
         """
-        return commands_from_trace(self.calls)
+        commands = commands_from_trace(self.calls)
+        # The decision agent knows which option the question was about --
+        # "what if it keeps its route" focuses the baseline, "safest" the
+        # lowest-risk pick. The command stays grounded in the tool call; only
+        # its focus follows the question.
+        decision = next((r for r in self.results if r.agent == "decision"), None)
+        focus = None if decision is None else decision.data.get("focusOptionId")
+        if focus:
+            commands = [
+                SpatialCommand(kind=c.kind, subject=c.subject, evidence_tool=c.evidence_tool, reason=c.reason,
+                               params={**c.params, "optionId": focus})
+                if c.kind == "SHOW_DECISION" else c
+                for c in commands
+            ]
+        return commands
 
     def to_dict(self, *, include_results: bool = False) -> Dict[str, Any]:
         return {
@@ -436,6 +463,39 @@ class CommandAgent:
         fleet = next((r for r in run.results if r.agent == "fleet"), None)
         routing = next((r for r in run.results if r.agent == "route"), None)
         twin = next((r for r in run.results if r.agent == "port_twin"), None)
+        decision = next((r for r in run.results if r.agent == "decision"), None)
+
+        if intent.key == "decision" and decision is not None:
+            option_id = decision.data.get("recommendationOptionId")
+            options = {o["optionId"]: o for o in decision.data.get("options", [])}
+            chosen = options.get(option_id)
+            if chosen is None:
+                return None, None
+            baseline = next((o for o in options.values() if o.get("isBaseline")), None)
+            impact: Dict[str, float] = {}
+            if baseline and chosen.get("risk") is not None and baseline.get("risk") is not None:
+                impact["riskReduction"] = round(baseline["risk"] - chosen["risk"], 4)
+            if baseline and chosen.get("eta") is not None and baseline.get("eta") is not None:
+                impact["etaHoursSaved"] = round(baseline["eta"] - chosen["eta"], 2)
+            rejected = [{"detail": "; ".join(o["rejectedBy"])} for o in options.values() if o["rejectedBy"]]
+            recommendation = recommendation_from_agents(
+                run.results,
+                kind="decision",
+                subject=decision.data.get("vesselId", request.vessel_id or "unknown"),
+                action=chosen["action"].lower(),
+                values={"optionId": option_id, "eta": chosen.get("eta"), "risk": chosen.get("risk"),
+                        "fuel": chosen.get("fuel")},
+                expected_impact={k: v for k, v in impact.items() if v > 0} or impact,
+                reason=chosen.get("label", ""),
+                evidence={
+                    "alreadyEntered": False,
+                    "hoursToDeadline": next((c.result.get("decisionWindowHours") for c in decision.calls
+                                             if c.ok and isinstance(c.result, dict)), None),
+                    "rejectedActions": rejected,
+                    "decisionId": decision.data.get("decisionId"),
+                },
+            )
+            return recommendation, self.critic.review(recommendation, agent_results=run.results)
 
         if intent.key == "fleet_exposure" and fleet is not None:
             rows: List[Dict[str, Any]] = fleet.data.get("rows", [])

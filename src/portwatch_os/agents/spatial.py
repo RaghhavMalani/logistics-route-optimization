@@ -46,6 +46,9 @@ COMPARE_SCENARIOS = "COMPARE_SCENARIOS"
 SHOW_ATTENTION = "SHOW_ATTENTION"
 #: Drop the current selection and emphasis, returning the world to rest.
 CLEAR_CONTEXT = "CLEAR_CONTEXT"
+#: Open a decision the engine already computed, optionally focused on one
+#: of its options and in comparison mode. The subject is the decision id.
+SHOW_DECISION = "SHOW_DECISION"
 
 COMMANDS: Tuple[str, ...] = (
     FOCUS_EVENT,
@@ -59,6 +62,7 @@ COMMANDS: Tuple[str, ...] = (
     COMPARE_SCENARIOS,
     SHOW_ATTENTION,
     CLEAR_CONTEXT,
+    SHOW_DECISION,
 )
 
 # --------------------------------------------------------------------------
@@ -94,6 +98,9 @@ COMMAND_SAFETY: Dict[str, str] = {
     CLEAR_CONTEXT: UI,
     # Branching the world is a model run, not a camera move.
     COMPARE_SCENARIOS: SIMULATION,
+    # Opening a decision the tool already computed changes what is looked at;
+    # the computation happened in the tool call the command is grounded in.
+    SHOW_DECISION: UI,
 }
 
 
@@ -255,6 +262,28 @@ def commands_from_trace(
                         reason="the most exposed hull in the fleet",
                     ))
 
+        if call.tool == "portwatch.decision.solve":
+            body = call.result if isinstance(call.result, dict) else {}
+            vessel_id = body.get("vesselId")
+            decision_id = body.get("decisionId")
+            if vessel_id:
+                commands.append(SpatialCommand(
+                    kind=FOCUS_VESSEL, subject=str(vessel_id), evidence_tool=call.tool,
+                    reason="the hull the decision is about",
+                ))
+            if body.get("eventId"):
+                commands.append(SpatialCommand(
+                    kind=FOCUS_EVENT, subject=str(body["eventId"]), evidence_tool=call.tool,
+                    reason="the event the options answer",
+                ))
+            if decision_id:
+                recommendation = body.get("recommendation") or {}
+                commands.append(SpatialCommand(
+                    kind=SHOW_DECISION, subject=str(decision_id), evidence_tool=call.tool,
+                    reason="the computed options, drawn on the water",
+                    params={"optionId": recommendation.get("optionId"), "compare": True},
+                ))
+
         if call.tool in ("portwatch.port_twin.simulate", "portwatch.port_twin.state"):
             port = _port_of(call)
             if port:
@@ -310,6 +339,7 @@ __all__ = [
     "SET_TIME",
     "SHOW_ATTENTION",
     "SHOW_CASCADE",
+    "SHOW_DECISION",
     "SHOW_ROUTE",
     "SpatialCommand",
     "SpatialError",

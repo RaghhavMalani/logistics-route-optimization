@@ -740,11 +740,14 @@ class AdvisoryAgent(Agent):
         )
 
 
+from src.portwatch_os.agents.decision_tools import DecisionAgent  # noqa: E402 - after _assemble
+
 SPECIALISTS: Dict[str, type] = {
     cls.name: cls
     for cls in (
         GlobalEyeAgent, WeatherAgent, FleetAgent, PortTwinAgent,
         RouteAgent, CargoAgent, ScenarioAgent, OutcomeReportAgent, AdvisoryAgent,
+        DecisionAgent,
     )
 }
 

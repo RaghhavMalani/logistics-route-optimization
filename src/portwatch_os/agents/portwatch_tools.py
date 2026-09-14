@@ -888,6 +888,11 @@ def build_registry(
         )
         return updated.to_dict()
 
+    # The decision engine. Registered from its own module so the tool and the
+    # specialist that explains it sit together.
+    from src.portwatch_os.agents.decision_tools import register_decision_tools
+
+    register_decision_tools(registry, fleet=fleet, ledger=ledger)
     return registry
 
 
