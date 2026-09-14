@@ -74,6 +74,11 @@ const GETS = [
   "/world/marine?mode=DEMO",
   "/world/ais/tracks?mode=DEMO",
   "/world/entities",
+  // The decision engine's learning surface and the financial basis: both are
+  // read by screens the routes suite opens (/admin/learning, /admin/data).
+  "/decisions/learning",
+  "/finance/basis",
+  "/finance/tariffs",
   ...PORTS.flatMap((code) => [
     `/port-twin/${code}`,
     `/port-twin/${code}/simulate`,

@@ -396,6 +396,13 @@ export function GlobalEyeScreen({
               environment legend, which silently clips the live-consequence
               list -- a collision no overflow check catches, because nothing
               overflows the page.
+
+              The rail itself is capped so the live-consequence list below it
+              always keeps at least 168px: five actionable hulls, each with
+              its effect lines and its "What should we do?" control, are taller
+              than a 768px column, and a rail that takes its full content
+              height pushes the register out of the column entirely. The rail
+              scrolls inside its cap instead.
             */}
             <div className="pointer-events-none absolute bottom-[184px] left-2.5 top-2.5 z-20 flex w-[286px] flex-col gap-2 overflow-hidden">
               <FloatPanel
@@ -407,7 +414,7 @@ export function GlobalEyeScreen({
                   </span>
                 }
                 testId="action-rail"
-                className="pointer-events-auto shrink-0"
+                className="pointer-events-auto max-h-[calc(100%-176px)] min-h-0 shrink"
                 footer={
                   "Ranked by the loss attention can still prevent: consequence × " +
                   "confidence × urgency, cut when no option remains."
@@ -442,7 +449,7 @@ export function GlobalEyeScreen({
                 title="Live consequence"
                 note={<span className="num">{live.length}</span>}
                 testId="cascade-register"
-                className="pointer-events-auto min-h-0 flex-1"
+                className="pointer-events-auto min-h-[168px] flex-1"
               >
                 {live.length === 0 ? (
                   <EmptyNote>

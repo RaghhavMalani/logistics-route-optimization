@@ -62,5 +62,8 @@
   "POST /scenarios/simulate": "scenarios_simulate.json",
   "/advisories": "advisories.json",
   "POST /agents/run": "agents_run.json",
-  "POST /learning/run": "learning_run.json"
+  "POST /learning/run": "learning_run.json",
+  "/decisions/learning": "decisions_learning.json",
+  "/finance/basis": "finance_basis.json",
+  "/finance/tariffs": "finance_tariffs.json"
 }
