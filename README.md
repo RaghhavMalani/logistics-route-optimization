@@ -72,16 +72,19 @@ python -m portwatch.demo start --mode DEMO
 ```
 Signals
   WORLD            READY              clock LIVE; intelligence cached; 12 ports
-  EVENTS           FRESH              age 26 min; source lag 28.5 h; 40 events
-  MARINE           FRESH              age 46 min; 4560 cells
+  EVENTS           FRESH              age 3.7 h; source lag 43.3 h; 40 events
+  MARINE           FRESH              age 29 s; 4560 cells
   AIS              SIMULATED_TRAFFIC  positions are a deterministic replay, not observed AIS ...
-  PORT FORECAST    FRESH              age 7.4 h; source lag 10.3 d; adaptive_ensemble
-  DECISION ENGINE  READY              22 catalogue actions; Critic runs 12 checks
-  MISSION ENGINE   READY              2 missions
+  PORT FORECAST    FRESH              age 3.7 h; source lag 11.2 d; adaptive_ensemble; origin STALE
+  DECISION ENGINE  READY              22 catalogue actions; Critic runs 11 checks
+  MISSION ENGINE   READY              2 missions: Ever Given: the Suez Canal blockage, Mar; Biparjoy: ...
+    events         AVAILABLE          gdelt-events; commercial ALLOWED
+    marine         AVAILABLE          open-meteo-free; commercial PROHIBITED
+    weather        AVAILABLE          open-meteo-free; commercial PROHIBITED
   TERMINAL         READY              http://127.0.0.1:8080
 ```
 
-Sign in as `admin@portwatch.demo` (password `portwatch`) and follow [docs/FLAGSHIP_DEMO.md](docs/FLAGSHIP_DEMO.md): two minutes from an alive world to a revealed outcome, with the timings recorded. `python -m portwatch.demo doctor` validates without starting; `status` asks a running deployment; `stop` ends a detached one. `python scripts/demo_acceptance.py` is the acceptance gate — thirty-nine claims the product makes about itself, checked against its own API; a failed claim fails the gate.
+That run found the marine grid 3.2 hours old — past its policy — refreshed it, and only then said READY; the operator did nothing. Sign in as `admin@portwatch.demo` (password `portwatch`) and follow [docs/FLAGSHIP_DEMO.md](docs/FLAGSHIP_DEMO.md): two minutes from an alive world to a revealed outcome, with every beat's timing recorded from a real run, and the failure demo — AIS refused, no charter rate, no marine grid — in the product's own words. `python -m portwatch.demo doctor` validates without starting; `status` asks a running deployment; `stop` ends a detached one. `python scripts/demo_acceptance.py` is the acceptance gate — thirty-nine claims the product makes about itself, checked against its own API; a failed claim fails the gate.
 
 Other ways in: `docker compose up --build`, or `uvicorn backend.app.main:app --port 8000` with `PORTWATCH_LICENCE_MODE` set and `npm run dev` in the terminal. The API listens on `$PORT` when a host sets one.
 
@@ -94,6 +97,8 @@ Other ways in: `docker compose up --build`, or `uvicorn backend.app.main:app --p
 | Does it survive attack? | `tests/test_adversarial_decisions.py` — fifteen attacks (no route, every berth taken, missing weather, stale AIS, contested identity, unknown money, lapsed tariffs, no FX, exhausted capacity, closed windows, a world that moved) that must degrade or refuse with a written reason |
 | Is time handled honestly? | `tests/test_world_clock.py` — one WorldClock in four modes, every temporal subsystem proven to read it, and a source scan that refuses any other wall-clock read |
 | Does it stay current on its own? | `tests/test_freshness.py` — the coordinator's SLA, lead, dedupe, last-known-good, bounded backoff and dependency invalidation, each with a test |
+| Does the two-minute demo run as a buyer would see it? | [docs/FLAGSHIP_DEMO.md](docs/FLAGSHIP_DEMO.md#the-recorded-run) — every beat driven by `qa/executive-demo.mjs` against the running stack, no mock and no manual refresh, with the time each took; screenshots in [docs/qa/executive-demo/](docs/qa/executive-demo/) |
+| What does it say when a signal is not there? | `scripts/demo_failure.py` — AIS credential refused, no charter rate, no marine grid and the provider unreachable; the product's own words, and a non-zero exit if it ever substitutes or zeroes |
 | What does it look like? | [docs/qa/productization/](docs/qa/productization/) — every workflow at 1920×1080, 1440×900 and 1366×768 |
 
 ## Documentation

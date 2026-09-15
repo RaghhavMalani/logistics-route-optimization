@@ -511,10 +511,18 @@ def notes_for(results: Dict[str, Any]) -> List[str]:
     out.append(f"- The large-fanout cascade over {big} hulls reaches {fan[big]['reached']} nodes in "
                f"{fan[big]['wallMs']['median']} ms; the cascade is bounded by the graph it can reach, not by the fleet.")
     api = results["api"]
-    slow = sorted(api.items(), key=lambda kv: kv[1]["p95Ms"], reverse=True)[:2]
-    for route, row in slow:
-        out.append(f"- `{route}` is the slowest route at p95 {row['p95Ms']} ms ({row['payloadBytes']:,} B); "
-                   "it is served from the versioned live world, so repeated calls at one revision reuse the build.")
+    posts = {r: row for r, row in api.items() if r.startswith("POST")}
+    gets = {r: row for r, row in api.items() if not r.startswith("POST")}
+    if posts:
+        route, row = max(posts.items(), key=lambda kv: kv[1]["p95Ms"])
+        out.append(f"- `{route}` is the slowest call at p95 {row['p95Ms']} ms ({row['payloadBytes']:,} B); "
+                   "it computes a decision problem, simulating every option on its own branch.")
+    if gets:
+        route, row = max(gets.items(), key=lambda kv: kv[1]["p95Ms"])
+        out.append(f"- `{route}` is the slowest read at p95 {row['p95Ms']} ms ({row['payloadBytes']:,} B); "
+                   "reads are served from the versioned live world, so repeated calls at one revision reuse the build.")
+    out.append("- Timings move with host load: the previous publication of this page, taken while a browser suite "
+               "ran on the same machine, was three to five times slower on every row. Compare runs on an idle host.")
     out.append("- Decision problems, scenarios and the Critic are all under the interactive budget on this machine; "
                "the pipeline (minutes) is the only slow path and it runs out of process under the freshness coordinator.")
     return out

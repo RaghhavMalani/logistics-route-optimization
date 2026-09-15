@@ -263,6 +263,19 @@ def validate(
         else:
             report.checks.append(Check("traffic_honesty", PASS, f"{traffic['mode']}: {traffic.get('statement', '')}",
                                        facts={"mode": traffic["mode"], "providerId": traffic.get("providerId")}))
+        # Honest is not the same as working. A configured live provider that
+        # delivers nothing is a broken feed: a refused credential is a
+        # configuration error the operator must fix before the deployment is
+        # ready; a socket that has not delivered yet is worth a warning.
+        if traffic["mode"] == "UNAVAILABLE" and health.get("health") == "AUTH_FAILED":
+            report.checks.append(Check("traffic_feed", FAIL,
+                                       f"the configured AIS credential was refused: {health.get('lastError')}",
+                                       facts={"health": health.get("health")}))
+        elif traffic["mode"] == "UNAVAILABLE" and environ.get("AISSTREAM_API_KEY"):
+            report.checks.append(Check("traffic_feed", WARN,
+                                       f"a live AIS provider is configured and delivering nothing "
+                                       f"({health.get('health')}); the chart shows no traffic until it does",
+                                       required=False, facts={"health": health.get("health")}))
     except Exception as exc:  # noqa: BLE001 - a crash here is a failed check, not a crashed validator
         report.checks.append(Check("traffic_honesty", FAIL, f"could not determine the traffic mode: {exc}"))
 
@@ -286,7 +299,10 @@ def validate(
             coordinator = install_product_jobs(get_coordinator())
         status = coordinator.status()
         by_name = {row["artifact"]: row for row in status["artifacts"]}
-        for artifact, must_exist in (("port_forecast", True), ("events", True), ("marine", False)):
+        # The marine grid must exist wherever the mode requires the marine
+        # capability; a research deployment may run without one.
+        marine_required = MARINE in rules["required_capabilities"]
+        for artifact, must_exist in (("port_forecast", True), ("events", True), ("marine", marine_required)):
             row = by_name.get(artifact)
             if row is None:
                 continue

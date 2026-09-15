@@ -399,5 +399,67 @@ class AdminRoutesTests(unittest.TestCase):
             self.assertIn("credentials", commercial["refusals"])
 
 
+class DeploymentValidatorTests(unittest.TestCase):
+    """The validator refuses a misleading configuration and a broken feed."""
+
+    def _validate(self, mode, env, traffic):
+        from unittest.mock import patch
+
+        from src.portwatch_os.deployment import validate
+
+        with patch("src.portwatch_os.fabric.ais_mode", return_value=traffic):
+            return validate(mode=mode, env=env)
+
+    def test_an_unstated_licence_mode_is_refused(self):
+        from src.portwatch_os.deployment import resolve_mode
+
+        mode, source, problem = resolve_mode(None, env={})
+        self.assertEqual((mode, source), ("COMMERCIAL", "default"))
+        self.assertIsNotNone(problem)
+
+    def test_a_refused_ais_credential_fails_readiness(self):
+        report = self._validate("RESEARCH", {"PORTWATCH_LICENCE_MODE": "RESEARCH", "AISSTREAM_API_KEY": "refused"}, {
+            "mode": "UNAVAILABLE", "providerId": None,
+            "statement": "AISStream refused the configured credential",
+            "health": {"health": "AUTH_FAILED", "lastError": "invalid key; check AISSTREAM_API_KEY.",
+                       "lastGoodObservationAt": None},
+        })
+        by_name = {c.name: c for c in report.checks}
+        self.assertEqual(by_name["traffic_honesty"].status, "PASS")
+        self.assertEqual(by_name["traffic_feed"].status, "FAIL")
+        self.assertIn("refused", by_name["traffic_feed"].detail)
+        self.assertFalse(report.ready)
+        self.assertIn("traffic_feed", [c.name for c in report.refusals])
+
+    def test_a_configured_feed_that_has_delivered_nothing_warns(self):
+        report = self._validate("RESEARCH", {"PORTWATCH_LICENCE_MODE": "RESEARCH", "AISSTREAM_API_KEY": "k"}, {
+            "mode": "UNAVAILABLE", "providerId": None,
+            "statement": "a live provider is configured and no valid observation has arrived yet",
+            "health": {"health": "DISCONNECTED", "lastError": None, "lastGoodObservationAt": None},
+        })
+        by_name = {c.name: c for c in report.checks}
+        self.assertEqual(by_name["traffic_feed"].status, "WARN")
+        self.assertNotIn("traffic_feed", [c.name for c in report.refusals])
+
+    def test_the_chosen_replay_raises_no_feed_check(self):
+        report = self._validate("DEMO", {"PORTWATCH_LICENCE_MODE": "DEMO"}, {
+            "mode": "SIMULATED_TRAFFIC", "providerId": "ais-replay",
+            "statement": "positions are a deterministic replay",
+            "health": {"health": "DISCONNECTED", "lastError": None, "lastGoodObservationAt": None},
+        })
+        names = {c.name for c in report.checks}
+        self.assertIn("traffic_honesty", names)
+        self.assertNotIn("traffic_feed", names)
+
+    def test_live_without_an_observation_is_a_lie_and_fails(self):
+        report = self._validate("RESEARCH", {"PORTWATCH_LICENCE_MODE": "RESEARCH", "AISSTREAM_API_KEY": "k"}, {
+            "mode": "LIVE_AIS", "providerId": "aisstream", "statement": "claimed",
+            "health": {"health": "LIVE", "lastError": None, "lastGoodObservationAt": None},
+        })
+        by_name = {c.name: c for c in report.checks}
+        self.assertEqual(by_name["traffic_honesty"].status, "FAIL")
+        self.assertFalse(report.ready)
+
+
 if __name__ == "__main__":
     unittest.main()

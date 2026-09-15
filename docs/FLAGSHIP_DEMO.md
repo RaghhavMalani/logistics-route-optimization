@@ -15,18 +15,24 @@ of the things you show.
 ## Before you start
 
 ```bash
-python run_award_demo.py --source portwatch --model ensemble --refresh   # fresh events (~2 min)
-python scripts/demo_acceptance.py                                        # 28 claims, none failing
-uvicorn backend.app.main:app --port 8000                                 # terminal 1
-cd india-portwatch-terminal && npm run dev                               # terminal 2
+python -m portwatch.demo start --mode DEMO
 ```
 
-`PORTWATCH_LICENCE_MODE=DEMO`. The register's claims lapse about three days
-after the refresh; if the action rail shows nothing marked ACT SOON, refresh
-again. Sign in as `admin@portwatch.demo` (National Command). Have
-`port@portwatch.demo` in a second tab.
+One command. It validates the environment and refuses a configuration that
+would mislead, asks the freshness coordinator which artefact has lapsed and
+refreshes it (the event register every six hours, the marine grid every hour,
+the pipeline export daily — nobody runs `run_award_demo.py --refresh` by hand
+any more), starts the API and the terminal, verifies both, and prints the
+mode every signal is actually in. The demo starts when the last line reads
+`TERMINAL READY`. If the register shows nothing marked ACT SOON, the claims
+have lapsed and the coordinator is already refreshing; `python -m
+portwatch.demo status` says where it is.
 
----
+Sign in as `admin@portwatch.demo` (National Command) at the URL the command
+prints. Have `port@portwatch.demo` in a second tab.
+
+`python scripts/demo_acceptance.py` before a buyer sees it: thirty-nine
+claims, none failing.
 
 ## 00:00–00:20 — Sense and understand
 
@@ -136,6 +142,130 @@ Press **Choose this option**, then **Reveal outcome**.
 
 ---
 
+## The recorded run
+
+`node qa/executive-demo.mjs` (in `india-portwatch-terminal/`) drives every
+beat above against the running stack exactly as a buyer would — a seeded
+sign-in, then clicks; no API mocked, nothing refreshed by hand, the devtools
+closed — and records how long each beat took to reach. The talk track fills
+the two minutes; the product itself is on screen inside ten seconds of machine
+time. Recorded 15 September 2026, Chromium on the GPU at 1920×1080, licence
+mode DEMO, world clock LIVE:
+
+| Beat | Reached at | Took | What was on screen |
+|---|---:|---:|---|
+| Global Eye opens with the chart drawn | 1.9 s | 1.84 s | the world, drawn |
+| The live register lists corroborated events | 2.5 s | 0.13 s | 6 cascades |
+| The action rail ranks what needs intervention | 2.8 s | 0.09 s | 5 items, 2 with a decision open |
+| **What should we do?** — the decision computed | 3.4 s | 0.48 s | 4 options on the table, 5 not offered with a reason |
+| Compare — every option's world on the chart | 5.3 s | 1.73 s* | option A selected, B and the current plan drawn |
+| Frontier | 5.5 s | 0.04 s | 4 evaluated points |
+| Why | 5.6 s | 0.04 s | 12 Critic checks |
+| Money | 5.8 s | 0.06 s | 5 cost components, "unknown" ten times |
+| Re-price with the operator's assumptions | 6.2 s | 0.33 s | 4 components priced as labelled assumptions; JNPA's public tariff cited |
+| Decide — mark reviewed | 6.7 s | 0.33 s | |
+| Approve the recommended option | 7.2 s | 0.34 s | *Slow to 10.2 kn and hold clear of BAB_EL_MANDEB* |
+| Hand into the advisory boundary | 7.4 s | 0.12 s | 1 DRAFT advisory |
+| Mission — the clock reads March 2021 | 8.1 s | 0.61 s | 2021-03-23 08:00Z; 9 observations hidden until reveal |
+| Decide on the illustrative hull | 8.4 s | 0.20 s | |
+| Choose this option | 8.7 s | 0.15 s | |
+| Reveal the outcome — the scorecard | 8.9 s | 0.11 s | regret 31.1 h against the realised best; ranking incorrect |
+
+\* 1.4 s of that is the script's own pauses so the chart can be seen redrawing.
+Total 9.0 s; zero page errors. The screenshots of each beat and the JSON the
+table is built from are in [qa/executive-demo/](qa/executive-demo/).
+
+Headless Chromium renders WebGL in software and can run the chart at two or
+three frames a second, which makes every click wait for the map to settle;
+the same run took 31–157 s headless. That is the test browser, not the
+product — `PW_HEADED=1` is the buyer's browser — and it is why CI's browser
+suite is a regression suite, not a timing.
+
+## The failure demo
+
+Three things a buyer will ask about, made to fail for real, on throwaway API
+instances with the configuration a real deployment could have. No timestamp
+is edited and nothing is mocked. `python scripts/demo_failure.py` reproduces
+it and exits non-zero if the product ever substitutes or zeroes. Recorded
+15 September 2026:
+
+**1. AIS unavailable** — `PORTWATCH_LICENCE_MODE=RESEARCH` with an AISStream
+credential the service refuses.
+
+```
+/fabric/health traffic.mode      UNAVAILABLE
+/fabric/health traffic.statement AISStream refused the configured credential
+/fabric/health traffic.health    AUTH_FAILED -- the connection closed immediately after
+                                 subscribing 3 times in a row with nothing delivered. That is
+                                 how AISStream rejects an invalid key; check AISSTREAM_API_KEY.
+/security/lens status            SECURITY ANALYTICS UNAVAILABLE
+/security/lens reason            no observed AIS is available (AISStream refused the configured credential)
+/admin/readiness ready           False
+/admin/readiness refusal         traffic_feed
+/attention                       traffic UNAVAILABLE; observed 0; 16 vessel subjects, source ['FLEET']
+```
+
+The chart shows no traffic and does not fall back to the replay. The
+attention queue still ranks the company's own registered fleet by its
+*planned* passages — the operator's own declarations, labelled `FLEET`,
+never as observed. Readiness refuses: a configured credential the provider
+rejects is a broken deployment, not merely an honest one (the `traffic_feed`
+check was added by this demo; before it, readiness passed).
+
+**2. Financial rate missing** — the default: no charter rate is configured.
+
+```
+/finance/basis rates             19 configured, 0 of them a charter rate
+/finance/basis note              No default rate exists. A primitive with no configured rate
+                                 prices nothing, and every figure built on it is reported as unknown.
+option: Slow to 10.2 kn and hold clear of BAB_EL_MANDEB
+total                            None; complete False
+Cost of delay                    UNKNOWN  no vessel charter rate is configured for INNSA
+Fuel difference                  UNKNOWN  no fuel burn rate is configured for *
+Cost of action                   ZERO     the option incurs no direct charge
+Port dues at destination         UNKNOWN  the hull declares no gross tonnage, so per-GRT dues
+                                          cannot be computed; supply one as a scenario assumption
+Cargo impact                     UNKNOWN  no consignment is linked to this hull in the world graph
+```
+
+Zero appears once, with its reason (the option incurs no charge). There is no
+total. The Money tab shows the same rows and offers the assumption form, and
+a figure entered there is labelled ASSUMPTION on every number it touches.
+
+**3. Marine grid missing and the provider unreachable** — DEMO mode, no grid
+ever fetched, the fetch routed through a closed port.
+
+```
+/admin/freshness marine.state    MISSING -- no grid fetched yet
+/admin/readiness ready           False
+/admin/readiness freshness:marine FAIL: Marine forecast grid (Open-Meteo) has never been produced
+POST /admin/freshness/marine/refresh?wait=true   outcome started
+job state / attempts / next      RETRY_SCHEDULED / 1 / 2026-09-15T08:43:06+00:00
+last result                      ok=False attempt 1 -- RuntimeError: URLError: <urlopen error
+                                 [WinError 10061] No connection could be made ...>
+/admin/freshness marine after    MISSING; observedAt None
+/fabric/health marine            freshness UNAVAILABLE; availability UNAVAILABLE
+decision on PWD-003 computed; 4 options
+recommended option weather       available False; value None; confidence None;
+                                 no marine forecast grid is available to this deployment
+option critic                    PASS_WITH_WARNINGS
+critic weather_confidence        FAILED -- no marine forecast grid is available to this deployment
+```
+
+The refresh fails in the open with the provider's error, the next attempt has
+an instant, no observation timestamp is invented, readiness refuses (a
+required capability with no data has never been produced — this check was
+also tightened by the demo), and the decision still computes with the weather
+objective marked unavailable and the Critic saying so, rather than a
+confidence of zero passed off as a measurement.
+
+Marine *stale* rather than missing is the more common case, and it is what the
+start command met on 15 September: `[FAIL] freshness:marine  Marine forecast
+grid (Open-Meteo) is STALE (3.2 h old); the world built from it would be
+empty` → `marine  refreshing  was stale, 3.2 h old` → `marine  refreshed
+{"cells": 4560, "points": 38}` → `MARINE  FRESH  age 29 s`. The operator did
+nothing.
+
 ## The questions you will be asked
 
 **"Did an LLM produce those numbers?"** No. The Copilot orchestrates and
@@ -166,8 +296,9 @@ one. Nothing operational the sources do not state has been reconstructed.
 
 ## If something breaks mid-demo
 
-- **No ACT SOON items:** the register lapsed; `python run_award_demo.py
-  --source portwatch --model ensemble --refresh`, then reload.
+- **No ACT SOON items:** the register lapsed and the coordinator is
+  refreshing it (System → Freshness shows the job; *Refresh* there asks for
+  it now). Reload when the row reads FRESH.
 - **The chart shows INITIALISING:** the pane was hidden while the map loaded;
   reload the tab with it visible.
 - **The mission says "no observation is visible at the replay clock":** press

@@ -1,0 +1,177 @@
+{
+  "recordedAt": "2026-09-15T08:33:10.205Z",
+  "viewport": "1920x1080",
+  "browser": "chromium headed (GPU)",
+  "stack": {
+    "licenceMode": {
+      "mode": "DEMO",
+      "source": "env",
+      "stated": true,
+      "warning": null
+    },
+    "worldClock": {
+      "mode": "LIVE",
+      "now": "2026-09-15T08:33:01+00:00",
+      "wallNow": "2026-09-15T08:33:01+00:00",
+      "anchor": null,
+      "setAt": null,
+      "rate": null,
+      "frozen": false,
+      "setBy": "system",
+      "reason": "",
+      "subject": {},
+      "offsetFromWallSeconds": 0,
+      "pinned": false,
+      "changes": 0
+    },
+    "serverTimeUtc": "2026-09-15T08:33:01.190518+00:00"
+  },
+  "totalMs": 9024,
+  "pageErrors": [],
+  "beats": [
+    {
+      "name": "Global Eye opens with the chart drawn",
+      "ok": true,
+      "tookMs": 1836,
+      "sinceLastMs": 1856,
+      "sinceStartMs": 1856,
+      "detail": "",
+      "screenshot": "01-global-eye-opens-with-the-chart-drawn.png"
+    },
+    {
+      "name": "The live register lists corroborated events",
+      "ok": true,
+      "tookMs": 130,
+      "sinceLastMs": 642,
+      "sinceStartMs": 2498,
+      "detail": "6 cascades",
+      "screenshot": "02-the-live-register-lists-corroborated-events.png"
+    },
+    {
+      "name": "The action rail ranks what needs intervention",
+      "ok": true,
+      "tookMs": 91,
+      "sinceLastMs": 272,
+      "sinceStartMs": 2770,
+      "detail": "5 items, 2 with a decision open",
+      "screenshot": "03-the-action-rail-ranks-what-needs-intervention.png"
+    },
+    {
+      "name": "What should we do? — the decision computed",
+      "ok": true,
+      "tookMs": 481,
+      "sinceLastMs": 658,
+      "sinceStartMs": 3428,
+      "detail": "4 options on the table, 5 not offered with a reason",
+      "screenshot": "04-what-should-we-do-the-decision-computed.png"
+    },
+    {
+      "name": "Compare — every option's world on the chart",
+      "ok": true,
+      "tookMs": 1734,
+      "sinceLastMs": 1893,
+      "sinceStartMs": 5321,
+      "detail": "selected A",
+      "screenshot": "05-compare-every-option-s-world-on-the-chart.png"
+    },
+    {
+      "name": "Frontier — filled nondominated, hollow named",
+      "ok": true,
+      "tookMs": 37,
+      "sinceLastMs": 148,
+      "sinceStartMs": 5469,
+      "detail": "4 evaluated points",
+      "screenshot": "06-frontier-filled-nondominated-hollow-named.png"
+    },
+    {
+      "name": "Why — the Critic names what it read",
+      "ok": true,
+      "tookMs": 42,
+      "sinceLastMs": 138,
+      "sinceStartMs": 5607,
+      "detail": "12 checks",
+      "screenshot": "07-why-the-critic-names-what-it-read.png"
+    },
+    {
+      "name": "Money — unknown is never zero",
+      "ok": true,
+      "tookMs": 62,
+      "sinceLastMs": 174,
+      "sinceStartMs": 5781,
+      "detail": "5 cost components, \"unknown\" appears 10 times",
+      "screenshot": "08-money-unknown-is-never-zero.png"
+    },
+    {
+      "name": "Re-price with the operator's own assumptions",
+      "ok": true,
+      "tookMs": 333,
+      "sinceLastMs": 454,
+      "sinceStartMs": 6235,
+      "detail": "4 components now priced as labelled assumptions; a public tariff cited",
+      "screenshot": "09-re-price-with-the-operator-s-own-assumptions.png"
+    },
+    {
+      "name": "Decide — mark reviewed",
+      "ok": true,
+      "tookMs": 331,
+      "sinceLastMs": 466,
+      "sinceStartMs": 6701,
+      "detail": "",
+      "screenshot": "10-decide-mark-reviewed.png"
+    },
+    {
+      "name": "Approve the recommended option",
+      "ok": true,
+      "tookMs": 343,
+      "sinceLastMs": 454,
+      "sinceStartMs": 7155,
+      "detail": "Approve Slow to 10.2 kn and hold clear of BAB_EL_MANDEB",
+      "screenshot": "11-approve-the-recommended-option.png"
+    },
+    {
+      "name": "Hand into the advisory boundary (DRAFT)",
+      "ok": true,
+      "tookMs": 123,
+      "sinceLastMs": 227,
+      "sinceStartMs": 7382,
+      "detail": "1 DRAFT advisory",
+      "screenshot": "12-hand-into-the-advisory-boundary-draft-.png"
+    },
+    {
+      "name": "Mission — the clock reads March 2021",
+      "ok": true,
+      "tookMs": 606,
+      "sinceLastMs": 712,
+      "sinceStartMs": 8094,
+      "detail": "2021-03-23 08:00Z; 9 hidden until reveal",
+      "screenshot": "13-mission-the-clock-reads-march-2021.png"
+    },
+    {
+      "name": "Decide on the illustrative hull",
+      "ok": true,
+      "tookMs": 199,
+      "sinceLastMs": 310,
+      "sinceStartMs": 8404,
+      "detail": "",
+      "screenshot": "14-decide-on-the-illustrative-hull.png"
+    },
+    {
+      "name": "Choose this option",
+      "ok": true,
+      "tookMs": 155,
+      "sinceLastMs": 274,
+      "sinceStartMs": 8678,
+      "detail": "",
+      "screenshot": "15-choose-this-option.png"
+    },
+    {
+      "name": "Reveal the outcome — the scorecard",
+      "ok": true,
+      "tookMs": 111,
+      "sinceLastMs": 233,
+      "sinceStartMs": 8911,
+      "detail": "31.1 h against the realised best (Continue current plan) · ranking incorrect · another option better: yes",
+      "screenshot": "16-reveal-the-outcome-the-scorecard.png"
+    }
+  ]
+}
