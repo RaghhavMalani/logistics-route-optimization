@@ -10,8 +10,12 @@ not served by any route, which is the property the whole surface exists for.
 
 from __future__ import annotations
 
+import math
 import threading
 from datetime import timedelta
+
+#: The furthest a replay may be sought from its mission's start, either way.
+MAX_SEEK_HOURS = 24.0 * 366
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
@@ -113,8 +117,11 @@ def seek_replay(mission_id: str, payload: Dict[str, Any] = Body(...)) -> Dict[st
         if payload.get("clock"):
             replay.seek(_at(str(payload["clock"])))
         else:
-            replay.seek(replay.mission.start + timedelta(hours=float(payload.get("offsetHours") or 0.0)))
-    except (MissionError, ValueError) as exc:
+            offset = float(payload.get("offsetHours") or 0.0)
+            if not math.isfinite(offset) or abs(offset) > MAX_SEEK_HOURS:
+                raise ValueError(f"offsetHours must be a finite number within +/-{MAX_SEEK_HOURS:.0f} h of the mission start")
+            replay.seek(replay.mission.start + timedelta(hours=offset))
+    except (MissionError, ValueError, TypeError, OverflowError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return replay.to_dict()
 

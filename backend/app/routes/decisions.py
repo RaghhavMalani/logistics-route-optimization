@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
+from backend.app.identity import Identity, identity_from_headers, may_see_decision, resolve_role
 from backend.app.routes.world import _at, _event_or_404, _mode, _scope, _world_build
 from src.portwatch_os.decision.actions import CATALOGUE, SHIFT_ARRIVAL_SLOT
 from src.portwatch_os.decision.critic import DecisionCritic
@@ -69,6 +70,46 @@ def _require_actor_name(actor: Optional[str]) -> str:
                    "signed-in operator's name.",
         )
     return actor
+
+
+def _identity(role: Optional[str], actor: Optional[str], port_code: Optional[str], organisation: Optional[str],
+              vessel_ids: Optional[str]) -> Identity:
+    return identity_from_headers(role, actor, port_code, organisation, vessel_ids)
+
+
+def _visible_or_403(problem: DecisionProblem, identity: Identity) -> DecisionProblem:
+    """A decision is read and moved only by the people it belongs to."""
+    if not may_see_decision(identity, problem.actor.to_dict(),
+                            {"type": problem.subject_type, "id": problem.subject_id}, problem.domain):
+        raise HTTPException(
+            status_code=403,
+            detail=f"decision {problem.decision_id} is held by {problem.actor.role}"
+                   + (f" ({problem.actor.organisation})" if problem.actor.organisation else "")
+                   + (f" at {problem.actor.port_code}" if problem.actor.port_code else "")
+                   + f"; {identity.role} may not read or move it",
+        )
+    return problem
+
+
+def _domain_allowed_or_403(domain: str, identity: Identity) -> None:
+    """Which domains a role may hold a decision in, from the action catalogue."""
+    from src.portwatch_os.decision.actions import ADVISING_ACTORS, for_domain
+
+    key = {"vessel": VESSEL_ROUTING, "port": PORT_BERTHING, "cargo": "CARGO_CONNECTION"}.get(domain)
+    if key is None:
+        return
+    # Holding a decision means holding its baseline: the actor the domain's
+    # "change nothing" action belongs to, plus the advisers the builders map
+    # onto the executing actor (executing_actor_for).
+    holders = set()
+    for spec in for_domain(key):
+        if spec.baseline:
+            holders.update(spec.actors)
+    if key in (VESSEL_ROUTING, "CARGO_CONNECTION"):
+        holders.update(ADVISING_ACTORS)
+    if identity.role not in holders:
+        raise HTTPException(status_code=403,
+                            detail=f"a {domain} decision is held by {', '.join(sorted(holders))}; not by {identity.role}")
 
 
 def _problem_or_404(engine: DecisionEngine, decision_id: str) -> DecisionProblem:
@@ -145,9 +186,14 @@ def _basis_with_assumptions(engine: DecisionEngine, rows: List[Dict[str, Any]], 
     for schedule in engine.basis.schedules:
         basis._schedules.append(schedule)  # noqa: SLF001 - same package family
     for row in rows:
+        if not isinstance(row, dict):
+            raise HTTPException(status_code=400, detail="assumptions must be objects of primitive, value, currency")
+        value = row.get("value")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise HTTPException(status_code=400, detail=f"assumption rejected: {row.get('primitive')} value must be a JSON number")
         try:
             basis.add(cost_assumption(
-                str(row.get("primitive")), float(row.get("value")), str(row.get("currency") or "USD"),
+                str(row.get("primitive")), float(value), str(row.get("currency") or "USD"),
                 entered_by=actor, purpose=str(row.get("purpose") or "scenario"),
                 scope=str(row.get("scope") or "*"), note=str(row.get("note") or ""),
             ))
@@ -203,6 +249,7 @@ def create_problem(
     domain = str(payload.get("domain") or "vessel").lower()
     moment = _at(payload.get("at"))
     actor = _actor(role, organisation, header_port, vessel_ids)
+    _domain_allowed_or_403(domain, _identity(role, actor_name, header_port, organisation, vessel_ids))
     basis = _basis_with_assumptions(engine, payload.get("assumptions") or [], actor_name or "operator")
     mode = payload.get("mode")
 
@@ -375,33 +422,57 @@ def _cargo_problem(engine, payload, actor, moment, basis, mode, header_port) -> 
 
 
 @router.get("/decisions/problems")
-def list_problems(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
-    """This process's problems first, then the ledger's from before it started."""
+def list_problems(
+    limit: int = Query(20, ge=1, le=100),
+    actor_name: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
+    vessel_ids: Optional[str] = Header(None, alias="X-PortWatch-Vessels"),
+) -> Dict[str, Any]:
+    """This process's problems first, then the ledger's from before it started;
+    only the ones the caller may see."""
+    identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
     engine = get_engine()
-    rows = [p.to_dict(include_options=False) for p in engine.all()]
+    rows = [p.to_dict(include_options=False) for p in engine.all()
+            if may_see_decision(identity, p.actor.to_dict(), {"type": p.subject_type, "id": p.subject_id}, p.domain)]
     rows.reverse()
-    held = {r["decisionId"] for r in rows}
+    held = {r["decisionId"] for r in rows} | {p.decision_id for p in engine.all()}
     restored = 0
     if engine.ledger is not None:
         for record in engine.ledger.decision_problems(limit=limit):
             if record.problem_id in held:
                 continue
             body = _from_ledger(engine, record.problem_id) or {}
+            if not may_see_decision(identity, body.get("actor") or {}, body.get("subject") or {}, str(body.get("domain") or "")):
+                continue
             body.pop("options", None)
             rows.append(body)
             restored += 1
-    return {"problems": rows[:limit], "total": len(rows), "restoredFromLedger": restored}
+    return {"problems": rows[:limit], "total": len(rows), "restoredFromLedger": restored,
+            "scope": identity.to_dict()}
 
 
 @router.get("/decisions/problems/{decision_id}")
-def get_problem(decision_id: str) -> Dict[str, Any]:
+def get_problem(
+    decision_id: str,
+    actor_name: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
+    vessel_ids: Optional[str] = Header(None, alias="X-PortWatch-Vessels"),
+) -> Dict[str, Any]:
+    identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
     engine = get_engine()
     problem = engine.get(decision_id)
     if problem is not None:
-        return problem.to_dict()
+        return _visible_or_403(problem, identity).to_dict()
     restored = _from_ledger(engine, decision_id)
     if restored is None:
         raise HTTPException(status_code=404, detail=f"no decision {decision_id} in this process or its ledger")
+    if not may_see_decision(identity, restored.get("actor") or {}, restored.get("subject") or {},
+                            str(restored.get("domain") or "")):
+        raise HTTPException(status_code=403, detail=f"decision {decision_id} is not held by {identity.role}")
     return restored
 
 
@@ -410,12 +481,17 @@ def transition_problem(
     decision_id: str,
     payload: Dict[str, Any] = Body(...),
     actor_name: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
+    vessel_ids: Optional[str] = Header(None, alias="X-PortWatch-Vessels"),
 ) -> Dict[str, Any]:
     """One workflow step, attributed. APPROVED needs ``optionId``."""
     engine = get_engine()
     name = _require_actor_name(actor_name)
     target = str(payload.get("target") or "").upper()
-    held = _problem_or_404(engine, decision_id)
+    held = _visible_or_403(_problem_or_404(engine, decision_id),
+                           _identity(role, actor_name, header_port, organisation, vessel_ids))
     current_revision = None
     if target == APPROVED and held.world_revision.get("mode") not in (None, "REPLAY"):
         # The live world's revision now, so an approval on a world that has
@@ -467,7 +543,8 @@ def handoff_problem(
 
     engine = get_engine()
     name = _require_actor_name(actor_name)
-    problem = _problem_or_404(engine, decision_id)
+    problem = _visible_or_403(_problem_or_404(engine, decision_id),
+                              _identity(role, actor_name, header_port, organisation, None))
     if problem.workflow != APPROVED:
         raise HTTPException(status_code=400, detail=f"a decision is handed off once APPROVED; {decision_id} is {problem.workflow}")
     option = problem.option(problem.human_choice or "")
@@ -480,8 +557,9 @@ def handoff_problem(
                    "outcome with /outcome once observed.",
         )
 
-    acting = principal_from_request(name, role, header_port, organisation, None,
-                                    is_admin=(admin or "").lower() in ("1", "true", "yes"))
+    # Administrator standing follows the role; the X-PortWatch-Admin flag is
+    # not honoured (backend.app.identity).
+    acting = principal_from_request(name, role, header_port, organisation, None)
     if acting.role != ISSUER:
         raise HTTPException(
             status_code=403,
@@ -587,10 +665,16 @@ def record_outcome(
     decision_id: str,
     payload: Dict[str, Any] = Body(...),
     actor_name: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+    header_port: Optional[str] = Header(None, alias="X-PortWatch-Port"),
+    organisation: Optional[str] = Header(None, alias="X-PortWatch-Org"),
+    vessel_ids: Optional[str] = Header(None, alias="X-PortWatch-Vessels"),
 ) -> Dict[str, Any]:
     """What actually happened. Resolves the ledger rows; nothing is rewritten."""
     engine = get_engine()
     name = _require_actor_name(actor_name)
+    _visible_or_403(_problem_or_404(engine, decision_id),
+                    _identity(role, actor_name, header_port, organisation, vessel_ids))
     observed = payload.get("observed") or {}
     if not isinstance(observed, dict):
         raise HTTPException(status_code=400, detail="observed must be an object of objective -> value")
@@ -605,11 +689,16 @@ def record_outcome(
 
 
 @router.get("/decisions/learning")
-def decision_learning(domain: Optional[str] = Query(None)) -> Dict[str, Any]:
-    """Did the recommendations help? Scored from the ledger alone."""
+def decision_learning(
+    domain: Optional[str] = Query(None),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
+) -> Dict[str, Any]:
+    """Did the recommendations help? Scored from the ledger alone. The ledger
+    holds every tenant's decisions, so the score is National Command's."""
     from src.portwatch_os.decision.learning import score_history
     from src.portwatch_os.ledger.store import get_ledger
 
+    resolve_role(role, admin_surface=True)
     rows = get_ledger().decision_problems(domain=domain)
     return score_history(rows)
 

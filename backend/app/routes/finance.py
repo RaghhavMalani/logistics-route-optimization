@@ -26,6 +26,15 @@ from src.portwatch_os.finance.tariffs import investigation, load_public_tariffs
 router = APIRouter()
 
 
+def _number(payload: Dict[str, Any], key: str) -> float:
+    """A JSON number, or a 400. A boolean, a string or a list is not a figure
+    anyone typed into a rate field, and float() would quietly make one of it."""
+    value = payload.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise HTTPException(status_code=400, detail=f"{key} must be a JSON number")
+    return float(value)
+
+
 @router.get("/finance/basis")
 def finance_basis(
     at: Optional[str] = Query(None),
@@ -62,8 +71,18 @@ def finance_tariffs() -> Dict[str, Any]:
 def add_assumption(
     payload: Dict[str, Any] = Body(...),
     actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+    role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
 ) -> Dict[str, Any]:
-    """An operator's scenario rate. Named, dated, labelled ASSUMPTION."""
+    """An operator's scenario rate. Named, dated, labelled ASSUMPTION.
+
+    This basis prices every decision the process computes, for every tenant,
+    so it is National Command's to set. A carrier prices its own scenario by
+    sending ``assumptions`` with the decision request; those stay on that
+    problem.
+    """
+    from backend.app.identity import resolve_role
+
+    resolve_role(role, admin_surface=True)
     if not actor:
         raise HTTPException(status_code=401, detail="an assumption must be entered by a named actor (X-PortWatch-Actor)")
     primitive = str(payload.get("primitive") or "")
@@ -71,7 +90,7 @@ def add_assumption(
         raise HTTPException(status_code=400, detail=f"unknown primitive {primitive}; known: {', '.join(PRIMITIVES)}")
     try:
         rate = cost_assumption(
-            primitive, float(payload.get("value")), str(payload.get("currency") or "USD"),
+            primitive, _number(payload, "value"), str(payload.get("currency") or "USD"),
             entered_by=actor, purpose=str(payload.get("purpose") or "scenario"),
             scope=str(payload.get("scope") or "*"), note=str(payload.get("note") or ""),
         )
@@ -117,7 +136,11 @@ def add_observation(
 
 
 @router.post("/finance/assumptions/clear")
-def clear_assumptions(actor: Optional[str] = Header(None, alias="X-PortWatch-Actor")) -> Dict[str, Any]:
+def clear_assumptions(actor: Optional[str] = Header(None, alias="X-PortWatch-Actor"),
+                      role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    from backend.app.identity import resolve_role
+
+    resolve_role(role, admin_surface=True)
     if not actor:
         raise HTTPException(status_code=401, detail="name the actor clearing the assumptions")
     engine = get_engine()
@@ -141,7 +164,7 @@ def add_fx(
     try:
         observation = FxObservation(
             base=str(payload.get("base") or ""), quote=str(payload.get("quote") or ""),
-            rate=float(payload.get("rate")), observed_at=str(payload.get("observedAt") or ""),
+            rate=_number(payload, "rate"), observed_at=str(payload.get("observedAt") or ""),
             source=str(payload.get("source") or ""),
             source_type=str(payload.get("sourceType") or "MARKET_DATA"),
             provenance={"enteredBy": actor, **(payload.get("provenance") or {})},

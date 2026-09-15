@@ -21,6 +21,7 @@ uses, so an attention queue cannot become a way around advisory scoping.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -37,12 +38,7 @@ from src.portwatch_os.clock import (
     get_clock,
 )
 from src.portwatch_os.attention.model import AttentionItem
-from src.portwatch_os.roles import (
-    DEFAULT_ROLE,
-    NATIONAL_ADMIN,
-    WORKSPACE_ROLES,
-    is_workspace_role,
-)
+from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.portwatch_os.world.build import build_world, seed_for
 from src.portwatch_os.world.cascade import Cascade, narrate, propagate
 from src.portwatch_os.world.graph import (
@@ -64,6 +60,9 @@ router = APIRouter()
 #: mostly lapsed, so a longer horizon would return an emptying world and imply
 #: a confidence the graph does not have.
 MAX_HORIZON_HOURS = 168.0
+#: Bounds on list-shaped inputs, so a request cannot ask for a million projections.
+MAX_OFFSETS = 64
+MAX_WAYPOINTS = 500
 
 #: The offsets the timeline transport offers. Named here so the API and the
 #: control agree on what "+24h" means without the frontend inventing its own.
@@ -76,18 +75,16 @@ PROJECTION_OFFSETS: tuple[float, ...] = (0.0, 3.0, 6.0, 12.0, 24.0, 48.0, 72.0)
 
 
 def _scope(role: Optional[str]) -> str:
-    if not role:
-        return DEFAULT_ROLE
-    normalised = role.strip().upper()
-    if not is_workspace_role(normalised):
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                f"'{role}' is not a workspace role. Send X-PortWatch-Role with one "
-                f"of: {', '.join(WORKSPACE_ROLES)}."
-            ),
-        )
-    return normalised
+    """The workspace role a request acts as; see ``backend.app.identity``."""
+    from backend.app.identity import resolve_role
+
+    return resolve_role(role)
+
+
+#: The instants the world can be queried at. Wide enough for every mission
+#: and every projection; narrow enough that no timedelta arithmetic overflows.
+INSTANT_FLOOR = datetime(1990, 1, 1, tzinfo=timezone.utc)
+INSTANT_CEILING = datetime(2100, 1, 1, tzinfo=timezone.utc)
 
 
 def _at(at: Optional[str]) -> datetime:
@@ -98,6 +95,8 @@ def _at(at: Optional[str]) -> datetime:
     # percent-encode it, which most do. Tolerate it rather than 400 an
     # otherwise well-formed instant.
     normalised = at.strip().replace(" ", "+").replace("Z", "+00:00")
+    if len(normalised) > 40:
+        raise HTTPException(status_code=400, detail="an instant is at most 40 characters of ISO-8601.")
     try:
         parsed = datetime.fromisoformat(normalised)
     except ValueError:
@@ -105,7 +104,16 @@ def _at(at: Optional[str]) -> datetime:
             status_code=400,
             detail=f"'{at}' is not an ISO-8601 instant.",
         )
-    return utc(parsed)
+    moment = utc(parsed)
+    # Projections add hours to this instant; a date at the edge of the
+    # calendar overflows the arithmetic and the world has nothing to say
+    # about the year 9999 anyway.
+    if not (INSTANT_FLOOR <= moment <= INSTANT_CEILING):
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{at}' is outside the instants the world can be queried at ({INSTANT_FLOOR.year}-{INSTANT_CEILING.year}).",
+        )
+    return moment
 
 
 # --------------------------------------------------------------------------
@@ -295,9 +303,10 @@ def set_world_clock(
     role: Optional[str] = Header(None, alias="X-PortWatch-Role"),
 ) -> Dict[str, Any]:
     """Move the process clock. National Command only; every change is attributed."""
-    scope = _scope(role)
-    if scope != NATIONAL_ADMIN:
-        raise HTTPException(status_code=403, detail="only National Command may move the world clock")
+    from backend.app.identity import resolve_role
+
+    # An administration surface: the role must be present and national.
+    scope = resolve_role(role, admin_surface=True)
     if not actor:
         raise HTTPException(status_code=401, detail="a clock change must name its actor (X-PortWatch-Actor)")
     mode = str(payload.get("mode") or "").strip().upper()
@@ -482,10 +491,14 @@ def simulate_cascade(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="eventId is required.")
 
     offsets = payload.get("offsets") or list(PROJECTION_OFFSETS)
+    if not isinstance(offsets, list) or len(offsets) > MAX_OFFSETS:
+        raise HTTPException(status_code=400, detail=f"offsets must be a list of at most {MAX_OFFSETS} numbers.")
     try:
         hours = sorted({float(o) for o in offsets})
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="offsets must be numbers.")
+    if any(not math.isfinite(h) for h in hours):
+        raise HTTPException(status_code=400, detail="offsets must be finite numbers.")
     if any(h < 0 or h > MAX_HORIZON_HOURS for h in hours):
         raise HTTPException(
             status_code=400,
@@ -952,19 +965,23 @@ def route_exposure(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     from src.portwatch_os.world.route_exposure import sample_route
 
     raw = payload.get("waypoints") or []
+    if not isinstance(raw, list) or len(raw) > MAX_WAYPOINTS:
+        raise HTTPException(status_code=400, detail=f"waypoints must be a list of at most {MAX_WAYPOINTS} [lat, lon] pairs.")
     try:
         waypoints = [(float(p[0]), float(p[1])) for p in raw]
-    except (TypeError, ValueError, IndexError):
+    except (TypeError, ValueError, IndexError, KeyError):
         raise HTTPException(status_code=400, detail="waypoints must be a list of [lat, lon] pairs.")
     if len(waypoints) < 2:
         raise HTTPException(status_code=400, detail="at least two waypoints are required.")
+    if any(not (math.isfinite(lat) and math.isfinite(lon)) for lat, lon in waypoints):
+        raise HTTPException(status_code=400, detail="a waypoint is not a finite coordinate.")
     if any(abs(lat) > 90 or abs(lon) > 180 for lat, lon in waypoints):
         raise HTTPException(status_code=400, detail="a waypoint is out of range.")
     try:
         speed = float(payload.get("speedKn") or 12.0)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="speedKn must be a number.")
-    if not 0.5 <= speed <= 40.0:
+    if not math.isfinite(speed) or not 0.5 <= speed <= 40.0:
         raise HTTPException(status_code=400, detail="speedKn must lie between 0.5 and 40.")
     departs = _at(payload.get("departsAt"))
 

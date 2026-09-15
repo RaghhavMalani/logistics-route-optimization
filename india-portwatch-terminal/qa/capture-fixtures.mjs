@@ -117,7 +117,12 @@ const POSTS = [
 
 const manifest = {};
 for (const route of GETS) {
-  const response = await fetch(BASE + route, { headers: { Accept: "application/json" } });
+  // Administration and learning routes need the operator's identity; the
+  // recorder captures them as national command, which is what the admin
+  // workspace sends.
+  const response = await fetch(BASE + route, {
+    headers: { Accept: "application/json", "X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "fixtures" },
+  });
   if (!response.ok) {
     console.warn(`skip ${route}: ${response.status}`);
     continue;

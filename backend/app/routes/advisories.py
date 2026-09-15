@@ -58,7 +58,13 @@ def principal_from_request(
     vessel_ids: Optional[str],
     is_admin: bool = False,
 ) -> Principal:
-    """Build the acting principal. The seam a real token verifier replaces."""
+    """Build the acting principal. The seam a real token verifier replaces.
+
+    Administrator standing follows the role alone: national command holds it,
+    nobody else does, and the ``is_admin`` argument callers used to pass from
+    the ``X-PortWatch-Admin`` header is ignored (``backend.app.identity``).
+    """
+    is_admin = False
     if not actor:
         raise HTTPException(
             status_code=401,
@@ -121,6 +127,7 @@ def advisory_policy() -> Dict[str, Any]:
             "navigation and an advisory is never an instruction.",
         ],
         "identity": {
+            **__import__("backend.app.identity", fromlist=["describe"]).describe(),
             "source": "request headers set by the terminal from its session",
             "verified": False,
             "note": (

@@ -22,6 +22,7 @@ and dimensions, which is all it needs to be trusted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -180,8 +181,9 @@ class FxObservation:
     def __post_init__(self) -> None:
         object.__setattr__(self, "base", _currency(self.base))
         object.__setattr__(self, "quote", _currency(self.quote))
-        if self.rate <= 0:
-            raise ValueError("an exchange rate must be positive")
+        if isinstance(self.rate, bool) or not isinstance(self.rate, (int, float)) or not math.isfinite(self.rate) \
+                or self.rate <= 0:
+            raise ValueError("an exchange rate must be a finite positive number")
         if not self.source:
             raise ValueError("an FX observation must name its source")
 

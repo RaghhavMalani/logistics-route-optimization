@@ -23,7 +23,6 @@ from fastapi import APIRouter, Header, HTTPException, Query
 
 from backend.app.routes.world import _scope
 from src.portwatch_os.clock import get_clock
-from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.portwatch_os.telemetry import get_telemetry
 
 router = APIRouter()
@@ -33,10 +32,10 @@ SECRET_ENV = ("AISSTREAM_API_KEY", "OPEN_METEO_API_KEY", "DATABASE_URL", "KAFKA_
 
 
 def _admin(role: Optional[str]) -> str:
-    scope = _scope(role)
-    if scope != NATIONAL_ADMIN:
-        raise HTTPException(status_code=403, detail="administration surfaces are National Command only")
-    return scope
+    """National command, stated: a missing role is a refusal here, never a default."""
+    from backend.app.identity import resolve_role
+
+    return resolve_role(role, admin_surface=True)
 
 
 def _coordinator():

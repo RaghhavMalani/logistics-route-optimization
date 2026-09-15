@@ -358,6 +358,29 @@ def validate(
     except Exception as exc:  # noqa: BLE001
         report.checks.append(Check("freshness", FAIL, f"the freshness coordinator could not report: {exc}"))
 
+    # -- identity ---------------------------------------------------------------------
+    # Headers are believed as sent; the mode says whether a missing role is
+    # defaulted (a demo behind the terminal) or refused (behind a proxy that
+    # sets the headers from a verified session). A production licence mode
+    # on the demo default is a warning: the licence says one thing and the
+    # identity says another.
+    try:
+        from backend.app.identity import ASSERTED, describe as describe_identity
+
+        identity = describe_identity()
+        if identity["mode"] == ASSERTED and active in (COMMERCIAL, GOVERNMENT):
+            report.checks.append(Check(
+                "identity_mode", WARN,
+                f"identity is asserted from request headers with no verifier and a missing role defaults to "
+                f"national command; a {active} deployment should run PORTWATCH_IDENTITY_MODE=required behind an "
+                "authenticating proxy that sets the headers", required=False, facts=identity,
+            ))
+        else:
+            report.checks.append(Check("identity_mode", PASS, f"{identity['mode']}: {identity['statement']}",
+                                       facts=identity))
+    except Exception as exc:  # noqa: BLE001
+        report.checks.append(Check("identity_mode", FAIL, f"the identity mode could not be read: {exc}"))
+
     # -- the clock ----------------------------------------------------------------------
     clock = get_clock().describe()
     if clock["mode"] != LIVE:

@@ -125,6 +125,33 @@ async def _storage_failures(request: Request, exc: Exception):
     raise exc
 
 
+#: Routes a request may reach with no identity even when identity is required:
+#: liveness, the policy statements that say what this deployment verifies, and
+#: the API's own description.
+IDENTITY_EXEMPT = ("/api/health", "/api/provenance", "/api/advisories/policy", "/", "/docs", "/openapi.json", "/redoc")
+
+
+@app.middleware("http")
+async def _identity_gate(request: Request, call_next):
+    """In ``required`` identity mode, no role means no API.
+
+    Route-level checks scope what a role may do; this is the door. It keeps a
+    deployment behind an authenticating proxy from serving anything to a
+    request the proxy did not stamp, whichever route it asked for.
+    """
+    from backend.app.identity import REQUIRED, identity_mode
+
+    path = request.url.path
+    if identity_mode() == REQUIRED and path.startswith("/api/") and path not in IDENTITY_EXEMPT             and request.method != "OPTIONS" and not (request.headers.get("x-portwatch-role") or "").strip():
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=401, content={
+            "detail": "this deployment requires an identity on every request: send X-PortWatch-Role "
+                      "(set by the authenticating proxy from the signed-in session)",
+        })
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def _telemetry(request: Request, call_next):
     """Latency and error counts per route, for the diagnostics page.

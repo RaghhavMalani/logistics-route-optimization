@@ -343,15 +343,21 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(coverage["berth_hire_grt_hour"]["available"])
         self.assertFalse(coverage["charter_day"]["available"])
         self.assertIn("no vessel charter rate", coverage["charter_day"]["reason"])
+        admin = {"X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "national.desk"}
+        # The process-wide basis prices every tenant's decisions: national command sets it.
         r = self.client.post("/api/finance/assumptions",
                              json={"primitive": "charter_day", "value": 41000, "currency": "USD"}, headers=self.company)
+        self.assertEqual(r.status_code, 403)
+        r = self.client.post("/api/finance/assumptions",
+                             json={"primitive": "charter_day", "value": 41000, "currency": "USD"}, headers=admin)
         self.assertEqual(r.json()["label"], "ASSUMPTION")
         r = self.client.post("/api/finance/assumptions", json={"primitive": "charter_day", "value": 1})
         self.assertEqual(r.status_code, 401)
         r = self.client.get("/api/finance/tariffs")
         self.assertEqual({s["scheduleId"] for s in r.json()["schedules"]},
                          {"jnpa-sor-2026-27", "chpa-indexed-sor-2025-26"})
-        self.client.post("/api/finance/assumptions/clear", headers=self.company)
+        self.assertEqual(self.client.post("/api/finance/assumptions/clear", headers=self.company).status_code, 403)
+        self.client.post("/api/finance/assumptions/clear", headers=admin)
 
     def test_mission_routes_keep_the_future_hidden(self):
         r = self.client.post("/api/missions/suez-ever-given-2021/replay", json={})
@@ -373,7 +379,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(card["selected"], "keep_plan")
         self.assertIsNotNone(card["happened"]["reopenedAt"])
         self.assertEqual(self.client.get("/api/missions/suez-ever-given-2021/outcome").status_code, 200)
-        r = self.client.get("/api/decisions/learning")
+        self.assertEqual(self.client.get("/api/decisions/learning", headers=self.company).status_code, 403)
+        r = self.client.get("/api/decisions/learning", headers={"X-PortWatch-Role": "NATIONAL_ADMIN"})
         self.assertTrue(r.json()["available"])
 
 

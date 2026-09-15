@@ -28,6 +28,8 @@ label travels with every figure so the two are never confused.
 from __future__ import annotations
 
 import json
+import math
+import re
 from pathlib import Path
 
 from dataclasses import dataclass, field
@@ -141,6 +143,19 @@ class CostRate:
             raise ValueError(f"{self.primitive!r} is not a cost primitive this basis knows")
         if self.source_type not in SOURCE_TYPES:
             raise ValueError(f"{self.source_type!r} is not a cost source type")
+        # A rate is a finite, positive amount of money in a named currency.
+        # NaN, infinity, zero and negatives are not figures anyone charges,
+        # and a rate that priced a decision with them would be a number
+        # nobody could evaluate.
+        if isinstance(self.value, bool) or not isinstance(self.value, (int, float)):
+            raise ValueError(f"{self.primitive}: a rate must be a number")
+        if not math.isfinite(self.value) or self.value <= 0:
+            raise ValueError(f"{self.primitive}: a rate must be a finite positive figure, not {self.value!r}")
+        if not re.fullmatch(r"[A-Z]{3}", str(self.currency or "")):
+            raise ValueError(f"{self.currency!r} is not an ISO-4217 currency code")
+        for tier in (self.tier_min_grt, self.tier_max_grt, self.tier_base_amount):
+            if tier is not None and (not isinstance(tier, (int, float)) or not math.isfinite(tier) or tier < 0):
+                raise ValueError(f"{self.primitive}: a tier bound must be a finite non-negative figure")
         expected = PRIMITIVES[self.primitive].per
         if self.unit != expected:
             raise ValueError(
