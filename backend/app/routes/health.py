@@ -33,6 +33,18 @@ def _intelligence_state(age_seconds: int | None) -> str:
     return "stale"
 
 
+def _licence_mode() -> dict:
+    from src.portwatch_os.deployment import resolve_mode
+
+    mode, source, problem = resolve_mode(None)
+    return {
+        "mode": mode,
+        "source": source,
+        "stated": source != "default",
+        "warning": problem,
+    }
+
+
 @router.get("/health")
 def health_check() -> dict:
     now = wall_now()  # wall-clock: serverTimeUtc is the server's own time
@@ -67,6 +79,9 @@ def health_check() -> dict:
         # The world's own clock: LIVE reads the wall; a replay, mission or
         # scenario reads its anchor and says how far from the wall it sits.
         "worldClock": get_clock().describe(),
+        # The licence mode in force and whether anyone stated it. A default is
+        # reported as a default: the most restrictive mode, chosen by nobody.
+        "licenceMode": _licence_mode(),
         "intelligence": _intelligence_state(export_age),
         "cacheAgeSeconds": export_age,
         "lastRefreshUtc": status.get("exportedAt"),

@@ -45,10 +45,19 @@ async def lifespan(_: FastAPI):
     PORTWATCH_FRESHNESS_SCHEDULER=0 to run without the scheduler (tests, the
     benchmark), in which case every artifact still reports its real age.
     """
+    import logging
+
+    from src.portwatch_os.deployment import resolve_mode
     from src.portwatch_os.fabric.ais.client import start_client, stop_client
     from src.portwatch_os.freshness import get_coordinator
     from src.portwatch_os.freshness.jobs import install_product_jobs
 
+    log = logging.getLogger("portwatch.startup")
+    mode, source, problem = resolve_mode(None)
+    if problem:
+        log.warning("licence mode %s by default: %s", mode, problem)
+    else:
+        log.info("licence mode %s (%s)", mode, source)
     start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")

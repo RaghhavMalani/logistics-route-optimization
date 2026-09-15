@@ -2,8 +2,16 @@
 #
 # One image serves three roles, selected by the command:
 #   pipeline   python run_award_demo.py --source portwatch
-#   api        uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+#   api        the default command: uvicorn on $PORT (8000 unless the host sets it)
 #   refresher  python scripts/live_refresh.py --interval-minutes 30
+#
+# The API listens on the PORT the host hands it. Vercel, Cloud Run, Railway
+# and Fly all route to $PORT and give up on a container that listens on a
+# hardcoded 8000; docker compose sets nothing and gets the default.
+#
+# Set PORTWATCH_LICENCE_MODE in the host's environment. Without it the API
+# runs in COMMERCIAL, the most restrictive mode, and says so on /api/health;
+# the demo needs DEMO.
 #
 # The deep-learning stack is not installed here: the adaptive ensemble runs on
 # probabilistic persistence plus the GBM quantile model without it, which keeps
@@ -39,9 +47,10 @@ COPY run_award_demo.py run_demo.py ./
 RUN mkdir -p outputs/expert_features outputs/regimes outputs/forecasts \
              outputs/analytics data/cache
 
+ENV PORT=8000
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:8000/api/health || exit 1
+    CMD curl -fsS http://localhost:${PORT}/api/health || exit 1
 
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
