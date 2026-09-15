@@ -26,6 +26,7 @@ fresh the consequence is, in the same terms as everything else.
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -49,6 +50,13 @@ class Revision:
     events_stamp: str
     fleet_stamp: str
     observed_generation: int
+
+    @property
+    def fingerprint(self) -> str:
+        """A short digest of the whole revision, so two can be compared after the
+        stamps have been shortened for display."""
+        raw = f"{self.mode}|{self.company_id}|{self.events_stamp}|{self.fleet_stamp}|{self.observed_generation}"
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
 
     def differs_only_in_observations(self, other: "Revision") -> bool:
         return (

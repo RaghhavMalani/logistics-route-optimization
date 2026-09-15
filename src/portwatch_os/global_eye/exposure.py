@@ -317,6 +317,10 @@ class VesselVoyage:
     observed_at: Optional[str] = None
     mmsi: Optional[str] = None
     imo: Optional[str] = None
+    #: Identity conflicts the fusion engine recorded on this hull: claims
+    #: about who it is that disagreed. Carried so a decision on the hull
+    #: can say its subject is contested, never silently resolved.
+    identity_conflicts: int = 0
     canonical_id: Optional[str] = None
     #: False when the name is a placeholder because no static report was heard.
     name_stated: bool = True

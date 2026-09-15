@@ -186,10 +186,13 @@ class MissionReplay:
             raise MissionError(f"no decision has been made for {vessel_id} on this replay")
         from src.portwatch_os.decision.model import APPROVED, REVIEWED
 
-        if problem.workflow == "COMPUTED":
-            self.engine.transition(problem.decision_id, REVIEWED, actor=actor, note="mission replay review")
-        self.engine.transition(problem.decision_id, APPROVED, actor=actor, option_id=option_id,
-                               note="mission replay choice")
+        # The choice is made at the replay clock: the decision window is judged
+        # against the mission's instant, never the wall's.
+        with self.pinned():
+            if problem.workflow == "COMPUTED":
+                self.engine.transition(problem.decision_id, REVIEWED, actor=actor, note="mission replay review")
+            self.engine.transition(problem.decision_id, APPROVED, actor=actor, option_id=option_id,
+                                   note="mission replay choice")
         self.choices[vessel_id] = option_id
         return problem
 

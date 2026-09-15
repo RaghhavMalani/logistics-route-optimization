@@ -362,13 +362,29 @@ def transition_problem(
     engine = get_engine()
     name = _require_actor_name(actor_name)
     target = str(payload.get("target") or "").upper()
+    held = _problem_or_404(engine, decision_id)
+    current_revision = None
+    if target == APPROVED and held.world_revision.get("mode") not in (None, "REPLAY"):
+        # The live world's revision now, so an approval on a world that has
+        # moved on is refused unless acknowledged.
+        try:
+            build, _events = _world_build(payload.get("companyId"), mode=held.world_revision.get("mode"))
+            current_revision = {
+                "mode": build.revision.mode, "eventsStamp": build.revision.events_stamp[:48],
+                "fleetStamp": build.revision.fleet_stamp[:48],
+                "observedGeneration": build.revision.observed_generation,
+                "fingerprint": build.revision.fingerprint,
+            }
+        except HTTPException:
+            current_revision = None
     try:
         problem = engine.transition(
             decision_id, target, actor=name, note=str(payload.get("note") or ""),
-            option_id=payload.get("optionId"),
+            option_id=payload.get("optionId"), current_revision=current_revision,
+            acknowledge_moved_world=bool(payload.get("acknowledgeMovedWorld")),
         )
     except DecisionError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=409 if "moved on" in str(exc) else 400, detail=str(exc))
     return problem.to_dict()
 
 

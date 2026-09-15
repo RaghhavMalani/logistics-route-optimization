@@ -236,6 +236,7 @@ def place_hull(hull: CanonicalVessel, *, now: Optional[datetime] = None) -> Opti
         lon=float(lon),
         observed_at=held.observed_at.isoformat(),
         mmsi=hull.mmsis[0] if hull.mmsis else None,
+        identity_conflicts=len(getattr(hull, "conflicts", []) or []),
         imo=hull.imo,
         canonical_id=hull.canonical_id,
         name_stated=hull.name is not None,

@@ -368,7 +368,7 @@ class WorkflowAndLedgerTests(unittest.TestCase):
         self.assertEqual(row.options_evaluated, len(problem.options))
         computed = row.problem
         engine.transition(problem.decision_id, REVIEWED, actor="ops")
-        engine.transition(problem.decision_id, APPROVED, actor="ops", option_id="keep_plan")
+        engine.transition(problem.decision_id, APPROVED, actor="ops", option_id="keep_plan", now=NOW)
         row = self.ledger.get_decision_problem(problem.decision_id)
         self.assertEqual(row.workflow, "APPROVED")
         self.assertEqual(row.human_choice, "keep_plan")
@@ -387,7 +387,7 @@ class WorkflowAndLedgerTests(unittest.TestCase):
         engine, problem = solve("PWD-001", ledger=self.ledger)
         recommended = problem.recommendation.option_id
         engine.transition(problem.decision_id, REVIEWED, actor="ops")
-        engine.transition(problem.decision_id, APPROVED, actor="ops", option_id=recommended)
+        engine.transition(problem.decision_id, APPROVED, actor="ops", option_id=recommended, now=NOW)
         predicted = problem.option(recommended).measure("eta").value
         engine.record_outcome(problem.decision_id, actor="ops", actual_action="SLOW_STEAM",
                               observed={"eta": predicted + 3.0, "incident": 0,

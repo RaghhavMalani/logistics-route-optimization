@@ -79,6 +79,50 @@ FRONTIER_DEFAULTS: Dict[str, tuple] = {
 }
 
 
+def deadline_passed(problem: DecisionProblem, now: datetime) -> Optional[str]:
+    """Why an approval now is late, or None while the window is open."""
+    if not problem.decision_deadline:
+        return None
+    try:
+        deadline = datetime.fromisoformat(str(problem.decision_deadline).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    if now <= deadline:
+        return None
+    late = (now - deadline).total_seconds() / 3600.0
+    return f"{late:.1f} h after the last instant the recommended option could still be taken"
+
+
+def revision_moved(computed_on: Dict[str, Any], current: Optional[Dict[str, Any]]) -> Optional[str]:
+    """What changed between the world a problem was computed on and the world now.
+
+    ``None`` when nothing did, or when there is nothing to compare against.
+    A replayed world never moves: its revision is the mission's clock.
+    """
+    if not current or not computed_on:
+        return None
+    if computed_on.get("mode") == "REPLAY" or current.get("mode") == "REPLAY":
+        return None
+    mine, theirs = computed_on.get("fingerprint"), current.get("fingerprint")
+    if mine and theirs:
+        if mine == theirs:
+            return None
+    elif all(computed_on.get(k) == current.get(k) for k in ("mode", "eventsStamp", "fleetStamp", "observedGeneration")):
+        return None
+    changed = []
+    if computed_on.get("eventsStamp") != current.get("eventsStamp"):
+        changed.append("the event register changed")
+    if computed_on.get("fleetStamp") != current.get("fleetStamp"):
+        changed.append("the fleet changed")
+    if computed_on.get("observedGeneration") != current.get("observedGeneration"):
+        changed.append("observed hulls moved")
+    if computed_on.get("mode") != current.get("mode"):
+        changed.append("the licence mode changed")
+    return "; ".join(changed) or "the world revision differs"
+
+
 def decision_id_for(domain: str, subject_id: str, at: datetime, salt: str = "") -> str:
     digest = hashlib.sha1(f"{domain}|{subject_id}|{at.isoformat()}|{salt}".encode("utf-8")).hexdigest()[:10]
     short = {VESSEL_ROUTING: "vsl", PORT_BERTHING: "prt", CARGO_CONNECTION: "cgo"}.get(domain, "dec")
@@ -293,8 +337,18 @@ class DecisionEngine:
         note: str = "",
         option_id: Optional[str] = None,
         now: Optional[datetime] = None,
+        current_revision: Optional[Dict[str, Any]] = None,
+        acknowledge_moved_world: bool = False,
     ) -> DecisionProblem:
-        """Move a problem one workflow step, attributed and validated."""
+        """Move a problem one workflow step, attributed and validated.
+
+        Approval is the step that carries a human choice, so it is the step
+        that checks the world is still the one the figures were computed on.
+        Pass ``current_revision`` (the live world's revision summary) and an
+        approval on a moved-on world is refused unless the approver
+        acknowledges it explicitly, in which case the acknowledgement is in
+        the history with both revisions.
+        """
         if target not in WORKFLOW_STATES:
             raise DecisionError(f"{target!r} is not a workflow state")
         if not actor:
@@ -319,12 +373,31 @@ class DecisionEngine:
                     f"{option_id} was rejected ({'; '.join(c.detail for c in option.rejected_by) or 'by the Critic'}); "
                     "a rejected option cannot be approved"
                 )
+            closed = deadline_passed(problem, now or utc())
+            if closed and not acknowledge_moved_world:
+                raise DecisionError(
+                    f"the decision window for {decision_id} closed at {problem.decision_deadline}: {closed}; "
+                    "recompute the problem, or approve with acknowledgeMovedWorld to record that the option was "
+                    "chosen after its window"
+                )
+            moved = revision_moved(problem.world_revision, current_revision)
+            if moved and not acknowledge_moved_world:
+                raise DecisionError(
+                    f"the observed world has moved on since {decision_id} was computed "
+                    f"(revision {problem.world_revision.get('fingerprint')} -> {current_revision.get('fingerprint')}: "
+                    f"{moved}); recompute the problem, or approve with acknowledgeMovedWorld to record that the "
+                    "figures are from the earlier world"
+                )
             problem.human_choice = option_id
         moment = now or utc()
         problem.workflow = target
         problem.workflow_history.append({
             "at": moment.isoformat(timespec="seconds"), "state": target, "actor": actor,
             "note": note, "optionId": option_id,
+            **({"movedWorldAcknowledged": True, "computedOn": dict(problem.world_revision),
+                "approvedOn": dict(current_revision or {})}
+               if target == APPROVED and current_revision is not None
+               and revision_moved(problem.world_revision, current_revision) else {}),
         })
         self._record(problem)
         return problem

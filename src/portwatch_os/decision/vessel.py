@@ -965,6 +965,7 @@ def build_vessel_problem(
             "mode": state.revision.mode, "eventsStamp": state.revision.events_stamp[:48],
             "fleetStamp": state.revision.fleet_stamp[:48],
             "observedGeneration": state.revision.observed_generation,
+            "fingerprint": state.revision.fingerprint,
         },
         world_state_id=state.state_id,
         subject_type=VESSEL, subject_id=vessel_id, subject_label=context.label,
@@ -978,6 +979,14 @@ def build_vessel_problem(
         baseline_option_id=baseline.option_id,
         options=options,
         evidence={
+            "subject": {
+                "source": context.attrs.get("source"),
+                "observedAt": context.attrs.get("observed_at"),
+                "placementConfidence": context.attrs.get("placement_confidence"),
+                "identityConflicts": context.attrs.get("identity_conflicts", 0),
+                "mmsi": context.attrs.get("mmsi"),
+                "canonicalId": context.attrs.get("canonical_id"),
+            },
             "event": {"key": event_key, "label": context.event_label,
                       "claimLapsesAt": None if context.event_end is None else context.event_end.isoformat(),
                       "seed": seed.to_dict()},

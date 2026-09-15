@@ -46,6 +46,10 @@ WARNING = "warning"
 
 #: Evidence older than this is flagged. Same budget as the agent Critic.
 STALE_HOURS = 18.0
+#: An observed subject last seen longer ago than this is a projection.
+STALE_OBSERVATION_HOURS = 1.0
+#: Below this an observed hull's lane and timing were inferred, not read.
+MIN_PLACEMENT_CONFIDENCE = 0.5
 #: Below this the weather figure is a hint, not evidence.
 MIN_WEATHER_CONFIDENCE = 0.25
 #: A window shorter than this is flagged as urgent.
@@ -124,6 +128,7 @@ class DecisionCritic:
         checks.append(self._port_feasibility(option))
         checks.append(self._cargo_feasibility(option))
         checks.append(self._data_availability(option, problem))
+        checks.append(self._subject_provenance(problem, moment))
         checks.append(self._assumptions(option))
         checks.append(self._claim_horizon(option))
         return _verdict(checks)
@@ -314,6 +319,36 @@ class DecisionCritic:
                          remedy="show the unknown components as unknown, never as zero")
         return Check("data_availability", True, WARNING, "every input the option needs is available",
                      basis="evidence.marine; evaluation.financial")
+
+    def _subject_provenance(self, problem: DecisionProblem, now: datetime) -> Check:
+        """An observed subject whose identity is contested, or whose last
+        observation is old, qualifies every option built on it."""
+        subject = problem.evidence.get("subject") or {}
+        if subject.get("source") != "OBSERVED_AIS":
+            return Check("subject_provenance", True, WARNING, f"subject is {subject.get('source') or 'declared'}",
+                         basis="evidence.subject.source")
+        problems: List[str] = []
+        conflicts = int(subject.get("identityConflicts") or 0)
+        if conflicts:
+            problems.append(f"{conflicts} identity conflict(s) recorded on the hull; who it is is contested")
+        observed_at = subject.get("observedAt")
+        if observed_at:
+            try:
+                seen = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
+                age_h = (now - seen).total_seconds() / 3600.0
+                if age_h > STALE_OBSERVATION_HOURS:
+                    problems.append(f"last observation {age_h:.1f} h old; the position is a projection")
+            except ValueError:
+                problems.append("the observation instant could not be read")
+        placement = subject.get("placementConfidence")
+        if placement is not None and placement < MIN_PLACEMENT_CONFIDENCE:
+            problems.append(f"placement confidence {placement:.2f}; lane and timing were inferred")
+        if problems:
+            return Check("subject_provenance", False, WARNING, "; ".join(problems),
+                         basis="evidence.subject (fusion engine; observed placement)",
+                         remedy="say the subject is observed, contested or stale on the recommendation")
+        return Check("subject_provenance", True, WARNING, "observed hull, identity uncontested, observation current",
+                     basis="evidence.subject")
 
     def _assumptions(self, option: DecisionOption) -> Check:
         branch = [a.get("kind") for a in option.assumptions]

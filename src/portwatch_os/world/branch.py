@@ -142,6 +142,7 @@ class ObservedWorldState:
                 "eventsStamp": _short(self.revision.events_stamp),
                 "fleetStamp": _short(self.revision.fleet_stamp),
                 "observedGeneration": self.revision.observed_generation,
+                "fingerprint": self.revision.fingerprint,
             },
         }
 

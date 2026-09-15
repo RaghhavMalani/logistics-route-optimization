@@ -265,6 +265,7 @@ def _add_voyages(
                         "imo": voyage.imo,
                         "canonical_id": voyage.canonical_id,
                         "name_stated": voyage.name_stated,
+                        "identity_conflicts": voyage.identity_conflicts,
                     } if voyage.observed else {}),
                 },
             )
