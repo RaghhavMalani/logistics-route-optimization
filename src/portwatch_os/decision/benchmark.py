@@ -3,7 +3,7 @@ corpus, against baselines that had the same options.
 
 Every case is synthetic and seeded. Nothing is drawn from a live feed, so
 the corpus is the same on every machine and every run, and nothing in it
-was chosen after seeing which policy won. Three domains, four policies,
+was chosen after seeing which policy won. Three domains, five policies,
 one hidden truth per case:
 
     VESSEL   a chokepoint claim and a hull bound through it. The hidden truth
@@ -20,29 +20,50 @@ one hidden truth per case:
              discharge slipping and the outbound cut-off moving. The chosen
              connection is re-evaluated on the true hours.
 
-The four policies choose from the *same* option set the engine enumerated
+The five policies choose from the *same* option set the engine enumerated
 and simulated. That is deliberate: it isolates what the optimiser adds --
-the frontier, the balanced ranking, the Critic -- from what the simulator
-adds, which every policy here gets for free.
+the frontier, the balanced ranking, the Critic, the robust gate -- from what
+the simulator adds, which every policy here gets for free.
 
-    current_plan   the baseline option: do nothing, first come first served,
-                   keep the booking
-    greedy         the feasible option that minimises the headline predicted
-                   objective (ETA shift, port wait, sailing hour), ignoring
-                   the others
-    heuristic      a rule a duty officer would apply: reroute a hull that
-                   would reach a severe closure inside its horizon, else slow
-                   down; prioritise the earliest departure commitment, else
-                   stagger a bunch; move a box with no slack to the most
-                   forgiving sailing
-    portwatch      the engine's recommendation
+    current_plan        the baseline option: do nothing, first come first
+                        served, keep the booking
+    greedy              the feasible option that minimises the headline
+                        predicted objective (ETA shift, port wait, sailing
+                        hour), ignoring the others
+    heuristic           a rule a duty officer would apply: reroute a hull that
+                        would reach a severe closure inside its horizon, else
+                        slow down; prioritise the earliest departure
+                        commitment, else stagger a bunch; move a box with no
+                        slack to the most forgiving sailing
+    portwatch_balanced  the incumbent: the BALANCED expected-value ranking
+    portwatch_robust    the candidate: the robust gate over stress horizons,
+                        which may answer KEEP_CURRENT_PLAN or
+                        WAIT_FOR_MORE_INFORMATION
+
+A ``WAIT_FOR_MORE_INFORMATION`` answer is scored by simulating the wait: if
+the closure had ended by the re-evaluation instant the hull keeps its plan;
+otherwise it takes the provisional option the recommendation named, or keeps
+its plan when none was named. The benchmark has no second observation of its
+own, so this is the stated model of what waiting does, and it is counted
+separately as the wait rate.
+
+Three corpora, disjoint by seed range, so a policy tuned on one can be
+judged on another it never saw:
+
+    tuning       seeds 1-40      the original corpus; results were read while
+                                 the robust policy was designed
+    validation   seeds 1001-1100 read once the design was fixed, to check it
+    test         seeds 5001-5200 untouched until the final report
 
 Metrics per case: realised delay (hours), constraint violations (a chosen
 option that was infeasible, a missed departure, a missed connection), a
 fuel proxy, realised risk (caught in the closure; the connection missed),
 throughput (moves completed in the port horizon), regret against the
-realised best option, and decision time. Aggregates are published as they
-come out. Where PortWatch loses, the case is listed.
+realised best option (floored at zero: an infeasible pick is scored as the
+plan and counted as a violation, and the plan's figure earns it no credit),
+whether the policy intervened and whether that intervention was unnecessary
+(the current plan realised no more delay), and decision time. Aggregates -- mean, median, p90 and worst regret among them --
+are published as they come out. Where PortWatch loses, the case is listed.
 """
 
 from __future__ import annotations
@@ -70,13 +91,25 @@ from src.portwatch_os.decision.model import (
     DecisionProblem,
     PORT_AUTHORITY,
     SHIPPING_COMPANY,
+    WAIT_FOR_MORE_INFORMATION,
 )
+from src.portwatch_os.decision.outcome import parse_instant
+from src.portwatch_os.decision.robust import ROBUST_POLICY
 
 NOW = datetime(2026, 9, 14, 12, 0, tzinfo=timezone.utc)
 VESSEL, PORT, CARGO = "VESSEL", "PORT", "CARGO"
 DOMAINS = (VESSEL, PORT, CARGO)
-POLICIES = ("current_plan", "greedy", "heuristic", "portwatch")
+INCUMBENT = "portwatch_balanced"
+CANDIDATE = "portwatch_robust"
+POLICIES = ("current_plan", "greedy", "heuristic", INCUMBENT, CANDIDATE)
 METRICS = ("delay", "violations", "fuel", "risk", "throughput", "regret", "decision_ms")
+
+#: The frozen corpora: name -> (first seed, cases per domain). Disjoint ranges.
+CORPORA: Dict[str, Tuple[int, int]] = {
+    "tuning": (1, 40),
+    "validation": (1001, 100),
+    "test": (5001, 200),
+}
 
 
 # --------------------------------------------------------------------------
@@ -98,12 +131,19 @@ class Choice:
     regret: Optional[float] = None
     decision_ms: float = 0.0
     note: str = ""
+    #: The recommendation kind the policy answered with (ACT, KEEP_CURRENT_PLAN,
+    #: WAIT_FOR_MORE_INFORMATION); the baselines always ACT or keep.
+    kind: Optional[str] = None
+    #: Whether the option finally scored was not the baseline.
+    intervened: bool = False
+    #: An intervention that realised no less delay than the current plan.
+    unnecessary: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {"policy": self.policy, "optionId": self.option_id, "delay": self.delay,
                 "violations": self.violations, "fuel": self.fuel, "risk": self.risk,
                 "throughput": self.throughput, "regret": self.regret, "decisionMs": round(self.decision_ms, 2),
-                "note": self.note}
+                "note": self.note, "kind": self.kind, "intervened": self.intervened, "unnecessary": self.unnecessary}
 
 
 @dataclass
@@ -254,9 +294,36 @@ def _vessel_policies(problem: DecisionProblem, event) -> Dict[str, Tuple[Optiona
         note = "claim lapses before arrival, or a weak claim: proceed as planned"
     picks["heuristic"] = (chosen.option_id if chosen else None, _elapsed_ms(started), note)
 
-    recommendation = problem.recommendation.option_id if problem.recommendation else None
-    picks["portwatch"] = (recommendation, 0.0, "the engine's recommendation")
+    picks[INCUMBENT] = (problem.evidence.get("expectedBest"), 0.0, "the BALANCED expected-value ranking")
+    picks[CANDIDATE] = _robust_pick(problem, truth=None)
     return picks
+
+
+def _robust_pick(problem: DecisionProblem, *, truth: Optional[Dict[str, Any]]) -> Tuple[Optional[str], float, str]:
+    """The robust policy's answer, with a WAIT simulated against the truth."""
+    recommendation = problem.recommendation
+    if recommendation is None:
+        return None, 0.0, "no recommendation"
+    kind = recommendation.kind
+    if kind != WAIT_FOR_MORE_INFORMATION or truth is None:
+        return recommendation.option_id, 0.0, f"the robust gate: {kind}"
+    information = (recommendation.robustness or {}).get("information") or {}
+    wait = float(information.get("reevaluateInHours") or 0.0)
+    reopened = parse_instant(truth["reopenedAt"])
+    clock = parse_instant(problem.at)
+    if not recommendation.provisional_option_id:
+        return problem.baseline_option_id, 0.0, f"the robust gate: WAIT {wait:.0f} h with no provisional option; kept the plan"
+    if reopened <= clock + timedelta(hours=wait):
+        return problem.baseline_option_id, 0.0, f"the robust gate: WAIT {wait:.0f} h; the closure had ended, kept the plan"
+    return (recommendation.provisional_option_id, 0.0,
+            f"the robust gate: WAIT {wait:.0f} h; the claim stood, took the provisional option")
+
+
+def _mark(choice: Choice, problem: DecisionProblem, realised_baseline: Optional[float], kind: Optional[str]) -> None:
+    choice.kind = kind
+    choice.intervened = bool(choice.option_id) and choice.option_id != problem.baseline_option_id
+    if choice.intervened and choice.delay is not None and realised_baseline is not None:
+        choice.unnecessary = choice.delay >= realised_baseline - 1e-9
 
 
 def run_vessel_case(seed: int, engine: DecisionEngine) -> CaseResult:
@@ -284,9 +351,14 @@ def run_vessel_case(seed: int, engine: DecisionEngine) -> CaseResult:
     best = scoreable[best_id]["delay"] if best_id else None
     result = CaseResult(VESSEL, f"vessel-{seed}", seed, description, truth, len(problem.options),
                         len(_feasible(problem)), best_id, best)
-    for policy, (option_id, ms, note) in _vessel_policies(problem, event).items():
+    picks = _vessel_policies(problem, event)
+    picks[CANDIDATE] = _robust_pick(problem, truth=truth)
+    baseline_row = realised.get(problem.baseline_option_id or "")
+    kind = problem.recommendation.kind if problem.recommendation else None
+    for policy, (option_id, ms, note) in picks.items():
         option = problem.option(option_id) if option_id else None
-        choice = Choice(policy=policy, option_id=option_id, decision_ms=ms + (build_ms if policy == "portwatch" else 0.0),
+        choice = Choice(policy=policy, option_id=option_id,
+                        decision_ms=ms + (build_ms if policy in (INCUMBENT, CANDIDATE) else 0.0),
                         note=note, fuel=_value(option, "fuel"))
         row = realised.get(option_id or "")
         if option is None or not option.feasible:
@@ -298,9 +370,11 @@ def run_vessel_case(seed: int, engine: DecisionEngine) -> CaseResult:
         if row is not None:
             choice.delay = row["delay"]
             choice.risk = row["caught"]
-            choice.regret = None if best is None else round(row["delay"] - best, 1)
+            choice.regret = None if best is None else round(max(0.0, row["delay"] - best), 1)
         else:
             choice.note += "; no realised figure under the stated model"
+        _mark(choice, problem, None if baseline_row is None else baseline_row["delay"],
+              kind if policy == CANDIDATE else None)
         result.choices[policy] = choice
     return result
 
@@ -371,8 +445,8 @@ def _port_policies(problem: DecisionProblem) -> Dict[str, Tuple[Optional[str], f
     chosen = by_action.get(PRIORITISE_VESSEL) or by_action.get(SHIFT_ARRIVAL_SLOT) or problem.baseline
     picks["heuristic"] = (chosen.option_id if chosen else None, _elapsed_ms(started),
                           "prioritise the earliest commitment, else stagger the bunch, else keep")
-    picks["portwatch"] = (problem.recommendation.option_id if problem.recommendation else None, 0.0,
-                          "the engine's recommendation")
+    picks[INCUMBENT] = (problem.evidence.get("expectedBest"), 0.0, "the BALANCED expected-value ranking")
+    picks[CANDIDATE] = _robust_pick(problem, truth=None)
     return picks
 
 
@@ -397,9 +471,12 @@ def run_port_case(seed: int, engine: DecisionEngine) -> CaseResult:
     best = _value(scoreable[best_id], "port_wait") if best_id else None
     result = CaseResult(PORT, f"port-{seed}", seed, description, {"calls": truth_calls}, len(problem.options),
                         len(_feasible(problem)), best_id, best)
+    baseline_actual = realised.get(problem.baseline_option_id or "")
+    baseline_delay = None if baseline_actual is None else _value(baseline_actual, "port_wait")
+    kind = problem.recommendation.kind if problem.recommendation else None
     for policy, (option_id, ms, note) in _port_policies(problem).items():
-        choice = Choice(policy=policy, option_id=option_id, decision_ms=ms + (build_ms if policy == "portwatch" else 0.0),
-                        note=note)
+        choice = Choice(policy=policy, option_id=option_id,
+                        decision_ms=ms + (build_ms if policy in (INCUMBENT, CANDIDATE) else 0.0), note=note)
         planned = problem.option(option_id) if option_id else None
         actual = realised.get(option_id or "")
         if planned is None or not planned.feasible or actual is None or not actual.feasible:
@@ -415,7 +492,8 @@ def run_port_case(seed: int, engine: DecisionEngine) -> CaseResult:
             # reports no moves-completed metric on the option).
             choice.throughput = _value(actual, "berth_utilisation")
             choice.fuel = None
-            choice.regret = None if best is None or choice.delay is None else round(choice.delay - best, 2)
+            choice.regret = None if best is None or choice.delay is None else round(max(0.0, choice.delay - best), 2)
+        _mark(choice, problem, baseline_delay, kind if policy == CANDIDATE else None)
         result.choices[policy] = choice
     return result
 
@@ -531,8 +609,8 @@ def _cargo_policies(problem: DecisionProblem) -> Dict[str, Tuple[Optional[str], 
         chosen = max(transfers, key=lambda o: _value(o, "slack")) if transfers else (baseline if baseline and baseline.feasible else None)
         note = "no slack: the most forgiving transfer"
     picks["heuristic"] = (chosen.option_id if chosen else None, _elapsed_ms(started), note)
-    picks["portwatch"] = (problem.recommendation.option_id if problem.recommendation else None, 0.0,
-                          "the engine's recommendation")
+    picks[INCUMBENT] = (problem.evidence.get("expectedBest"), 0.0, "the BALANCED expected-value ranking")
+    picks[CANDIDATE] = _robust_pick(problem, truth=None)
     return picks
 
 
@@ -553,9 +631,11 @@ def run_cargo_case(seed: int, engine: DecisionEngine) -> CaseResult:
     best = scoreable[best_id]["delay"] if best_id else None
     result = CaseResult(CARGO, f"cargo-{seed}", seed, description, truth, len(problem.options),
                         len(_feasible(problem)), best_id, best)
+    baseline_row = realised.get(problem.baseline_option_id or "")
+    kind = problem.recommendation.kind if problem.recommendation else None
     for policy, (option_id, ms, note) in _cargo_policies(problem).items():
-        choice = Choice(policy=policy, option_id=option_id, decision_ms=ms + (build_ms if policy == "portwatch" else 0.0),
-                        note=note)
+        choice = Choice(policy=policy, option_id=option_id,
+                        decision_ms=ms + (build_ms if policy in (INCUMBENT, CANDIDATE) else 0.0), note=note)
         option = problem.option(option_id) if option_id else None
         row = realised.get(option_id or "")
         if option is None or not option.feasible:
@@ -566,7 +646,9 @@ def run_cargo_case(seed: int, engine: DecisionEngine) -> CaseResult:
             choice.delay = row["delay"]
             choice.violations += row["missed"]
             choice.risk = float(row["missed"])
-            choice.regret = None if best is None else round(row["delay"] - best, 1)
+            choice.regret = None if best is None else round(max(0.0, row["delay"] - best), 1)
+        _mark(choice, problem, None if baseline_row is None else baseline_row["delay"],
+              kind if policy == CANDIDATE else None)
         result.choices[policy] = choice
     return result
 
@@ -581,15 +663,25 @@ RUNNERS: Dict[str, Callable[[int, DecisionEngine], CaseResult]] = {
 
 
 def run_suite(*, cases_per_domain: int = 40, base_seed: int = 1, domains: Sequence[str] = DOMAINS,
-              engine: Optional[DecisionEngine] = None) -> Dict[str, Any]:
-    """Every case in every domain, the seeds fixed by the arguments alone."""
-    engine = engine or DecisionEngine(capacity=4096)
+              engine: Optional[DecisionEngine] = None, corpus: Optional[str] = None) -> Dict[str, Any]:
+    """Every case in every domain, the seeds fixed by the arguments alone.
+
+    ``corpus`` names one of :data:`CORPORA` and overrides the seed range; the
+    engine runs the robust policy so both PortWatch picks come from one build.
+    """
+    if corpus is not None:
+        if corpus not in CORPORA:
+            raise ValueError(f"{corpus!r} is not a corpus; one of {', '.join(CORPORA)}")
+        base_seed, cases_per_domain = CORPORA[corpus]
+    engine = engine or DecisionEngine(capacity=4096, policy=ROBUST_POLICY)
     results: List[CaseResult] = []
     for domain in domains:
         for index in range(cases_per_domain):
             results.append(RUNNERS[domain](base_seed + index, engine))
     return {
-        "casesPerDomain": cases_per_domain, "baseSeed": base_seed, "domains": list(domains),
+        "corpus": corpus, "casesPerDomain": cases_per_domain, "baseSeed": base_seed,
+        "seedRange": [base_seed, base_seed + cases_per_domain - 1], "domains": list(domains),
+        "policies": list(POLICIES), "incumbent": INCUMBENT, "candidate": CANDIDATE,
         "results": [r.to_dict() for r in results],
         "aggregate": aggregate(results),
         "losses": losses(results),
@@ -601,6 +693,53 @@ def _mean(values: List[Optional[float]]) -> Optional[float]:
     return None if not clean else round(statistics.mean(clean), 2)
 
 
+def _median(values: List[Optional[float]]) -> Optional[float]:
+    clean = [v for v in values if v is not None]
+    return None if not clean else round(statistics.median(clean), 2)
+
+
+def _percentile(values: List[Optional[float]], share: float) -> Optional[float]:
+    """Nearest-rank percentile: the value at least ``share`` of the sample sits at or below."""
+    clean = sorted(v for v in values if v is not None)
+    if not clean:
+        return None
+    rank = max(1, math.ceil(share * len(clean)))
+    return round(clean[rank - 1], 2)
+
+
+def _max(values: List[Optional[float]]) -> Optional[float]:
+    clean = [v for v in values if v is not None]
+    return None if not clean else round(max(clean), 2)
+
+
+def policy_summary(choices: List[Choice], *, best_option_ids: Optional[List[Optional[str]]] = None) -> Dict[str, Any]:
+    """One policy's aggregate over a list of choices."""
+    scored = [c for c in choices if c.delay is not None]
+    intervened = [c for c in choices if c.intervened]
+    return {
+        "cases": len(choices),
+        "meanDelay": _mean([c.delay for c in scored]),
+        "meanRegret": _mean([c.regret for c in scored]),
+        "medianRegret": _median([c.regret for c in scored]),
+        "p90Regret": _percentile([c.regret for c in scored], 0.9),
+        "worstRegret": _max([c.regret for c in scored]),
+        "zeroRegretShare": None if not scored else round(sum(1 for c in scored if c.regret == 0) / len(scored), 3),
+        "violations": sum(c.violations for c in choices),
+        "meanRisk": _mean([c.risk for c in scored]),
+        "meanFuel": _mean([c.fuel for c in choices]),
+        "meanThroughput": _mean([c.throughput for c in scored]),
+        "meanDecisionMs": _mean([c.decision_ms for c in choices]),
+        "p95DecisionMs": _percentile([c.decision_ms for c in choices], 0.95),
+        "interventionRate": None if not choices else round(len(intervened) / len(choices), 3),
+        "unnecessaryInterventionRate": None if not intervened else round(
+            sum(1 for c in intervened if c.unnecessary) / len(intervened), 3),
+        "waitRate": None if not choices else round(
+            sum(1 for c in choices if c.kind == WAIT_FOR_MORE_INFORMATION) / len(choices), 3),
+        "kinds": {k: sum(1 for c in choices if c.kind == k) for k in sorted({c.kind for c in choices if c.kind})},
+        "unscored": len(choices) - len(scored),
+    }
+
+
 def aggregate(results: List[CaseResult]) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     for domain in DOMAINS:
@@ -609,58 +748,70 @@ def aggregate(results: List[CaseResult]) -> Dict[str, Any]:
         table: Dict[str, Any] = {"cases": len(rows), "errors": len(errors), "policies": {}}
         for policy in POLICIES:
             choices = [r.choices[policy] for r in rows if policy in r.choices]
-            scored = [c for c in choices if c.delay is not None]
-            table["policies"][policy] = {
-                "meanDelay": _mean([c.delay for c in scored]),
-                "meanRegret": _mean([c.regret for c in scored]),
-                "zeroRegretShare": None if not scored else round(sum(1 for c in scored if c.regret == 0) / len(scored), 3),
-                "violations": sum(c.violations for c in choices),
-                "meanRisk": _mean([c.risk for c in scored]),
-                "meanFuel": _mean([c.fuel for c in choices]),
-                "meanThroughput": _mean([c.throughput for c in scored]),
-                "meanDecisionMs": _mean([c.decision_ms for c in choices]),
-                "unscored": len(choices) - len(scored),
-            }
-        # Head to head on the cases both policies scored.
+            table["policies"][policy] = policy_summary(choices)
+        # Where an intervention was the realised best, did the policy take one?
+        cases_with_intervention_best = 0
+        captured: Dict[str, int] = {p: 0 for p in POLICIES}
+        for r in rows:
+            base = r.choices.get("current_plan")
+            if base is None or base.delay is None or r.best_delay is None:
+                continue
+            if base.delay > r.best_delay + 1e-9:
+                cases_with_intervention_best += 1
+                for policy in POLICIES:
+                    c = r.choices.get(policy)
+                    if c is not None and c.intervened and c.delay is not None and c.delay < base.delay - 1e-9:
+                        captured[policy] += 1
+        table["interventionWasBest"] = cases_with_intervention_best
+        table["beneficialInterventionCapture"] = {
+            p: (None if not cases_with_intervention_best else round(captured[p] / cases_with_intervention_best, 3))
+            for p in POLICIES
+        }
+        # Head to head on the cases both policies scored, for each PortWatch policy.
         head: Dict[str, Any] = {}
-        for policy in ("current_plan", "greedy", "heuristic"):
-            wins = losses_ = ties = 0
-            for r in rows:
-                a, b = r.choices.get("portwatch"), r.choices.get(policy)
-                if a is None or b is None or a.delay is None or b.delay is None:
-                    continue
-                if a.delay < b.delay - 1e-9:
-                    wins += 1
-                elif a.delay > b.delay + 1e-9:
-                    losses_ += 1
-                else:
-                    ties += 1
-            head[policy] = {"portwatchWins": wins, "portwatchLoses": losses_, "ties": ties}
+        for mine_policy in (INCUMBENT, CANDIDATE):
+            head[mine_policy] = {}
+            for policy in [p for p in POLICIES if p != mine_policy]:
+                wins = losses_ = ties = 0
+                for r in rows:
+                    a, b = r.choices.get(mine_policy), r.choices.get(policy)
+                    if a is None or b is None or a.delay is None or b.delay is None:
+                        continue
+                    if a.delay < b.delay - 1e-9:
+                        wins += 1
+                    elif a.delay > b.delay + 1e-9:
+                        losses_ += 1
+                    else:
+                        ties += 1
+                head[mine_policy][policy] = {"wins": wins, "loses": losses_, "ties": ties}
         table["headToHead"] = head
         out[domain] = table
     return out
 
 
-def losses(results: List[CaseResult]) -> List[Dict[str, Any]]:
-    """Every case where some baseline realised a lower delay than PortWatch."""
+def losses(results: List[CaseResult], policy: str = CANDIDATE) -> List[Dict[str, Any]]:
+    """Every case where some other policy realised a lower delay than ``policy``."""
     out: List[Dict[str, Any]] = []
     for r in results:
         if r.error is not None:
             continue
-        mine = r.choices.get("portwatch")
+        mine = r.choices.get(policy)
         if mine is None or mine.delay is None:
             continue
         beaten_by = {p: c.delay for p, c in r.choices.items()
-                     if p != "portwatch" and c.delay is not None and c.delay < mine.delay - 1e-9}
+                     if p != policy and c.delay is not None and c.delay < mine.delay - 1e-9}
         if beaten_by:
             out.append({"domain": r.domain, "caseId": r.case_id, "description": r.description,
-                        "portwatch": {"optionId": mine.option_id, "delay": mine.delay, "regret": mine.regret},
+                        "policy": policy,
+                        "portwatch": {"optionId": mine.option_id, "delay": mine.delay, "regret": mine.regret,
+                                      "kind": mine.kind},
                         "beatenBy": {p: {"delay": d, "optionId": r.choices[p].option_id} for p, d in beaten_by.items()},
                         "truth": r.truth})
     return out
 
 
 __all__ = [
-    "CARGO", "Choice", "CaseResult", "DOMAINS", "METRICS", "POLICIES", "PORT", "VESSEL",
-    "aggregate", "losses", "run_cargo_case", "run_port_case", "run_suite", "run_vessel_case",
+    "CANDIDATE", "CARGO", "CORPORA", "Choice", "CaseResult", "DOMAINS", "INCUMBENT", "METRICS", "POLICIES",
+    "PORT", "VESSEL", "aggregate", "losses", "policy_summary", "run_cargo_case", "run_port_case", "run_suite",
+    "run_vessel_case",
 ]

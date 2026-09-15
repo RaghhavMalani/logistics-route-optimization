@@ -26,12 +26,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from src.portwatch_os.decision.model import DecisionOption, DecisionProblem
+from src.portwatch_os.decision.outcome import ClosureWindow, closure_delay_hours, destination_of, parse_instant
 from src.portwatch_os.missions.model import Mission, Outcome
 
 
 def _parse(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parse_instant(value)
 
 
 REALISED_MODEL = (
@@ -45,12 +45,7 @@ REALISED_MODEL = (
 )
 
 
-def _destination_of(option: DecisionOption, problem: DecisionProblem) -> Optional[str]:
-    """The port the option lands at: the alternative for a diversion, else the plan's."""
-    if option.action == "CHANGE_DESTINATION_PORT":
-        return option.params.get("portCode")
-    derived = option.evaluation.derived if option.evaluation else (option.provenance.get("rejectedEvaluation") or {}).get("derived", {})
-    return derived.get("destinationPort") or problem.subject_id
+_destination_of = destination_of
 
 
 def realised_delay_hours(
@@ -60,55 +55,29 @@ def realised_delay_hours(
     *,
     clock: datetime,
 ) -> Optional[Dict[str, Any]]:
-    """Hours the option actually cost, under the stated realised model."""
-    evaluation = option.evaluation
-    derived = evaluation.derived if evaluation else (option.provenance.get("rejectedEvaluation") or {}).get("derived", {})
-    if not derived:
-        return None
-    hours_to_choke = derived.get("hoursToChokepoint")
-    hold = float(derived.get("holdHours") or 0.0)
-    subject = _destination_of(option, problem) if outcome.closures else None
-    window = outcome.closure_for(subject)
-    reopened = _parse(window["reopenedAt"])
-    blocked_from = _parse(window["closedFrom"])
-    cleared = _parse(window["backlogClearedBound"].split(" ")[0])
+    """Hours the option actually cost, under the stated realised model.
 
-    if option.action in ("REROUTE", "SPEED_UP"):
-        eta = option.measure("eta")
-        if eta is None or not eta.available:
-            return None
-        return {"hours": round(eta.value, 1), "how": "certain detour on the alternative routing; the Cape was open"}
+    The physics is :func:`closure_delay_hours`, the one closure outcome model
+    the decision policy also evaluates under; what the reveal adds is the
+    window itself -- the reopening and the backlog clearance the sources
+    state -- and, for an event that acts on ports, which port's window the
+    option lands in. A diversion to a port the outcome records as closed has
+    no realised figure: the model does not cover a hull landing into a
+    second closure.
+    """
+    subject = _destination_of(option, problem) if outcome.closures else None
     if option.action == "CHANGE_DESTINATION_PORT":
-        if not outcome.closures:
+        if not outcome.closures or option.params.get("portCode") in outcome.closures:
             return None
-        eta = option.measure("eta")
-        shift = None if eta is None else (eta.attrs or {}).get("arrivalShiftAtAlternative")
-        if shift is None:
-            return None
-        target = option.params.get("portCode")
-        if target in outcome.closures:
-            return None
-        return {"hours": round(max(0.0, float(shift)), 1),
-                "how": f"landed at {target}, {float(shift):+.0f} h against the planned passage; {target} was open; "
-                       "onward carriage of consignments to the booked port is not modelled"}
-    if hours_to_choke is None:
-        return None
-    arrival = clock + timedelta(hours=float(hours_to_choke))
-    drain_hours = max(0.0, (cleared - reopened).total_seconds() / 3600.0)
-    if arrival < reopened:
-        wait = (reopened - arrival).total_seconds() / 3600.0
-        share = (arrival - blocked_from).total_seconds() / max(1.0, (reopened - blocked_from).total_seconds())
-        queue = drain_hours * max(0.0, min(1.0, share))
-        return {"hours": round(hold + wait + queue, 1),
-                "how": f"held {hold:.0f} h, waited {wait:.0f} h for the reopening, then {queue:.0f} h of "
-                       f"queue (arrival share {share:.2f} of the blocked period)"}
-    if arrival < cleared:
-        remaining = (cleared - arrival).total_seconds() / 3600.0
-        fraction = remaining / max(1.0, drain_hours)
-        queue = remaining * fraction
-        return {"hours": round(hold + queue, 1),
-                "how": f"held {hold:.0f} h, arrived after the reopening, {queue:.0f} h of residual queue"}
-    return {"hours": round(hold, 1), "how": f"held {hold:.0f} h; arrived after the backlog had cleared"}
+    stated = outcome.closure_for(subject)
+    window = ClosureWindow(
+        blocked_from=_parse(stated["closedFrom"]), reopened_at=_parse(stated["reopenedAt"]),
+        cleared_at=_parse(stated["backlogClearedBound"].split(" ")[0]),
+    )
+    row = closure_delay_hours(option, window, clock=clock)
+    if row is not None and option.action in ("REROUTE", "SPEED_UP"):
+        row = {**row, "how": "certain detour on the alternative routing; the Cape was open"}
+    return row
 
 
 def scorecard(mission: Mission, problem: DecisionProblem, *, chosen_option_id: Optional[str]) -> Dict[str, Any]:

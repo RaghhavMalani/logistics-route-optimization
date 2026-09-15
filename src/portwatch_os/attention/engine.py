@@ -208,14 +208,30 @@ def _vessel_item(
         )
         headline = f"{reached.node.label} (observed) exposed at {chokepoint}"
     else:
+        # The queue frames the choice; it does not make it. Which of the
+        # plan, a hold and the alternative routing is right depends on how
+        # long the closure lasts, and that is the decision engine's question
+        # -- its robust gate keeps the plan unless an intervention survives
+        # the claim's stress horizons. Saying "divert" here would pre-empt an
+        # answer the engine mostly gives the other way.
         recommended = Option(
-            action="reroute",
-            summary=f"Divert clear of {chokepoint} on the alternative routing",
+            action="decide",
+            summary=f"Decide before it enters {chokepoint}: keep the plan, hold, or take the alternative routing",
             closes_in_hours=window,
             effect=operational,
-            tradeoff="Adds passage time; removes the exposure entirely.",
+            tradeoff=(
+                "The decision engine evaluates each under the claim's stress horizons; the "
+                "current plan is a first-class candidate and is kept unless an intervention "
+                "beats it on worst-case regret."
+            ),
         )
         alternatives = [
+            Option(
+                action="reroute",
+                summary=f"Divert clear of {chokepoint} on the alternative routing",
+                closes_in_hours=window,
+                tradeoff="Adds passage time; removes the exposure entirely.",
+            ),
             Option(
                 action="slow_steam",
                 summary=(

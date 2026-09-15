@@ -35,6 +35,7 @@ from src.portwatch_os.decision.critic import DecisionCritic, REJECT
 from src.portwatch_os.decision.frontier import against_baseline, pareto, rank
 from src.portwatch_os.decision.model import (
     ACCEPTED,
+    ACT,
     APPROVED,
     CARGO_CONNECTION,
     COMPUTED,
@@ -44,6 +45,7 @@ from src.portwatch_os.decision.model import (
     DecisionProblem,
     DecisionRecommendation,
     ISSUED,
+    KEEP_CURRENT_PLAN,
     OBJECTIVES,
     OBSERVED,
     PORT_BERTHING,
@@ -53,6 +55,7 @@ from src.portwatch_os.decision.model import (
     VESSEL_ROUTING,
     WORKFLOW_STATES,
 )
+from src.portwatch_os.decision.robust import BALANCED_POLICY, ROBUST_POLICY, assess as assess_robust
 from src.portwatch_os.finance.basis import CostBasis
 from src.portwatch_os.finance.evaluate import avoidable_cost
 from src.portwatch_os.finance.money import FxTable
@@ -77,6 +80,13 @@ FRONTIER_DEFAULTS: Dict[str, tuple] = {
     PORT_BERTHING: ("port_wait", "missed_departures", "turnaround"),
     CARGO_CONNECTION: ("sailing", "slack", "dwell"),
 }
+
+#: The policies the engine can recommend with. ``BALANCED`` is the incumbent
+#: expected-value ranking; ``ROBUST`` runs the stress-horizon gate on top of
+#: it. Which one is the default is decided by the decision-policy promotion
+#: gate (``docs/DECISION_POLICY_GATE.md``), never by hand.
+POLICIES: tuple = (BALANCED_POLICY, ROBUST_POLICY)
+ACTIVE_POLICY = ROBUST_POLICY
 
 
 def deadline_passed(problem: DecisionProblem, now: datetime) -> Optional[str]:
@@ -142,7 +152,10 @@ class DecisionEngine:
         branches: Optional[BranchRegistry] = None,
         ledger: Any = None,
         capacity: int = 64,
+        policy: str = ACTIVE_POLICY,
     ) -> None:
+        if policy not in POLICIES:
+            raise DecisionError(f"{policy!r} is not a decision policy; one of {', '.join(POLICIES)}")
         self.basis = basis if basis is not None else CostBasis()
         self.fx = fx if fx is not None else FxTable()
         self.currency = currency
@@ -150,6 +163,7 @@ class DecisionEngine:
         self.branches = branches if branches is not None else BranchRegistry(capacity=256)
         self.ledger = ledger
         self.capacity = capacity
+        self.policy = policy
         self._problems: Dict[str, DecisionProblem] = {}
         self._order: List[str] = []
         self._lock = threading.RLock()
@@ -253,7 +267,23 @@ class DecisionEngine:
         ranking = rank(problem.options, problem.domain)
         problem.evidence["ranking"] = ranking
 
-        chosen = self._choose(problem, ranking)
+        # The expected-value pick is always computed and always shown: it is
+        # what the robust gate is judged against, and the incumbent policy.
+        expected = self.choose_expected(problem, ranking)
+        problem.evidence["expectedBest"] = None if expected is None else expected.option_id
+        chosen = expected
+        kind = ACT
+        assessment = None
+        provisional = None
+        why = ""
+        if self.policy == ROBUST_POLICY:
+            assessment = assess_robust(problem, expected_best=None if expected is None else expected.option_id)
+            chosen = problem.option(assessment.option_id) if assessment.option_id else None
+            kind = assessment.kind
+            provisional = assessment.provisional_option_id
+            why = assessment.why
+        elif chosen is not None and chosen.is_baseline:
+            kind = KEEP_CURRENT_PLAN
         if chosen is not None:
             baseline = problem.baseline
             comparison = against_baseline(chosen, baseline, problem.objectives)
@@ -263,16 +293,21 @@ class DecisionEngine:
             )
             problem.recommendation = DecisionRecommendation(
                 option_id=chosen.option_id, actor=chosen.actor or problem.actor.role,
+                kind=kind, policy=self.policy, provisional_option_id=provisional,
                 ranking_basis={
                     "method": ranking.get("method"), "weights": ranking.get("weights"),
                     "objectivesUsed": ranking.get("objectivesUsed"),
                     "objectivesDropped": ranking.get("objectivesDropped"),
                     "score": (ranking.get("scores") or {}).get(chosen.option_id),
                     "order": ranking.get("order"),
+                    "expectedBest": problem.evidence["expectedBest"],
                 },
                 against_baseline=comparison,
                 expected_avoidable_cost=money,
-                statement=_statement(problem, chosen, comparison),
+                robustness=None if assessment is None else assessment.to_dict(),
+                why=why,
+                statement=(assessment.statement if assessment is not None and assessment.applicable
+                           else _statement(problem, chosen, comparison)),
             )
             problem.recommendation.critic = self.critic.review_recommendation(problem, chosen.option_id).to_dict()
         else:
@@ -287,7 +322,9 @@ class DecisionEngine:
         self._record(problem)
         return problem
 
-    def _choose(self, problem: DecisionProblem, ranking: Dict[str, Any]):
+    def choose_expected(self, problem: DecisionProblem, ranking: Dict[str, Any]):
+        """The expected-value pick: first in the BALANCED order that is feasible,
+        Critic-passing, nondominated and comparable. The incumbent policy."""
         frontier = problem.frontier
         for option_id in ranking.get("order") or []:
             option = problem.option(option_id)
@@ -501,8 +538,10 @@ def reset_engine() -> None:
 
 
 __all__ = [
+    "ACTIVE_POLICY",
     "DecisionEngine",
     "FRONTIER_DEFAULTS",
+    "POLICIES",
     "TRANSITIONS",
     "decision_id_for",
     "get_engine",

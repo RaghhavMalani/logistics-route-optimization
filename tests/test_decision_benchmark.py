@@ -114,7 +114,14 @@ class AggregateTests(unittest.TestCase):
             table = out["aggregate"][domain]
             self.assertEqual(table["cases"] + table["errors"], 4)
             self.assertEqual(set(table["policies"]), set(POLICIES))
-            self.assertEqual(set(table["headToHead"]), {"current_plan", "greedy", "heuristic"})
+            self.assertEqual(set(table["headToHead"]), {"portwatch_balanced", "portwatch_robust"})
+            for mine, rows in table["headToHead"].items():
+                self.assertEqual(set(rows), set(POLICIES) - {mine})
+            for policy, summary in table["policies"].items():
+                for key in ("meanRegret", "medianRegret", "p90Regret", "worstRegret", "interventionRate",
+                            "unnecessaryInterventionRate", "waitRate", "p95DecisionMs"):
+                    self.assertIn(key, summary, f"{policy} lacks {key}")
+            self.assertIn("beneficialInterventionCapture", table)
         for loss in out["losses"]:
             self.assertIn(loss["domain"], DOMAINS)
             self.assertTrue(loss["beatenBy"])

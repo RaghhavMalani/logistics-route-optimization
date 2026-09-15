@@ -142,6 +142,8 @@ class VesselContext:
     risk_kind: str = "chokepoint"
     #: Ports the same event acts on directly, so a diversion never lands in one.
     threatened_ports: Tuple[str, ...] = ()
+    #: When the claim began: the closure's start for the outcome model.
+    event_start: Optional[datetime] = None
 
     @property
     def claim_remaining_hours(self) -> Optional[float]:
@@ -212,6 +214,7 @@ def context_for(
         event_key=event_key, event_label=event.label, event_end=event.interval.end,
         routes=routes, observed=node.attrs.get("source") == "OBSERVED_AIS", attrs=dict(node.attrs),
         risk_kind="port_closure" if closure else "chokepoint", threatened_ports=threatened,
+        event_start=event.interval.start,
     )
     context._at = at
     return context
@@ -1007,9 +1010,17 @@ def build_vessel_problem(
                 "canonicalId": context.attrs.get("canonical_id"),
             },
             "event": {"key": event_key, "label": context.event_label,
+                      "claimFrom": None if context.event_start is None else context.event_start.isoformat(),
                       "claimLapsesAt": None if context.event_end is None else context.event_end.isoformat(),
+                      "claimRemainingHours": (None if context.claim_remaining_hours is None
+                                              else round(context.claim_remaining_hours, 1)),
                       "seed": seed.to_dict()},
             "exposure": exposure.to_dict(),
+            # What the robust policy needs to stress the claim: the kind of
+            # closure and where the hull meets it.
+            "closureModel": {"riskKind": context.risk_kind, "at": context.chokepoint,
+                             "hoursToRisk": None if context.hours_to_risk is None else round(context.hours_to_risk, 1),
+                             "alreadyEntered": context.already_entered},
             "routes": context.routes.to_dict(),
             "position": {"lat": round(context.routes.position[0], 4), "lon": round(context.routes.position[1], 4),
                          "basis": context.routes.position_basis, "observed": context.observed},

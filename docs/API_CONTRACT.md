@@ -517,7 +517,7 @@ may hold.
 | Endpoint | Returns |
 |---|---|
 | `GET /api/decisions/actions` | The typed catalogue by domain with the actors who may execute each action, the workflow transitions and the Critic's checks |
-| `POST /api/decisions/problems` | `{ "domain": "vessel" / "port" / "cargo", ... }` → one `DecisionProblem`: options (the do-nothing baseline among them), rejected options with the constraint that rejected them, the actions not offered with the reason, the frontier with its picks, the BALANCED ranking with its weights, the recommendation with its Critic verdict and expected avoidable cost, the evidence |
+| `POST /api/decisions/problems` | `{ "domain": "vessel" / "port" / "cargo", ... }` → one `DecisionProblem`: options (the do-nothing baseline among them), rejected options with the constraint that rejected them, the actions not offered with the reason, the frontier with its picks, the BALANCED ranking with its weights, the recommendation with its `kind` (`ACT`, `KEEP_CURRENT_PLAN`, `WAIT_FOR_MORE_INFORMATION`), `policy`, `robustness` (stress horizons, regret table, picks, gate checks, break-evens, reversibility; `applicable: false` for port and cargo), Critic verdict and expected avoidable cost, the evidence |
 | `GET /api/decisions/problems?limit=` | The ledger's problems, newest first, without their options |
 | `GET /api/decisions/problems/{id}` | One problem as computed |
 | `POST /api/decisions/problems/{id}/transition` | `{ "target", "optionId"? }` → the problem after the move. `APPROVED` needs an `optionId` and refuses a rejected one; every move records who and when |

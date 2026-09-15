@@ -428,26 +428,56 @@ class DecisionFrontier:
         }
 
 
+#: What a recommendation asks the operator to do. ``ACT`` names an
+#: intervention. ``KEEP_CURRENT_PLAN`` says the evidence for intervening is
+#: too weak. ``WAIT_FOR_MORE_INFORMATION`` says do nothing yet: the window
+#: permits waiting and the next observation may decide it.
+ACT = "ACT"
+KEEP_CURRENT_PLAN = "KEEP_CURRENT_PLAN"
+WAIT_FOR_MORE_INFORMATION = "WAIT_FOR_MORE_INFORMATION"
+RECOMMENDATION_KINDS: Tuple[str, ...] = (ACT, KEEP_CURRENT_PLAN, WAIT_FOR_MORE_INFORMATION)
+
+
 @dataclass
 class DecisionRecommendation:
     option_id: str
     actor: str
+    #: ACT, KEEP_CURRENT_PLAN or WAIT_FOR_MORE_INFORMATION. For the latter two
+    #: ``option_id`` is the baseline: what to do now.
+    kind: str = ACT
+    #: The policy that produced it: the expected-value ranking or the robust gate.
+    policy: str = ""
+    #: For WAIT: the option to take if the claim still stands at re-evaluation.
+    provisional_option_id: Optional[str] = None
     #: How the ranking was reached, in numbers: weights and normalised scores.
     ranking_basis: Dict[str, Any] = field(default_factory=dict)
     #: Objective-by-objective comparison against the baseline.
     against_baseline: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     critic: Optional[Dict[str, Any]] = None
     expected_avoidable_cost: Optional[Dict[str, Any]] = None
+    #: The robust assessment: stress horizons, the regret table, the gate.
+    robustness: Optional[Dict[str, Any]] = None
+    #: One sentence on why, in the policy's own terms.
+    why: str = ""
     statement: str = ""
+
+    def __post_init__(self) -> None:
+        if self.kind not in RECOMMENDATION_KINDS:
+            raise DecisionError(f"{self.kind!r} is not a recommendation kind")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "optionId": self.option_id,
             "actor": self.actor,
+            "kind": self.kind,
+            "policy": self.policy,
+            "provisionalOptionId": self.provisional_option_id,
             "rankingBasis": self.ranking_basis,
             "againstBaseline": self.against_baseline,
             "critic": self.critic,
             "expectedAvoidableCost": self.expected_avoidable_cost,
+            "robustness": self.robustness,
+            "why": self.why,
             "statement": self.statement,
         }
 
@@ -581,6 +611,7 @@ class DecisionProblem:
 
 __all__ = [
     "ACCEPTED",
+    "ACT",
     "ACTORS",
     "APPROVED",
     "AVAILABILITY",
@@ -602,6 +633,7 @@ __all__ = [
     "FEASIBLE",
     "INSUFFICIENT_DATA",
     "ISSUED",
+    "KEEP_CURRENT_PLAN",
     "MAXIMISE",
     "MINIMISE",
     "Measure",
@@ -613,6 +645,7 @@ __all__ = [
     "PORT_AUTHORITY",
     "PORT_BERTHING",
     "PROPOSED",
+    "RECOMMENDATION_KINDS",
     "REJECTED",
     "REVIEWED",
     "SHIPPING_COMPANY",
@@ -621,6 +654,7 @@ __all__ = [
     "UNSUPPORTED",
     "VESSEL_OPERATOR",
     "VESSEL_ROUTING",
+    "WAIT_FOR_MORE_INFORMATION",
     "WORKFLOW_STATES",
     "known",
     "unknown",

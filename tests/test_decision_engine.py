@@ -263,7 +263,13 @@ class FrontierTests(unittest.TestCase):
         self.assertEqual(ranking["weights"], {"risk": 0.35, "eta": 0.25, "fuel": 0.15, "weather": 0.10,
                                               "cost": 0.10, "uncertainty": 0.05})
         self.assertIn("cost", ranking["objectivesDropped"])
-        self.assertEqual(ranking["order"][0], problem.recommendation.option_id)
+        # The BALANCED order's head is the expected-value pick; the robust gate
+        # may recommend the current plan over it, and says so.
+        self.assertEqual(ranking["order"][0], problem.evidence["expectedBest"])
+        self.assertEqual(ranking["order"][0], problem.recommendation.ranking_basis["expectedBest"])
+        self.assertEqual(ranking["order"][0], "slow_steam")
+        self.assertEqual(problem.recommendation.option_id, "keep_plan")
+        self.assertEqual(problem.recommendation.kind, "KEEP_CURRENT_PLAN")
         picks = problem.frontier.picks
         self.assertIn("FASTEST", picks)
         self.assertIn("LOWEST_RISK", picks)
@@ -368,12 +374,12 @@ class WorkflowAndLedgerTests(unittest.TestCase):
         self.assertEqual(row.options_evaluated, len(problem.options))
         computed = row.problem
         engine.transition(problem.decision_id, REVIEWED, actor="ops")
-        engine.transition(problem.decision_id, APPROVED, actor="ops", option_id="keep_plan", now=NOW)
+        engine.transition(problem.decision_id, APPROVED, actor="ops", option_id="slow_steam", now=NOW)
         row = self.ledger.get_decision_problem(problem.decision_id)
         self.assertEqual(row.workflow, "APPROVED")
-        self.assertEqual(row.human_choice, "keep_plan")
+        self.assertEqual(row.human_choice, "slow_steam")
         self.assertEqual(row.problem["options"], computed["options"])      # payload untouched
-        engine.record_outcome(problem.decision_id, actor="ops", actual_action="KEEP_PLAN",
+        engine.record_outcome(problem.decision_id, actor="ops", actual_action="SLOW_STEAM",
                               observed={"eta": 30.0, "incident": 1})
         row = self.ledger.get_decision_problem(problem.decision_id)
         self.assertEqual(row.status, "resolved")
@@ -381,7 +387,7 @@ class WorkflowAndLedgerTests(unittest.TestCase):
             self.ledger.resolve_decision_problem(problem.decision_id, human_choice="x", actual_action="y",
                                                  observed_outcome={}, observed_at="2026-09-14T00:00:00Z")
         rec = self.ledger.get_decision(f"{problem.decision_id}-rec")
-        self.assertEqual(rec.action_state, "not_taken")                     # recommended slow steam, took keep
+        self.assertEqual(rec.action_state, "not_taken")                     # recommended keep, took slow steam
 
     def test_outcome_scoring_reads_the_record_never_the_engine(self):
         engine, problem = solve("PWD-001", ledger=self.ledger)

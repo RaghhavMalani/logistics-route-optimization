@@ -107,8 +107,23 @@ result. Ties go to the baseline. Vessel weights: risk 0.35, eta 0.25, fuel
 0.15, weather 0.10, cost 0.10, uncertainty 0.05. Port weights charge a missed
 departure the way the twin's own reward does (0.40).
 
-The recommendation is never a dominated or incomparable option. When no
-feasible option survives, the problem says so.
+The BALANCED pick is the expected-value answer and is always published
+(`evidence.expectedBest`, `recommendation.rankingBasis.expectedBest`). For
+vessel routing the recommendation itself comes from the robust policy
+(`decision/robust.py`, `ROBUST_DECISIONS.md`): every candidate is evaluated
+under four stress horizons for the claim's duration with the closure outcome
+model the mission scorecard scores with, the current plan is a first-class
+candidate, and an intervention is recommended only when it clears a
+minimax-regret gate. The recommendation carries a `kind` -- `ACT`,
+`KEEP_CURRENT_PLAN` or `WAIT_FOR_MORE_INFORMATION` -- the three picks
+(`EXPECTED_BEST`, `ROBUST_BEST`, `LOWEST_WORST_CASE_REGRET`), the regret table,
+each intervention's break-even closure length and reversibility, and the gate
+checks. Which policy is the engine's default was decided by the
+decision-policy promotion gate (`DECISION_POLICY_GATE.md`), not by hand.
+
+The recommendation is never an incomparable option, and a dominated one only
+with the robust reason stated on it. When no feasible option survives, the
+problem says so.
 
 ## 5. The optimiser is deterministic, and greedy loses
 
@@ -128,8 +143,9 @@ missed departure, prefers first-come-first-served and says why.
 `port_feasibility`, `cargo_feasibility`, `data_availability`, `assumptions`,
 `claim_horizon` — and returns `PASS`, `PASS_WITH_WARNINGS` or `REJECT`. Each
 check names the computation it read (`basis`). `review_recommendation` adds
-`recommended_option_passes`, `risk_tradeoff_stated` and `not_dominated`. A
-REJECT withdraws the option from ranking.
+`recommended_option_passes`, `risk_tradeoff_stated`, `not_dominated` (a warning
+rather than a block when the robust assessment names the option as its minimax
+pick) and `robustness_stated`. A REJECT withdraws the option from ranking.
 
 ## 7. The financial twin
 

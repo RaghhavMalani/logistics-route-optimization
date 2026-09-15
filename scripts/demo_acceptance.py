@@ -430,7 +430,12 @@ def run(api: Api, mode: str) -> int:
             return "no frontier"
         rec = problem.get("recommendation")
         if rec and rec["optionId"] in (front.get("dominated") or {}):
-            return "the recommendation is a dominated option"
+            # Dominance is a fact about the expected objectives; the robust
+            # gate may still keep the plan or pick the minimax option, and
+            # then it must say so on the recommendation itself.
+            picks = (rec.get("robustness") or {}).get("picks") or {}
+            if picks.get("LOWEST_WORST_CASE_REGRET") != rec["optionId"]:
+                return "the recommendation is a dominated option with no robust reason"
         ranking = (problem.get("evidence") or {}).get("ranking") or {}
         if not ranking.get("weights"):
             return "the ranking does not state its weights"
@@ -438,7 +443,55 @@ def run(api: Api, mode: str) -> int:
             if option_id is not None and option_id not in {o["optionId"] for o in problem["options"]}:
                 return f"pick {pick} names an option that does not exist"
         return None
-    rows.check("5. A Pareto frontier with named picks; the recommendation is never dominated", frontier)
+    rows.check("5. A Pareto frontier with named picks; a recommendation off the frontier states its robust reason", frontier)
+
+    def robust():
+        problem = held.get("problem")
+        if not problem:
+            raise Skip("no problem")
+        rec = problem.get("recommendation")
+        if not rec:
+            raise Skip("no recommendation")
+        if rec.get("kind") not in ("ACT", "KEEP_CURRENT_PLAN", "WAIT_FOR_MORE_INFORMATION"):
+            return f"the recommendation has no kind ({rec.get('kind')})"
+        if rec.get("policy") != "robust-v1":
+            return f"the active policy is {rec.get('policy')}, not the robust gate"
+        rob = rec.get("robustness") or {}
+        if not rob.get("applicable"):
+            return "the vessel recommendation was not assessed across stress horizons"
+        labels = [s["label"] for s in rob.get("scenarios", [])]
+        if labels != ["FIZZLE", "SHORT", "BASE", "LONG"]:
+            return f"stress horizons are {labels}"
+        for scenario in rob["scenarios"]:
+            if "probability" in scenario or "weight" in scenario:
+                return "a stress horizon carries a probability the product does not have"
+        picks = rob.get("picks") or {}
+        for name in ("EXPECTED_BEST", "ROBUST_BEST", "LOWEST_WORST_CASE_REGRET"):
+            if name not in picks:
+                return f"no {name} pick"
+        baseline = problem["baselineOptionId"]
+        if baseline not in rob.get("table", {}) or baseline not in rob.get("summary", {}):
+            return "the current plan is not in the regret table"
+        for oid, summary in rob["summary"].items():
+            if oid == baseline:
+                continue
+            be = summary.get("breakEven") or {}
+            if be.get("available") and not be.get("statement"):
+                return f"{oid} has a break-even with no statement"
+            if not summary.get("reversibility", {}).get("class"):
+                return f"{oid} has no reversibility class"
+        if rob.get("durationConfidence", {}).get("label") not in ("LOW / UNCALIBRATED", "ASSUMED"):
+            return "the duration confidence is not labelled as uncalibrated"
+        if rec["kind"] in ("KEEP_CURRENT_PLAN", "WAIT_FOR_MORE_INFORMATION") and rec["optionId"] != baseline:
+            return "a keep/wait recommendation names an option other than the plan"
+        if rec["kind"] == "WAIT_FOR_MORE_INFORMATION" and not (rob.get("information") or {}).get("reevaluateInHours"):
+            return "a WAIT names no re-evaluation instant"
+        if not rec.get("why"):
+            return "the recommendation gives no why"
+        held["robust"] = rob
+        return None
+    rows.check("5b. The recommendation is robust to the claim's duration: four stress horizons, minimax regret, "
+               "break-even and reversibility, KEEP or WAIT when the evidence is weak", robust)
 
     def deterministic():
         item = held.get("item")
@@ -564,21 +617,31 @@ def run(api: Api, mode: str) -> int:
         rec = problem.get("recommendation")
         if not rec:
             raise Skip("no recommendation to approve")
-        status, body = api.post(f"/decisions/problems/{did}/transition", {"target": "APPROVED", "optionId": rec["optionId"]}, headers=PORT)
+        # The robust gate usually keeps the plan, and continuing the plan needs
+        # no advisory. The operator may still choose an intervention -- the
+        # ledger records that it differs from the recommendation -- and that
+        # is the choice that exercises the advisory boundary here.
+        chosen = rec["optionId"]
+        if chosen == problem["baselineOptionId"]:
+            feasible = [o for o in problem["options"] if o["status"] == "FEASIBLE" and not o["isBaseline"]
+                        and (o.get("critic") or {}).get("verdict") != "REJECT"]
+            preferred = (rec.get("robustness") or {}).get("contenderId") or (rec.get("rankingBasis") or {}).get("expectedBest")
+            chosen = next((o["optionId"] for o in feasible if o["optionId"] == preferred), None) or (feasible[0]["optionId"] if feasible else None)
+        if chosen is None:
+            raise Skip("no feasible intervention to hand off")
+        status, body = api.post(f"/decisions/problems/{did}/transition", {"target": "APPROVED", "optionId": chosen}, headers=PORT)
         if status == 200:
             return "APPROVED was reachable straight from COMPUTED"
         status, body = api.post(f"/decisions/problems/{did}/transition", {"target": "REVIEWED"}, headers=PORT)
         if status != 200:
             return f"REVIEWED refused: {body}"
-        status, body = api.post(f"/decisions/problems/{did}/transition", {"target": "APPROVED", "optionId": rec["optionId"]}, headers=PORT)
+        status, body = api.post(f"/decisions/problems/{did}/transition", {"target": "APPROVED", "optionId": chosen}, headers=PORT)
         if status != 200:
             return f"APPROVED refused: {body}"
         if body["workflow"] != "APPROVED" or not body.get("workflowHistory"):
             return "no workflow history"
-        if body.get("humanChoice") != rec["optionId"]:
+        if body.get("humanChoice") != chosen:
             return "the approved option was not recorded as the human choice"
-        if rec["optionId"] == problem["baselineOptionId"]:
-            raise Skip("the recommendation is to keep the plan; no advisory is needed for that")
         status, body = api.post(f"/decisions/problems/{did}/handoff", {}, headers=PORT)
         if status != 200:
             return f"handoff refused: {body}"

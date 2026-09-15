@@ -188,9 +188,124 @@ export interface DecisionFrontier {
   picks: Record<string, string>;
 }
 
+export type RecommendationKind =
+  "ACT" | "KEEP_CURRENT_PLAN" | "WAIT_FOR_MORE_INFORMATION";
+
+export type ReversibilityClass =
+  "OPEN" | "HIGH" | "UNTIL_BRANCH" | "PARTIAL" | "IRREVERSIBLE";
+
+export interface StressScenario {
+  label: "FIZZLE" | "SHORT" | "BASE" | "LONG";
+  multiplier: number | null;
+  description: string;
+  queueModel: string;
+  closureFromNowHours: number | null;
+  window: {
+    blockedFrom: string;
+    reopenedAt: string;
+    clearedAt: string;
+    closureHours: number;
+    drainHours: number;
+  };
+}
+
+export interface RobustCell {
+  delay: number;
+  regret: number;
+  how: string;
+}
+
+export interface BreakEven {
+  available: boolean;
+  reason?: string;
+  winsFromHours?: number | null;
+  winsUntilHours?: number | null;
+  winningShare?: number;
+  gridSpanHours?: number;
+  gridStepHours?: number;
+  statement?: string;
+  curve?: Array<{ closureFromNowHours: number; option: number; baseline: number }>;
+}
+
+export interface RobustSummary {
+  worstCaseRegret: number;
+  worstCaseScenario: string;
+  meanRegret: number;
+  meanRegretBasis: string;
+  wins: number;
+  winningScenarios: string[];
+  scenarios: number;
+  baselineAdvantageHours: Record<string, number>;
+  meanBaselineAdvantageHours: number | null;
+  robustnessMargin: number | null;
+  reversibility: { class: ReversibilityClass; closesInHours: number | null; detail: string };
+  breakEven: BreakEven | null;
+}
+
+export interface GateCheck {
+  name: string;
+  passed: boolean;
+  blocking: boolean;
+  detail: string;
+  basis: string;
+}
+
+/**
+ * The robust assessment: every candidate under every stress horizon, the
+ * minimax pick, the gate the intervention had to clear, and what the operator
+ * is told to do next. `applicable: false` means the domain has no
+ * duration-uncertainty model (port, cargo) and the expected ranking decided.
+ */
+export interface RobustAssessment {
+  applicable: boolean;
+  policy: string;
+  kind: RecommendationKind;
+  optionId: string | null;
+  contenderId: string | null;
+  provisionalOptionId: string | null;
+  scenarios: StressScenario[];
+  table: Record<string, Record<string, RobustCell>>;
+  summary: Record<string, RobustSummary>;
+  picks: {
+    EXPECTED_BEST: string | null;
+    ROBUST_BEST: string | null;
+    LOWEST_WORST_CASE_REGRET: string | null;
+  };
+  checks: GateCheck[];
+  failedBlocking: string[];
+  durationConfidence: {
+    label: string;
+    basis: string;
+    claimProbabilityCalibrated?: boolean;
+    claimConfidence?: number | null;
+  };
+  information: {
+    scenarioSensitive?: boolean;
+    bestByScenario?: Record<string, string>;
+    nextObservationHours?: number;
+    nextObservationBasis?: string;
+    informationValueHoursUpperBound?: number;
+    informationValueBasis?: string;
+    reevaluateInHours?: number;
+    branchPointInHours?: number | null;
+  };
+  queueModel: { name: string; drainFraction: number; basis: string } & Record<string, unknown>;
+  notModelled: Record<string, string>;
+  why: string;
+  statement: string;
+  notes: string[];
+  tolerance: { hours: number; basis: string };
+}
+
 export interface DecisionRecommendation {
   optionId: string;
   actor: DecisionActorRole;
+  /** ACT names an intervention; the other two keep the plan for now. */
+  kind: RecommendationKind;
+  /** The policy that produced it: `balanced-v1` or `robust-v1`. */
+  policy: string;
+  /** For WAIT: the option to take if the claim still stands at re-evaluation. */
+  provisionalOptionId: string | null;
   rankingBasis: {
     method?: string;
     weights?: Record<string, number>;
@@ -198,6 +313,7 @@ export interface DecisionRecommendation {
     objectivesDropped?: Record<string, string>;
     score?: { score: number; terms: Record<string, number> } | null;
     order?: string[];
+    expectedBest?: string | null;
   };
   againstBaseline: Record<
     string,
@@ -215,6 +331,8 @@ export interface DecisionRecommendation {
     available: boolean;
     reason?: string;
   };
+  robustness: RobustAssessment | null;
+  why: string;
   statement: string;
 }
 

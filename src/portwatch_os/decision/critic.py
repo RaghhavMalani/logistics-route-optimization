@@ -177,15 +177,45 @@ class DecisionCritic:
                                 if risk_here is not None else "no risk objective in this domain",
                                 basis="frontier.picks.LOWEST_RISK"))
         if problem.frontier and option.option_id in problem.frontier.dominated:
+            # Dominance is a fact about the expected objectives, which assume
+            # the claim's duration. The robust policy may still pick a
+            # dominated option -- the current plan, or a diversion that a
+            # slow-steam hold beats on paper and loses to once the closure
+            # outlasts the claim -- and when it does it says so here. Without
+            # a robust reason, a dominated recommendation is blocked.
+            robust = problem.recommendation.robustness if problem.recommendation else None
+            reason = (robust or {}).get("picks", {}).get("LOWEST_WORST_CASE_REGRET") == option.option_id                 or (option.is_baseline and bool((robust or {}).get("applicable")))
             checks.append(Check(
-                "not_dominated", False, BLOCKING,
-                f"{option.option_id} is dominated by {problem.frontier.dominated[option.option_id]}",
-                basis="frontier.dominated",
+                "not_dominated", False, WARNING if reason else BLOCKING,
+                f"{option.option_id} is dominated by {problem.frontier.dominated[option.option_id]} on the "
+                "expected objectives"
+                + ("; recommended because it carries the lowest worst-case regret across the stress horizons"
+                   if reason else ""),
+                basis="frontier.dominated" + ("; recommendation.robustness.picks" if reason else ""),
             ))
         else:
             checks.append(Check("not_dominated", True, BLOCKING,
                                 "the recommendation is on the frontier", basis="frontier.nondominated"))
+        checks.append(self._robustness_stated(problem))
         return _verdict(checks)
+
+    def _robustness_stated(self, problem: DecisionProblem) -> Check:
+        """A vessel recommendation must say how it fares when the claim's
+        duration is stressed; a recommendation without that is an
+        expected-value answer to a question about an unknown duration."""
+        if problem.domain != "VESSEL_ROUTING":
+            return Check("robustness_stated", True, WARNING, "no duration-uncertainty model for this domain",
+                         basis="recommendation.robustness")
+        robustness = problem.recommendation.robustness if problem.recommendation else None
+        if not robustness or not robustness.get("applicable"):
+            return Check("robustness_stated", False, WARNING,
+                         "the recommendation was not assessed across stress horizons",
+                         basis="recommendation.robustness", remedy="show the expected-value basis as such")
+        picks = robustness.get("picks") or {}
+        return Check("robustness_stated", True, WARNING,
+                     f"{len(robustness.get('scenarios') or [])} stress horizons; minimax pick "
+                     f"{picks.get('LOWEST_WORST_CASE_REGRET')}, expected pick {picks.get('EXPECTED_BEST')}",
+                     basis="recommendation.robustness")
 
     # -- checks ------------------------------------------------------------
     def _hard_constraints(self, option: DecisionOption) -> Check:
@@ -384,7 +414,8 @@ class DecisionCritic:
             "checks": ["hard_constraints", "decision_window", "source_freshness", "weather_confidence",
                        "model_disagreement", "route_feasibility", "port_feasibility", "cargo_feasibility",
                        "data_availability", "assumptions", "claim_horizon"],
-            "recommendationChecks": ["recommended_option_passes", "risk_tradeoff_stated", "not_dominated"],
+            "recommendationChecks": ["recommended_option_passes", "risk_tradeoff_stated", "not_dominated",
+                                     "robustness_stated"],
             "note": "Every check names the computation or evidence it read. The Critic never relaxes a "
                     "hard constraint and never promotes a rejected option.",
         }

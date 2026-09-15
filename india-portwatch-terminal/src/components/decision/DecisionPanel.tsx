@@ -37,8 +37,9 @@ import type {
 import { DecisionTimeline } from "./DecisionTimeline";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
+import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
 
-type Tab = "options" | "frontier" | "timeline" | "money" | "why" | "workflow";
+type Tab = "options" | "robust" | "frontier" | "timeline" | "money" | "why" | "workflow";
 
 const VERDICT_TONE: Record<CriticVerdict, Tone> = {
   PASS: "ok",
@@ -271,6 +272,8 @@ export function DecisionPanel({
         </p>
       </div>
 
+      <RobustHeadline problem={problem} />
+
       <PanelTabs
         value={tab}
         onChange={setTab}
@@ -278,11 +281,13 @@ export function DecisionPanel({
           compact
             ? [
                 { value: "options", label: "Options", count: feasible.length },
+                { value: "robust", label: "Robust" },
                 { value: "frontier", label: "Frontier" },
                 { value: "why", label: "Why" },
               ]
             : [
                 { value: "options", label: "Options", count: feasible.length },
+                { value: "robust", label: "Robust" },
                 { value: "frontier", label: "Frontier" },
                 { value: "timeline", label: "Timeline" },
                 { value: "money", label: "Money" },
@@ -305,7 +310,10 @@ export function DecisionPanel({
               </Chip>
               {recommendation ? (
                 <span className="ml-auto truncate text-[10.5px] text-[var(--text-3)]">
-                  Recommended:{" "}
+                  {recommendation.kind && recommendation.kind !== "ACT"
+                    ? kindLabel(recommendation.kind)
+                    : "Recommended"}
+                  :{" "}
                   <span className="text-[var(--text-2)]">
                     {
                       problem.options.find(
@@ -404,6 +412,14 @@ export function DecisionPanel({
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {tab === "robust" ? (
+          <RobustView
+            problem={problem}
+            selectedOptionId={selectedOptionId}
+            onSelect={onSelectOption}
+          />
         ) : null}
 
         {tab === "frontier" ? (
