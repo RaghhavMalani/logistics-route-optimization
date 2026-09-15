@@ -25,13 +25,23 @@ import borders from "@/assets/geo/region-borders.json";
 import land from "@/assets/geo/region-land.json";
 import { corridorFeatures } from "@/lib/maritime/searoutes";
 
-/** Indian Ocean theatre: Suez and Hormuz on one edge, Malacca on the other. */
+/**
+ * The theatre: Gibraltar and the Cape of Good Hope on one side, Malacca on the
+ * other, so a diversion the decision engine routes from the Mediterranean
+ * round Africa is drawn whole rather than leaving the frame at 24E -- with a
+ * margin of open water round it, so the camera can frame that theatre in the
+ * part of the chart the panels leave uncovered. The bundled coastline is
+ * clipped to the same box.
+ */
 export const REGION_BOUNDS: [[number, number], [number, number]] = [
-  [24, -14],
-  [114, 44],
+  [-49, -52],
+  [114, 58],
 ];
 
-export const INDIA_VIEW = { center: [79.5, 14.5] as [number, number], zoom: 4.15 };
+export const INDIA_VIEW = {
+  center: [79.5, 14.5] as [number, number],
+  zoom: 4.15,
+};
 
 /** A transparent pixel, so the weather raster source exists before it has data. */
 export const BLANK_IMAGE =
@@ -39,24 +49,39 @@ export const BLANK_IMAGE =
 
 function graticule(step = 10): GeoJSON.FeatureCollection {
   const lines: GeoJSON.Feature[] = [];
-  for (let lon = 20; lon <= 120; lon += step) {
+  for (let lon = -50; lon <= 120; lon += step) {
     lines.push({
       type: "Feature",
       properties: { kind: lon % 30 === 0 ? "major" : "minor" },
-      geometry: { type: "LineString", coordinates: [[lon, -20], [lon, 50]] },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [lon, -60],
+          [lon, 60],
+        ],
+      },
     });
   }
-  for (let lat = -20; lat <= 50; lat += step) {
+  for (let lat = -60; lat <= 60; lat += step) {
     lines.push({
       type: "Feature",
       properties: { kind: lat === 0 ? "major" : "minor" },
-      geometry: { type: "LineString", coordinates: [[20, lat], [120, lat]] },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-50, lat],
+          [120, lat],
+        ],
+      },
     });
   }
   return { type: "FeatureCollection", features: lines };
 }
 
-export const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+export const EMPTY: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 /** Sources the operational layers write into at runtime. */
 const RUNTIME_SOURCES = [
@@ -72,6 +97,13 @@ const RUNTIME_SOURCES = [
   "chokepoints",
   "events",
   "rings",
+  "cascade",
+  // The sea as forecast: one cell per sample point. Its own source because
+  // it is written by a query, not by the traffic frame.
+  "seastate",
+  // Observed AIS. Kept apart from `vessels` so an observed hull and a replay
+  // hull can never share a feature, a style or a click handler.
+  "observed",
 ] as const;
 
 export type RuntimeSource = (typeof RUNTIME_SOURCES)[number];
@@ -101,7 +133,11 @@ export function buildStyle(): StyleSpecification {
     version: 8,
     sources,
     layers: [
-      { id: "sea", type: "background", paint: { "background-color": "#061520" } },
+      {
+        id: "sea",
+        type: "background",
+        paint: { "background-color": "#061520" },
+      },
 
       /* --------------------------------------------------- shelf gradient -- */
       /* Three blurred coast strokes stand in for bathymetry. The shelf is the
@@ -118,7 +154,17 @@ export function buildStyle(): StyleSpecification {
           // The shelf is basin-scale orientation. Inside a harbour view the
           // whole frame is shelf, and holding it at full strength lifts the
           // coastal water to the same value as the land beside it.
-          "line-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 7, 0.45, 9, 0.15],
+          "line-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            0.6,
+            7,
+            0.45,
+            9,
+            0.15,
+          ],
         },
       },
       {
@@ -129,7 +175,17 @@ export function buildStyle(): StyleSpecification {
           "line-color": "#0d2b3c",
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 18, 8, 60],
           "line-blur": ["interpolate", ["linear"], ["zoom"], 3, 16, 8, 52],
-          "line-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.7, 7, 0.5, 9, 0.16],
+          "line-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            0.7,
+            7,
+            0.5,
+            9,
+            0.16,
+          ],
         },
       },
       {
@@ -140,12 +196,27 @@ export function buildStyle(): StyleSpecification {
           "line-color": "#103446",
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 22],
           "line-blur": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 20],
-          "line-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.75, 7, 0.55, 9, 0.18],
+          "line-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            0.75,
+            7,
+            0.55,
+            9,
+            0.18,
+          ],
         },
       },
 
       /* ---------------------------------------------------------- land -- */
-      { id: "land-fill", type: "fill", source: "land", paint: { "fill-color": "#182634" } },
+      {
+        id: "land-fill",
+        type: "fill",
+        source: "land",
+        paint: { "fill-color": "#182634" },
+      },
 
       /* -------------------------------------------------- weather raster -- */
       /* Above the land fill and below the coastline, the way a radar composite
@@ -162,11 +233,17 @@ export function buildStyle(): StyleSpecification {
           // closes in, where it would otherwise flood the approach in colour
           // and imply a resolution the observations do not have.
           "raster-opacity": [
-            "interpolate", ["linear"], ["zoom"],
-            3, 0.85,
-            6, 0.58,
-            7.5, 0.2,
-            9, 0.1,
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            0.85,
+            6,
+            0.58,
+            7.5,
+            0.2,
+            9,
+            0.1,
           ],
           "raster-fade-duration": 0,
           "raster-resampling": "linear",
@@ -179,7 +256,10 @@ export function buildStyle(): StyleSpecification {
         type: "fill",
         source: "storms",
         layout: { visibility: "none" },
-        paint: { "fill-color": ["get", "color"], "fill-opacity": ["get", "opacity"] },
+        paint: {
+          "fill-color": ["get", "color"],
+          "fill-opacity": ["get", "opacity"],
+        },
       },
       {
         id: "storm-edge",
@@ -191,6 +271,80 @@ export function buildStyle(): StyleSpecification {
           "line-width": ["case", ["==", ["get", "ring"], "core"], 1.6, 1],
           "line-dasharray": [2, 2],
           "line-opacity": 0.8,
+        },
+      },
+
+      /* ---------------------------------------------------- sea state -- */
+      /* Significant wave height as a filled disc, colour by height; swell
+         and current as short oriented strokes. Drawn under the traffic so a
+         hull is never hidden by the water it is in. */
+      {
+        id: "seastate-wave",
+        type: "circle",
+        source: "seastate",
+        filter: ["==", ["get", "kind"], "cell"],
+        layout: { visibility: "none" },
+        paint: {
+          "circle-color": [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["get", "waveHeightM"], 0],
+            0,
+            "#2b5f8c",
+            1.5,
+            "#3f8fb8",
+            2.5,
+            "#d8b23c",
+            4,
+            "#e2622f",
+            6,
+            "#c0223a",
+          ],
+          "circle-opacity": [
+            "case",
+            ["!", ["has", "waveHeightM"]],
+            0.12,
+            ["==", ["get", "outsideHorizon"], true],
+            0.28,
+            0.5,
+          ],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            ["+", 6, ["*", 3, ["coalesce", ["get", "waveHeightM"], 0]]],
+            7,
+            ["+", 14, ["*", 7, ["coalesce", ["get", "waveHeightM"], 0]]],
+          ],
+          "circle-stroke-color": "#dbe8f2",
+          "circle-stroke-opacity": 0.35,
+          "circle-stroke-width": 0.8,
+        },
+      },
+      {
+        id: "seastate-swell",
+        type: "line",
+        source: "seastate",
+        filter: ["==", ["get", "kind"], "swell"],
+        layout: { visibility: "none", "line-cap": "round" },
+        paint: {
+          "line-color": "#d9c7ff",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1, 7, 1.8],
+          "line-dasharray": [1.5, 1.5],
+          "line-opacity": 0.85,
+        },
+      },
+      {
+        id: "seastate-current",
+        type: "line",
+        source: "seastate",
+        filter: ["==", ["get", "kind"], "current"],
+        layout: { visibility: "none", "line-cap": "round" },
+        paint: {
+          "line-color": "#7fe0ff",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1.2, 7, 2.2],
+          "line-opacity": 0.9,
         },
       },
 
@@ -231,7 +385,11 @@ export function buildStyle(): StyleSpecification {
         id: "land-borders",
         type: "line",
         source: "borders",
-        paint: { "line-color": "#233d4f", "line-width": 0.7, "line-dasharray": [3, 2] },
+        paint: {
+          "line-color": "#233d4f",
+          "line-width": 0.7,
+          "line-dasharray": [3, 2],
+        },
       },
 
       /* ------------------------------------------------ port-local zones -- */
@@ -240,7 +398,10 @@ export function buildStyle(): StyleSpecification {
         type: "fill",
         source: "zones",
         filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "fill-color": ["get", "color"], "fill-opacity": ["get", "opacity"] },
+        paint: {
+          "fill-color": ["get", "color"],
+          "fill-opacity": ["get", "opacity"],
+        },
       },
       {
         id: "zone-edge",
@@ -318,6 +479,67 @@ export function buildStyle(): StyleSpecification {
         },
       },
 
+      /* --------------------------------------------------------- cascade -- */
+      /*
+       * Consequence drawn on the water. Width and opacity are data-driven from
+       * the magnitude the World State Engine computed, so a heavier lane is
+       * heavier because the engine said so rather than because a designer
+       * picked a thickness.
+       *
+       * `reveal` is the animation channel: the screen raises it from 0 to 1
+       * once when a cascade is opened, and leaves it there. Nothing pulses on
+       * a loop -- a control room that blinks permanently is a control room
+       * whose operators stop seeing the blinking.
+       */
+      {
+        id: "cascade-halo",
+        type: "line",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "lane"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["*", ["get", "width"], 2.6],
+          "line-opacity": ["*", ["get", "opacity"], 0.18],
+          "line-blur": 3,
+        },
+      },
+      {
+        id: "cascade-lane",
+        type: "line",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "lane"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["get", "width"],
+          "line-opacity": ["get", "opacity"],
+        },
+      },
+      {
+        id: "cascade-flow",
+        type: "line",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "flow"],
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": ["get", "width"],
+          "line-opacity": ["get", "opacity"],
+          "line-dasharray": [1.5, 3],
+        },
+      },
+      {
+        id: "cascade-ring",
+        type: "circle",
+        source: "cascade",
+        filter: ["==", ["get", "part"], "ring"],
+        paint: {
+          "circle-radius": ["get", "radius"],
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-color": ["get", "color"],
+          "circle-stroke-width": ["get", "width"],
+          "circle-stroke-opacity": ["get", "opacity"],
+        },
+      },
+
       /* ---------------------------------------------------------- tracks -- */
       {
         id: "track-line",
@@ -361,7 +583,15 @@ export function buildStyle(): StyleSpecification {
         source: "events",
         layout: { visibility: "none" },
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["get", "severity"], 0, 4, 1, 11],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["get", "severity"],
+            0,
+            4,
+            1,
+            11,
+          ],
           "circle-color": ["get", "color"],
           "circle-opacity": 0.16,
           "circle-stroke-color": ["get", "color"],
@@ -376,9 +606,13 @@ export function buildStyle(): StyleSpecification {
         source: "ports",
         paint: {
           "circle-radius": [
-            "interpolate", ["linear"], ["zoom"],
-            3, ["+", 6, ["*", 10, ["get", "pressure"]]],
-            9, ["+", 16, ["*", 30, ["get", "pressure"]]],
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            ["+", 6, ["*", 10, ["get", "pressure"]]],
+            9,
+            ["+", 16, ["*", 30, ["get", "pressure"]]],
           ],
           "circle-color": ["get", "color"],
           "circle-opacity": 0.1,
@@ -395,7 +629,12 @@ export function buildStyle(): StyleSpecification {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4.2, 9, 8],
           "circle-color": "#08161e",
           "circle-stroke-color": ["get", "color"],
-          "circle-stroke-width": ["case", ["==", ["get", "selected"], true], 2.6, 1.8],
+          "circle-stroke-width": [
+            "case",
+            ["==", ["get", "selected"], true],
+            2.6,
+            1.8,
+          ],
         },
       },
       {
@@ -403,7 +642,15 @@ export function buildStyle(): StyleSpecification {
         type: "circle",
         source: "ports",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 1.7, 9, 3.4],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            1.7,
+            9,
+            3.4,
+          ],
           "circle-color": ["get", "color"],
         },
       },
@@ -419,7 +666,17 @@ export function buildStyle(): StyleSpecification {
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 3, 0.3, 7, 0.46, 11, 0.66],
+          "icon-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            0.3,
+            7,
+            0.46,
+            11,
+            0.66,
+          ],
         },
         paint: { "icon-opacity": 0.32 },
       },
@@ -430,7 +687,15 @@ export function buildStyle(): StyleSpecification {
         type: "circle",
         source: "clusters",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["get", "count"], 2, 7, 40, 17],
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["get", "count"],
+            2,
+            7,
+            40,
+            17,
+          ],
           "circle-color": "#0b202c",
           "circle-opacity": 0.88,
           "circle-stroke-color": "#3f7f9e",
@@ -464,14 +729,65 @@ export function buildStyle(): StyleSpecification {
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
           "icon-size": [
-            "interpolate", ["linear"], ["zoom"],
-            3, ["*", 0.4, ["get", "scale"]],
-            6, ["*", 0.56, ["get", "scale"]],
-            9, ["*", 0.78, ["get", "scale"]],
-            12, ["*", 1, ["get", "scale"]],
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            ["*", 0.4, ["get", "scale"]],
+            6,
+            ["*", 0.56, ["get", "scale"]],
+            9,
+            ["*", 0.78, ["get", "scale"]],
+            12,
+            ["*", 1, ["get", "scale"]],
           ],
         },
         paint: { "icon-opacity": ["get", "opacity"] },
+      },
+
+      /* ------------------------------------------------- observed AIS -- */
+      /* A transponder's own claims. A different glyph from the replay on
+         purpose: a ring, not a hull shape, because the class and heading a
+         hull shape implies are things a position report does not say. */
+      {
+        id: "observed-track",
+        type: "line",
+        source: "observed",
+        filter: ["==", ["get", "kind"], "track"],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": [
+            "case",
+            ["==", ["get", "freshness"], "LIVE"],
+            "#3fd0c9",
+            "#8a97a3",
+          ],
+          "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.8, 8, 1.6],
+          "line-opacity": 0.75,
+        },
+      },
+      {
+        id: "observed-mark",
+        type: "circle",
+        source: "observed",
+        filter: ["==", ["get", "kind"], "mark"],
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3.2, 8, 6],
+          "circle-color": "#061520",
+          "circle-opacity": 0.9,
+          "circle-stroke-color": [
+            "case",
+            ["==", ["get", "freshness"], "LIVE"],
+            "#3fd0c9",
+            "#8a97a3",
+          ],
+          "circle-stroke-width": [
+            "case",
+            ["==", ["get", "selected"], true],
+            3,
+            1.8,
+          ],
+        },
       },
     ],
   } as StyleSpecification;
@@ -485,13 +801,21 @@ export const LAYER_GROUPS = {
   storms: ["storm-area", "storm-edge"],
   ports: ["port-pressure", "port-mark", "port-core"],
   corridors: ["corridor-line"],
-  routes: ["route-behind", "route-exposure", "route-ahead", "route-alternative"],
+  routes: [
+    "route-behind",
+    "route-exposure",
+    "route-ahead",
+    "route-alternative",
+  ],
   tracks: ["track-line"],
   vectors: ["vector-line"],
   chokepoints: ["chokepoint-mark"],
   events: ["event-mark"],
+  cascade: ["cascade-halo", "cascade-lane", "cascade-flow", "cascade-ring"],
   zones: ["zone-fill", "zone-edge", "zone-channel"],
   graticule: ["graticule-line"],
+  seastate: ["seastate-wave", "seastate-swell", "seastate-current"],
+  observed: ["observed-track", "observed-mark"],
 } as const;
 
 export type LayerKey = keyof typeof LAYER_GROUPS;
@@ -514,6 +838,18 @@ export const SEA_LABELS = [
   { id: "mannar", name: "GULF OF MANNAR", lon: 78.6, lat: 7.9, minZoom: 5.6 },
   { id: "palk", name: "PALK BAY", lon: 79.4, lat: 9.8, minZoom: 6.2 },
   { id: "kutch", name: "GULF OF KUTCH", lon: 69.4, lat: 22.5, minZoom: 6 },
-  { id: "khambhat", name: "GULF OF KHAMBHAT", lon: 72.2, lat: 21.2, minZoom: 6 },
-  { id: "malacca", name: "STRAIT OF MALACCA", lon: 99.4, lat: 4.4, minZoom: 4.8 },
+  {
+    id: "khambhat",
+    name: "GULF OF KHAMBHAT",
+    lon: 72.2,
+    lat: 21.2,
+    minZoom: 6,
+  },
+  {
+    id: "malacca",
+    name: "STRAIT OF MALACCA",
+    lon: 99.4,
+    lat: 4.4,
+    minZoom: 4.8,
+  },
 ] as const;

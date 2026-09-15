@@ -29,11 +29,23 @@ import { Link } from "@tanstack/react-router";
 import { useWorkspace } from "@/auth/AuthProvider";
 import { AgentConsole } from "@/components/agent/AgentConsole";
 import { useFixes } from "@/components/app/traffic-context";
-import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import {
+  MaritimeSearch,
+  type SearchHit,
+} from "@/components/command/MaritimeSearch";
 import { TimeTransport } from "@/components/command/TimeTransport";
-import { EnvironmentLegend, TrafficFilters } from "@/components/command/TrafficFilters";
+import {
+  EnvironmentLegend,
+  TrafficFilters,
+} from "@/components/command/TrafficFilters";
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
 import { VesselHoverCard } from "@/components/command/VesselInspector";
-import { EmptyNote, FloatPanel, PanelSection, PanelTabs } from "@/components/command/panels";
+import {
+  EmptyNote,
+  FloatPanel,
+  PanelSection,
+  PanelTabs,
+} from "@/components/command/panels";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { exposureTone } from "@/components/globaleye/EventPanels";
 import { Pill, formatUtc } from "@/components/kit/primitives";
@@ -45,7 +57,9 @@ import { cn } from "@/lib/utils";
 import { useCompanyFleet, useCompanyRisk } from "@/services/os-hooks";
 import type { CompanyRiskRow, FleetVessel } from "@/types/portwatch-os";
 
-export const Route = createFileRoute("/company/overview")({ component: FleetCommand });
+export const Route = createFileRoute("/company/overview")({
+  component: FleetCommand,
+});
 
 /** Lane geometry for the vessels this fleet actually runs. */
 function fleetRoutes(
@@ -66,7 +80,11 @@ function fleetRoutes(
         part: "fleet",
         id: vessel.vessel_id,
         color:
-          exposure >= 0.55 ? "#d05a4c" : exposure >= 0.3 ? "#d3a02f" : "#4c9fcb",
+          exposure >= 0.55
+            ? "#d05a4c"
+            : exposure >= 0.3
+              ? "#d3a02f"
+              : "#4c9fcb",
         width: focused ? 1.4 + exposure * 2 : 0.8,
         opacity: focused ? 0.35 + exposure * 0.45 : 0.12,
         label: `${vessel.name} · ${vessel.origin_port} → ${vessel.destination_port}`,
@@ -106,7 +124,10 @@ function ActionRow({
           {row.vesselName}
         </span>
         <span
-          className={cn("num shrink-0 text-[11px]", `text-[var(--${exposureTone(row.exposure)})]`)}
+          className={cn(
+            "num shrink-0 text-[11px]",
+            `text-[var(--${exposureTone(row.exposure)})]`,
+          )}
         >
           {row.exposure.toFixed(2)}
         </span>
@@ -116,22 +137,32 @@ function ActionRow({
         {row.eventCategoryLabel} · {row.chokepoint.replace(/_/g, "-")}
       </div>
 
-      <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
+      <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
         {row.hoursToRiskArea != null ? (
-          <span className="num">{row.hoursToRiskArea.toFixed(0)}h to the risk area</span>
+          <span className="num">
+            {row.hoursToRiskArea.toFixed(0)}h to the risk area
+          </span>
         ) : null}
         {row.delayHoursIfDiverted != null ? (
-          <span className="num">diversion costs {row.delayHoursIfDiverted.toFixed(0)}h</span>
+          <span className="num">
+            diversion costs {row.delayHoursIfDiverted.toFixed(0)}h
+          </span>
         ) : null}
-        {row.destinationPort ? <span className="num">→ {row.destinationPort}</span> : null}
+        {row.destinationPort ? (
+          <span className="num">→ {row.destinationPort}</span>
+        ) : null}
       </div>
 
       <div className="mt-1 flex items-center gap-1.5">
-        <Pill tone={row.recommendedAction === "evaluate_diversion" ? "warn" : "info"}>
+        <Pill
+          tone={
+            row.recommendedAction === "evaluate_diversion" ? "warn" : "info"
+          }
+        >
           {row.recommendedAction.replace(/_/g, " ")}
         </Pill>
         {row.diversionDeadline ? (
-          <span className="num text-[9.5px] text-[var(--warn)]">
+          <span className="num text-[10.5px] text-[var(--warn)]">
             by {formatUtc(row.diversionDeadline)}
           </span>
         ) : null}
@@ -168,7 +199,8 @@ function FleetCommand() {
   );
 
   const portRisk = useMemo(
-    () => Object.values(risk.data?.portRisk ?? {}).sort((a, b) => b.risk - a.risk),
+    () =>
+      Object.values(risk.data?.portRisk ?? {}).sort((a, b) => b.risk - a.risk),
     [risk.data?.portRisk],
   );
 
@@ -177,7 +209,8 @@ function FleetCommand() {
     [selectedVessel, vessels],
   );
   const selectedRows = useMemo(
-    () => (risk.data?.rows ?? []).filter((row) => row.vesselId === selectedVessel),
+    () =>
+      (risk.data?.rows ?? []).filter((row) => row.vesselId === selectedVessel),
     [risk.data?.rows, selectedVessel],
   );
 
@@ -224,6 +257,7 @@ function FleetCommand() {
         labels={workspace.labels}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
         focus={workspace.focus}
         overlay={
@@ -234,7 +268,10 @@ function FleetCommand() {
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
-              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+              <EnvironmentLegend
+                workspace={workspace}
+                frame={workspace.frame}
+              />
             </div>
 
             <div className="pointer-events-none absolute right-[372px] top-2.5 z-30">
@@ -242,11 +279,18 @@ function FleetCommand() {
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[372px] z-20">
-              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+              <TimeTransport
+                timeline={workspace.timeline}
+                weatherAt={workspace.weatherAt}
+              />
             </div>
 
             {/* --------------------------------------------------- right -- */}
             <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
+              <ObservedSelection
+                workspace={workspace}
+                className="min-h-0 flex-1"
+              />
               <FloatPanel
                 title={fleet.data?.companyName ?? "Fleet"}
                 note={
@@ -260,7 +304,7 @@ function FleetCommand() {
                 footer={fleet.data?.disclaimer}
               >
                 <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
-                  <span className="eyebrow text-[8.5px]">Horizon</span>
+                  <span className="eyebrow text-[10px]">Horizon</span>
                   {[24, 48, 72, 168].map((hours) => (
                     <button
                       key={hours}
@@ -289,7 +333,11 @@ function FleetCommand() {
                   value={tab}
                   onChange={setTab}
                   tabs={[
-                    { value: "action", label: "Action required", count: actionRequired.length },
+                    {
+                      value: "action",
+                      label: "Action required",
+                      count: actionRequired.length,
+                    },
                     { value: "fleet", label: "Fleet", count: vessels.length },
                     { value: "ports", label: "Ports", count: portRisk.length },
                   ]}
@@ -301,16 +349,20 @@ function FleetCommand() {
                       <EmptyNote>Computing fleet exposure…</EmptyNote>
                     ) : actionRequired.length === 0 ? (
                       <EmptyNote>
-                        No vessel in this fleet requires intervention over the next{" "}
-                        {horizon} hours. {monitorOnly.length
+                        No vessel in this fleet requires intervention over the
+                        next {horizon} hours.{" "}
+                        {monitorOnly.length
                           ? `${monitorOnly.length} vessel(s) are already inside an exposed area and appear below.`
                           : "No live event reaches a lane this fleet runs."}
                       </EmptyNote>
                     ) : (
                       <div data-testid="action-required">
                         <div className="flex items-center gap-1.5 border-b border-[var(--line)] bg-[var(--crit-dim)]/25 px-2 py-1">
-                          <AlertTriangle size={11} className="text-[var(--crit)]" />
-                          <span className="eyebrow text-[9px] text-[var(--crit)]">
+                          <AlertTriangle
+                            size={11}
+                            className="text-[var(--crit)]"
+                          />
+                          <span className="eyebrow text-[10px] text-[var(--crit)]">
                             Action required
                           </span>
                           <span className="num ml-auto text-[10px] text-[var(--text-2)]">
@@ -336,9 +388,10 @@ function FleetCommand() {
                         right={`${monitorOnly.length} monitor only`}
                       >
                         <p className="mb-1.5 text-[10px] leading-snug text-[var(--text-3)]">
-                          These vessels have passed the point at which a diversion was
-                          available. They are listed so they are not mistaken for safe;
-                          no routing action is offered because none exists.
+                          These vessels have passed the point at which a
+                          diversion was available. They are listed so they are
+                          not mistaken for safe; no routing action is offered
+                          because none exists.
                         </p>
                         {monitorOnly.map((row) => (
                           <div
@@ -348,7 +401,7 @@ function FleetCommand() {
                             <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">
                               {row.vesselName}
                             </span>
-                            <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+                            <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
                               {row.chokepoint.replace(/_/g, "-")}
                             </span>
                             <span className="num shrink-0 text-[10.5px] text-[var(--unc)]">
@@ -364,7 +417,8 @@ function FleetCommand() {
                 {tab === "fleet" ? (
                   <div>
                     {vessels.map((vessel) => {
-                      const exposure = exposureByVessel.get(vessel.vessel_id) ?? 0;
+                      const exposure =
+                        exposureByVessel.get(vessel.vessel_id) ?? 0;
                       return (
                         <button
                           key={vessel.vessel_id}
@@ -378,7 +432,10 @@ function FleetCommand() {
                           )}
                         >
                           <div className="flex items-baseline gap-2">
-                            <Ship size={10} className="shrink-0 text-[var(--text-3)]" />
+                            <Ship
+                              size={10}
+                              className="shrink-0 text-[var(--text-3)]"
+                            />
                             <span className="min-w-0 flex-1 truncate text-[11.5px] text-[var(--text)]">
                               {vessel.name}
                             </span>
@@ -397,14 +454,18 @@ function FleetCommand() {
                               </span>
                             )}
                           </div>
-                          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[9.5px] text-[var(--text-3)]">
+                          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--text-3)]">
                             <span className="num">{vessel.vessel_id}</span>
-                            <span className="truncate">{vessel.laneName ?? "no lane"}</span>
+                            <span className="truncate">
+                              {vessel.laneName ?? "no lane"}
+                            </span>
                             <span className="num">
                               {vessel.origin_port} → {vessel.destination_port}
                             </span>
                             {vessel.eta ? (
-                              <span className="num">ETA {formatUtc(vessel.eta)}</span>
+                              <span className="num">
+                                ETA {formatUtc(vessel.eta)}
+                              </span>
                             ) : null}
                           </div>
                         </button>
@@ -428,7 +489,7 @@ function FleetCommand() {
                             <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text)]">
                               {port.portName}
                             </span>
-                            <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+                            <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
                               {port.affectedVessels} vsl
                             </span>
                             <span
@@ -441,8 +502,9 @@ function FleetCommand() {
                             </span>
                           </div>
                           {port.arrivalShiftHours ? (
-                            <div className="num mt-[2px] text-[9.5px] text-[var(--text-3)]">
-                              arrivals shift +{port.arrivalShiftHours.toFixed(1)} h
+                            <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
+                              arrivals shift +
+                              {port.arrivalShiftHours.toFixed(1)} h
                             </div>
                           ) : null}
                         </div>
@@ -450,7 +512,8 @@ function FleetCommand() {
                     </div>
                   ) : (
                     <EmptyNote>
-                      No destination port carries measurable event risk for this fleet.
+                      No destination port carries measurable event risk for this
+                      fleet.
                     </EmptyNote>
                   )
                 ) : null}
@@ -470,22 +533,39 @@ function FleetCommand() {
                           ["Class", selected.vessel_class],
                           ["LOA", `${selected.loa_m.toFixed(0)} m`],
                           ["Draught", `${selected.draught_m.toFixed(1)} m`],
-                          ["Capacity", `${selected.capacity_teu.toLocaleString()} TEU`],
-                          ["Free slots", `${selected.available_teu.toFixed(0)} TEU`],
-                          ["Speed", `${selected.service_speed_kn.toFixed(1)} kn`],
+                          [
+                            "Capacity",
+                            `${selected.capacity_teu.toLocaleString()} TEU`,
+                          ],
+                          [
+                            "Free slots",
+                            `${selected.available_teu.toFixed(0)} TEU`,
+                          ],
+                          [
+                            "Speed",
+                            `${selected.service_speed_kn.toFixed(1)} kn`,
+                          ],
                           ["Flag", selected.flag],
                           ["IMO", selected.imo ?? "none issued"],
                         ] as Array<[string, string]>
                       ).map(([label, value]) => (
-                        <div key={label} className="flex items-baseline justify-between gap-2">
+                        <div
+                          key={label}
+                          className="flex items-baseline justify-between gap-2"
+                        >
                           <span className="text-[var(--text-3)]">{label}</span>
-                          <span className="num text-[var(--text)]">{value}</span>
+                          <span className="num text-[var(--text)]">
+                            {value}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </PanelSection>
                   {selectedRows.length ? (
-                    <PanelSection title="Exposure" right={`${selectedRows.length}`}>
+                    <PanelSection
+                      title="Exposure"
+                      right={`${selectedRows.length}`}
+                    >
                       {selectedRows.map((row) => (
                         <div
                           key={row.eventId}
@@ -494,7 +574,7 @@ function FleetCommand() {
                           <div className="truncate text-[10.5px] text-[var(--text-2)]">
                             {row.eventTitle}
                           </div>
-                          <p className="mt-[2px] text-[9.5px] leading-snug text-[var(--text-3)]">
+                          <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-3)]">
                             {row.actionBasis}
                           </p>
                         </div>

@@ -45,7 +45,8 @@ export function MaritimeSearch({
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (event: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false);
+      if (boxRef.current && !boxRef.current.contains(event.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -76,7 +77,10 @@ export function MaritimeSearch({
     }
 
     for (const choke of CHOKEPOINTS) {
-      if (choke.name.toLowerCase().includes(term) || choke.code.toLowerCase().includes(term)) {
+      if (
+        choke.name.toLowerCase().includes(term) ||
+        choke.code.toLowerCase().includes(term)
+      ) {
         out.push({
           kind: "chokepoint",
           id: choke.code,
@@ -198,12 +202,14 @@ export function MaritimeSearch({
                 onClick={() => choose(hit)}
                 className={cn(
                   "flex w-full items-center gap-2 px-2.5 py-[5px] text-left transition-colors",
-                  index === active ? "bg-[var(--panel-3)]" : "hover:bg-[var(--panel-2)]",
+                  index === active
+                    ? "bg-[var(--panel-3)]"
+                    : "hover:bg-[var(--panel-2)]",
                 )}
               >
                 <span
                   className={cn(
-                    "shrink-0 rounded-[2px] px-1 py-[1px] text-[8.5px] font-semibold uppercase tracking-[0.08em]",
+                    "shrink-0 rounded-[2px] px-1 py-[1px] text-[10px] font-semibold uppercase tracking-[0.08em]",
                     hit.kind === "vessel"
                       ? "bg-[var(--info-dim)] text-[var(--info)]"
                       : hit.kind === "port"
@@ -214,7 +220,9 @@ export function MaritimeSearch({
                   {hit.kind}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] text-[var(--text)]">{hit.title}</span>
+                  <span className="block truncate text-[12px] text-[var(--text)]">
+                    {hit.title}
+                  </span>
                   <span className="block truncate text-[10px] text-[var(--text-3)]">
                     {hit.subtitle}
                   </span>

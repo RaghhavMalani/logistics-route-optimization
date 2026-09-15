@@ -121,7 +121,10 @@ export function portTraffic(
   return traffic;
 }
 
-export function distanceNm(fix: VesselFix, point: { lat: number; lon: number }): number {
+export function distanceNm(
+  fix: VesselFix,
+  point: { lat: number; lon: number },
+): number {
   return haversineKm([fix.lon, fix.lat], [point.lon, point.lat]) / KM_PER_NM;
 }
 
@@ -135,7 +138,10 @@ export function distanceNm(fix: VesselFix, point: { lat: number; lon: number }):
  * uses them says so. What they buy is a queue that behaves like a queue: a
  * capesize bulker blocks a berth for a day and a half and a feeder does not.
  */
-export function berthHoursFor(vesselClass: VesselClass, lengthM: number): number {
+export function berthHoursFor(
+  vesselClass: VesselClass,
+  lengthM: number,
+): number {
   const base: Record<VesselClass, [number, number]> = {
     container: [9, 20],
     tanker: [14, 26],
@@ -176,7 +182,10 @@ export function berthScaleFor(port: PortSnapshot): number {
   const utilisation = port.utilization ?? null;
   if (!berths || !calls || !utilisation) return 1;
   const meanServiceHours = (berths * 24 * utilisation) / calls;
-  return Math.min(1.4, Math.max(0.3, meanServiceHours / MEAN_CLASS_BERTH_HOURS));
+  return Math.min(
+    1.4,
+    Math.max(0.3, meanServiceHours / MEAN_CLASS_BERTH_HOURS),
+  );
 }
 
 export type ArrivalRisk = "low" | "medium" | "high";
@@ -280,7 +289,7 @@ export function arrivalSequence(
     const recommendedHours = Math.max(0.1, (alongsideMs - now) / HOUR_MS);
     const recommendedSpeedKn =
       fix.remainingKm > 1 && fix.sogKn > 0.5
-        ? Math.max(4, (fix.remainingKm / KM_PER_NM) / recommendedHours)
+        ? Math.max(4, fix.remainingKm / KM_PER_NM / recommendedHours)
         : null;
 
     slots.push({
@@ -325,7 +334,8 @@ export function congestionAt(
     .sort((a, b) => a.ms - b.ms);
   if (!points.length) return port.congestionIndex ?? null;
   if (atMs <= points[0].ms) return points[0].value;
-  if (atMs >= points[points.length - 1].ms) return points[points.length - 1].value;
+  if (atMs >= points[points.length - 1].ms)
+    return points[points.length - 1].value;
   for (let i = 1; i < points.length; i += 1) {
     if (atMs <= points[i].ms) {
       const span = points[i].ms - points[i - 1].ms;
@@ -381,7 +391,9 @@ export function nearbyTraffic(
   }
   contacts.sort((a, b) => {
     const closing = (contact: NearbyContact) =>
-      contact.computable && contact.cpa.tcpaMinutes > 0 && contact.cpa.tcpaMinutes < 180
+      contact.computable &&
+      contact.cpa.tcpaMinutes > 0 &&
+      contact.cpa.tcpaMinutes < 180
         ? contact.cpa.cpaNm
         : contact.rangeNm + 1000;
     return closing(a) - closing(b);
@@ -406,7 +418,10 @@ export interface AdviceInputs {
   fix: VesselFix;
   port: PortSnapshot | null;
   slot: ArrivalSlot | null;
-  worstExposure: { level: "normal" | "watch" | "severe"; leadHours: number } | null;
+  worstExposure: {
+    level: "normal" | "watch" | "severe";
+    leadHours: number;
+  } | null;
   closestContact: NearbyContact | null;
   /** The routing artefact's own reroute call, for a vessel it scored. */
   reroute?: { to: string; savedWaitHours: number | null } | null;
@@ -448,7 +463,11 @@ export function vesselAdvice(input: AdviceInputs): VesselAdvice {
     };
   }
 
-  if (reroute && reroute.savedWaitHours != null && reroute.savedWaitHours < -0.5) {
+  if (
+    reroute &&
+    reroute.savedWaitHours != null &&
+    reroute.savedWaitHours < -0.5
+  ) {
     return {
       headline: `REROUTE VIA ${reroute.to.toUpperCase()}`,
       detail: `The route optimizer scores the alternative call lower even after the diversion penalty, with ${Math.abs(reroute.savedWaitHours).toFixed(1)}h less berth wait.`,
@@ -501,7 +520,10 @@ export function vesselAdvice(input: AdviceInputs): VesselAdvice {
 
 /* -------------------------------------------------------------- grouping -- */
 
-export const STATUS_TONE: Record<NavStatus, "ok" | "info" | "warn" | "crit" | "unc" | "neutral"> = {
+export const STATUS_TONE: Record<
+  NavStatus,
+  "ok" | "info" | "warn" | "crit" | "unc" | "neutral"
+> = {
   underway: "neutral",
   inbound: "info",
   outbound: "ok",

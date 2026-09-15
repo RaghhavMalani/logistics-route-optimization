@@ -22,10 +22,7 @@ import type { Position } from "./geo";
  *   UNAVAILABLE         no provider is configured or reachable.
  */
 export type TrafficSourceKind =
-  | "LIVE_AIS"
-  | "AIS_REPLAY"
-  | "SIMULATED_TRAFFIC"
-  | "UNAVAILABLE";
+  "LIVE_AIS" | "AIS_REPLAY" | "SIMULATED_TRAFFIC" | "UNAVAILABLE";
 
 export interface TrafficSourceInfo {
   kind: TrafficSourceKind;

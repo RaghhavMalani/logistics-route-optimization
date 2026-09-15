@@ -49,7 +49,9 @@ function unavailableSource(epoch: number): TrafficSource {
  * terminal cannot be talked into claiming a live feed it does not have.
  */
 export function configuredProvider(): string | null {
-  const value = (import.meta.env.VITE_AIS_PROVIDER as string | undefined)?.trim();
+  const value = (
+    import.meta.env.VITE_AIS_PROVIDER as string | undefined
+  )?.trim();
   return value && value.length > 0 ? value : null;
 }
 

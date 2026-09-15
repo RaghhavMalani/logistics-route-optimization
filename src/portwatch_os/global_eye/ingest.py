@@ -43,6 +43,7 @@ from src.portwatch_os.global_eye.model import (
 )
 from src.utils import port_registry
 from src.utils.logging_utils import get_logger
+from src.portwatch_os.clock import world_now
 
 log = get_logger(__name__)
 
@@ -254,7 +255,7 @@ def ingest(
     data_source: str = "",
 ) -> Tuple[List[GlobalEvent], IngestReport]:
     """Merge normalised reports into corroborated events."""
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     report = IngestReport(raw_items=len(items))
     report.feeds = sorted({item.feed for item in items if item.feed})
 

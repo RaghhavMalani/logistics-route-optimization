@@ -39,13 +39,21 @@ services:
     build: .
     image: india-portwatch/pipeline
     container_name: portwatch_api
-    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+    # One worker: the world and the coordinator are per process (see the Dockerfile).
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --workers 1
+    restart: unless-stopped
     environment:
       # Set to the exact deployed frontend origin in production.
       PORTWATCH_CORS_REGEX: ${PORTWATCH_CORS_REGEX:-https?://(localhost|127\.0\.0\.1)(:\d+)?}
+      # DEMO, RESEARCH, COMMERCIAL or GOVERNMENT; unset means COMMERCIAL by default and /api/health says so.
+      PORTWATCH_LICENCE_MODE: ${PORTWATCH_LICENCE_MODE:-DEMO}
+      # Durable state: the decision ledger, the advisory register, the cost assumptions.
+      PORTWATCH_STATE_DIR: /app/state
+      AISSTREAM_API_KEY: ${AISSTREAM_API_KEY:-}
     ports:
       - "8000:8000"
     volumes:
+      - state:/app/state
       - artefacts:/app/outputs
       - cache:/app/data/cache
     depends_on:
@@ -124,6 +132,10 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
 
 volumes:
+  # MUST PERSIST: back this one up. Losing it loses every decision, advisory
+  # and assumption anyone recorded.
+  state:
+  # REBUILDABLE and CACHE: a pipeline run and a refresh cycle recreate them.
   artefacts:
   cache:
   pgdata:

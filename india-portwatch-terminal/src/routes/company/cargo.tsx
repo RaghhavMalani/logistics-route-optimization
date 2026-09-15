@@ -21,7 +21,7 @@ function CompanyCargo() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel)] px-4 py-1.5">
-        <span className="eyebrow text-[9px]">Port</span>
+        <span className="eyebrow text-[10px]">Port</span>
         <SelectControl
           ariaLabel="Select the port to look for connections at"
           className="w-[220px]"

@@ -21,6 +21,7 @@ Two properties this module guarantees, and the tests hold it to:
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from abc import ABC, abstractmethod
@@ -31,6 +32,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence
 
 from src.portwatch_os.ledger.schema import (
     APPROVED,
+    DecisionProblemRecord,
     DecisionRecord,
     EventOutcomeRecord,
     OPEN,
@@ -41,9 +43,10 @@ from src.portwatch_os.ledger.schema import (
     can_transition,
     utc_now,
 )
-from src.utils.config import OUTPUTS_DIR
+from src.utils.config import STATE_DIR
+from src.portwatch_os.clock import world_now
 
-DEFAULT_LEDGER_PATH = OUTPUTS_DIR / "portwatch_ledger.db"
+DEFAULT_LEDGER_PATH = STATE_DIR / "portwatch_ledger.db"
 
 
 class LedgerError(RuntimeError):
@@ -239,6 +242,31 @@ CREATE TABLE IF NOT EXISTS decisions (
 );
 CREATE INDEX IF NOT EXISTS ix_dec_kind ON decisions(kind, status);
 
+CREATE TABLE IF NOT EXISTS decision_problems (
+    problem_id          TEXT PRIMARY KEY,
+    domain              TEXT NOT NULL,
+    subject             TEXT NOT NULL,
+    actor               TEXT NOT NULL,
+    issued_at           TEXT NOT NULL,
+    world_state_id      TEXT NOT NULL,
+    world_revision      TEXT,
+    at                  TEXT,
+    problem             TEXT NOT NULL,
+    recommended_option  TEXT,
+    baseline_option     TEXT,
+    options_evaluated   INTEGER,
+    options_rejected    INTEGER,
+    critic_verdict      TEXT,
+    workflow            TEXT NOT NULL,
+    human_choice        TEXT,
+    actual_action       TEXT,
+    status              TEXT NOT NULL,
+    observed_outcome    TEXT,
+    observed_at         TEXT,
+    notes               TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_dp_domain ON decision_problems(domain, status);
+
 CREATE TABLE IF NOT EXISTS event_outcomes (
     outcome_id              TEXT PRIMARY KEY,
     event_id                TEXT NOT NULL,
@@ -329,13 +357,21 @@ class SqliteLedgerStore(LedgerStore):
         if str(self.path) != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA foreign_keys=ON")
-        with self._lock:
-            self._conn.executescript(_SCHEMA)
-            self._conn.commit()
+        try:
+            self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA foreign_keys=ON")
+            # A corrupt file is refused at open, with its path, rather than
+            # discovered one query at a time; nothing is repaired or replaced.
+            verdict = self._conn.execute("PRAGMA quick_check").fetchone()[0]
+            if verdict != "ok":
+                raise LedgerError(f"the ledger at {self.path} failed its integrity check: {verdict}")
+            with self._lock:
+                self._conn.executescript(_SCHEMA)
+                self._conn.commit()
+        except sqlite3.DatabaseError as exc:
+            raise LedgerError(f"the ledger at {self.path} cannot be opened: {exc}") from exc
 
     # -- plumbing ----------------------------------------------------------
     @contextmanager
@@ -508,7 +544,7 @@ class SqliteLedgerStore(LedgerStore):
 
     def due_predictions(self, now: Optional[str] = None) -> List[PredictionRecord]:
         """Open claims whose ``valid_at`` has passed and can now be scored."""
-        return self.predictions(status=OPEN, valid_before=now or utc_now())
+        return self.predictions(status=OPEN, valid_before=now or world_now().isoformat(timespec="seconds"))
 
     # -- decisions ---------------------------------------------------------
     def record_decision(self, record: DecisionRecord) -> str:
@@ -589,6 +625,88 @@ class SqliteLedgerStore(LedgerStore):
         with self._lock:
             rows = self._conn.execute(sql, params).fetchall()
         return [DecisionRecord.from_row(dict(row)) for row in rows]
+
+    # -- decision problems -------------------------------------------------
+    def record_decision_problem(self, record: DecisionProblemRecord) -> str:
+        """Write or update a problem. The computed payload is immutable.
+
+        A re-record after the first write keeps the original ``problem`` and
+        ``issued_at`` columns and updates only the workflow columns, so the
+        decision as computed can never be rewritten by a later step.
+        """
+        existing = self.get_decision_problem(record.problem_id)
+        if existing is not None and existing.status == RESOLVED:
+            raise LedgerError(
+                f"decision problem {record.problem_id} is resolved and cannot be rewritten"
+            )
+        row = record.to_row()
+        if existing is not None:
+            row["problem"] = json.dumps(existing.problem, sort_keys=True, default=str)
+            row["issued_at"] = existing.issued_at
+        sql, values = self._upsert("decision_problems", row, "problem_id")
+        with self._tx() as conn:
+            conn.execute(sql, values)
+            self._audit(conn, "decision_problem", record.problem_id,
+                        f"{'updated' if existing else 'created'}:{record.workflow}", record.actor)
+        return record.problem_id
+
+    def get_decision_problem(self, problem_id: str) -> Optional[DecisionProblemRecord]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM decision_problems WHERE problem_id = ?", (problem_id,)
+            ).fetchone()
+        return DecisionProblemRecord.from_row(dict(row)) if row else None
+
+    def resolve_decision_problem(
+        self,
+        problem_id: str,
+        *,
+        human_choice: Optional[str],
+        actual_action: str,
+        observed_outcome: Dict[str, float],
+        observed_at: str,
+    ) -> Optional[DecisionProblemRecord]:
+        if self.get_decision_problem(problem_id) is None:
+            return None
+        with self._tx() as conn:
+            current = conn.execute(
+                "SELECT status FROM decision_problems WHERE problem_id = ?", (problem_id,)
+            ).fetchone()
+            if current is not None and current["status"] == RESOLVED:
+                raise LedgerError(
+                    f"decision problem {problem_id} is already resolved; its outcome cannot be rewritten"
+                )
+            conn.execute(
+                "UPDATE decision_problems SET status = ?, workflow = ?, human_choice = ?, actual_action = ?,"
+                " observed_outcome = ?, observed_at = ? WHERE problem_id = ?",
+                (RESOLVED, "OBSERVED", human_choice, actual_action,
+                 json.dumps(observed_outcome, sort_keys=True, default=str), observed_at, problem_id),
+            )
+            self._audit(conn, "decision_problem", problem_id, f"resolved:{actual_action}")
+        return self.get_decision_problem(problem_id)
+
+    def decision_problems(
+        self,
+        *,
+        domain: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[DecisionProblemRecord]:
+        clauses: List[str] = []
+        params: List[Any] = []
+        for column, value in (("domain", domain), ("status", status)):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                params.append(value)
+        sql = "SELECT * FROM decision_problems"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY issued_at DESC, problem_id"
+        if limit:
+            sql += f" LIMIT {int(limit)}"
+        with self._lock:
+            rows = self._conn.execute(sql, params).fetchall()
+        return [DecisionProblemRecord.from_row(dict(row)) for row in rows]
 
     # -- event outcomes ----------------------------------------------------
     def record_event_outcome(self, record: EventOutcomeRecord) -> str:
@@ -829,7 +947,7 @@ class SqliteLedgerStore(LedgerStore):
         """Row counts by status, for the learning dashboard's header."""
         out: Dict[str, Dict[str, int]] = {}
         with self._lock:
-            for table in ("predictions", "decisions", "event_outcomes"):
+            for table in ("predictions", "decisions", "event_outcomes", "decision_problems"):
                 rows = self._conn.execute(
                     f"SELECT status, COUNT(*) AS n FROM {table} GROUP BY status"
                 ).fetchall()
@@ -871,12 +989,33 @@ def _hours_between(start: Optional[str], end: Optional[str]) -> Optional[float]:
 
 
 def shift_iso(value: str, hours: float) -> str:
-    parsed = _parse(value) or datetime.now(timezone.utc)
+    parsed = _parse(value) or world_now()
     return (parsed + timedelta(hours=hours)).isoformat(timespec="seconds")
 
 
 _DEFAULT: Optional[SqliteLedgerStore] = None
 _DEFAULT_LOCK = threading.Lock()
+
+
+def probe_ledger(path: Path | str | None = None) -> Dict[str, Any]:
+    """Whether the ledger at ``path`` can be opened and read, without keeping it
+    open. For health and readiness: the answer names the file and the fault."""
+    target = Path(path) if path is not None else DEFAULT_LEDGER_PATH
+    out: Dict[str, Any] = {"path": str(target), "exists": target.exists(), "ok": False,
+                           "durable": True, "error": None, "counts": {}}
+    try:
+        store = SqliteLedgerStore(target)
+        try:
+            with store._lock:
+                for table, key in (("decision_problems", "decisionProblems"), ("decisions", "decisions"),
+                                   ("policies", "policies"), ("event_outcomes", "eventOutcomes")):
+                    out["counts"][key] = store._conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        finally:
+            store.close()
+        out["ok"] = True
+    except (LedgerError, sqlite3.DatabaseError, OSError) as exc:
+        out["error"] = str(exc)
+    return out
 
 
 def get_ledger(path: Path | str | None = None) -> SqliteLedgerStore:
@@ -905,6 +1044,7 @@ def reset_default_ledger() -> None:
 
 
 __all__ = [
+    "probe_ledger",
     "DEFAULT_LEDGER_PATH",
     "LedgerError",
     "LedgerStore",

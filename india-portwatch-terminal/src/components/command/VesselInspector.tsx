@@ -10,7 +10,11 @@
 
 import { useMemo } from "react";
 
-import { useFixes, useTraffic, useTrafficTick } from "@/components/app/traffic-context";
+import {
+  useFixes,
+  useTraffic,
+  useTrafficTick,
+} from "@/components/app/traffic-context";
 import { Num, Pill, ProvenanceTag } from "@/components/kit/primitives";
 import {
   compassPoint,
@@ -72,7 +76,12 @@ export function useRouteExposure(
     });
     // The exposure only needs to move when the vessel does, not every frame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fix?.id, fix?.routeKey, Math.round((fix?.travelledKm ?? 0) / 25), timeline]);
+  }, [
+    fix?.id,
+    fix?.routeKey,
+    Math.round((fix?.travelledKm ?? 0) / 25),
+    timeline,
+  ]);
 }
 
 export function VesselInspector({
@@ -105,14 +114,18 @@ export function VesselInspector({
   const fixes = useFixes(1);
   const { source } = useTraffic();
 
-  const destination = ports.find((port) => port.code === fix.destinationId) ?? null;
+  const destination =
+    ports.find((port) => port.code === fix.destinationId) ?? null;
   const forecast = useForecast(destination?.code ?? null);
   const spec = VESSEL_CLASSES[fix.vesselClass];
 
   const exposure = useRouteExposure(fix, timeline);
   const worst = worstExposure(exposure);
 
-  const contacts = useMemo(() => nearbyTraffic(fix, fixes, 45, 8), [fix, fixes]);
+  const contacts = useMemo(
+    () => nearbyTraffic(fix, fixes, 45, 8),
+    [fix, fixes],
+  );
 
   const slot = useMemo(() => {
     if (!destination?.location) return null;
@@ -134,7 +147,9 @@ export function VesselInspector({
         fix,
         port: destination,
         slot,
-        worstExposure: worst ? { level: worst.level, leadHours: worst.leadHours } : null,
+        worstExposure: worst
+          ? { level: worst.level, leadHours: worst.leadHours }
+          : null,
         closestContact: contacts[0] ?? null,
         reroute:
           ownRow?.reroute && ownRow.recommendedPortName
@@ -162,12 +177,25 @@ export function VesselInspector({
       className={cn("max-h-full", className)}
       footer={
         <span>
-          Position, identity and voyage are <span className="text-[var(--unc)]">SIMULATED</span> by
-          the PortWatch replay engine and moved along the water-only route graph. Not an AIS
+          Position, identity and voyage are{" "}
+          <span className="text-[var(--unc)]">SIMULATED</span> by the PortWatch
+          replay engine and moved along the water-only route graph. Not an AIS
           observation. Route geometry is non-navigational.
         </span>
       }
     >
+      <div
+        className="flex items-center gap-1.5 border-b border-[var(--line)] px-2 py-1"
+        data-testid="vessel-source"
+        data-source="SIMULATED_TRAFFIC"
+      >
+        <Pill tone="unc" solid>
+          SIMULATED TRAFFIC
+        </Pill>
+        <span className="text-[10.5px] text-[var(--text-3)]">
+          replay engine · not an AIS observation
+        </span>
+      </div>
       <div className="flex items-center gap-1.5 border-b border-[var(--line)] px-2 py-1.5">
         <span
           aria-hidden
@@ -175,8 +203,12 @@ export function VesselInspector({
           style={{ background: spec.color }}
         />
         <span className="text-[11px] text-[var(--text-2)]">{spec.label}</span>
-        <Pill tone={STATUS_TONE[fix.status]}>{NAV_STATUS_LABEL[fix.status]}</Pill>
-        <span className="num ml-auto text-[10px] text-[var(--text-3)]">{fix.flag}</span>
+        <Pill tone={STATUS_TONE[fix.status]}>
+          {NAV_STATUS_LABEL[fix.status]}
+        </Pill>
+        <span className="num ml-auto text-[10px] text-[var(--text-3)]">
+          {fix.flag}
+        </span>
       </div>
 
       <div className="flex gap-1 border-b border-[var(--line)] px-2 py-1.5">
@@ -219,18 +251,26 @@ export function VesselInspector({
         </Field>
         <Field label="Course / heading">
           <span className="num">
-            {formatBearing(fix.cog)} <span className="text-[var(--text-3)]">{compassPoint(fix.cog)}</span>
+            {formatBearing(fix.cog)}{" "}
+            <span className="text-[var(--text-3)]">
+              {compassPoint(fix.cog)}
+            </span>
           </span>
         </Field>
         <Field label="Position">
-          <span className="num text-[10.5px]">{formatPosition(fix.lat, fix.lon)}</span>
+          <span className="num text-[10.5px]">
+            {formatPosition(fix.lat, fix.lon)}
+          </span>
         </Field>
         <Field label="Length / draught">
           <span className="num">
             {fix.lengthM} m · {fix.draughtM.toFixed(1)} m
           </span>
         </Field>
-        <Field label="IMO number" hint="No IMO number is issued: this is a simulated vessel.">
+        <Field
+          label="IMO number"
+          hint="No IMO number is issued: this is a simulated vessel."
+        >
           <span className="text-[var(--unc)]">not issued · simulated</span>
         </Field>
       </PanelSection>
@@ -258,13 +298,23 @@ export function VesselInspector({
         <div className="mb-1.5 h-[3px] w-full overflow-hidden rounded-[1px] bg-[var(--panel-3)]">
           <div
             className="h-full bg-[var(--info)]"
-            style={{ width: `${Math.min(100, Math.max(0, fix.progress * 100))}%` }}
+            style={{
+              width: `${Math.min(100, Math.max(0, fix.progress * 100))}%`,
+            }}
           />
         </div>
         <Field label="Distance remaining">
           <Num value={fix.remainingKm / 1.852} digits={0} unit="nm" />
         </Field>
-        <Field label={fix.etaKind === "berthing" ? "Berthing" : fix.etaKind === "departure" ? "Departs" : "ETA"}>
+        <Field
+          label={
+            fix.etaKind === "berthing"
+              ? "Berthing"
+              : fix.etaKind === "departure"
+                ? "Departs"
+                : "ETA"
+          }
+        >
           <span className="num">
             {clockZ(fix.etaMs)}
             <span className="ml-1 text-[10px] text-[var(--text-3)]">
@@ -299,7 +349,10 @@ export function VesselInspector({
             </div>
             <ul className="space-y-[3px]">
               {exposure.slice(0, 5).map((segment, index) => (
-                <li key={index} className="flex items-baseline gap-2 text-[10.5px]">
+                <li
+                  key={index}
+                  className="flex items-baseline gap-2 text-[10.5px]"
+                >
                   <span className="num w-[38px] shrink-0 text-[var(--text-3)]">
                     +{Math.round(segment.leadHours)}h
                   </span>
@@ -309,8 +362,13 @@ export function VesselInspector({
                     style={{ background: EXPOSURE_COLOR[segment.level] }}
                   />
                   <span className="min-w-0 flex-1 truncate text-[var(--text-2)]">
-                    {segment.rainMm != null ? `${segment.rainMm.toFixed(1)} mm` : "—"} ·{" "}
-                    {segment.windKn != null ? `${segment.windKn.toFixed(0)} kn` : "—"}
+                    {segment.rainMm != null
+                      ? `${segment.rainMm.toFixed(1)} mm`
+                      : "—"}{" "}
+                    ·{" "}
+                    {segment.windKn != null
+                      ? `${segment.windKn.toFixed(0)} kn`
+                      : "—"}
                   </span>
                   <span className="num shrink-0 text-[var(--text-3)]">
                     {segment.impact != null ? segment.impact.toFixed(3) : "n/a"}
@@ -330,7 +388,13 @@ export function VesselInspector({
         {destination ? (
           <>
             <Field label="Congestion now">
-              <Num value={destination.observedCongestionIndex ?? destination.congestionIndex} digits={1} />
+              <Num
+                value={
+                  destination.observedCongestionIndex ??
+                  destination.congestionIndex
+                }
+                digits={1}
+              />
             </Field>
             <Field label="Congestion at arrival">
               <Num value={congestionOnArrival} digits={1} />
@@ -338,7 +402,10 @@ export function VesselInspector({
             <Field label="Predicted berth wait">
               <Num value={destination.delayHours} digits={1} unit="h" />
             </Field>
-            <Field label="Queue ahead of you" hint="From the berth queue over predicted arrivals.">
+            <Field
+              label="Queue ahead of you"
+              hint="From the berth queue over predicted arrivals."
+            >
               {slot ? (
                 <span className="num">
                   berth {slot.berth + 1} · wait {slot.waitHours.toFixed(1)}h
@@ -360,16 +427,21 @@ export function VesselInspector({
           </>
         ) : (
           <EmptyNote>
-            This passage ends at a gateway outside the modelled port set, so there is no
-            congestion forecast for it.
+            This passage ends at a gateway outside the modelled port set, so
+            there is no congestion forecast for it.
           </EmptyNote>
         )}
       </PanelSection>
 
       {/* ---------------------------------------------- nearby traffic -- */}
-      <PanelSection title="Nearby traffic" right={`${contacts.length} within 45 nm`}>
+      <PanelSection
+        title="Nearby traffic"
+        right={`${contacts.length} within 45 nm`}
+      >
         {contacts.length === 0 ? (
-          <p className="text-[10.5px] text-[var(--text-3)]">No contact within 45 nautical miles.</p>
+          <p className="text-[10.5px] text-[var(--text-3)]">
+            No contact within 45 nautical miles.
+          </p>
         ) : (
           <ul className="space-y-[2px]">
             {contacts.map((contact) => (
@@ -391,7 +463,9 @@ export function VesselInspector({
                   <span
                     className={cn(
                       "num text-right text-[10px]",
-                      contact.computable && contact.cpa.cpaNm < 1 && contact.cpa.tcpaMinutes > 0
+                      contact.computable &&
+                        contact.cpa.cpaNm < 1 &&
+                        contact.cpa.tcpaMinutes > 0
                         ? "text-[var(--warn)]"
                         : "text-[var(--text-3)]",
                     )}
@@ -401,16 +475,18 @@ export function VesselInspector({
                         : "Both vessels must be making way for a CPA to mean anything."
                     }
                   >
-                    {contact.computable ? `${contact.cpa.cpaNm.toFixed(1)}nm` : "—"}
+                    {contact.computable
+                      ? `${contact.cpa.cpaNm.toFixed(1)}nm`
+                      : "—"}
                   </span>
                 </button>
               </li>
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[9px] leading-snug text-[var(--text-3)]">
-          CPA assumes both vessels hold course and speed. A contact at anchor shows range and
-          bearing only.
+        <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
+          CPA assumes both vessels hold course and speed. A contact at anchor
+          shows range and bearing only.
         </p>
       </PanelSection>
 
@@ -418,14 +494,22 @@ export function VesselInspector({
       <PanelSection title="Recommendation">
         <div className="flex items-center gap-1.5">
           <Pill
-            tone={advice.level === "act" ? "warn" : advice.level === "adjust" ? "info" : "ok"}
+            tone={
+              advice.level === "act"
+                ? "warn"
+                : advice.level === "adjust"
+                  ? "info"
+                  : "ok"
+            }
             solid
           >
             {advice.headline}
           </Pill>
         </div>
-        <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-2)]">{advice.detail}</p>
-        <div className="mt-1 flex items-baseline justify-between gap-2 text-[9.5px] text-[var(--text-3)]">
+        <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-2)]">
+          {advice.detail}
+        </p>
+        <div className="mt-1 flex items-baseline justify-between gap-2 text-[10.5px] text-[var(--text-3)]">
           <span className="truncate">{advice.basis}</span>
           {advice.confidence != null ? (
             <span className="num">conf {advice.confidence.toFixed(2)}</span>
@@ -433,7 +517,7 @@ export function VesselInspector({
         </div>
       </PanelSection>
 
-      <div className="px-2 py-1.5 text-[9.5px] text-[var(--text-3)]">
+      <div className="px-2 py-1.5 text-[10.5px] text-[var(--text-3)]">
         Source: {source.info.provider}
       </div>
     </FloatPanel>
@@ -455,13 +539,17 @@ export function VesselHoverCard({ fix }: { fix: VesselFix }) {
         <span className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-[var(--text)]">
           {fix.name}
         </span>
-        <Pill tone={STATUS_TONE[fix.status]}>{NAV_STATUS_LABEL[fix.status]}</Pill>
+        <Pill tone={STATUS_TONE[fix.status]}>
+          {NAV_STATUS_LABEL[fix.status]}
+        </Pill>
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-[2px] text-[10.5px]">
         <dt className="text-[var(--text-3)]">Type</dt>
         <dd className="text-right text-[var(--text-2)]">{spec.label}</dd>
         <dt className="text-[var(--text-3)]">Speed</dt>
-        <dd className="num text-right text-[var(--text-2)]">{fix.sogKn.toFixed(1)} kn</dd>
+        <dd className="num text-right text-[var(--text-2)]">
+          {fix.sogKn.toFixed(1)} kn
+        </dd>
         <dt className="text-[var(--text-3)]">Heading</dt>
         <dd className="num text-right text-[var(--text-2)]">
           {formatBearing(fix.cog)} {compassPoint(fix.cog)}
@@ -472,11 +560,17 @@ export function VesselHoverCard({ fix }: { fix: VesselFix }) {
           {waypoint(fix.destinationId)?.name?.split(" (")[0] ?? "—"}
         </dd>
         <dt className="text-[var(--text-3)]">
-          {fix.etaKind === "berthing" ? "Berthing" : fix.etaKind === "departure" ? "Departs" : "ETA"}
+          {fix.etaKind === "berthing"
+            ? "Berthing"
+            : fix.etaKind === "departure"
+              ? "Departs"
+              : "ETA"}
         </dt>
-        <dd className="num text-right text-[var(--text-2)]">{clockZ(fix.etaMs)}</dd>
+        <dd className="num text-right text-[var(--text-2)]">
+          {clockZ(fix.etaMs)}
+        </dd>
       </dl>
-      <div className="mt-1 border-t border-[var(--line)] pt-1 text-[9px] text-[var(--unc)]">
+      <div className="mt-1 border-t border-[var(--line)] pt-1 text-[10px] text-[var(--unc)]">
         SIMULATED position · click to inspect
       </div>
     </div>

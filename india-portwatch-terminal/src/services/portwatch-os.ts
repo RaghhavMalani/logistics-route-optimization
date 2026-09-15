@@ -17,6 +17,8 @@ import type {
   AdvisoryPolicy,
   AgentArchitecture,
   AgentRun,
+  AttentionDetail,
+  AttentionQueue,
   CargoOpportunities,
   CargoPlan,
   CompanyFleet,
@@ -31,25 +33,37 @@ import type {
   LearningSummary,
   PortTwinState,
   ReliabilityTable,
+  MarineState,
+  ObservedTracks,
+  RouteExposure,
+  SignalHealth,
   ToolCatalogue,
   TwinOptimize,
   TwinSimulation,
+  WorldCascade,
+  WorldCascadeList,
+  WorldProjection,
+  WorldStateSummary,
 } from "@/types/portwatch-os";
 
 /* -------------------------------------------------------------- global eye -- */
 
-export const fetchGlobalEvents = (params: {
-  category?: string;
-  group?: string;
-  minSeverity?: number;
-  minConfidence?: number;
-  limit?: number;
-} = {}): Promise<GlobalEyeEvents> => {
+export const fetchGlobalEvents = (
+  params: {
+    category?: string;
+    group?: string;
+    minSeverity?: number;
+    minConfidence?: number;
+    limit?: number;
+  } = {},
+): Promise<GlobalEyeEvents> => {
   const query = new URLSearchParams();
   if (params.category) query.set("category", params.category);
   if (params.group) query.set("group", params.group);
-  if (params.minSeverity != null) query.set("min_severity", String(params.minSeverity));
-  if (params.minConfidence != null) query.set("min_confidence", String(params.minConfidence));
+  if (params.minSeverity != null)
+    query.set("min_severity", String(params.minSeverity));
+  if (params.minConfidence != null)
+    query.set("min_confidence", String(params.minConfidence));
   query.set("limit", String(params.limit ?? 60));
   return getJson<GlobalEyeEvents>(`/global-eye/events?${query}`);
 };
@@ -63,11 +77,13 @@ export const fetchEventImpact = (
       (companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""),
   );
 
-export const fetchGlobalExposure = (params: {
-  companyId?: string | null;
-  portCode?: string | null;
-  limit?: number;
-} = {}): Promise<GlobalEyeExposure> => {
+export const fetchGlobalExposure = (
+  params: {
+    companyId?: string | null;
+    portCode?: string | null;
+    limit?: number;
+  } = {},
+): Promise<GlobalEyeExposure> => {
   const query = new URLSearchParams();
   if (params.companyId) query.set("company_id", params.companyId);
   if (params.portCode) query.set("port_code", params.portCode);
@@ -80,9 +96,12 @@ export const fetchEventCalibration = (): Promise<EventCalibration> =>
 
 /* ----------------------------------------------------------------- company -- */
 
-export const fetchCompanyFleet = (companyId?: string | null): Promise<CompanyFleet> =>
+export const fetchCompanyFleet = (
+  companyId?: string | null,
+): Promise<CompanyFleet> =>
   getJson<CompanyFleet>(
-    "/company/fleet" + (companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""),
+    "/company/fleet" +
+      (companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""),
   );
 
 export const fetchCompanyRisk = (
@@ -94,9 +113,12 @@ export const fetchCompanyRisk = (
   return getJson<CompanyRisk>(`/company/risk?${query}`);
 };
 
-export const fetchCompanyRoutes = (companyId?: string | null): Promise<CompanyRoutes> =>
+export const fetchCompanyRoutes = (
+  companyId?: string | null,
+): Promise<CompanyRoutes> =>
   getJson<CompanyRoutes>(
-    "/company/routes" + (companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""),
+    "/company/routes" +
+      (companyId ? `?company_id=${encodeURIComponent(companyId)}` : ""),
   );
 
 export const fetchCompanyVessel = (
@@ -144,12 +166,16 @@ export const fetchTwinBenchmark = (
   portCode: string,
   episodes = 20,
 ): Promise<Record<string, unknown>> =>
-  getJson(`/port-twin/${encodeURIComponent(portCode)}/benchmark?episodes=${episodes}`);
+  getJson(
+    `/port-twin/${encodeURIComponent(portCode)}/benchmark?episodes=${episodes}`,
+  );
 
 /* ------------------------------------------------------------------- cargo -- */
 
 export const fetchCargoPlan = (portCode: string): Promise<CargoPlan> =>
-  getJson<CargoPlan>(`/cargo/optimize?port_code=${encodeURIComponent(portCode)}`);
+  getJson<CargoPlan>(
+    `/cargo/optimize?port_code=${encodeURIComponent(portCode)}`,
+  );
 
 export const fetchCargoOpportunities = (
   portCode: string,
@@ -173,7 +199,10 @@ export const fetchAdvisories = (
   if (params.portCode) query.set("port_code", params.portCode);
   if (params.vesselId) query.set("vessel_id", params.vesselId);
   const suffix = query.toString();
-  return getJson<AdvisoryList>(`/advisories${suffix ? `?${suffix}` : ""}`, headers);
+  return getJson<AdvisoryList>(
+    `/advisories${suffix ? `?${suffix}` : ""}`,
+    headers,
+  );
 };
 
 export const generateAdvisories = (
@@ -220,8 +249,12 @@ export const modifyAdvisory = (
 export const fetchAgentArchitecture = (): Promise<AgentArchitecture> =>
   getJson<AgentArchitecture>("/agents");
 
-export const fetchToolCatalogue = (maxAccess = "PROPOSE"): Promise<ToolCatalogue> =>
-  getJson<ToolCatalogue>(`/agents/tools?max_access=${encodeURIComponent(maxAccess)}`);
+export const fetchToolCatalogue = (
+  maxAccess = "PROPOSE",
+): Promise<ToolCatalogue> =>
+  getJson<ToolCatalogue>(
+    `/agents/tools?max_access=${encodeURIComponent(maxAccess)}`,
+  );
 
 /**
  * Run the orchestrator.
@@ -246,18 +279,24 @@ export const runAgent = (
   headers: Record<string, string> = {},
 ): Promise<AgentRun> => postJson<AgentRun>("/agents/run", payload, headers);
 
-export const fetchAgentRuns = (limit = 20): Promise<{ runs: Array<Record<string, unknown>>; total: number }> =>
+export const fetchAgentRuns = (
+  limit = 20,
+): Promise<{ runs: Array<Record<string, unknown>>; total: number }> =>
   getJson(`/agents/runs?limit=${limit}`);
 
 export const fetchAgentRun = (runId: string): Promise<AgentRun> =>
-  getJson<AgentRun>(`/agents/runs/${encodeURIComponent(runId)}?include_results=true`);
+  getJson<AgentRun>(
+    `/agents/runs/${encodeURIComponent(runId)}?include_results=true`,
+  );
 
 /* ---------------------------------------------------------------- learning -- */
 
 export const fetchLearningSummary = (): Promise<LearningSummary> =>
   getJson<LearningSummary>("/learning/summary");
 
-export const fetchReliability = (contributor?: string): Promise<ReliabilityTable> =>
+export const fetchReliability = (
+  contributor?: string,
+): Promise<ReliabilityTable> =>
   getJson<ReliabilityTable>(
     "/learning/reliability" +
       (contributor ? `?contributor=${encodeURIComponent(contributor)}` : ""),
@@ -269,11 +308,13 @@ export const fetchMisses = (limit = 10): Promise<LearningMisses> =>
 export const fetchPolicies = (): Promise<LearningPolicies> =>
   getJson<LearningPolicies>("/learning/policies");
 
-export const fetchLearningOutcomes = (params: {
-  domain?: string;
-  model?: string;
-  limit?: number;
-} = {}): Promise<Record<string, unknown>> => {
+export const fetchLearningOutcomes = (
+  params: {
+    domain?: string;
+    model?: string;
+    limit?: number;
+  } = {},
+): Promise<Record<string, unknown>> => {
   const query = new URLSearchParams();
   if (params.domain) query.set("domain", params.domain);
   if (params.model) query.set("model", params.model);
@@ -293,3 +334,98 @@ export const approvePolicy = (
     approver,
     reason,
   });
+
+/* --------------------------------------------------------- world engine -- */
+
+const withAt = (
+  path: string,
+  at?: string | null,
+  extra: Record<string, string> = {},
+) => {
+  const params = new URLSearchParams(extra);
+  if (at) params.set("at", at);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+};
+
+export const fetchWorldState = (
+  at?: string | null,
+): Promise<WorldStateSummary> =>
+  getJson<WorldStateSummary>(withAt("/world/state", at));
+
+export const fetchWorldCascades = (
+  at?: string | null,
+): Promise<WorldCascadeList> =>
+  getJson<WorldCascadeList>(withAt("/world/cascades", at));
+
+/**
+ * One event's consequence, with the trace behind every number.
+ *
+ * Identity headers are sent because the response carries the attention queue,
+ * which is scoped exactly as the advisory register is.
+ */
+export const fetchWorldCascade = (
+  eventId: string,
+  at?: string | null,
+  headers: Record<string, string> = {},
+): Promise<WorldCascade> =>
+  getJson<WorldCascade>(
+    withAt(`/world/cascades/${encodeURIComponent(eventId)}`, at),
+    headers,
+  );
+
+export const simulateProjection = (
+  eventId: string,
+  offsets?: number[],
+  at?: string | null,
+): Promise<WorldProjection> =>
+  postJson<WorldProjection>("/world/cascade/simulate", {
+    eventId,
+    offsets,
+    at,
+  });
+
+export const fetchAttention = (
+  headers: Record<string, string> = {},
+  at?: string | null,
+  limit = 5,
+): Promise<AttentionQueue> =>
+  getJson<AttentionQueue>(
+    withAt("/attention", at, { limit: String(limit) }),
+    headers,
+  );
+
+export const fetchAttentionItem = (
+  attentionId: string,
+  headers: Record<string, string> = {},
+  at?: string | null,
+): Promise<AttentionDetail> =>
+  getJson<AttentionDetail>(withAt(`/attention/${attentionId}`, at), headers);
+
+export const fetchSignalHealth = (mode = "DEMO"): Promise<SignalHealth> =>
+  getJson<SignalHealth>(`/fabric/health?mode=${encodeURIComponent(mode)}`);
+
+/** Observed tracks, under the same traffic block the health strip reports. */
+export const fetchObservedTracks = (
+  mode = "DEMO",
+  history = 30,
+): Promise<ObservedTracks> =>
+  getJson<ObservedTracks>(
+    `/world/ais/tracks?mode=${encodeURIComponent(mode)}&history=${history}`,
+  );
+
+/** The sea at one instant: one forecast cell per sample point. */
+export const fetchMarineState = (
+  at?: string | null,
+  mode = "DEMO",
+): Promise<MarineState> =>
+  getJson<MarineState>(withAt("/world/marine", at, { mode }));
+
+export const fetchRouteExposure = (body: {
+  waypoints: Array<[number, number]>;
+  departsAt?: string;
+  speedKn?: number;
+  mode?: string;
+  includeSamples?: boolean;
+}): Promise<RouteExposure> =>
+  postJson<RouteExposure>("/world/route/exposure", body);

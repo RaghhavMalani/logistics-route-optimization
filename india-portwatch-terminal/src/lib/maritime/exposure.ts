@@ -33,7 +33,10 @@ export function buildExposureLayers(
   ports: PortSnapshot[],
 ): ExposureLayers {
   const byCode = new Map(ports.map((port) => [port.code, port]));
-  const worst = new Map<string, { severity: number; exposure: Map<string, number> }>();
+  const worst = new Map<
+    string,
+    { severity: number; exposure: Map<string, number> }
+  >();
 
   for (const event of events) {
     if (!event.chokepoint) continue;
@@ -78,7 +81,9 @@ export function buildExposureLayers(
       continue;
     }
 
-    const ranked = [...entry.exposure.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const ranked = [...entry.exposure.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
     for (const [portCode, exposure] of ranked) {
       const port = byCode.get(portCode);
       if (!port?.location) continue;
@@ -105,7 +110,9 @@ export function buildExposureLayers(
   const eventFeatures: GeoJSON.Feature[] = [];
   let unplaced = 0;
   for (const event of events) {
-    const choke = event.chokepoint ? CHOKEPOINT_BY_CODE.get(event.chokepoint) : null;
+    const choke = event.chokepoint
+      ? CHOKEPOINT_BY_CODE.get(event.chokepoint)
+      : null;
     if (!choke) {
       unplaced += 1;
       continue;
@@ -124,10 +131,14 @@ export function buildExposureLayers(
 
   const notes: string[] = [];
   if (unplaced > 0) {
-    notes.push(`${unplaced} of ${events.length} events carry no mapped chokepoint and are listed only.`);
+    notes.push(
+      `${unplaced} of ${events.length} events carry no mapped chokepoint and are listed only.`,
+    );
   }
   if (unroutable > 0) {
-    notes.push(`${unroutable} exposure pairs have no water route in the catalogue and are not drawn.`);
+    notes.push(
+      `${unroutable} exposure pairs have no water route in the catalogue and are not drawn.`,
+    );
   }
 
   return {

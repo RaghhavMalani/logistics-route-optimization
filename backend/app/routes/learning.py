@@ -11,6 +11,18 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
+from backend.app.identity import require_roles, resolve_role
+from src.portwatch_os.roles import NATIONAL_ADMIN, PORT_AUTHORITY
+
+#: Who reads the learning surfaces: national command, and the port authority
+#: whose twin the policies and forecasts are about. A carrier or a master has
+#: no claim on the pipeline's error accounting.
+READERS = (NATIONAL_ADMIN, PORT_AUTHORITY)
+
+
+def _reader(role: Optional[str]) -> str:
+    return require_roles(role, READERS, what="the learning ledger")
+
 from src.portwatch_os.global_eye.calibration import fit_calibrator
 from src.portwatch_os.ledger.schema import (
     APPROVED,
@@ -23,12 +35,14 @@ from src.portwatch_os.ledger.store import LedgerError, get_ledger
 from src.portwatch_os.learning.attribution import attribute, rank_misses, verify_decomposition
 from src.portwatch_os.learning.outcome_agent import OutcomeAgent
 from src.portwatch_os.twin.promotion import active_policy
+from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
 
 @router.get("/learning/summary")
-def learning_summary() -> Dict[str, Any]:
+def learning_summary(role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    _reader(role)
     """The dashboard header: what the ledger holds and how it is scoring."""
     ledger = get_ledger()
     agent = OutcomeAgent(ledger)
@@ -75,7 +89,9 @@ def learning_outcomes(
 
 
 @router.get("/learning/reliability")
-def learning_reliability(contributor: Optional[str] = Query(None)) -> Dict[str, Any]:
+def learning_reliability(contributor: Optional[str] = Query(None),
+                         role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    _reader(role)
     """Learned reliability weights, and what moved them."""
     ledger = get_ledger()
     rows = ledger.reliability(contributor=contributor)
@@ -117,7 +133,9 @@ def learning_reliability(contributor: Optional[str] = Query(None)) -> Dict[str, 
 
 
 @router.get("/learning/misses")
-def learning_misses(limit: int = Query(10, ge=1, le=50)) -> Dict[str, Any]:
+def learning_misses(limit: int = Query(10, ge=1, le=50),
+                    role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    _reader(role)
     """"Why was PortWatch wrong?" -- the largest misses, decomposed.
 
     Attribution is only reported where it was actually computed. A prediction
@@ -156,7 +174,8 @@ def learning_misses(limit: int = Query(10, ge=1, le=50)) -> Dict[str, Any]:
 
 
 @router.get("/learning/predictions/{prediction_id}")
-def learning_prediction(prediction_id: str) -> Dict[str, Any]:
+def learning_prediction(prediction_id: str, role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    _reader(role)
     ledger = get_ledger()
     record = ledger.get_prediction(prediction_id)
     if record is None:
@@ -190,7 +209,8 @@ def learning_prediction(prediction_id: str) -> Dict[str, Any]:
 
 
 @router.get("/learning/policies")
-def learning_policies() -> Dict[str, Any]:
+def learning_policies(role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    _reader(role)
     """Learned policies and their promotion state."""
     ledger = get_ledger()
     active = active_policy(ledger)
@@ -251,7 +271,8 @@ def approve_policy(
                 "signed-in operator's name."
             ),
         )
-    is_admin = (admin or "").lower() in ("1", "true", "yes")
+    # Standing follows the role; the X-PortWatch-Admin flag is not honoured.
+    is_admin = False
     if not is_admin and (role or "").lower() not in (
         "national_admin", "admin", "issuer", "port_authority", "port_operator",
     ):
@@ -287,12 +308,13 @@ def approve_policy(
 
 
 @router.get("/learning/calibration")
-def learning_calibration() -> Dict[str, Any]:
+def learning_calibration(role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
+    _reader(role)
     """Event-probability calibration, and how it was fitted."""
     ledger = get_ledger()
     calibrator = fit_calibrator(
         ledger.event_outcomes(),
-        fitted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        fitted_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: when this fit ran
     )
     return {
         "calibrator": calibrator.to_dict(),
@@ -301,15 +323,18 @@ def learning_calibration() -> Dict[str, Any]:
 
 
 @router.post("/learning/backfill")
-def backfill(payload: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
+def backfill(payload: Dict[str, Any] = Body(default={}),
+             role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
     """Load the pipeline's walk-forward history into the ledger.
 
     The pipeline does this at the end of a run. Exposed here so a deployment
     whose ledger is empty can be filled without a full pipeline pass, and so the
-    demo can show the loop closing on screen.
+    demo can show the loop closing on screen. National Command only: it writes
+    the ledger.
     """
     from src.portwatch_os.learning.backfill import backfill_forecasts
 
+    resolve_role(role, admin_surface=True)
     ledger = get_ledger()
     report = backfill_forecasts(ledger, limit=int(payload.get("limit") or 4000))
     outcome = None
@@ -322,12 +347,15 @@ def backfill(payload: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
 
 
 @router.post("/learning/run")
-def run_outcome_pass(payload: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
+def run_outcome_pass(payload: Dict[str, Any] = Body(default={}),
+                     role: Optional[str] = Header(None, alias="X-PortWatch-Role")) -> Dict[str, Any]:
     """Run the outcome agent: resolve, score, attribute, recalibrate.
 
     Exposed so the demo can close the loop on screen. In a deployment this runs
-    on the pipeline's schedule; the two paths call the same agent.
+    on the pipeline's schedule; the two paths call the same agent. National
+    Command only: it writes the ledger and can move a policy to EVALUATING.
     """
+    resolve_role(role, admin_surface=True)
     ledger = get_ledger()
     agent = OutcomeAgent(ledger)
     run = agent.run(

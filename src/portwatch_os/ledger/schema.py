@@ -32,6 +32,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from src.portwatch_os.clock import wall_now
 
 # --------------------------------------------------------------------------
 # kinds
@@ -74,7 +75,8 @@ STATUSES = (OPEN, RESOLVED, EXPIRED, SUPERSEDED)
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # wall-clock: recorded_at audit stamps on ledger rows
+    return wall_now().isoformat(timespec="seconds")
 
 
 def _stable_id(prefix: str, *parts: Any) -> str:
@@ -318,6 +320,61 @@ class DecisionRecord:
 
 
 # --------------------------------------------------------------------------
+# decision problems
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class DecisionProblemRecord:
+    """One "what should I do?", as computed, and what became of it.
+
+    The whole problem is stored as it was at computation -- every option,
+    the rejected ones with their constraint, the frontier, the recommendation
+    and the Critic's verdicts -- so a later scoring pass reconstructs the
+    decision from the record and never from a recomputation that would see
+    the world as it turned out. The human choice, the action taken and the
+    observed outcome are written afterwards into separate columns.
+    """
+
+    problem_id: str
+    domain: str
+    subject: str
+    actor: str
+    issued_at: str
+    world_state_id: str
+    world_revision: Dict[str, Any]
+    at: Optional[str]
+    #: The full problem payload at computation. Immutable once written.
+    problem: Dict[str, Any]
+    recommended_option: Optional[str] = None
+    baseline_option: Optional[str] = None
+    options_evaluated: int = 0
+    options_rejected: int = 0
+    critic_verdict: Optional[str] = None
+    workflow: str = "COMPUTED"
+    human_choice: Optional[str] = None
+    actual_action: Optional[str] = None
+    status: str = OPEN
+    observed_outcome: Dict[str, float] = field(default_factory=dict)
+    observed_at: Optional[str] = None
+    notes: Optional[str] = None
+
+    def to_row(self) -> Dict[str, Any]:
+        row = asdict(self)
+        for key in ("world_revision", "problem", "observed_outcome"):
+            row[key] = json.dumps(getattr(self, key), sort_keys=True, default=str)
+        return row
+
+    @classmethod
+    def from_row(cls, row: Dict[str, Any]) -> "DecisionProblemRecord":
+        data = dict(row)
+        for key, default in (("world_revision", {}), ("problem", {}), ("observed_outcome", {})):
+            data[key] = _loads(data.get(key)) or default
+        known = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
+        return cls(**{k: v for k, v in data.items() if k in known})
+
+
+# --------------------------------------------------------------------------
 # event outcomes
 # --------------------------------------------------------------------------
 
@@ -551,6 +608,7 @@ __all__ = [
     "RETIRED",
     "STATUSES",
     "SUPERSEDED",
+    "DecisionProblemRecord",
     "DecisionRecord",
     "EventOutcomeRecord",
     "PolicyRecord",

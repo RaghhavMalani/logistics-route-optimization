@@ -367,7 +367,7 @@ export function QuantileChart({
       </svg>
 
       {yLabel ? (
-        <span className="eyebrow absolute left-0 top-0 text-[9px]">{yLabel}</span>
+        <span className="eyebrow absolute left-0 top-0 text-[10px]">{yLabel}</span>
       ) : null}
 
       {active ? (
@@ -648,7 +648,7 @@ export function ColumnChart({
           </div>
         ))}
       </div>
-      <div className="mt-1 flex justify-between text-[9.5px] text-[var(--text-3)]">
+      <div className="mt-1 flex justify-between text-[10.5px] text-[var(--text-3)]">
         <span className="num">{points[0]?.label}</span>
         <span className="num">{points[points.length - 1]?.label}</span>
       </div>

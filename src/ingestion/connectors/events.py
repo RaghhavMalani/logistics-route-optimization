@@ -61,11 +61,13 @@ def fetch_events(max_records: int = 40) -> pd.DataFrame:
                 "shock_type": stype, "chokepoint": cp,
                 "severity": _severity(title, stype)})
         if rows:
-            provenance.record("Geopolitical events (GDELT)", provenance.LIVE)
+            provenance.record("Geopolitical events (GDELT)", provenance.LIVE,
+                              f"{len(rows)} classified maritime items from the DOC 2.0 API",
+                              provider="GDELT DOC 2.0", rows=len(rows))
             return pd.DataFrame(rows)
         log.info("GDELT returned no classifiable items; using synthetic feed.")
     provenance.record("Geopolitical events (GDELT)", provenance.SYNTHETIC,
-                      "GDELT unreachable")
+                      "GDELT unreachable", provider="GDELT DOC 2.0", fallback="synthetic feed")
     return _synthetic_events()
 
 

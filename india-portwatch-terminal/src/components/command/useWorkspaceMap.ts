@@ -12,7 +12,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useClockState, useTraffic } from "@/components/app/traffic-context";
-import type { MapLabel, MapView } from "@/components/map/MaritimeMap";
+import type {
+  MapBounds,
+  MapFocus,
+  MapLabel,
+  MapPadding,
+  MapView,
+} from "@/components/map/MaritimeMap";
 import type { LayerKey } from "@/components/map/basemap";
 import type { WeatherRaster } from "@/components/map/weather-layers";
 import {
@@ -21,15 +27,37 @@ import {
   buildWeatherRaster,
 } from "@/components/map/weather-layers";
 import { CHOKEPOINTS } from "@/lib/maritime/chokepoints";
-import { anchorageRadiusKm, seawardBearing } from "@/lib/maritime/port-geometry";
-import type { NavStatus, VesselClass, VesselFix } from "@/lib/maritime/traffic-types";
+import {
+  anchorageRadiusKm,
+  seawardBearing,
+} from "@/lib/maritime/port-geometry";
+import type {
+  NavStatus,
+  VesselClass,
+  VesselFix,
+} from "@/lib/maritime/traffic-types";
 import {
   buildWeatherTimeline,
   type WeatherFieldKey,
   type WeatherFrame,
 } from "@/lib/maritime/weather-model";
-import { useEnrichedPorts, useHealth, useNews, useWeather } from "@/services/hooks";
+import {
+  observedFeatures,
+  seaStateFeatures,
+} from "@/components/map/sea-layers";
+import {
+  useEnrichedPorts,
+  useHealth,
+  useNews,
+  useWeather,
+} from "@/services/hooks";
+import {
+  useMarineState,
+  useObservedTracks,
+  useSignalHealth,
+} from "@/services/os-hooks";
 import type { PortSnapshot } from "@/types/portwatch";
+import type { MarineState, ObservedTracks } from "@/types/portwatch-os";
 import { bearingLine, circleRing, sectorRing } from "@/components/map/geometry";
 
 /* ---------------------------------------------------------------- layers -- */
@@ -56,12 +84,20 @@ export const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   ports: true,
   corridors: true,
   routes: true,
+  // Consequence is drawn only when a cascade is open, so the layer starts off
+  // and the world stays legible until somebody asks it a question.
+  cascade: false,
   tracks: true,
   vectors: true,
   chokepoints: true,
   events: false,
   zones: true,
   graticule: true,
+  // The sea as forecast belongs to the WEATHER lens; off until it is asked for.
+  seastate: false,
+  // Observed AIS is drawn whenever it exists. The server decides whether it
+  // does; this toggle only lets an operator hide it.
+  observed: true,
 };
 
 export interface TrafficFilterState {
@@ -124,7 +160,11 @@ function portFeatures(
           name: port.name,
           risk: port.risk,
           color: portColor(port.risk),
-          pressure: Math.min(1, (port.queuePressure ?? 0) * 0.7 + (port.capacityPressure ?? 0) * 0.4),
+          pressure: Math.min(
+            1,
+            (port.queuePressure ?? 0) * 0.7 +
+              (port.capacityPressure ?? 0) * 0.4,
+          ),
           selected: selected === port.code,
         },
         geometry: {
@@ -143,7 +183,9 @@ function portFeatures(
  * queue pressure, and the fairway is the centreline of the approach sector. No
  * berth layout is claimed: this is a pressure diagram drawn in the right place.
  */
-export function portZones(port: PortSnapshot | null): GeoJSON.FeatureCollection {
+export function portZones(
+  port: PortSnapshot | null,
+): GeoJSON.FeatureCollection {
   if (!port?.location) return { type: "FeatureCollection", features: [] };
   const centre: [number, number] = [port.location.lon, port.location.lat];
   const seaward = seawardBearing(port.code, centre[0], centre[1]);
@@ -154,31 +196,57 @@ export function portZones(port: PortSnapshot | null): GeoJSON.FeatureCollection 
     features: [
       {
         type: "Feature",
-        properties: { kind: "approach", label: "Approach sector", color: "#4c9fcb", opacity: 0.05 },
-        geometry: { type: "Polygon", coordinates: [sectorRing(centre, 62, seaward, 32)] },
+        properties: {
+          kind: "approach",
+          label: "Approach sector",
+          color: "#4c9fcb",
+          opacity: 0.05,
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [sectorRing(centre, 62, seaward, 32)],
+        },
       },
       {
         type: "Feature",
         properties: {
           kind: "anchorage",
           label: `Anchorage · ${(port.anchorageCount ?? 0).toFixed(1)} waiting`,
-          color: queue >= 0.6 ? "#d05a4c" : queue >= 0.35 ? "#d3a02f" : "#56b28d",
+          color:
+            queue >= 0.6 ? "#d05a4c" : queue >= 0.35 ? "#d3a02f" : "#56b28d",
           opacity: 0.1,
         },
         geometry: {
           type: "Polygon",
-          coordinates: [circleRing(centre, anchorageRadiusKm(port.anchorageCount, queue))],
+          coordinates: [
+            circleRing(centre, anchorageRadiusKm(port.anchorageCount, queue)),
+          ],
         },
       },
       {
         type: "Feature",
-        properties: { kind: "terminal", label: "Terminal area", color: "#8a7fc4", opacity: 0.16 },
-        geometry: { type: "Polygon", coordinates: [circleRing(centre, 2.6, 24)] },
+        properties: {
+          kind: "terminal",
+          label: "Terminal area",
+          color: "#8a7fc4",
+          opacity: 0.16,
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [circleRing(centre, 2.6, 24)],
+        },
       },
       {
         type: "Feature",
-        properties: { kind: "fairway", label: "Approach channel", color: "#6fb2d6" },
-        geometry: { type: "LineString", coordinates: bearingLine(centre, seaward, 58) },
+        properties: {
+          kind: "fairway",
+          label: "Approach channel",
+          color: "#6fb2d6",
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: bearingLine(centre, seaward, 58),
+        },
       },
     ],
   };
@@ -223,8 +291,17 @@ export interface WorkspaceMap {
     zones: GeoJSON.FeatureCollection;
     chokepoints: GeoJSON.FeatureCollection;
     storms: GeoJSON.FeatureCollection;
+    seastate: GeoJSON.FeatureCollection;
+    observed: GeoJSON.FeatureCollection;
   };
   labels: MapLabel[];
+
+  /** The sea at the weather cursor, as the server last fetched it. */
+  marine: MarineState | null;
+  /** Observed tracks, and the traffic block that says what they are. */
+  observedTracks: ObservedTracks | null;
+  selectedObservedMmsi: string | null;
+  setSelectedObservedMmsi: (mmsi: string | null) => void;
 
   selectedPortCode: string | null;
   setSelectedPortCode: (code: string | null) => void;
@@ -233,28 +310,35 @@ export interface WorkspaceMap {
   hoveredVesselId: string | null;
   setHoveredVesselId: (id: string | null) => void;
 
-  focus: { center: [number, number]; zoom?: number; token: number } | null;
+  focus: MapFocus | null;
   flyTo: (center: [number, number], zoom?: number) => void;
+  /** Frame a box, leaving room for the panels that sit over the chart. */
+  fitBounds: (bounds: MapBounds, padding?: MapPadding) => void;
 
   /** The instant the weather panel is showing. */
   weatherAt: number;
   offsetHours: number;
 }
 
-export function useWorkspaceMap(options: {
-  /** Port whose approach geometry is drawn, if any. */
-  zonesFor?: string | null;
-  /** Layers this workspace overrides at mount. */
-  layerOverrides?: Partial<Record<LayerKey, boolean>>;
-  initialSelectedPort?: string | null;
-  /** Start on a single field instead of the composite. */
-  weatherField?: WeatherFieldKey | null;
-} = {}): WorkspaceMap {
+export function useWorkspaceMap(
+  options: {
+    /** Port whose approach geometry is drawn, if any. */
+    zonesFor?: string | null;
+    /** Layers this workspace overrides at mount. */
+    layerOverrides?: Partial<Record<LayerKey, boolean>>;
+    initialSelectedPort?: string | null;
+    /** Start on a single field instead of the composite. */
+    weatherField?: WeatherFieldKey | null;
+  } = {},
+): WorkspaceMap {
   const { ports: enrichedPorts, query: portsQuery } = useEnrichedPorts();
   const weatherQuery = useWeather();
   const newsQuery = useNews();
   const health = useHealth();
   const clockState = useClockState();
+  const [selectedObservedMmsi, setSelectedObservedMmsi] = useState<
+    string | null
+  >(null);
 
   const ports = enrichedPorts;
   const portByCode = useMemo(
@@ -273,8 +357,12 @@ export function useWorkspaceMap(options: {
     setLayers((prev) => ({ ...prev, [key]: on }));
   }, []);
 
-  const [classes, setClasses] = useState<Set<VesselClass>>(() => new Set(ALL_CLASSES));
-  const [statuses, setStatuses] = useState<Set<NavStatus>>(() => new Set(ALL_STATUSES));
+  const [classes, setClasses] = useState<Set<VesselClass>>(
+    () => new Set(ALL_CLASSES),
+  );
+  const [statuses, setStatuses] = useState<Set<NavStatus>>(
+    () => new Set(ALL_STATUSES),
+  );
   const [isolate, setIsolate] = useState<string | null>(null);
 
   const toggleClass = useCallback((value: VesselClass) => {
@@ -308,7 +396,9 @@ export function useWorkspaceMap(options: {
   );
 
   const filterActive =
-    isolate !== null || classes.size !== ALL_CLASSES.length || statuses.size !== ALL_STATUSES.length;
+    isolate !== null ||
+    classes.size !== ALL_CLASSES.length ||
+    statuses.size !== ALL_STATUSES.length;
 
   /* --------------------------------------------------------------- weather -- */
   /**
@@ -347,13 +437,17 @@ export function useWorkspaceMap(options: {
     );
   }, [clock, timeline.available, timeline.from, timeline.to]);
 
-  const frame = useMemo(() => timeline.frameAt(weatherAt), [timeline, weatherAt]);
+  const frame = useMemo(
+    () => timeline.frameAt(weatherAt),
+    [timeline, weatherAt],
+  );
 
   // The previous frame, so storm motion can be inferred from the risk trend
   // rather than invented. Three hours back: long enough for a cell to have
   // moved, short enough that it is the same cell.
   const previousFrame = useMemo(
-    () => (timeline.available ? timeline.frameAt(weatherAt - 3 * 3_600_000) : null),
+    () =>
+      timeline.available ? timeline.frameAt(weatherAt - 3 * 3_600_000) : null,
     [timeline, weatherAt],
   );
 
@@ -427,17 +521,43 @@ export function useWorkspaceMap(options: {
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
   const [hoveredVesselId, setHoveredVesselId] = useState<string | null>(null);
 
-  const [focus, setFocus] = useState<
-    { center: [number, number]; zoom?: number; token: number } | null
-  >(null);
+  const [focus, setFocus] = useState<MapFocus | null>(null);
   const token = useRef(0);
   const flyTo = useCallback((center: [number, number], zoom?: number) => {
     token.current += 1;
     setFocus({ center, zoom, token: token.current });
   }, []);
+  const fitBounds = useCallback((bounds: MapBounds, padding?: MapPadding) => {
+    token.current += 1;
+    setFocus({ bounds, padding, token: token.current });
+  }, []);
 
   /* --------------------------------------------------------------- sources -- */
-  const zonePort = options.zonesFor ? (portByCode.get(options.zonesFor) ?? null) : null;
+  const zonePort = options.zonesFor
+    ? (portByCode.get(options.zonesFor) ?? null)
+    : null;
+
+  // The sea is keyed on the hour of the weather cursor: the grid is hourly,
+  // so a finer key would be more fetches for the same cells.
+  const seaAt = useMemo(() => {
+    const hour = Math.floor(weatherAt / 3_600_000) * 3_600_000;
+    return new Date(hour).toISOString();
+  }, [weatherAt]);
+  const marineQuery = useMarineState(seaAt, "DEMO", layers.seastate);
+  const marine = marineQuery.data ?? null;
+
+  // Observed AIS is polled only while the server says the source is observed;
+  // a replay deployment asks once and stops.
+  const fabricHealth = useSignalHealth("DEMO");
+  const trafficMode = fabricHealth.data?.traffic.mode ?? null;
+  const observedQuery = useObservedTracks(
+    "DEMO",
+    trafficMode === "LIVE_AIS" || trafficMode === "AIS_STALE",
+  );
+  const observedTracks =
+    trafficMode === "LIVE_AIS" || trafficMode === "AIS_STALE"
+      ? (observedQuery.data ?? null)
+      : null;
 
   const data = useMemo(
     () => ({
@@ -447,13 +567,37 @@ export function useWorkspaceMap(options: {
         type: "FeatureCollection" as const,
         features: CHOKEPOINTS.map((choke) => ({
           type: "Feature" as const,
-          properties: { id: choke.code, code: choke.code, name: choke.name, color: "#4c9fcb" },
-          geometry: { type: "Point" as const, coordinates: [choke.lon, choke.lat] },
+          properties: {
+            id: choke.code,
+            code: choke.code,
+            name: choke.name,
+            color: "#4c9fcb",
+          },
+          geometry: {
+            type: "Point" as const,
+            coordinates: [choke.lon, choke.lat],
+          },
         })),
       },
       storms: storms.data,
+      seastate: seaStateFeatures(
+        marine?.cells ?? [],
+        marine?.withinHorizon ?? true,
+      ),
+      observed: observedFeatures(
+        observedTracks?.tracks ?? [],
+        selectedObservedMmsi,
+      ),
     }),
-    [ports, selectedPortCode, storms.data, zonePort],
+    [
+      marine,
+      observedTracks,
+      ports,
+      selectedObservedMmsi,
+      selectedPortCode,
+      storms.data,
+      zonePort,
+    ],
   );
 
   const labels = useMemo<MapLabel[]>(
@@ -499,6 +643,10 @@ export function useWorkspaceMap(options: {
     setShowWind,
     data,
     labels,
+    marine,
+    observedTracks,
+    selectedObservedMmsi,
+    setSelectedObservedMmsi,
     selectedPortCode,
     setSelectedPortCode,
     selectedVesselId,
@@ -507,6 +655,7 @@ export function useWorkspaceMap(options: {
     setHoveredVesselId,
     focus,
     flyTo,
+    fitBounds,
     weatherAt,
     offsetHours,
   };

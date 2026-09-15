@@ -41,9 +41,9 @@ from src.portwatch_os.advisories.model import (
     transition,
     utc_now,
 )
-from src.utils.config import OUTPUTS_DIR
+from src.utils.config import STATE_DIR
 
-DEFAULT_ADVISORY_PATH = OUTPUTS_DIR / "portwatch_advisories.db"
+DEFAULT_ADVISORY_PATH = STATE_DIR / "portwatch_advisories.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS advisories (
@@ -268,12 +268,18 @@ class AdvisoryStore:
         if str(self.path) != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        with self._lock:
-            self._conn.executescript(_SCHEMA)
-            self._conn.commit()
+        try:
+            self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            verdict = self._conn.execute("PRAGMA quick_check").fetchone()[0]
+            if verdict != "ok":
+                raise AdvisoryError(f"the advisory register at {self.path} failed its integrity check: {verdict}")
+            with self._lock:
+                self._conn.executescript(_SCHEMA)
+                self._conn.commit()
+        except sqlite3.DatabaseError as exc:
+            raise AdvisoryError(f"the advisory register at {self.path} cannot be opened: {exc}") from exc
 
     def close(self) -> None:
         with self._lock:
@@ -505,6 +511,24 @@ _DEFAULT: Optional[AdvisoryStore] = None
 _LOCK = threading.Lock()
 
 
+def probe_advisory_store(path: Path | str | None = None) -> Dict[str, Any]:
+    """Whether the advisory register at ``path`` opens and reads; names the fault."""
+    target = Path(path) if path is not None else DEFAULT_ADVISORY_PATH
+    out: Dict[str, Any] = {"path": str(target), "exists": target.exists(), "ok": False,
+                           "durable": True, "error": None, "counts": {}}
+    try:
+        store = AdvisoryStore(target)
+        try:
+            with store._lock:
+                out["counts"]["advisories"] = store._conn.execute("SELECT COUNT(*) FROM advisories").fetchone()[0]
+        finally:
+            store.close()
+        out["ok"] = True
+    except (AdvisoryError, sqlite3.DatabaseError, OSError) as exc:
+        out["error"] = str(exc)
+    return out
+
+
 def get_advisory_store(path: Path | str | None = None) -> AdvisoryStore:
     global _DEFAULT
     if path is not None:
@@ -526,6 +550,7 @@ def reset_default_store() -> None:
 
 __all__ = [
     "DEFAULT_ADVISORY_PATH",
+    "probe_advisory_store",
     "AdvisoryStore",
     "AuthorisationError",
     "Principal",

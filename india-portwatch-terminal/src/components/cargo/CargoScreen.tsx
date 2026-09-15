@@ -19,7 +19,14 @@
 
 import { useMemo, useState } from "react";
 
-import { Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import { CargoDecisionPanel } from "@/components/decision/CargoDecisionPanel";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { DataTable, type Column } from "@/components/kit/table";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
@@ -34,13 +41,14 @@ import type {
 
 type Mode = "plan" | "opportunities";
 
-const CLASS_TONE: Record<string, "info" | "warn" | "crit" | "unc" | "neutral"> = {
-  dry: "neutral",
-  empty: "neutral",
-  reefer: "info",
-  hazardous: "crit",
-  oog: "warn",
-};
+const CLASS_TONE: Record<string, "info" | "warn" | "crit" | "unc" | "neutral"> =
+  {
+    dry: "neutral",
+    empty: "neutral",
+    reefer: "info",
+    hazardous: "crit",
+    oog: "warn",
+  };
 
 export function CargoScreen({
   portCode,
@@ -53,6 +61,8 @@ export function CargoScreen({
   mode: Mode;
 }) {
   const [mode, setMode] = useState<Mode>(fixedMode);
+  const [decisionId, setDecisionId] = useState<string | null>(null);
+  const [decisionOptionId, setDecisionOptionId] = useState<string | null>(null);
   const plan = useCargoPlan(mode === "plan" ? portCode : null);
   const opportunities = useCargoOpportunities(
     mode === "opportunities" ? portCode : null,
@@ -75,7 +85,9 @@ export function CargoScreen({
   }
 
   const disclaimer =
-    (mode === "plan" ? plan.data?.disclaimer : opportunities.data?.disclaimer) ?? "";
+    (mode === "plan"
+      ? plan.data?.disclaimer
+      : opportunities.data?.disclaimer) ?? "";
 
   return (
     <Page>
@@ -137,6 +149,15 @@ export function CargoScreen({
       </div>
 
       <PageBody>
+        <div className="mb-3">
+          <CargoDecisionPanel
+            portCode={portCode}
+            decisionId={decisionId}
+            onDecision={setDecisionId}
+            selectedOptionId={decisionOptionId}
+            onSelectOption={setDecisionOptionId}
+          />
+        </div>
         {mode === "plan" && plan.data ? (
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
             <Panel
@@ -185,7 +206,10 @@ export function CargoScreen({
               </Panel>
 
               {plan.data.yardBlocks?.length ? (
-                <Panel title="Yard headroom" note={`${plan.data.yardBlocks.length} blocks`}>
+                <Panel
+                  title="Yard headroom"
+                  note={`${plan.data.yardBlocks.length} blocks`}
+                >
                   <Section title="Free capacity by block">
                     <div className="space-y-1">
                       {plan.data.yardBlocks.map((block) => (
@@ -222,8 +246,13 @@ export function CargoScreen({
                       .sort((a, b) => b[1] - a[1])
                       .slice(0, 8)
                       .map(([name, teu]) => (
-                        <div key={name} className="flex items-baseline justify-between gap-3">
-                          <dt className="truncate text-[10.5px] text-[var(--text-3)]">{name}</dt>
+                        <div
+                          key={name}
+                          className="flex items-baseline justify-between gap-3"
+                        >
+                          <dt className="truncate text-[10.5px] text-[var(--text-3)]">
+                            {name}
+                          </dt>
                           <dd className="num text-[11px] text-[var(--text)]">
                             {teu.toFixed(0)} TEU
                           </dd>
@@ -273,7 +302,9 @@ const assignmentColumns: Array<Column<CargoAssignment>> = [
     width: 150,
     sort: (row) => row.shipmentId,
     render: (row) => (
-      <span className="num text-[10.5px] text-[var(--text-2)]">{row.shipmentId}</span>
+      <span className="num text-[10.5px] text-[var(--text-2)]">
+        {row.shipmentId}
+      </span>
     ),
   },
   {
@@ -289,7 +320,9 @@ const assignmentColumns: Array<Column<CargoAssignment>> = [
     header: "Onward vessel",
     sort: (row) => row.vesselName,
     render: (row) => (
-      <span className="truncate text-[11px] text-[var(--text)]">{row.vesselName}</span>
+      <span className="truncate text-[11px] text-[var(--text)]">
+        {row.vesselName}
+      </span>
     ),
   },
   {
@@ -297,7 +330,9 @@ const assignmentColumns: Array<Column<CargoAssignment>> = [
     header: "To",
     width: 62,
     sort: (row) => row.destinationPort,
-    render: (row) => <span className="num text-[10.5px]">{row.destinationPort}</span>,
+    render: (row) => (
+      <span className="num text-[10.5px]">{row.destinationPort}</span>
+    ),
   },
   {
     key: "zone",
@@ -316,7 +351,9 @@ const assignmentColumns: Array<Column<CargoAssignment>> = [
     width: 70,
     hint: "Discharge, yard moves, overhead and load",
     sort: (row) => row.handlingHours,
-    render: (row) => <span className="num">{row.handlingHours.toFixed(1)}h</span>,
+    render: (row) => (
+      <span className="num">{row.handlingHours.toFixed(1)}h</span>
+    ),
   },
   {
     key: "slack",
@@ -345,7 +382,9 @@ const assignmentColumns: Array<Column<CargoAssignment>> = [
     align: "right",
     width: 62,
     sort: (row) => row.value,
-    render: (row) => <span className="num text-[var(--text)]">{row.value.toFixed(1)}</span>,
+    render: (row) => (
+      <span className="num text-[var(--text)]">{row.value.toFixed(1)}</span>
+    ),
   },
 ];
 
@@ -356,7 +395,9 @@ const opportunityColumns: Array<Column<CargoOpportunity>> = [
     width: 150,
     sort: (row) => row.shipmentId,
     render: (row) => (
-      <span className="num text-[10.5px] text-[var(--text-2)]">{row.shipmentId}</span>
+      <span className="num text-[10.5px] text-[var(--text-2)]">
+        {row.shipmentId}
+      </span>
     ),
   },
   {
@@ -365,7 +406,9 @@ const opportunityColumns: Array<Column<CargoOpportunity>> = [
     width: 88,
     sort: (row) => row.cargoClass,
     render: (row) => (
-      <Pill tone={CLASS_TONE[row.cargoClass] ?? "neutral"}>{row.cargoClass}</Pill>
+      <Pill tone={CLASS_TONE[row.cargoClass] ?? "neutral"}>
+        {row.cargoClass}
+      </Pill>
     ),
   },
   {
@@ -381,14 +424,18 @@ const opportunityColumns: Array<Column<CargoOpportunity>> = [
     header: "Onward vessel",
     sort: (row) => row.vesselName,
     render: (row) => (
-      <span className="truncate text-[11px] text-[var(--text)]">{row.vesselName}</span>
+      <span className="truncate text-[11px] text-[var(--text)]">
+        {row.vesselName}
+      </span>
     ),
   },
   {
     key: "destination",
     header: "To",
     width: 62,
-    render: (row) => <span className="num text-[10.5px]">{row.destinationPort}</span>,
+    render: (row) => (
+      <span className="num text-[10.5px]">{row.destinationPort}</span>
+    ),
   },
   {
     key: "saved",
@@ -401,7 +448,9 @@ const opportunityColumns: Array<Column<CargoOpportunity>> = [
       row.hoursSaved == null || row.hoursSaved <= 0 ? (
         <span className="text-[10px] text-[var(--text-3)]">—</span>
       ) : (
-        <span className="num text-[var(--ok)]">{row.hoursSaved.toFixed(0)}h</span>
+        <span className="num text-[var(--ok)]">
+          {row.hoursSaved.toFixed(0)}h
+        </span>
       ),
   },
   {
@@ -423,7 +472,9 @@ const opportunityColumns: Array<Column<CargoOpportunity>> = [
     align: "right",
     width: 62,
     sort: (row) => row.value,
-    render: (row) => <span className="num text-[var(--text)]">{row.value.toFixed(1)}</span>,
+    render: (row) => (
+      <span className="num text-[var(--text)]">{row.value.toFixed(1)}</span>
+    ),
   },
 ];
 
@@ -433,22 +484,30 @@ function UnplacedRow({ row }: { row: CargoUnplaced }) {
   return (
     <div className="border-b border-[var(--line)]/60 px-2 py-1.5 last:border-0">
       <div className="flex items-baseline gap-2">
-        <span className="num text-[10.5px] text-[var(--text-2)]">{row.shipmentId}</span>
-        <Pill tone={CLASS_TONE[row.cargoClass] ?? "neutral"}>{row.cargoClass}</Pill>
+        <span className="num text-[10.5px] text-[var(--text-2)]">
+          {row.shipmentId}
+        </span>
+        <Pill tone={CLASS_TONE[row.cargoClass] ?? "neutral"}>
+          {row.cargoClass}
+        </Pill>
         <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
           {row.teu.toFixed(0)} TEU → {row.destinationPort}
         </span>
       </div>
       <ul className="mt-1 space-y-0.5">
         {row.reasons.slice(0, 3).map((reason) => (
-          <li key={reason} className="text-[9.5px] leading-snug text-[var(--text-3)]">
+          <li
+            key={reason}
+            className="text-[10.5px] leading-snug text-[var(--text-3)]"
+          >
             {reason}
           </li>
         ))}
       </ul>
       {row.shortfallHours != null ? (
-        <div className="num mt-[3px] text-[9.5px] text-[var(--warn)]">
-          Nearest option {row.nearestVessel} — short by {row.shortfallHours.toFixed(1)} h
+        <div className="num mt-[3px] text-[10.5px] text-[var(--warn)]">
+          Nearest option {row.nearestVessel} — short by{" "}
+          {row.shortfallHours.toFixed(1)} h
         </div>
       ) : null}
     </div>
@@ -461,7 +520,7 @@ function YardBar({ block }: { block: TwinYardBlock }) {
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] text-[var(--text-2)]">{block.name}</span>
-        <span className="num text-[9.5px] text-[var(--text-3)]">
+        <span className="num text-[10.5px] text-[var(--text-3)]">
           {block.occupied_teu.toFixed(0)} / {block.capacityTeu.toFixed(0)} TEU
         </span>
       </div>

@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
 import { usePortContext } from "@/components/app/port-context";
 import { AgentConsole } from "@/components/agent/AgentConsole";
-import { MaritimeSearch, type SearchHit } from "@/components/command/MaritimeSearch";
+import {
+  MaritimeSearch,
+  type SearchHit,
+} from "@/components/command/MaritimeSearch";
 import { PortSummary } from "@/components/command/PortCockpit";
 import { TimeTransport } from "@/components/command/TimeTransport";
 import {
@@ -17,6 +20,7 @@ import {
   VesselInspector,
   useRouteExposure,
 } from "@/components/command/VesselInspector";
+import { ObservedSelection } from "@/components/command/ObservedVesselInspector";
 import { FloatPanel } from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
@@ -24,7 +28,9 @@ import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { portTraffic } from "@/lib/maritime/traffic-views";
 
-export const Route = createFileRoute("/port/traffic")({ component: PortTraffic });
+export const Route = createFileRoute("/port/traffic")({
+  component: PortTraffic,
+});
 
 /**
  * The port's own traffic picture.
@@ -35,7 +41,10 @@ export const Route = createFileRoute("/port/traffic")({ component: PortTraffic }
  */
 function PortTraffic() {
   const { port, portCode, query } = usePortContext();
-  const workspace = useWorkspaceMap({ zonesFor: portCode, initialSelectedPort: portCode });
+  const workspace = useWorkspaceMap({
+    zonesFor: portCode,
+    initialSelectedPort: portCode,
+  });
   const fixes = useFixes(1);
   const at = useTrafficTick(1);
   const [following, setFollowing] = useState(false);
@@ -91,6 +100,7 @@ function PortTraffic() {
         vesselFilter={workspace.vesselFilter}
         labels={workspace.labels}
         selectedVesselId={workspace.selectedVesselId}
+        onSelectObserved={workspace.setSelectedObservedMmsi}
         onSelectVessel={(id) => {
           workspace.setSelectedVesselId(id);
           setFollowing(false);
@@ -122,11 +132,17 @@ function PortTraffic() {
 
             <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
               <VesselClassLegend />
-              <EnvironmentLegend workspace={workspace} frame={workspace.frame} />
+              <EnvironmentLegend
+                workspace={workspace}
+                frame={workspace.frame}
+              />
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[352px] z-20">
-              <TimeTransport timeline={workspace.timeline} weatherAt={workspace.weatherAt} />
+              <TimeTransport
+                timeline={workspace.timeline}
+                weatherAt={workspace.weatherAt}
+              />
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[338px] flex-col gap-2">
@@ -141,7 +157,9 @@ function PortTraffic() {
                     setFollowing(false);
                   }}
                   onIsolate={() =>
-                    workspace.setIsolate(workspace.filters.isolate ? null : selectedFix.id)
+                    workspace.setIsolate(
+                      workspace.filters.isolate ? null : selectedFix.id,
+                    )
                   }
                   isolated={workspace.filters.isolate === selectedFix.id}
                   onFollow={() => setFollowing((v) => !v)}

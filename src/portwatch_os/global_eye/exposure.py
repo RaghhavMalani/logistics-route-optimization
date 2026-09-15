@@ -35,6 +35,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.global_eye.model import CATEGORIES, GlobalEvent, decay_factor
 from src.utils import port_registry
+from src.portwatch_os.clock import world_now
 
 #: Trade lanes, and the chokepoints each one transits.
 #:
@@ -301,8 +302,51 @@ class VesselVoyage:
     #: it has already passed into or through it.
     hours_to_chokepoint: Dict[str, float] = field(default_factory=dict)
     eta: Optional[str] = None
+    #: Hours until the hull reaches its destination port, where declared. What
+    #: a closure at the destination is measured against.
+    hours_to_destination: Optional[float] = None
     service_speed_kn: float = DEFAULT_SERVICE_KN
     operator: Optional[str] = None
+
+    #: Where this voyage came from, and how much of it was inferred. A fleet
+    #: voyage declares everything; an observed one carries the confidence of
+    #: each derivation so consequence built on it is discounted, not trusted.
+    source: str = "FLEET"
+    destination_confidence: Optional[float] = None
+    lane_confidence: Optional[float] = None
+    timing_confidence: Optional[float] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    observed_at: Optional[str] = None
+    mmsi: Optional[str] = None
+    imo: Optional[str] = None
+    #: Identity conflicts the fusion engine recorded on this hull: claims
+    #: about who it is that disagreed. Carried so a decision on the hull
+    #: can say its subject is contested, never silently resolved.
+    identity_conflicts: int = 0
+    canonical_id: Optional[str] = None
+    #: False when the name is a placeholder because no static report was heard.
+    name_stated: bool = True
+
+    @property
+    def observed(self) -> bool:
+        return self.source == "OBSERVED_AIS"
+
+    @property
+    def placement_confidence(self) -> float:
+        """The joint confidence that this hull is where the graph puts it.
+
+        The product of what was inferred; a declared fleet voyage is 1.0.
+        """
+        if self.observed and self.destination_confidence is None:
+            # Nothing could be inferred: the hull is on the chart, and that is
+            # all. It has no place on a lane to be confident about.
+            return 0.0
+        result = 1.0
+        for part in (self.destination_confidence, self.lane_confidence, self.timing_confidence):
+            if part is not None:
+                result *= part
+        return result
 
 
 def lane_exposure(
@@ -311,7 +355,7 @@ def lane_exposure(
     now: Optional[datetime] = None,
 ) -> List[LaneExposure]:
     """Which trade lanes this event touches, and by how much."""
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     spec = CATEGORIES.get(event.category)
     half_life = (spec.base_persistence_hours / 2.0) if spec else 48.0
     decay = decay_factor(event.last_seen, now, half_life)
@@ -368,7 +412,7 @@ def vessel_exposure(
     Bab-el-Mandeb can be rerouted; one already north of it cannot, and telling an
     operator to divert it would be worse than saying nothing.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     by_lane = {lane.lane_code: lane for lane in lanes}
     out: List[VesselExposure] = []
 
@@ -597,7 +641,7 @@ def build_impact(
     port_names: Optional[Dict[str, str]] = None,
 ) -> EventImpact:
     """The whole chain for one event."""
-    now = now or datetime.now(timezone.utc)
+    now = now or world_now()
     spec = CATEGORIES.get(event.category)
     half_life = (spec.base_persistence_hours / 2.0) if spec else 48.0
     decay = decay_factor(event.last_seen, now, half_life)

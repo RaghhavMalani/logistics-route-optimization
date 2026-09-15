@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.agents.base import AgentResult, Finding
+from src.portwatch_os.clock import wall_now
 
 APPROVED = "APPROVED"
 MODIFIED = "MODIFIED"
@@ -73,7 +74,8 @@ class CriticVerdict:
     #: Confidence after the Critic's own discount.
     adjusted_confidence: Optional[float] = None
     ran_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
+        # wall-clock: audit stamp of when the Critic ran
+        default_factory=lambda: wall_now().isoformat(timespec="seconds")
     )
 
     @property

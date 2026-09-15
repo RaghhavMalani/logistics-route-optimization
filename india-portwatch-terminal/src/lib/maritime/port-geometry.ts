@@ -53,6 +53,11 @@ export function seawardBearing(key: string, lon: number, lat: number): number {
  * visibly larger than a quiet one's. It is a pressure diagram drawn in the right
  * place, not a survey, and every screen that shows it says so.
  */
-export function anchorageRadiusKm(anchorageCount: number | null, queuePressure: number | null): number {
-  return 7 + Math.min(20, (anchorageCount ?? 0) * 2.6 + (queuePressure ?? 0) * 13);
+export function anchorageRadiusKm(
+  anchorageCount: number | null,
+  queuePressure: number | null,
+): number {
+  return (
+    7 + Math.min(20, (anchorageCount ?? 0) * 2.6 + (queuePressure ?? 0) * 13)
+  );
 }

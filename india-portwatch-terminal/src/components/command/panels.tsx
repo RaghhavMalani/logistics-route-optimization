@@ -68,7 +68,10 @@ export function FloatPanel({
             >
               <ChevronDown
                 size={12}
-                className={cn("shrink-0 transition-transform", open ? "" : "-rotate-90")}
+                className={cn(
+                  "shrink-0 transition-transform",
+                  open ? "" : "-rotate-90",
+                )}
               />
               <span className="min-w-0 flex-1 truncate">{title}</span>
             </button>
@@ -78,7 +81,9 @@ export function FloatPanel({
             </span>
           )}
           {note ? (
-            <span className="shrink-0 text-[10px] text-[var(--text-3)]">{note}</span>
+            <span className="shrink-0 text-[10px] text-[var(--text-3)]">
+              {note}
+            </span>
           ) : null}
           {actions}
           {onClose ? (
@@ -94,12 +99,20 @@ export function FloatPanel({
         </header>
       ) : null}
       {open ? (
-        <div className={cn("min-h-0 flex-1", scroll ? "overflow-y-auto" : "overflow-hidden")}>
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            // A panel that does not scroll hands its child the remaining
+            // height as a flex column, so the child's own scroll region is
+            // the one that scrolls and its tab bar and footer stay put.
+            scroll ? "overflow-y-auto" : "flex flex-col overflow-hidden",
+          )}
+        >
           {children}
         </div>
       ) : null}
       {open && footer ? (
-        <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel-2)]/70 px-2 py-1 text-[9.5px] leading-snug text-[var(--text-3)]">
+        <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel-2)]/70 px-2 py-1 text-[10.5px] leading-snug text-[var(--text-3)]">
           {footer}
         </div>
       ) : null}
@@ -117,7 +130,10 @@ export function PanelTabs<T extends string>({
   tabs: Array<{ value: T; label: string; count?: number }>;
 }) {
   return (
-    <div role="tablist" className="flex shrink-0 border-b border-[var(--line)] bg-[var(--panel-2)]/60">
+    <div
+      role="tablist"
+      className="flex shrink-0 border-b border-[var(--line)] bg-[var(--panel-2)]/60"
+    >
       {tabs.map((tab) => {
         const active = tab.value === value;
         return (
@@ -136,7 +152,9 @@ export function PanelTabs<T extends string>({
           >
             {tab.label}
             {tab.count != null ? (
-              <span className="num ml-1 text-[9.5px] text-[var(--text-3)]">{tab.count}</span>
+              <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
+                {tab.count}
+              </span>
             ) : null}
             {active ? (
               <span className="absolute inset-x-0 bottom-0 h-[1.5px] bg-[var(--info)]" />
@@ -163,8 +181,12 @@ export function Field({
       title={hint}
       className="flex items-baseline justify-between gap-3 border-b border-[var(--line)]/50 py-[3.5px] last:border-0"
     >
-      <span className="min-w-0 truncate text-[10.5px] text-[var(--text-3)]">{label}</span>
-      <span className="shrink-0 text-right text-[11.5px] text-[var(--text)]">{children}</span>
+      <span className="min-w-0 truncate text-[10.5px] text-[var(--text-3)]">
+        {label}
+      </span>
+      <span className="shrink-0 text-right text-[11.5px] text-[var(--text)]">
+        {children}
+      </span>
     </div>
   );
 }
@@ -181,8 +203,12 @@ export function PanelSection({
   return (
     <div className="border-b border-[var(--line)] last:border-0">
       <div className="flex h-[22px] items-center justify-between gap-2 px-2">
-        <span className="eyebrow truncate text-[9px]">{title}</span>
-        {right ? <span className="shrink-0 text-[9.5px] text-[var(--text-3)]">{right}</span> : null}
+        <span className="eyebrow truncate text-[10px]">{title}</span>
+        {right ? (
+          <span className="shrink-0 text-[10.5px] text-[var(--text-3)]">
+            {right}
+          </span>
+        ) : null}
       </div>
       <div className="px-2 pb-2">{children}</div>
     </div>
@@ -222,7 +248,10 @@ export function Chip({
         <span
           aria-hidden
           className="h-[7px] w-[7px] shrink-0 rounded-[1px]"
-          style={{ background: active ? color : "transparent", boxShadow: `inset 0 0 0 1px ${color}` }}
+          style={{
+            background: active ? color : "transparent",
+            boxShadow: `inset 0 0 0 1px ${color}`,
+          }}
         />
       ) : null}
       {children}
@@ -232,6 +261,8 @@ export function Chip({
 
 export function EmptyNote({ children }: { children: ReactNode }) {
   return (
-    <p className="px-2 py-3 text-[11px] leading-relaxed text-[var(--text-3)]">{children}</p>
+    <p className="px-2 py-3 text-[11px] leading-relaxed text-[var(--text-3)]">
+      {children}
+    </p>
   );
 }
