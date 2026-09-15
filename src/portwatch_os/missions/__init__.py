@@ -8,11 +8,14 @@ then, decide, reveal, and score PortWatch against reality.
 """
 
 from src.portwatch_os.missions.catalogue import MISSIONS, get_mission
+from src.portwatch_os.missions.compare import compare_missions, scorecard_for
 from src.portwatch_os.missions.model import FutureLeak, Mission, MissionError, Observation, Outcome, Source
 from src.portwatch_os.missions.replay import MissionReplay
 from src.portwatch_os.missions.scorecard import scorecard
 
 __all__ = [
+    "compare_missions",
+    "scorecard_for",
     "FutureLeak",
     "MISSIONS",
     "Mission",

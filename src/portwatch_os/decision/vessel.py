@@ -87,7 +87,7 @@ from src.portwatch_os.world.branch import (
     ScenarioBranch,
 )
 from src.portwatch_os.world.cascade import Cascade, propagate
-from src.portwatch_os.world.graph import CARGO, EVENT, PORT, SAILS, VESSEL, WorldGraph, key
+from src.portwatch_os.world.graph import CARGO, EVENT, PORT, SAILS, THREATENS, VESSEL, WorldGraph, key
 from src.portwatch_os.world.quantity import HOURS, INR, RATIO, RISK, TEU, Quantity, utc
 from src.portwatch_os.world.route_exposure import ROUGH_M, VERY_HEAVY_M, sample_route
 
@@ -137,6 +137,11 @@ class VesselContext:
     routes: VoyageRoutes
     observed: bool
     attrs: Dict[str, Any]
+    #: "chokepoint" when the exposure is a strait on the lane; "port_closure"
+    #: when it is the destination itself that cannot receive the hull.
+    risk_kind: str = "chokepoint"
+    #: Ports the same event acts on directly, so a diversion never lands in one.
+    threatened_ports: Tuple[str, ...] = ()
 
     @property
     def claim_remaining_hours(self) -> Optional[float]:
@@ -194,14 +199,19 @@ def context_for(
     routes = routes_for(lane_code, destination, timings, speed, position=position)
     if routes is None:
         raise VesselDecisionError(f"{node.label} cannot be placed on {lane_code}")
+    closure = bool(exposure.attrs.get("closure"))
+    threatened = tuple(
+        e.dst.split(":", 1)[-1] for e in graph.out_edges(event_key) if e.kind == THREATENS and e.dst.startswith("port:")
+    )
     context = VesselContext(
         vessel_id=vessel_id, label=node.label, lane_code=lane_code, destination_port=destination,
         speed_kn=speed, hours_to_chokepoint=timings, exposure=exposure,
-        chokepoint=str(exposure.attrs.get("chokepoint") or ""),
+        chokepoint=str(exposure.attrs.get("chokepoint") or exposure.attrs.get("port") or ""),
         already_entered=bool(exposure.attrs.get("already_entered")),
         hours_to_risk=exposure.attrs.get("hours_to_risk_area"),
         event_key=event_key, event_label=event.label, event_end=event.interval.end,
         routes=routes, observed=node.attrs.get("source") == "OBSERVED_AIS", attrs=dict(node.attrs),
+        risk_kind="port_closure" if closure else "chokepoint", threatened_ports=threatened,
     )
     context._at = at
     return context
@@ -214,6 +224,9 @@ def context_for(
 
 def _availability_checks(context: VesselContext):
     def reroute(subject: Dict[str, Any]) -> Availability:
+        if context.risk_kind == "port_closure":
+            return Availability(UNAVAILABLE, f"the closure is at {context.chokepoint} itself; a different "
+                                "routing still arrives into it")
         if context.already_entered:
             return Availability(UNAVAILABLE, f"{context.label} is already inside {context.chokepoint}; "
                                 "no diversion is left to take")
@@ -239,8 +252,12 @@ def _availability_checks(context: VesselContext):
 
     def change_port(subject: Dict[str, Any]) -> Availability:
         lane = TRADE_LANES.get(context.lane_code)
-        others = [p for p in (lane.india_ports if lane else ()) if p != context.destination_port]
+        others = [p for p in (lane.india_ports if lane else ())
+                  if p != context.destination_port and p not in context.threatened_ports]
         if not others:
+            if context.threatened_ports:
+                return Availability(UNAVAILABLE, f"every other port {context.lane_code} serves is under the "
+                                    "same event")
             return Availability(UNAVAILABLE, f"{context.lane_code} serves no other Indian port")
         return Availability(AVAILABLE)
 
@@ -411,7 +428,8 @@ def _plans(context: VesselContext, actor: str) -> Tuple[List[OptionPlan], List[D
             ))
         elif spec.kind == CHANGE_DESTINATION_PORT:
             lane = TRADE_LANES[context.lane_code]
-            for port_code in [p for p in lane.india_ports if p != context.destination_port][:2]:
+            for port_code in [p for p in lane.india_ports
+                              if p != context.destination_port and p not in context.threatened_ports][:2]:
                 alt_routes = routes_for(context.lane_code, port_code, context.hours_to_chokepoint,
                                         speed, position=routes.position)
                 if alt_routes is None:
@@ -703,7 +721,8 @@ def evaluate_plan(
         hold = None if remaining is None else max(0.0, remaining + HOLD_MARGIN_HOURS - (context.hours_to_risk or 0.0))
         detour_hours = (
             context.routes.detour_nm / max(1.0, context.speed_kn)
-            if context.routes.alternative_reachable and context.routes.detour_nm is not None else None
+            if context.risk_kind == "chokepoint" and context.routes.alternative_reachable
+            and context.routes.detour_nm is not None else None
         )
         candidates = [h for h in (hold, detour_hours) if h is not None]
         if not candidates:
@@ -1031,7 +1050,8 @@ def _do_nothing(baseline: DecisionOption, context: VesselContext) -> str:
     if risk is not None and risk.available:
         parts.append(f"exposure {risk.value:.2f} at {context.chokepoint}")
     if context.hours_to_risk is not None and not context.already_entered:
-        parts.append(f"enters {context.chokepoint} in {context.hours_to_risk:.0f} h")
+        verb = "arrives at" if context.risk_kind == "port_closure" else "enters"
+        parts.append(f"{verb} {context.chokepoint} in {context.hours_to_risk:.0f} h")
     return "If unchanged: " + ", ".join(parts) if parts else "If unchanged: no computed consequence"
 
 

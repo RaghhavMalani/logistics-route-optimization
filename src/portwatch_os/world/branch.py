@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from src.portwatch_os.global_eye.exposure import TRADE_LANES
 from src.portwatch_os.world.cascade import Cascade, propagate
 from src.portwatch_os.world.graph import (
+    EXPECTS,
     BOUND_FOR,
     CHOKEPOINT,
     EVENT,
@@ -310,9 +311,18 @@ def _retime_vessel(graph: WorldGraph, assumption: Assumption) -> str:
                             interval=edge.interval, attrs={**edge.attrs, "hours_to_chokepoint": timings},
                             source=SOURCE_ASSUMPTION))
         replaced += 1
+    for edge in list(graph.in_edges(vessel_key, kind=EXPECTS)):
+        hours = edge.attrs.get("hours_to_destination")
+        graph.remove_edges(kind=EXPECTS, src=edge.src, dst=vessel_key)
+        graph.add_edge(Edge(src=edge.src, dst=vessel_key, kind=EXPECTS, weight=edge.weight,
+                            interval=edge.interval,
+                            attrs={**edge.attrs, "hours_to_destination": None if hours is None else hours * factor},
+                            source=SOURCE_ASSUMPTION))
     detour_nm = node.attrs.get("detour_nm")
     attrs = {**node.attrs, "assumption": assumption.to_dict(), "service_speed_kn": new_speed,
              "service_speed_observed_kn": old_speed}
+    if node.attrs.get("hours_to_destination") is not None:
+        attrs["hours_to_destination"] = float(node.attrs["hours_to_destination"]) * factor
     if detour_nm is not None:
         attrs["detour_hours"] = float(detour_nm) / new_speed
     graph.add_node(Node(key=vessel_key, kind=VESSEL, label=node.label, interval=node.interval, attrs=attrs))
@@ -334,6 +344,12 @@ def _rebind_destination(graph: WorldGraph, assumption: Assumption) -> str:
     removed = graph.remove_edges(kind=BOUND_FOR, src=vessel_key)
     graph.add_edge(Edge(src=vessel_key, dst=port_key, kind=BOUND_FOR, weight=1.0,
                         attrs={"eta": None}, source=SOURCE_ASSUMPTION))
+    # The old port no longer expects the hull; the new one does, at the same
+    # declared timing (the passage difference is carried by the option itself).
+    hours = node.attrs.get("hours_to_destination")
+    graph.remove_edges(kind=EXPECTS, dst=vessel_key)
+    graph.add_edge(Edge(src=port_key, dst=vessel_key, kind=EXPECTS, weight=1.0,
+                        attrs={"hours_to_destination": hours}, source=SOURCE_ASSUMPTION))
     attrs = {**node.attrs, "assumption": assumption.to_dict(),
              "destination_port": assumption.target.upper(), "rebound_from": previous}
     graph.add_node(Node(key=vessel_key, kind=VESSEL, label=node.label, interval=node.interval, attrs=attrs))
@@ -347,6 +363,7 @@ def _detach_vessel(graph: WorldGraph, assumption: Assumption) -> str:
     if node is None:
         raise BranchError(f"{assumption.subject} is not a vessel in this world")
     removed = graph.remove_edges(kind=SAILS, dst=vessel_key)
+    removed += graph.remove_edges(kind=EXPECTS, dst=vessel_key)
     attrs = {**node.attrs, "assumption": assumption.to_dict(), "holding": True,
              "held_from_lane": node.attrs.get("lane_code")}
     graph.add_node(Node(key=vessel_key, kind=VESSEL, label=node.label, interval=node.interval, attrs=attrs))

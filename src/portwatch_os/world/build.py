@@ -37,6 +37,7 @@ from src.portwatch_os.global_eye.model import GlobalEvent, parse_time
 from src.portwatch_os.world.graph import (
     BOUND_FOR,
     CARGO,
+    EXPECTS,
     CARRIES,
     CHOKEPOINT,
     EVENT,
@@ -230,6 +231,24 @@ def _add_events(
                 )
             )
 
+        # A port the source says the event acts on directly. The register's
+        # exposure-derived port list is deliberately not used here: a lane
+        # exposure is not a closure, and the two must not be counted twice.
+        for code in event.threatened_ports:
+            port_key = key(PORT, code)
+            if port_key not in graph:
+                continue
+            graph.add_edge(
+                Edge(
+                    src=key(EVENT, event.event_id),
+                    dst=port_key,
+                    kind=THREATENS,
+                    weight=max(0.05, min(1.0, event.confidence or 0.5)),
+                    interval=interval,
+                    source=SOURCE_EVENT_REGISTER,
+                )
+            )
+
 
 def _add_voyages(
     graph: WorldGraph,
@@ -249,6 +268,7 @@ def _add_voyages(
                     "destination_port": voyage.destination_port,
                     "eta": voyage.eta,
                     "service_speed_kn": voyage.service_speed_kn,
+                    "hours_to_destination": voyage.hours_to_destination,
                     "operator": voyage.operator,
                     # Provenance travels with the node so the inspector can
                     # say observed or simulated without asking anyone.
@@ -324,6 +344,18 @@ def _add_voyages(
                     kind=BOUND_FOR,
                     weight=1.0,
                     attrs={"eta": voyage.eta},
+                    source=SOURCE_FLEET,
+                )
+            )
+            # The reverse: the port expects this hull, so a closure at the port
+            # can reach it. Carries the hull's own time to the port.
+            graph.add_edge(
+                Edge(
+                    src=port_key,
+                    dst=vessel_key,
+                    kind=EXPECTS,
+                    weight=1.0,
+                    attrs={"hours_to_destination": voyage.hours_to_destination},
                     source=SOURCE_FLEET,
                 )
             )

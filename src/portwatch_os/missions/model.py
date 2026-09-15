@@ -94,12 +94,16 @@ class IllustrativeVessel:
     #: Hours to each chokepoint at the mission's start instant.
     hours_to_chokepoint_at_start: Dict[str, float]
     service_speed_kn: float
+    #: Hours to the destination port at the start instant, for a mission whose
+    #: event acts on the port rather than on a strait.
+    hours_to_destination_at_start: Optional[float] = None
     note: str = "Illustrative hull. Not a real vessel; placed so the decision engine has a subject."
 
     def to_dict(self) -> Dict[str, Any]:
         return {"vesselId": self.vessel_id, "name": self.name, "laneCode": self.lane_code,
                 "destinationPort": self.destination_port,
                 "hoursToChokepointAtStart": dict(self.hours_to_chokepoint_at_start),
+                "hoursToDestinationAtStart": self.hours_to_destination_at_start,
                 "serviceSpeedKn": self.service_speed_kn, "illustrative": True, "note": self.note}
 
 
@@ -116,17 +120,30 @@ class Outcome:
     ships_waiting_source_id: Optional[str]
     summary: str
     sources: List[str] = field(default_factory=list)
+    #: Per-port closures for an event that acts on ports: each entry holds
+    #: closedFrom, reopenedAt and backlogClearedBound as the sources state
+    #: them, with the bound named. The fields above then describe the primary
+    #: subject, so a chokepoint mission reads exactly as before.
+    closures: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     @property
     def blocked_hours(self) -> float:
         return (_parse(self.reopened_at) - _parse(self.blocked_from)).total_seconds() / 3600.0
+
+    def closure_for(self, subject: Optional[str]) -> Dict[str, str]:
+        """The closure window that applies to ``subject`` (a port code or a chokepoint)."""
+        if subject and subject in self.closures:
+            return dict(self.closures[subject])
+        return {"closedFrom": self.blocked_from, "reopenedAt": self.reopened_at,
+                "backlogClearedBound": self.backlog_cleared_bound}
 
     def to_dict(self) -> Dict[str, Any]:
         return {"reopenedAt": self.reopened_at, "blockedFrom": self.blocked_from,
                 "blockedHours": round(self.blocked_hours, 1),
                 "backlogClearedOn": self.backlog_cleared_on, "backlogClearedBound": self.backlog_cleared_bound,
                 "shipsWaitingPeak": self.ships_waiting_peak, "shipsWaitingSourceId": self.ships_waiting_source_id,
-                "summary": self.summary, "sources": list(self.sources)}
+                "summary": self.summary, "sources": list(self.sources),
+                "closures": {k: dict(v) for k, v in self.closures.items()}}
 
 
 @dataclass
@@ -134,7 +151,8 @@ class Mission:
     mission_id: str
     name: str
     start_timestamp: str
-    chokepoint: str
+    #: The strait the event acts on, or None for an event that acts on ports.
+    chokepoint: Optional[str]
     event_category: str
     event_title: str
     sources: List[Source]
@@ -144,6 +162,12 @@ class Mission:
     evaluation_window_hours: float
     #: The claim horizon PortWatch's register applies to a chokepoint claim.
     claim_horizon_hours: float = 72.0
+    #: Ports the event acts on directly (a cyclone over the approaches, a
+    #: closure). Empty for a chokepoint mission.
+    ports: List[str] = field(default_factory=list)
+    #: Where the event is, for a mission whose subject is not a catalogued strait.
+    event_lat: Optional[float] = None
+    event_lon: Optional[float] = None
     description: str = ""
     disclaimer: str = (
         "Historical replay. The chronology and the outcome are transcribed from the cited "
@@ -160,8 +184,21 @@ class Mission:
     def start(self) -> datetime:
         return _parse(self.start_timestamp)
 
+    @property
+    def subject_kind(self) -> str:
+        return "port" if self.ports else "chokepoint"
+
+    @property
+    def subject(self) -> str:
+        """What the claim is about, for the event's title and claim text."""
+        return self.chokepoint or " and ".join(self.ports)
+
     def validate(self) -> List[str]:
         problems: List[str] = []
+        if not self.chokepoint and not self.ports:
+            problems.append("a mission names a chokepoint or at least one port")
+        if self.ports and (self.event_lat is None or self.event_lon is None):
+            problems.append("a port mission states where its event is (event_lat, event_lon)")
         ids = {s.source_id for s in self.sources}
         for index, observation in enumerate(self.recording):
             if observation.source_id not in ids:
@@ -201,6 +238,10 @@ class Mission:
             "description": self.description,
             "startTimestamp": self.start_timestamp,
             "chokepoint": self.chokepoint,
+            "ports": list(self.ports),
+            "subjectKind": self.subject_kind,
+            "eventLat": self.event_lat,
+            "eventLon": self.event_lon,
             "eventCategory": self.event_category,
             "eventTitle": self.event_title,
             "claimHorizonHours": self.claim_horizon_hours,

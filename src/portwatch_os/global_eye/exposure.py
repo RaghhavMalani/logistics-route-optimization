@@ -302,6 +302,9 @@ class VesselVoyage:
     #: it has already passed into or through it.
     hours_to_chokepoint: Dict[str, float] = field(default_factory=dict)
     eta: Optional[str] = None
+    #: Hours until the hull reaches its destination port, where declared. What
+    #: a closure at the destination is measured against.
+    hours_to_destination: Optional[float] = None
     service_speed_kn: float = DEFAULT_SERVICE_KN
     operator: Optional[str] = None
 

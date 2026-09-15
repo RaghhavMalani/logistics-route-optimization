@@ -55,12 +55,32 @@ def list_missions() -> Dict[str, Any]:
     return {
         "missions": [
             {"missionId": m.mission_id, "name": m.name, "startTimestamp": m.start_timestamp,
-             "chokepoint": m.chokepoint, "description": m.description, "sources": len(m.sources),
+             "chokepoint": m.chokepoint, "ports": list(m.ports), "subjectKind": m.subject_kind,
+             "eventCategory": m.event_category, "description": m.description, "sources": len(m.sources),
              "observations": len(m.recording), "fleet": len(m.fleet),
              "evaluationWindowHours": m.evaluation_window_hours}
             for m in MISSIONS.values()
         ],
     }
+
+
+_COMPARISON: Dict[str, Any] = {}
+
+
+@router.get("/missions/compare")
+def compare_missions_route() -> Dict[str, Any]:
+    """Every mission replayed from its start, decided, revealed and scored in one table.
+
+    Deterministic, so it is computed once per process on a private engine and
+    served from memory after that; the operator's own replays are untouched.
+    """
+    from src.portwatch_os.decision.engine import DecisionEngine
+    from src.portwatch_os.missions.compare import compare_missions
+
+    with _LOCK:
+        if "table" not in _COMPARISON:
+            _COMPARISON.update(compare_missions(engine=DecisionEngine(capacity=64)))
+        return _COMPARISON
 
 
 @router.get("/missions/{mission_id}")

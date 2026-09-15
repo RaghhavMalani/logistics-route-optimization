@@ -90,7 +90,9 @@ class MissionReplay:
         if not claim:
             raise MissionError("no observation is visible at the replay clock")
         last_seen = claim.get("lastSeen") or self.mission.start_timestamp
-        geo = CHOKEPOINT_GEO.get(self.mission.chokepoint)
+        geo = CHOKEPOINT_GEO.get(self.mission.chokepoint) if self.mission.chokepoint else None
+        if geo is None and self.mission.event_lat is not None:
+            geo = (self.mission.event_lat, self.mission.event_lon, self.mission.name)
         return GlobalEvent(
             event_id=f"mission:{self.mission.mission_id}",
             title=self.mission.event_title,
@@ -98,7 +100,7 @@ class MissionReplay:
             region=geo[2] if geo else None,
             lat=geo[0] if geo else None,
             lon=geo[1] if geo else None,
-            geolocation_basis="chokepoint",
+            geolocation_basis=self.mission.subject_kind,
             # The claim horizon runs from the latest corroborating report: a
             # blockage re-reported every day is not a claim that lapsed three
             # days ago. Stated here because the live register keys on first
@@ -108,9 +110,10 @@ class MissionReplay:
             source_count=int(claim.get("sourceCount") or 1),
             confidence=float(claim.get("confidence") or 0.5),
             severity=float(claim.get("severity") or 0.5),
-            claim=f"{self.mission.chokepoint} closure holds",
+            claim=f"{self.mission.subject} closure holds",
             horizon_hours=self.mission.claim_horizon_hours,
-            chokepoints=[self.mission.chokepoint],
+            chokepoints=[self.mission.chokepoint] if self.mission.chokepoint else [],
+            threatened_ports=list(self.mission.ports),
             data_source=f"mission replay: {self.mission.mission_id}",
         )
 
@@ -121,6 +124,8 @@ class MissionReplay:
                 vessel_id=v.vessel_id, name=v.name, lane_code=v.lane_code,
                 destination_port=v.destination_port,
                 hours_to_chokepoint={code: round(h - elapsed, 1) for code, h in v.hours_to_chokepoint_at_start.items()},
+                hours_to_destination=(None if v.hours_to_destination_at_start is None
+                                      else round(v.hours_to_destination_at_start - elapsed, 1)),
                 service_speed_kn=v.service_speed_kn, source="FLEET",
             )
             for v in self.mission.fleet
@@ -232,7 +237,16 @@ class MissionReplay:
         never places a hull the engine did not. Nothing here is a real 2021
         position; the disclaimer on the mission says so.
         """
-        geo = CHOKEPOINT_GEO.get(self.mission.chokepoint)
+        geo = CHOKEPOINT_GEO.get(self.mission.chokepoint) if self.mission.chokepoint else None
+        if geo is None and self.mission.event_lat is not None:
+            geo = (self.mission.event_lat, self.mission.event_lon, self.mission.name)
+        from src.utils import port_registry
+
+        ports = []
+        for code in self.mission.ports:
+            record = port_registry.resolve(code)
+            ports.append({"code": code, "name": record.name if record else code,
+                          "lat": record.lat if record else None, "lon": record.lon if record else None})
         hulls: List[Dict[str, Any]] = []
         for voyage in self.voyages():
             routes = routes_for(
@@ -254,13 +268,19 @@ class MissionReplay:
                 "lane": [[round(lat, 3), round(lon, 3)] for lat, lon in routes.remaining_primary],
                 "destinationPort": voyage.destination_port,
                 "hoursToChokepoint": dict(voyage.hours_to_chokepoint),
+                "hoursToDestination": voyage.hours_to_destination,
             })
         return {
+            # The subject the chart centres on: the strait, or the event's own
+            # position for a port mission. Kept under "chokepoint" so the chart
+            # that drew the Suez replay draws this one too.
             "chokepoint": {
-                "code": self.mission.chokepoint,
+                "code": self.mission.chokepoint or self.mission.subject,
                 "lat": geo[0] if geo else None,
                 "lon": geo[1] if geo else None,
             },
+            "subjectKind": self.mission.subject_kind,
+            "ports": ports,
             "hulls": hulls,
             "disclaimer": ROUTE_DISCLAIMER,
         }

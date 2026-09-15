@@ -35,12 +35,22 @@ def _parse(value: str) -> datetime:
 
 
 REALISED_MODEL = (
-    "A hull that reaches the closed canal waits until it reopens, then takes its turn in a queue "
+    "A hull that reaches the closed canal or port waits until it reopens, then takes its turn in a queue "
     "drained linearly in arrival order between the reopening and the stated backlog-clearance bound. "
     "A hull arriving after the reopening but before the backlog cleared waits the remaining share of "
-    "the drain. A hull on the Cape routing takes its certain detour; the Cape was open. Weather and "
-    "port congestion at destination are not part of the realised model."
+    "the drain. A hull on the Cape routing takes its certain detour; the Cape was open. A hull that lands "
+    "at another port takes the passage difference the routing geometry gives, floored at zero; onward "
+    "carriage of its consignments to the booked port is not modelled and is said so. Weather and port "
+    "congestion beyond the stated closure are not part of the realised model."
 )
+
+
+def _destination_of(option: DecisionOption, problem: DecisionProblem) -> Optional[str]:
+    """The port the option lands at: the alternative for a diversion, else the plan's."""
+    if option.action == "CHANGE_DESTINATION_PORT":
+        return option.params.get("portCode")
+    derived = option.evaluation.derived if option.evaluation else (option.provenance.get("rejectedEvaluation") or {}).get("derived", {})
+    return derived.get("destinationPort") or problem.subject_id
 
 
 def realised_delay_hours(
@@ -57,9 +67,11 @@ def realised_delay_hours(
         return None
     hours_to_choke = derived.get("hoursToChokepoint")
     hold = float(derived.get("holdHours") or 0.0)
-    reopened = _parse(outcome.reopened_at)
-    blocked_from = _parse(outcome.blocked_from)
-    cleared = _parse(outcome.backlog_cleared_bound.split(" ")[0])
+    subject = _destination_of(option, problem) if outcome.closures else None
+    window = outcome.closure_for(subject)
+    reopened = _parse(window["reopenedAt"])
+    blocked_from = _parse(window["closedFrom"])
+    cleared = _parse(window["backlogClearedBound"].split(" ")[0])
 
     if option.action in ("REROUTE", "SPEED_UP"):
         eta = option.measure("eta")
@@ -67,7 +79,18 @@ def realised_delay_hours(
             return None
         return {"hours": round(eta.value, 1), "how": "certain detour on the alternative routing; the Cape was open"}
     if option.action == "CHANGE_DESTINATION_PORT":
-        return None
+        if not outcome.closures:
+            return None
+        eta = option.measure("eta")
+        shift = None if eta is None else (eta.attrs or {}).get("arrivalShiftAtAlternative")
+        if shift is None:
+            return None
+        target = option.params.get("portCode")
+        if target in outcome.closures:
+            return None
+        return {"hours": round(max(0.0, float(shift)), 1),
+                "how": f"landed at {target}, {float(shift):+.0f} h against the planned passage; {target} was open; "
+                       "onward carriage of consignments to the booked port is not modelled"}
     if hours_to_choke is None:
         return None
     arrival = clock + timedelta(hours=float(hours_to_choke))
@@ -112,7 +135,9 @@ def scorecard(mission: Mission, problem: DecisionProblem, *, chosen_option_id: O
 
     # -- forecast error ---------------------------------------------------------------
     claim_end = clock + timedelta(hours=mission.claim_horizon_hours)
-    reopened = _parse(outcome.reopened_at)
+    subject_window = outcome.closure_for(problem.subject_id and _destination_of(baseline, problem) if baseline else None) \
+        if outcome.closures else outcome.closure_for(None)
+    reopened = _parse(subject_window["reopenedAt"])
     persistence_error = round((reopened - claim_end).total_seconds() / 3600.0, 1)
     baseline_risk = baseline.measure("risk") if baseline else None
     arrival_hours = (baseline.evaluation.derived.get("hoursToChokepoint") if baseline and baseline.evaluation else None)
@@ -125,12 +150,16 @@ def scorecard(mission: Mission, problem: DecisionProblem, *, chosen_option_id: O
             brier = round((baseline_risk.value - (1.0 if closed_on_arrival else 0.0)) ** 2, 4)
 
     learned: List[str] = []
+    place = "port" if mission.subject_kind == "port" else "strait"
     if persistence_error > 0:
-        learned.append(f"The {mission.claim_horizon_hours:.0f} h claim horizon understated the blockage by "
-                       f"{persistence_error:.0f} h; persistence beyond a chokepoint claim needs its own model.")
+        learned.append(f"The {mission.claim_horizon_hours:.0f} h claim horizon understated the closure by "
+                       f"{persistence_error:.0f} h; persistence beyond a {mission.subject_kind} claim needs its own model.")
+    elif persistence_error < 0:
+        learned.append(f"The {mission.claim_horizon_hours:.0f} h claim horizon overstated the closure by "
+                       f"{-persistence_error:.0f} h; the {place} reopened before the claim lapsed.")
     if closed_on_arrival is not None and baseline_risk is not None and baseline_risk.available:
         learned.append(
-            f"The baseline exposure {baseline_risk.value:.2f} scored a Brier of {brier} against a strait that was "
+            f"The baseline exposure {baseline_risk.value:.2f} scored a Brier of {brier} against a {place} that was "
             f"{'closed' if closed_on_arrival else 'open'} on arrival."
         )
     if best_id is not None and recommended is not None:
@@ -179,7 +208,8 @@ def scorecard(mission: Mission, problem: DecisionProblem, *, chosen_option_id: O
         "happened": outcome.to_dict(),
         "forecastError": {
             "claimHorizonHours": mission.claim_horizon_hours,
-            "blockedHours": round(outcome.blocked_hours, 1),
+            "blockedHours": round((reopened - _parse(subject_window["closedFrom"])).total_seconds() / 3600.0, 1),
+            "subject": None if not outcome.closures or baseline is None else _destination_of(baseline, problem),
             "persistenceErrorHours": persistence_error,
             "closedOnArrival": closed_on_arrival,
             "brier": brier,

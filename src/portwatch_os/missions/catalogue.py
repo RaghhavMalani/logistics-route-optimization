@@ -127,7 +127,9 @@ EVER_GIVEN = Mission(
     ),
 )
 
-MISSIONS = {EVER_GIVEN.mission_id: EVER_GIVEN}
+from src.portwatch_os.missions.biparjoy import BIPARJOY  # noqa: E402 - the second mission, structurally unlike this one
+
+MISSIONS = {EVER_GIVEN.mission_id: EVER_GIVEN, BIPARJOY.mission_id: BIPARJOY}
 
 
 def get_mission(mission_id: str) -> Mission:
@@ -137,4 +139,4 @@ def get_mission(mission_id: str) -> Mission:
         raise KeyError(f"no mission {mission_id}; known: {', '.join(sorted(MISSIONS))}") from None
 
 
-__all__ = ["EVER_GIVEN", "FLEET", "MISSIONS", "OUTCOME", "RECORDING", "SOURCES", "get_mission"]
+__all__ = ["BIPARJOY", "EVER_GIVEN", "FLEET", "MISSIONS", "OUTCOME", "RECORDING", "SOURCES", "get_mission"]

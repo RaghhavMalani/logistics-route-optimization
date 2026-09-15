@@ -40,6 +40,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from src.portwatch_os.world.graph import (
+    EXPECTS,
     BOUND_FOR,
     CARGO,
     CARRIES,
@@ -191,9 +192,66 @@ def threat_reaches_chokepoint(
     timing at the one that is actually threatened, not at all of them.
     """
     carried = quantity.scaled(edge.weight, confidence=edge.weight)
+    if dst.kind == PORT:
+        # The event acts on the port itself: a closure, not a strait. Stamped
+        # as such so the hop to the inbound hulls knows what it is carrying.
+        return yields(
+            carried.converted(carried.value, RISK, port=dst.identifier, closure=True)
+        )
     return yields(
         carried.converted(carried.value, RISK, chokepoint=dst.identifier)
     )
+
+
+# --------------------------------------------------------------------------
+# port -> inbound vessel
+# --------------------------------------------------------------------------
+
+
+@transfer(EXPECTS, RISK)
+def closure_reaches_inbound_vessel(
+    quantity: Quantity, edge: Edge, src: Node, dst: Node
+) -> Transferred:
+    """A closure at a port is exposure for every hull the port expects.
+
+    The port's own risk is a closure; what reaches a hull bound for it is the
+    chance of arriving into a port that cannot receive it. Timing decides it
+    as it does at a strait: the hull's declared hours to the destination are
+    read off the edge and refused when absent, and a hull already alongside
+    (negative hours) is inside the closure rather than approaching it. The
+    stamp names the port, so the decision engine holds clear of, or diverts
+    from, the right place.
+    """
+    if not quantity.attrs.get("closure"):
+        return declined(f"{src.label} carries no closure risk to pass to {dst.label}")
+    hours = edge.attrs.get("hours_to_destination")
+    if hours is None:
+        return declined(
+            f"{dst.label} declares no time to {src.label}, so whether it arrives into "
+            "the closure cannot be decided"
+        )
+    port = quantity.attrs.get("port") or src.identifier
+    if hours < 0:
+        carried = quantity.scaled(edge.weight, confidence=0.9).converted(
+            quantity.value * edge.weight, RISK, already_entered=True, vessel=dst.identifier,
+            chokepoint=port, port=port, closure=True,
+        )
+    else:
+        carried = quantity.scaled(edge.weight).converted(
+            quantity.value * edge.weight, RISK, already_entered=False,
+            hours_to_risk_area=round(float(hours), 1), vessel=dst.identifier,
+            chokepoint=port, port=port, closure=True,
+        )
+    placement = dst.attrs.get("placement_confidence")
+    if placement is not None:
+        carried = carried.scaled(1.0, confidence=float(placement))
+        carried = replace(carried, attrs={**carried.attrs, "observed": True,
+                                          "placement_confidence": float(placement)})
+    counted = (
+        carried.converted(1.0, VESSELS, vessel=dst.identifier)
+        if carried.value >= EXPOSURE_COUNT_FLOOR else None
+    )
+    return yields(carried, counted)
 
 
 # --------------------------------------------------------------------------
@@ -322,6 +380,15 @@ def vessel_reaches_port(
     catalogue measures -- weighted by how likely the diversion is to be taken.
     It is never a free-floating "high impact" figure.
     """
+    if quantity.attrs.get("closure"):
+        # A closure at the destination produces no detour. The hold a hull
+        # takes depends on its arrival against the reopening, which the
+        # decision engine computes per option with the instant in hand; the
+        # cascade does not guess it here.
+        return declined(
+            f"{src.label} faces a closure at {dst.label}, not a detour; the hold is computed "
+            "per option by the decision engine, not by the cascade"
+        )
     detour_hours = src.attrs.get("detour_hours")
     if detour_hours is None:
         return declined(

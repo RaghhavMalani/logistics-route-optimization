@@ -82,9 +82,13 @@ CONNECTS_TO = "connects_to"
 IS_COMMODITY = "is_commodity"
 #: A lane calls at a port.
 SERVES = "serves"
+#: A port expects an inbound hull: the reverse of BOUND_FOR, so a closure at
+#: the port can reach the ships that will arrive into it.
+EXPECTS = "expects"
 
 EDGE_KINDS: Tuple[str, ...] = (
     THREATENS,
+    EXPECTS,
     TRANSITS,
     SAILS,
     BOUND_FOR,

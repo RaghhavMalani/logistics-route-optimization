@@ -450,7 +450,9 @@ def routes_for(
                 notes.append("the declared timing places the hull before the modelled lane's "
                              "origin; clamped to it")
         elif behind:
-            hours, code = behind[0]
+            # The last strait the hull cleared is the one closest behind it:
+            # the least negative timing, not the most.
+            hours, code = behind[-1]
             position_nm = min(cumulative[-1], anchors[code] + abs(hours) * speed)
             basis = f"{abs(hours):.1f} h past {code} at {speed:.1f} kn on the modelled lane"
         else:
