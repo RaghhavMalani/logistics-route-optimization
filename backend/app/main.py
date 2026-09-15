@@ -53,7 +53,14 @@ async def lifespan(_: FastAPI):
     from src.portwatch_os.freshness import get_coordinator
     from src.portwatch_os.freshness.jobs import install_product_jobs
 
+    from src.portwatch_os.hostperf import opt_out_of_power_throttling
+
     log = logging.getLogger("portwatch.startup")
+    # A serving process is not background work; on Windows the host would
+    # otherwise throttle it after a minute of sustained load (hostperf).
+    throttling = opt_out_of_power_throttling()
+    app.state.power_throttling = throttling
+    log.info("power throttling opt-out: %s (%s)", throttling["applied"], throttling["reason"])
     mode, source, problem = resolve_mode(None)
     if problem:
         log.warning("licence mode %s by default: %s", mode, problem)
@@ -117,6 +124,11 @@ async def _storage_failures(request: Request, exc: Exception):
         from src.portwatch_os import telemetry
 
         telemetry.incr("api.errors", route=request.url.path, status=503)
+        # A fault seen on a request is what health should say next; drop the
+        # minute's memory of the last probe.
+        from backend.app.routes import health as health_route
+
+        health_route._PROBE_CACHE["value"] = None
         return JSONResponse(status_code=503, content={
             "detail": f"a durable store is unavailable: {exc}",
             "store": "ledger" if isinstance(exc, (LedgerError, sqlite3.DatabaseError)) else "advisories",

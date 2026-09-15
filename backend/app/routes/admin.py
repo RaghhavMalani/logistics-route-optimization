@@ -105,6 +105,11 @@ def diagnostics(role: Optional[str] = Header(None, alias="X-PortWatch-Role")) ->
     snapshot["worldClock"] = get_clock().describe()
     snapshot["traffic"] = get_client().status.to_dict()
     snapshot["freshness"] = _coordinator().status()["summary"]
+    # Whether the host was asked not to power-throttle this process (hostperf):
+    # a slow deployment on a Windows laptop is a fact with a name.
+    from backend.app.main import app as _app
+
+    snapshot["host"] = {"powerThrottling": getattr(_app.state, "power_throttling", None)}
     return _scrub(snapshot)
 
 

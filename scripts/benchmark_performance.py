@@ -440,7 +440,11 @@ def render(results: Dict[str, Any]) -> str:
         "",
         f"Measured {results['measuredAt']} on {env['machine']} ({env['cpu']}, {env['cores']} cores, "
         f"Python {env['python']}, {env['os']}). Produced by `python scripts/benchmark_performance.py`; "
-        "every figure below is a measurement from that run, not a target.",
+        + (f"power-throttling opt-out {'applied' if env.get('powerThrottling', {}).get('applied') else 'not applied'}, "
+           f"reference loop {env.get('referenceLoopMs', {}).get('start')} ms at the start and "
+           f"{env.get('referenceLoopMs', {}).get('end')} ms at the end (drift x{env.get('referenceDrift')}); "
+           if env.get("referenceLoopMs") else "")
+        +         "every figure below is a measurement from that run, not a target.",
         "",
         "Wall time is `time.perf_counter()` around the call; CPU is process time over the same block; "
         "peak memory is `tracemalloc`'s peak during the block (the work's own allocations, not the "
@@ -491,6 +495,18 @@ def render(results: Dict[str, Any]) -> str:
               "| route | status | p50 | p95 | p99 | max | payload |", "|---|---:|---:|---:|---:|---:|---:|"]
     for route, row in results["api"].items():
         lines.append(f"| `{route}` | {row['status']} | {row['p50Ms']} ms | {row['p95Ms']} ms | {row['p99Ms']} ms | {row['maxMs']} ms | {row['payloadBytes']:,} B |")
+    if results.get("budgets"):
+        lines += ["", "## Budgets", "",
+                  "Each ceiling was set from the figure measured when the budget was written (`src/portwatch_os/perf_budgets.py`); "
+                  "`python scripts/benchmark_performance.py --gate` exits non-zero on a breach, and "
+                  "`tests/test_perf_budgets.py` holds the small-size subset in ordinary CI at three times the ceiling.", "",
+                  "| budget | statistic | ceiling | this run | set from | headroom |", "|---|---|---:|---:|---:|---:|"]
+        for row in results["budgets"]:
+            measured = "—" if row["measuredMs"] is None else f"{row['measuredMs']:.1f} ms"
+            headroom = "—" if row["headroom"] is None else f"{100 * row['headroom']:.0f}%"
+            verdict = "" if row["passed"] else " **OVER**"
+            lines.append(f"| {row['label']} | {row['statistic']} | {row['budgetMs']:.0f} ms | {measured} | "
+                         f"{row['setFromMs']:.1f} ms | {headroom}{verdict} |")
     lines += ["", "## Reading the numbers", ""]
     lines += results.get("notes", [])
     lines.append("")
@@ -533,7 +549,10 @@ def main() -> int:
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--json", default=None, help="write the raw results here too")
     parser.add_argument("--out", default=str(ROOT / "docs" / "PERFORMANCE.md"))
+    parser.add_argument("--gate", action="store_true", help="exit non-zero when a budget is breached")
     args = parser.parse_args()
+
+    from src.portwatch_os.perf_budgets import judge
 
     repeats = 3 if args.quick else 5
     api_repeats = 10 if args.quick else 30
@@ -541,13 +560,22 @@ def main() -> int:
     event_sizes = (100, 1000)
     pareto_sizes = (50, 500) if args.quick else (50, 500, 5000)
 
+    from src.portwatch_os.hostperf import opt_out_of_power_throttling, reference_loop_ms
+
+    # The host must not change the measurement halfway through: Windows
+    # power-throttles a process it takes for background work after a minute
+    # of sustained CPU, and every later stage would read four times slower.
+    throttling = opt_out_of_power_throttling()
+    reference: Dict[str, float] = {"start": round(reference_loop_ms(), 1)}
     results: Dict[str, Any] = {
         "measuredAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "environment": {
             "machine": platform.node(), "cpu": platform.processor() or platform.machine(),
             "cores": os.cpu_count(), "python": platform.python_version(), "os": f"{platform.system()} {platform.release()}",
+            "powerThrottling": throttling, "referenceLoopMs": reference,
         },
     }
+    print(f"power throttling opt-out: {throttling['applied']} ({throttling['reason']}); reference loop {reference['start']} ms")
     print("world")
     results["world"] = bench_world(vessel_sizes, event_sizes, repeats)
     print("cascade")
@@ -565,15 +593,36 @@ def main() -> int:
     results["critic"] = bench_critic(repeats)
     print("missions")
     results["missions"] = bench_missions(repeats)
+    reference["beforeApi"] = round(reference_loop_ms(), 1)
     print("api")
     results["api"] = bench_api(api_repeats)
+    reference["end"] = round(reference_loop_ms(), 1)
+    drift = reference["end"] / reference["start"] if reference["start"] else 1.0
+    results["environment"]["referenceDrift"] = round(drift, 2)
+    if drift > 1.5:
+        print(f"  WARNING: the reference loop ran {drift:.1f}x slower at the end than at the start; "
+              "the host slowed this process during the run and the later figures are not comparable")
+    reads = [row["p95Ms"] for key, row in results["api"].items() if key.startswith("GET ") and isinstance(row, dict)]
+    results["apiReads"] = {"p95Ms": max(reads) if reads else None, "routes": len(reads),
+                           "note": "the worst p95 across the GET routes"}
     results["notes"] = notes_for(results)
+    results["budgets"] = judge(results)
 
     Path(args.out).write_bytes(render(results).encode("utf-8"))
     print(f"\nwrote {args.out}")
     if args.json:
         Path(args.json).write_text(json.dumps(results, indent=2, default=str), encoding="utf-8")
         print(f"wrote {args.json}")
+    print("\nbudgets")
+    breached = []
+    for row in results["budgets"]:
+        mark = "ok  " if row["passed"] else "OVER"
+        print(f"  {mark} {row['label']:<60} {str(row['measuredMs']):>8} ms against {row['budgetMs']:>7} ms ({row['statistic']})")
+        if not row["passed"]:
+            breached.append(row["key"])
+    if args.gate and breached:
+        print(f"\nBUDGET BREACHED: {', '.join(breached)}")
+        return 1
     return 0
 
 

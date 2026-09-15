@@ -45,21 +45,34 @@ def _licence_mode() -> dict:
     }
 
 
-def durable_stores() -> dict:
+#: How long a durable-store probe is served from memory. Health is polled
+#: every thirty seconds by the terminal and by a container's healthcheck, and
+#: a probe opens and integrity-checks two databases; a minute's memory keeps
+#: that off the request path without hiding a fault for long.
+PROBE_TTL_SECONDS = 60.0
+_PROBE_CACHE: dict = {"at": 0.0, "value": None}
+
+
+def durable_stores(*, fresh: bool = False) -> dict:
     """What must survive a restart, and whether it will: the ledger, the
     advisory register and the assumption journal, each probed on its own
     path, with the state directory it lives in and how it was chosen."""
     import os
+    import time
 
     from src.portwatch_os.advisories.store import probe_advisory_store
     from src.portwatch_os.finance.basis import AssumptionJournal
     from src.portwatch_os.ledger.store import probe_ledger
     from src.utils.config import STATE_DIR
 
+    now = time.monotonic()
+    cached = _PROBE_CACHE["value"]
+    if not fresh and cached is not None and now - _PROBE_CACHE["at"] < PROBE_TTL_SECONDS:
+        return cached
     ledger = probe_ledger()
     advisories = probe_advisory_store()
     assumptions = AssumptionJournal().probe()
-    return {
+    value = {
         "stateDir": str(STATE_DIR),
         "stateDirSource": "PORTWATCH_STATE_DIR" if os.environ.get("PORTWATCH_STATE_DIR") else "default (outputs/)",
         "ok": ledger["ok"] and advisories["ok"] and assumptions["ok"],
@@ -68,7 +81,11 @@ def durable_stores() -> dict:
         "costAssumptions": assumptions,
         "ephemeral": ["decision engine memory (recomputable; the ledger holds every problem)",
                       "scenario branches", "mission replays", "agent runs", "telemetry", "world state and caches"],
+        "probedAt": __import__("src.portwatch_os.clock", fromlist=["wall_now"]).wall_now().isoformat(timespec="seconds"),  # wall-clock: when the stores were last probed
+        "probeTtlSeconds": PROBE_TTL_SECONDS,
     }
+    _PROBE_CACHE["at"], _PROBE_CACHE["value"] = now, value
+    return value
 
 
 @router.get("/health")
