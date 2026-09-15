@@ -722,7 +722,7 @@ export function MaritimeMap({
         {overlayState.seas.map((sea) => (
           <span
             key={sea.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[9.5px] font-medium uppercase tracking-[0.26em] text-[#33637d]"
+            className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.26em] text-[#33637d]"
             style={{ left: sea.x, top: sea.y }}
           >
             {sea.name}
@@ -733,7 +733,7 @@ export function MaritimeMap({
           <span
             key={label.id}
             className={cn(
-              "absolute whitespace-nowrap text-[9.5px] leading-none",
+              "absolute whitespace-nowrap text-[10.5px] leading-none",
               label.emphasis
                 ? "font-semibold text-[#eaf3f9]"
                 : "font-medium text-[#a9c2d2]",
@@ -746,7 +746,7 @@ export function MaritimeMap({
           >
             {label.text}
             {label.sub ? (
-              <span className="num ml-1 text-[8.5px] text-[#7d97a8]">
+              <span className="num ml-1 text-[10px] text-[#7d97a8]">
                 {label.sub}
               </span>
             ) : null}
@@ -756,7 +756,7 @@ export function MaritimeMap({
         {overlayState.clusters.map(({ mark, x, y }) => (
           <span
             key={mark.id}
-            className="num absolute -translate-x-1/2 -translate-y-1/2 text-[9.5px] font-semibold text-[#bcd6e5]"
+            className="num absolute -translate-x-1/2 -translate-y-1/2 text-[10.5px] font-semibold text-[#bcd6e5]"
             style={{ left: x, top: y }}
           >
             {mark.count}
@@ -772,7 +772,7 @@ export function MaritimeMap({
               "pointer-events-auto absolute -translate-y-1/2 whitespace-nowrap px-1 text-left leading-tight",
               "tracking-[0.02em] transition-colors",
               label.muted
-                ? "text-[9.5px] font-normal uppercase"
+                ? "text-[10.5px] font-normal uppercase"
                 : "text-[10.5px]",
               label.emphasis
                 ? "font-semibold"
@@ -794,7 +794,7 @@ export function MaritimeMap({
           >
             {label.text}
             {label.sub ? (
-              <span className="num ml-1 text-[9.5px] text-[var(--text-3)]">
+              <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
                 {label.sub}
               </span>
             ) : null}

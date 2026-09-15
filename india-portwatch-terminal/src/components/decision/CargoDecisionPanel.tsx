@@ -42,7 +42,7 @@ export function CargoDecisionPanel({
         problem ? (
           <Pill tone="warn">Action required</Pill>
         ) : (
-          <span className="text-[9.5px]">a missed connection</span>
+          <span className="text-[10.5px]">a missed connection</span>
         )
       }
       testId="cargo-decision"
@@ -80,7 +80,7 @@ export function CargoDecisionPanel({
               : "What should we do?"}
           </button>
           {create.isError ? (
-            <p className="mt-1 text-[9.5px] text-[var(--crit)]">
+            <p className="mt-1 text-[10.5px] text-[var(--crit)]">
               {(create.error as Error).message}
             </p>
           ) : null}

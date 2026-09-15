@@ -132,7 +132,7 @@ export function ObservedVesselInspector({
         <Field label="Positions held">
           <span className="num">{track.positions}</span>
           {track.duplicates || track.outOfOrder ? (
-            <span className="ml-1 text-[9.5px] text-[var(--text-3)]">
+            <span className="ml-1 text-[10.5px] text-[var(--text-3)]">
               {track.duplicates} dup · {track.outOfOrder} late
             </span>
           ) : null}
@@ -182,7 +182,7 @@ export function ObservedVesselInspector({
         ) : null}
         {latest?.rawRef ? (
           <Field label="Raw reference">
-            <span className="num text-[9.5px]">{latest.rawRef}</span>
+            <span className="num text-[10.5px]">{latest.rawRef}</span>
           </Field>
         ) : null}
       </PanelSection>

@@ -125,7 +125,7 @@ export function ParetoChart({
                 onAxes(y, axis.key);
               }}
               className={cn(
-                "num rounded px-1.5 py-0.5 text-[9px] uppercase tracking-wide transition-colors",
+                "num rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide transition-colors",
                 active
                   ? "bg-[var(--accent)] text-[var(--surface)]"
                   : "text-[var(--text-2)] hover:bg-[var(--surface-2)]",
@@ -139,7 +139,7 @@ export function ParetoChart({
       </div>
 
       {points.length === 0 ? (
-        <p className="px-1 py-2 text-[9.5px] italic text-[var(--text-3)]">
+        <p className="px-1 py-2 text-[10.5px] italic text-[var(--text-3)]">
           {feasible.length === 0
             ? "No feasible option to plot."
             : `Not every feasible option is measured on ${x} and ${y}; pick axes the engine could compute.`}
@@ -251,7 +251,7 @@ export function ParetoChart({
           })}
         </svg>
       )}
-      <p className="px-1 text-[9px] leading-snug text-[var(--text-3)]">
+      <p className="px-1 text-[10px] leading-snug text-[var(--text-3)]">
         Filled: nondominated. Hollow: dominated by the option named on hover.
         Every point is an evaluated option; click one to switch the world to its
         branch.

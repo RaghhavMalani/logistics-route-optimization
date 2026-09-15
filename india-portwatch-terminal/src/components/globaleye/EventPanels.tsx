@@ -90,7 +90,7 @@ export function EventRow({
           <div className="truncate text-[11.5px] leading-tight text-[var(--text)]">
             {event.title}
           </div>
-          <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
+          <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
             <Pill tone={groupTone(event.categoryGroup)}>
               {event.categoryLabel}
             </Pill>
@@ -113,7 +113,7 @@ export function EventRow({
             ) : null}
           </div>
         </div>
-        <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+        <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
           {formatUtc(event.lastSeen)}
         </span>
       </div>
@@ -146,11 +146,11 @@ export function ProbabilityBadge({ event }: { event: GlobalEvent }) {
         <span className="text-[10px] text-[var(--text-2)]">
           {event.claim ?? "operational impact"}
         </span>
-        <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">
+        <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
           within {event.horizonHours.toFixed(0)}h
         </span>
       </div>
-      <p className="mt-1 text-[9.5px] leading-snug text-[var(--text-3)]">
+      <p className="mt-1 text-[10.5px] leading-snug text-[var(--text-3)]">
         {event.calibrationNote}
       </p>
     </div>
@@ -195,11 +195,11 @@ function Hop({
       </span>
       <div className="pb-2.5">
         <div className="flex items-baseline gap-2">
-          <span className="eyebrow text-[8.5px]">{label}</span>
+          <span className="eyebrow text-[10px]">{label}</span>
           <span className="num text-[13px] leading-none text-[var(--text)]">
             {count}
             {unit ? (
-              <span className="ml-0.5 text-[9px] text-[var(--text-3)]">
+              <span className="ml-0.5 text-[10px] text-[var(--text-3)]">
                 {unit}
               </span>
             ) : null}
@@ -325,7 +325,7 @@ export function LaneRow({ lane }: { lane: LaneExposure }) {
           {lane.exposure.toFixed(2)}
         </span>
       </div>
-      <div className="mt-[2px] flex items-center gap-1.5 text-[9px] text-[var(--text-3)]">
+      <div className="mt-[2px] flex items-center gap-1.5 text-[10px] text-[var(--text-3)]">
         {lane.alternative ? (
           <>
             <span className="truncate">via {lane.alternative}</span>
@@ -388,7 +388,7 @@ export function VesselExposureRow({
           {row.exposure.toFixed(2)}
         </span>
       </div>
-      <div className="mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
+      <div className="mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
         {committed ? (
           <Pill tone="unc">In the risk area</Pill>
         ) : row.hoursToRiskArea != null ? (
@@ -407,7 +407,7 @@ export function VesselExposureRow({
           </span>
         ) : null}
       </div>
-      <p className="mt-[3px] text-[9.5px] leading-snug text-[var(--text-3)]">
+      <p className="mt-[3px] text-[10.5px] leading-snug text-[var(--text-3)]">
         {row.actionBasis}
       </p>
     </button>
@@ -464,7 +464,7 @@ export function SourceList({ event }: { event: GlobalEvent }) {
           key={source.outlet}
           className="flex items-baseline gap-1.5 text-[10px]"
         >
-          <span className="num shrink-0 text-[9px] text-[var(--text-3)]">
+          <span className="num shrink-0 text-[10px] text-[var(--text-3)]">
             {source.feed}
           </span>
           {source.url ? (
@@ -484,7 +484,7 @@ export function SourceList({ event }: { event: GlobalEvent }) {
         </li>
       ))}
       {event.reportCount > byOutlet.size ? (
-        <li className="text-[9.5px] text-[var(--text-3)]">
+        <li className="text-[10.5px] text-[var(--text-3)]">
           {event.reportCount} reports merged into this event from{" "}
           {byOutlet.size} distinct outlets. Confidence is built from the outlet
           count, not the report count.
@@ -521,7 +521,7 @@ export function ActionList({ actions }: { actions: EventImpact["actions"] }) {
             </span>
           </div>
           {action.meanCostHours != null ? (
-            <div className="num mt-[2px] text-[9.5px] text-[var(--text-3)]">
+            <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
               mean cost {action.meanCostHours.toFixed(1)} h
               {action.earliestDeadline
                 ? ` · earliest deadline ${formatUtc(action.earliestDeadline)}`
@@ -529,11 +529,11 @@ export function ActionList({ actions }: { actions: EventImpact["actions"] }) {
             </div>
           ) : null}
           {action.meanShiftHours != null ? (
-            <div className="num mt-[2px] text-[9.5px] text-[var(--text-3)]">
+            <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
               mean arrival shift {action.meanShiftHours.toFixed(1)} h
             </div>
           ) : null}
-          <p className="mt-[3px] text-[9.5px] leading-snug text-[var(--text-3)]">
+          <p className="mt-[3px] text-[10.5px] leading-snug text-[var(--text-3)]">
             {action.basis}
           </p>
         </li>

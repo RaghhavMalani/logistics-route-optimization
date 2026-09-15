@@ -102,14 +102,17 @@ export function FloatPanel({
         <div
           className={cn(
             "min-h-0 flex-1",
-            scroll ? "overflow-y-auto" : "overflow-hidden",
+            // A panel that does not scroll hands its child the remaining
+            // height as a flex column, so the child's own scroll region is
+            // the one that scrolls and its tab bar and footer stay put.
+            scroll ? "overflow-y-auto" : "flex flex-col overflow-hidden",
           )}
         >
           {children}
         </div>
       ) : null}
       {open && footer ? (
-        <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel-2)]/70 px-2 py-1 text-[9.5px] leading-snug text-[var(--text-3)]">
+        <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel-2)]/70 px-2 py-1 text-[10.5px] leading-snug text-[var(--text-3)]">
           {footer}
         </div>
       ) : null}
@@ -149,7 +152,7 @@ export function PanelTabs<T extends string>({
           >
             {tab.label}
             {tab.count != null ? (
-              <span className="num ml-1 text-[9.5px] text-[var(--text-3)]">
+              <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
                 {tab.count}
               </span>
             ) : null}
@@ -200,9 +203,9 @@ export function PanelSection({
   return (
     <div className="border-b border-[var(--line)] last:border-0">
       <div className="flex h-[22px] items-center justify-between gap-2 px-2">
-        <span className="eyebrow truncate text-[9px]">{title}</span>
+        <span className="eyebrow truncate text-[10px]">{title}</span>
         {right ? (
-          <span className="shrink-0 text-[9.5px] text-[var(--text-3)]">
+          <span className="shrink-0 text-[10.5px] text-[var(--text-3)]">
             {right}
           </span>
         ) : null}

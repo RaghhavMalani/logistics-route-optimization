@@ -111,10 +111,10 @@ export function EvidenceDrawer({
 
       {/* ------------------------------------------------------ ranking -- */}
       <div className="border-b border-[var(--line)] px-2 py-2">
-        <p className="mb-1 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
           Why this rank
         </p>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[9.5px] text-[var(--text-2)]">
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-[var(--text-2)]">
           {Object.entries(item.priorityBasis).map(([term, value]) => (
             <span key={term} className="num">
               {term.replace(/([A-Z])/g, " $1").toLowerCase()}{" "}
@@ -132,7 +132,7 @@ export function EvidenceDrawer({
 
       {/* --------------------------------------------------------- trace -- */}
       <div className="min-h-0 flex-1 overflow-auto">
-        <p className="px-2 pb-1 pt-2 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        <p className="px-2 pb-1 pt-2 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
           Computation trail
         </p>
         {steps.length === 0 ? (
@@ -153,7 +153,7 @@ export function EvidenceDrawer({
                 )}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="num text-[9px] text-[var(--text-3)]">
+                  <span className="num text-[10px] text-[var(--text-3)]">
                     {step.depth}
                   </span>
                   <span className="truncate text-[10px] text-[var(--text)]">
@@ -163,18 +163,18 @@ export function EvidenceDrawer({
                 </div>
 
                 {step.declined ? (
-                  <p className="mt-0.5 text-[9.5px] leading-relaxed text-[var(--text-2)]">
+                  <p className="mt-0.5 text-[10.5px] leading-relaxed text-[var(--text-2)]">
                     {step.declined}
                   </p>
                 ) : (
-                  <p className="num mt-0.5 text-[9.5px] text-[var(--text-2)]">
+                  <p className="num mt-0.5 text-[10.5px] text-[var(--text-2)]">
                     {quantityText(step.incoming)}
                     {" → "}
                     {step.outgoing.map((q) => quantityText(q)).join(", ")}
                   </p>
                 )}
 
-                <p className="mt-0.5 truncate text-[9px] text-[var(--text-3)]">
+                <p className="mt-0.5 truncate text-[10px] text-[var(--text-3)]">
                   {step.from.split(":")[1] ?? step.from} →{" "}
                   {step.to.split(":")[1] ?? step.to}
                   {step.source ? ` · ${step.source}` : ""}
@@ -186,14 +186,14 @@ export function EvidenceDrawer({
 
         {narrative.length ? (
           <>
-            <p className="px-2 pb-1 pt-1 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+            <p className="px-2 pb-1 pt-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
               Chain
             </p>
             <ul className="px-2 pb-3">
               {narrative.map((line) => (
                 <li
                   key={line}
-                  className="num text-[9.5px] leading-relaxed text-[var(--text-2)]"
+                  className="num text-[10.5px] leading-relaxed text-[var(--text-2)]"
                 >
                   {line}
                 </li>
@@ -215,7 +215,7 @@ function Row({
 }) {
   return (
     <div className="mb-1.5 last:mb-0">
-      <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+      <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
         {label}
       </p>
       <p className="text-[10px] leading-relaxed text-[var(--text)]">

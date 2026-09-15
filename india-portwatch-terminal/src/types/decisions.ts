@@ -416,7 +416,11 @@ export interface MissionSummary {
   missionId: string;
   name: string;
   startTimestamp: string;
-  chokepoint: string;
+  /** The strait the event acts on, or null for an event that acts on ports. */
+  chokepoint: string | null;
+  ports?: string[];
+  subjectKind?: "chokepoint" | "port";
+  eventCategory?: string;
   description: string;
   sources: number;
   observations: number;
@@ -476,7 +480,15 @@ export interface MissionReplayState {
   choices?: Record<string, string>;
   /** Where the chart draws the mission at the clock; derived, with its basis. */
   geography?: {
+    /** The subject the chart centres on: the strait, or the event's own position for a port mission. */
     chokepoint: { code: string; lat: number | null; lon: number | null };
+    subjectKind?: "chokepoint" | "port";
+    ports?: Array<{
+      code: string;
+      name: string;
+      lat: number | null;
+      lon: number | null;
+    }>;
     hulls: Array<{
       vesselId: string;
       name: string;
@@ -487,6 +499,7 @@ export interface MissionReplayState {
       lane: Array<[number, number]>;
       destinationPort: string;
       hoursToChokepoint: Record<string, number>;
+      hoursToDestination?: number | null;
     }>;
     disclaimer: string;
   };

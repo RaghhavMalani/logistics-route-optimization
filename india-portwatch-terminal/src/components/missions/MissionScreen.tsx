@@ -38,11 +38,16 @@ import {
   useMission,
   useMissions,
 } from "@/services/decisions";
+import {
+  useMissionComparison,
+  type MissionComparison,
+} from "@/services/lenses";
 import type {
   DecisionProblem,
   MissionReplayState,
   MissionReveal,
   MissionScorecard,
+  MissionSummary,
 } from "@/types/decisions";
 
 const SEEK_OFFSETS = [0, 24, 48, 72, 96] as const;
@@ -54,8 +59,12 @@ export function MissionScreen({ title }: { title: string }) {
   const { identityHeaders } = useAuth();
   const client = useQueryClient();
   const missions = useMissions();
-  const missionId = missions.data?.missions[0]?.missionId ?? null;
+  const [chosenMissionId, setChosenMissionId] = useState<string | null>(null);
+  const missionId =
+    chosenMissionId ?? missions.data?.missions[0]?.missionId ?? null;
   const mission = useMission(missionId);
+  const comparison = useMissionComparison();
+  const [showComparison, setShowComparison] = useState(false);
   // The live world stays off this chart: its ports, weather, storms and
   // traffic are today's, and the clock is not. Only the mission is drawn.
   const workspace = useWorkspaceMap({
@@ -132,11 +141,23 @@ export function MissionScreen({ title }: { title: string }) {
     },
   });
 
-  // A fresh replay whenever the screen opens: a mission is a run, not a page.
+  // A fresh replay whenever the screen opens or the mission changes: a
+  // mission is a run, not a page.
   useEffect(() => {
     if (missionId && !mission.data?.replayId) open.mutate(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionId]);
+
+  const switchMission = useCallback(
+    (next: string) => {
+      if (next === missionId) return;
+      setProblem(null);
+      setOptionId(null);
+      setReveal(null);
+      setChosenMissionId(next);
+    },
+    [missionId],
+  );
 
   const layers = useMemo(
     () => missionLayers(mission.data, problem, optionId, compare),
@@ -207,6 +228,13 @@ export function MissionScreen({ title }: { title: string }) {
                 testId="mission-panel"
                 footer={state?.disclaimer}
               >
+                {missions.data && missions.data.missions.length > 1 ? (
+                  <MissionSwitch
+                    missions={missions.data.missions}
+                    active={missionId}
+                    onChange={switchMission}
+                  />
+                ) : null}
                 {state ? (
                   <MissionRail
                     state={state}
@@ -232,6 +260,52 @@ export function MissionScreen({ title }: { title: string }) {
                   <EmptyNote>No mission is loaded.</EmptyNote>
                 )}
               </FloatPanel>
+            </div>
+
+            {/* ------------------------------------------- comparison -- */}
+            <div
+              className={cn(
+                "pointer-events-none absolute bottom-2.5 z-20 flex justify-center",
+                problem
+                  ? "left-[344px] right-[386px]"
+                  : "left-[344px] right-2.5",
+              )}
+            >
+              {showComparison ? (
+                <FloatPanel
+                  title="Mission scorecard comparison"
+                  note={
+                    comparison.data ? (
+                      <span className="num">
+                        {comparison.data.missions.length} missions
+                      </span>
+                    ) : null
+                  }
+                  className="pointer-events-auto max-h-[46vh] w-[720px] max-w-full"
+                  testId="mission-comparison"
+                  onClose={() => setShowComparison(false)}
+                  footer={comparison.data?.note}
+                >
+                  {comparison.data ? (
+                    <ComparisonTable comparison={comparison.data} />
+                  ) : comparison.isError ? (
+                    <EmptyNote>{(comparison.error as Error).message}</EmptyNote>
+                  ) : (
+                    <EmptyNote>
+                      Replaying every mission from its start…
+                    </EmptyNote>
+                  )}
+                </FloatPanel>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="mission-comparison-open"
+                  onClick={() => setShowComparison(true)}
+                  className="pointer-events-auto rounded border border-[var(--line)] bg-[var(--surface)]/92 px-2.5 py-1 text-[10px] text-[var(--text-2)] backdrop-blur hover:text-[var(--text)]"
+                >
+                  Compare missions · one table, both incidents
+                </button>
+              )}
             </div>
 
             {/* -------------------------------------------------- decision -- */}
@@ -277,7 +351,7 @@ export function MissionScreen({ title }: { title: string }) {
                         >
                           {chosen ? `Chosen: ${chosen}` : "Choose this option"}
                         </button>
-                        <span className="text-[9px] text-[var(--text-3)]">
+                        <span className="text-[10px] text-[var(--text-3)]">
                           {chosen
                             ? "Recorded before the reveal."
                             : "Your choice is recorded before the future is opened."}
@@ -291,6 +365,148 @@ export function MissionScreen({ title }: { title: string }) {
           </>
         }
       />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- switch -- */
+
+function MissionSwitch({
+  missions,
+  active,
+  onChange,
+}: {
+  missions: MissionSummary[];
+  active: string | null;
+  onChange: (missionId: string) => void;
+}) {
+  return (
+    <div
+      className="flex gap-1 border-b border-[var(--line)] px-2 py-1.5"
+      role="tablist"
+      aria-label="Mission"
+      data-testid="mission-switch"
+    >
+      {missions.map((item) => {
+        const on = item.missionId === active;
+        const kind = item.subjectKind === "port" ? "ports" : "strait";
+        return (
+          <button
+            key={item.missionId}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            data-testid="mission-option"
+            data-mission={item.missionId}
+            onClick={() => onChange(item.missionId)}
+            className={cn(
+              "min-w-0 flex-1 rounded px-2 py-1 text-left transition-colors",
+              on
+                ? "bg-[var(--accent)] text-[var(--surface)]"
+                : "bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)]",
+            )}
+            title={item.description}
+          >
+            <span className="block truncate text-[10.5px] font-medium">
+              {item.name.split(":")[0]}
+            </span>
+            <span
+              className={cn(
+                "block truncate text-[10px]",
+                on ? "text-[var(--surface)]/80" : "text-[var(--text-3)]",
+              )}
+            >
+              {item.eventCategory?.replace("_", " ") ?? "incident"} · {kind} ·{" "}
+              {item.startTimestamp.slice(0, 10)}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- comparison -- */
+
+function formatValue(value: number | boolean | null): string {
+  if (value == null) return "—";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function ComparisonTable({ comparison }: { comparison: MissionComparison }) {
+  const ids = comparison.missions.map((m) => m.missionId);
+  return (
+    <div className="flex flex-col">
+      <table className="w-full border-collapse text-[10px]">
+        <thead>
+          <tr className="border-b border-[var(--line)] text-[10px] uppercase tracking-wide text-[var(--text-3)]">
+            <th className="px-2 py-1 text-left font-medium">Measure</th>
+            {comparison.missions.map((m) => (
+              <th
+                key={m.missionId}
+                className="px-2 py-1 text-right font-medium"
+              >
+                <span className="block normal-case tracking-normal text-[var(--text)]">
+                  {m.name.split(":")[0]}
+                </span>
+                <span className="block normal-case tracking-normal">
+                  {m.subjectKind === "port"
+                    ? "cyclone · ports"
+                    : "grounding · strait"}
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {comparison.table.map((row) => (
+            <tr
+              key={row.key}
+              className="border-b border-[var(--line)]/60"
+              data-testid="comparison-row"
+              data-key={row.key}
+            >
+              <td className="px-2 py-1 text-[var(--text-2)]">{row.label}</td>
+              {ids.map((id) => (
+                <td
+                  key={id}
+                  className="num px-2 py-1 text-right text-[var(--text)]"
+                >
+                  {formatValue(row.values[id] ?? null)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="grid grid-cols-2 gap-2 px-2 py-1.5">
+        {comparison.missions.map((m) => (
+          <div key={m.missionId} className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
+              Recommendation vs realised best
+            </p>
+            {m.hulls.map((hull) => (
+              <p
+                key={hull.vesselId}
+                className="truncate text-[10.5px] text-[var(--text-2)]"
+                title={(hull.learned ?? []).join(" ")}
+              >
+                <span className="text-[var(--text)]">
+                  {hull.name.replace(" (illustrative)", "")}
+                </span>
+                {hull.refused
+                  ? ` · refused: ${hull.refused}`
+                  : ` · ${hull.recommended ?? "—"} → best ${hull.realisedBest ?? "—"} · regret ${
+                      hull.regretHours == null
+                        ? "—"
+                        : `${hull.regretHours.toFixed(0)} h`
+                    }`}
+              </p>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -328,11 +544,11 @@ function MissionRail({
         <p className="text-[11px] font-medium text-[var(--text)]">
           {state.name}
         </p>
-        <p className="mt-0.5 text-[9.5px] leading-snug text-[var(--text-2)]">
+        <p className="mt-0.5 text-[10.5px] leading-snug text-[var(--text-2)]">
           {state.description}
         </p>
         <div className="mt-1.5 flex items-center gap-1">
-          <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+          <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
             Clock
           </span>
           <span
@@ -341,7 +557,7 @@ function MissionRail({
           >
             {state.clock.slice(0, 16).replace("T", " ")}Z
           </span>
-          <span className="num ml-auto text-[9px] text-[var(--text-3)]">
+          <span className="num ml-auto text-[10px] text-[var(--text-3)]">
             T0 +{elapsed.toFixed(0)}h
           </span>
         </div>
@@ -355,7 +571,7 @@ function MissionRail({
               disabled={state.revealed}
               onClick={() => onSeek(offset)}
               className={cn(
-                "num rounded px-1.5 py-0.5 text-[9.5px] disabled:opacity-40",
+                "num rounded px-1.5 py-0.5 text-[10.5px] disabled:opacity-40",
                 Math.round(elapsed) === offset
                   ? "bg-[var(--accent)] text-[var(--surface)]"
                   : "text-[var(--text-2)] hover:bg-[var(--surface-2)]",
@@ -368,7 +584,7 @@ function MissionRail({
             type="button"
             onClick={onRestart}
             data-testid="mission-restart"
-            className="ml-auto rounded px-1.5 py-0.5 text-[9.5px] text-[var(--text-3)] hover:bg-[var(--surface-2)]"
+            className="ml-auto rounded px-1.5 py-0.5 text-[10.5px] text-[var(--text-3)] hover:bg-[var(--surface-2)]"
           >
             restart
           </button>
@@ -377,11 +593,11 @@ function MissionRail({
 
       <div className="border-b border-[var(--line)] px-2 py-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+          <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
             Known at the clock
           </span>
           <span
-            className="num ml-auto text-[9px] text-[var(--text-3)]"
+            className="num ml-auto text-[10px] text-[var(--text-3)]"
             data-testid="mission-hidden-count"
           >
             {state.hiddenCount} hidden until reveal
@@ -394,7 +610,7 @@ function MissionRail({
               data-testid="mission-observation"
               className="flex flex-col"
             >
-              <span className="num text-[9px] text-[var(--text-3)]">
+              <span className="num text-[10px] text-[var(--text-3)]">
                 {observation.observedAt.slice(5, 16).replace("T", " ")}Z ·{" "}
                 {observation.kind}
                 {observation.timeUnstated ? " · time not stated by source" : ""}
@@ -406,7 +622,7 @@ function MissionRail({
                 href={sources.get(observation.sourceId)?.url}
                 target="_blank"
                 rel="noreferrer"
-                className="truncate text-[8.5px] text-[var(--info)] hover:underline"
+                className="truncate text-[10px] text-[var(--info)] hover:underline"
               >
                 {sources.get(observation.sourceId)?.name ??
                   observation.sourceId}
@@ -416,7 +632,7 @@ function MissionRail({
         </ol>
         {state.hidden?.length ? (
           <>
-            <p className="mt-2 text-[9px] uppercase tracking-wide text-[var(--ok)]">
+            <p className="mt-2 text-[10px] uppercase tracking-wide text-[var(--ok)]">
               Revealed
             </p>
             <ol className="mt-1 flex flex-col gap-1">
@@ -426,7 +642,7 @@ function MissionRail({
                   data-testid="mission-revealed"
                   className="flex flex-col"
                 >
-                  <span className="num text-[9px] text-[var(--text-3)]">
+                  <span className="num text-[10px] text-[var(--text-3)]">
                     {observation.observedAt.slice(5, 16).replace("T", " ")}Z ·{" "}
                     {observation.kind}
                   </span>
@@ -441,7 +657,7 @@ function MissionRail({
       </div>
 
       <div className="border-b border-[var(--line)] px-2 py-1.5">
-        <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
           Illustrative hulls
         </span>
         {state.fleet.map((vessel) => {
@@ -457,7 +673,7 @@ function MissionRail({
                 <span className="block truncate text-[10.5px] text-[var(--text)]">
                   {vessel.name}
                 </span>
-                <span className="num block text-[8.5px] text-[var(--text-3)]">
+                <span className="num block text-[10px] text-[var(--text-3)]">
                   {vessel.laneCode} → {vessel.destinationPort} ·{" "}
                   {Object.entries(vessel.hoursToChokepointAtStart)
                     .map(([code, h]) => `${code} ${h >= 0 ? "+" : ""}${h}h`)
@@ -472,7 +688,7 @@ function MissionRail({
                 disabled={deciding || state.revealed}
                 onClick={() => onDecide(vessel.vesselId)}
                 className={cn(
-                  "rounded border border-[var(--line-strong)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
+                  "rounded border border-[var(--line-strong)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide",
                   decidedFor === vessel.vesselId
                     ? "bg-[var(--accent)] text-[var(--surface)]"
                     : "text-[var(--text)] hover:bg-[var(--surface-2)]",
@@ -484,7 +700,7 @@ function MissionRail({
             </div>
           );
         })}
-        <p className="mt-1 text-[8.5px] leading-snug text-[var(--text-3)]">
+        <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
           {state.fleet[0]?.note}
         </p>
       </div>
@@ -503,13 +719,13 @@ function MissionRail({
               ? "Revealing…"
               : "Reveal outcome"}
         </button>
-        <p className="mt-1 text-[9px] leading-snug text-[var(--text-3)]">
+        <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
           {state.revealed
             ? "The hidden observations and the outcome are open; every decision made on this replay has been scored."
             : "Choose an option for at least one hull first. The reveal is irreversible for this replay."}
         </p>
         {error ? (
-          <p className="mt-1 text-[9.5px] text-[var(--crit)]">{error}</p>
+          <p className="mt-1 text-[10.5px] text-[var(--crit)]">{error}</p>
         ) : null}
       </div>
     </div>
@@ -570,7 +786,7 @@ function Scorecard({
         <p className="text-[10px] leading-snug text-[var(--text)]">
           {card.happened.summary}
         </p>
-        <p className="num mt-0.5 text-[9px] text-[var(--text-3)]">
+        <p className="num mt-0.5 text-[10px] text-[var(--text-3)]">
           reopened {card.happened.reopenedAt.slice(0, 16).replace("T", " ")}Z ·
           backlog cleared {card.happened.backlogClearedOn} · sources{" "}
           {card.happened.sources.join(", ")}
@@ -634,7 +850,7 @@ function Scorecard({
                   ) : null}
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="num w-14 text-right text-[9px] text-[var(--text-3)]">
+                  <span className="num w-14 text-right text-[10px] text-[var(--text-3)]">
                     pred {row.predicted ?? "—"}
                   </span>
                   <span
@@ -647,7 +863,7 @@ function Scorecard({
                   />
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="num w-14 text-right text-[9px] text-[var(--text-2)]">
+                  <span className="num w-14 text-right text-[10px] text-[var(--text-2)]">
                     real {row.hours}
                   </span>
                   <span
@@ -658,7 +874,7 @@ function Scorecard({
                     }}
                   />
                 </div>
-                <p className="pl-1 text-[8.5px] leading-snug text-[var(--text-3)]">
+                <p className="pl-1 text-[10px] leading-snug text-[var(--text-3)]">
                   {row.how}
                 </p>
               </li>
@@ -693,7 +909,7 @@ function Scorecard({
             </li>
           ))}
         </ul>
-        <p className="mt-1 text-[8.5px] leading-snug text-[var(--text-3)]">
+        <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
           Realised model: {card.realisedModel}
         </p>
       </Section>
@@ -710,7 +926,7 @@ function Section({
 }) {
   return (
     <div className="border-b border-[var(--line)] px-2 py-1.5 last:border-0">
-      <p className="mb-0.5 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+      <p className="mb-0.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
         {title}
       </p>
       {children}

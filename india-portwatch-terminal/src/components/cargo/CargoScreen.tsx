@@ -498,14 +498,14 @@ function UnplacedRow({ row }: { row: CargoUnplaced }) {
         {row.reasons.slice(0, 3).map((reason) => (
           <li
             key={reason}
-            className="text-[9.5px] leading-snug text-[var(--text-3)]"
+            className="text-[10.5px] leading-snug text-[var(--text-3)]"
           >
             {reason}
           </li>
         ))}
       </ul>
       {row.shortfallHours != null ? (
-        <div className="num mt-[3px] text-[9.5px] text-[var(--warn)]">
+        <div className="num mt-[3px] text-[10.5px] text-[var(--warn)]">
           Nearest option {row.nearestVessel} — short by{" "}
           {row.shortfallHours.toFixed(1)} h
         </div>
@@ -520,7 +520,7 @@ function YardBar({ block }: { block: TwinYardBlock }) {
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] text-[var(--text-2)]">{block.name}</span>
-        <span className="num text-[9.5px] text-[var(--text-3)]">
+        <span className="num text-[10.5px] text-[var(--text-3)]">
           {block.occupied_teu.toFixed(0)} / {block.capacityTeu.toFixed(0)} TEU
         </span>
       </div>

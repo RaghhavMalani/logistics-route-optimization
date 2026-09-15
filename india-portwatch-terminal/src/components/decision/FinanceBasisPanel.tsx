@@ -58,13 +58,13 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
                     <Pill tone="neutral">unavailable</Pill>
                   )}
                 </span>
-                <span className="text-[8.5px] leading-snug text-[var(--text-3)]">
+                <span className="text-[10px] leading-snug text-[var(--text-3)]">
                   {row.available ? row.source : row.reason}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-1.5 text-[9px] leading-snug text-[var(--text-3)]">
+          <p className="mt-1.5 text-[10px] leading-snug text-[var(--text-3)]">
             {basis.data?.note}
           </p>
         </Section>
@@ -92,7 +92,7 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
                 <Pill tone="unc">
                   reuse {schedule.reuse.toLowerCase().replace("_", " ")}
                 </Pill>
-                <span className="num text-[8.5px] text-[var(--text-3)]">
+                <span className="num text-[10px] text-[var(--text-3)]">
                   {schedule.validFrom?.slice(0, 10)} →{" "}
                   {schedule.validTo?.slice(0, 10)}
                 </span>
@@ -101,11 +101,11 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
                 href={String(schedule.provenance.url)}
                 target="_blank"
                 rel="noreferrer"
-                className="block truncate text-[8.5px] text-[var(--info)] hover:underline"
+                className="block truncate text-[10px] text-[var(--info)] hover:underline"
               >
                 {String(schedule.provenance.url)}
               </a>
-              <p className="num text-[8.5px] text-[var(--text-3)]">
+              <p className="num text-[10px] text-[var(--text-3)]">
                 retrieved {String(schedule.provenance.retrievedAt).slice(0, 16)}
                 Z · sha256 {String(schedule.provenance.sha256).slice(0, 12)}… ·{" "}
                 {String(schedule.provenance.pages)} pages
@@ -117,7 +117,7 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
                     data-testid="tariff-rate"
                     className="flex flex-col"
                   >
-                    <span className="num flex items-center gap-1.5 text-[9.5px] text-[var(--text)]">
+                    <span className="num flex items-center gap-1.5 text-[10.5px] text-[var(--text)]">
                       <span className="min-w-0 flex-1 truncate">
                         {rate.label}
                       </span>
@@ -126,7 +126,7 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
                         {rate.unit.replace("_", "-")}
                       </span>
                     </span>
-                    <span className="text-[8.5px] leading-snug text-[var(--text-3)]">
+                    <span className="text-[10px] leading-snug text-[var(--text-3)]">
                       p.{String(rate.provenance.page)} ·{" "}
                       {String(rate.provenance.section)} · “
                       {String(rate.provenance.verbatim).slice(0, 90)}…”
@@ -134,7 +134,7 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
                   </li>
                 ))}
                 {schedule.rates.length > 6 ? (
-                  <li className="text-[8.5px] text-[var(--text-3)]">
+                  <li className="text-[10px] text-[var(--text-3)]">
                     {schedule.rates.length - 6} further rates in the schedule.
                   </li>
                 ) : null}
@@ -142,7 +142,7 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
               {schedule.notes.map((note) => (
                 <p
                   key={note}
-                  className="mt-1 text-[8.5px] leading-snug text-[var(--text-3)]"
+                  className="mt-1 text-[10px] leading-snug text-[var(--text-3)]"
                 >
                   {note}
                 </p>
@@ -155,7 +155,7 @@ export function FinanceBasisPanel({ scope }: { scope?: string | null }) {
             {tariffs.data.investigated.map((row, index) => (
               <p
                 key={index}
-                className="text-[8.5px] leading-snug text-[var(--text-3)]"
+                className="text-[10px] leading-snug text-[var(--text-3)]"
               >
                 <span className="text-[var(--text-2)]">
                   {String(row.authority)}

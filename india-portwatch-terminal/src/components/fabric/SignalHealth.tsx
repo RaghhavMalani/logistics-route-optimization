@@ -85,7 +85,7 @@ function LicenceChip({
       data-testid={`licence-${label.toLowerCase()}`}
       data-state={state ?? "NONE"}
     >
-      <span className="text-[8.5px] uppercase tracking-wide text-[var(--text-3)]">
+      <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
         {label}
       </span>
       <Pill tone={tone}>{state ? LICENCE_LABEL[state] : "n/a"}</Pill>
@@ -104,10 +104,10 @@ function Field({
 }) {
   return (
     <div className="flex items-baseline gap-1.5" data-testid={testId}>
-      <span className="w-[92px] shrink-0 text-[8.5px] uppercase tracking-wide text-[var(--text-3)]">
+      <span className="w-[92px] shrink-0 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
         {label}
       </span>
-      <span className="num text-[9.5px] text-[var(--text-2)]">{children}</span>
+      <span className="num text-[10.5px] text-[var(--text-2)]">{children}</span>
     </div>
   );
 }
@@ -123,7 +123,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
         data-testid="signal-health"
         className="pointer-events-auto rounded border border-[var(--line)] bg-[var(--surface)]/92 px-2 py-1 backdrop-blur"
       >
-        <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
           Signals…
         </span>
       </div>
@@ -149,7 +149,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
           "hover:border-[var(--text-3)]",
         )}
       >
-        <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
           Signals
         </span>
         <span
@@ -158,7 +158,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
             background: `var(--${TRAFFIC_TONE[traffic.mode] === "neutral" ? "text-3" : TRAFFIC_TONE[traffic.mode]})`,
           }}
         />
-        <span className="num text-[9px] text-[var(--text-3)]">ais</span>
+        <span className="num text-[10px] text-[var(--text-3)]">ais</span>
         {signals
           .filter((signal) => signal.capability !== "ais")
           .slice(0, 4)
@@ -177,7 +177,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
                           : "var(--warn)",
                 }}
               />
-              <span className="num text-[9px] text-[var(--text-3)]">
+              <span className="num text-[10px] text-[var(--text-3)]">
                 {signal.capability.slice(0, 3)}
               </span>
             </span>
@@ -192,7 +192,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
       className="pointer-events-auto w-[360px] rounded border border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur"
     >
       <div className="flex items-center gap-2 border-b border-[var(--line)] px-2 py-1.5">
-        <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+        <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
           Signal health
         </span>
         <Pill tone="neutral">{health.data.mode}</Pill>
@@ -200,7 +200,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
           type="button"
           onClick={requestSignalRefresh}
           data-testid="signal-refresh"
-          className="ml-auto text-[9px] uppercase tracking-wide text-[var(--text-3)] hover:text-[var(--text)]"
+          className="ml-auto text-[10px] uppercase tracking-wide text-[var(--text-3)] hover:text-[var(--text)]"
         >
           refresh
         </button>
@@ -232,7 +232,7 @@ export function SignalHealth({ mode = "DEMO" }: { mode?: string }) {
       </div>
 
       {unwired.length ? (
-        <p className="border-t border-[var(--line)] px-2 py-1.5 text-[9px] leading-relaxed text-[var(--text-3)]">
+        <p className="border-t border-[var(--line)] px-2 py-1.5 text-[10px] leading-relaxed text-[var(--text-3)]">
           Not wired in this build: {unwired.join(", ")}. Registered with a
           licence and a status, and read by nothing yet.
         </p>
@@ -276,7 +276,7 @@ function TrafficBlock({ traffic }: { traffic: TrafficMode }) {
           </Pill>
         ) : null}
       </div>
-      <p className="mt-1 text-[9px] leading-relaxed text-[var(--text-3)]">
+      <p className="mt-1 text-[10px] leading-relaxed text-[var(--text-3)]">
         {traffic.statement}
       </p>
       <div className="mt-1 space-y-0.5">
@@ -297,7 +297,7 @@ function TrafficBlock({ traffic }: { traffic: TrafficMode }) {
           </Field>
         ) : null}
         {health?.lastError ? (
-          <p className="text-[9px] leading-relaxed text-[var(--warn)]">
+          <p className="text-[10px] leading-relaxed text-[var(--warn)]">
             {health.lastError}
           </p>
         ) : null}
@@ -335,10 +335,10 @@ function SignalRow({
         <Pill tone={FRESHNESS_TONE[signal.freshness] ?? "neutral"}>
           {signal.freshness}
         </Pill>
-        <span className="truncate text-[9px] text-[var(--text-3)]">
+        <span className="truncate text-[10px] text-[var(--text-3)]">
           {signal.productName ?? signal.providerName}
         </span>
-        <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">
+        <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
           {formatAge(signal.ageSeconds)}
         </span>
       </button>
@@ -377,7 +377,7 @@ function SignalRow({
             className="flex items-baseline gap-1.5"
             data-testid="signal-licence"
           >
-            <span className="w-[92px] shrink-0 text-[8.5px] uppercase tracking-wide text-[var(--text-3)]">
+            <span className="w-[92px] shrink-0 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
               Licence state
             </span>
             <span className="flex flex-wrap items-center gap-2">
@@ -386,12 +386,12 @@ function SignalRow({
             </span>
           </div>
           {signal.attributionRequired ? (
-            <p className="pl-[98px] text-[9px] text-[var(--text-3)]">
+            <p className="pl-[98px] text-[10px] text-[var(--text-3)]">
               attribution required
             </p>
           ) : null}
           {signal.termsUrl ? (
-            <p className="pl-[98px] text-[9px] text-[var(--text-3)]">
+            <p className="pl-[98px] text-[10px] text-[var(--text-3)]">
               terms reviewed {signal.termsReviewedAt ?? "—"} ·{" "}
               <a
                 href={signal.termsUrl}
@@ -403,7 +403,7 @@ function SignalRow({
               </a>
             </p>
           ) : (
-            <p className="pl-[98px] text-[9px] text-[var(--text-3)]">
+            <p className="pl-[98px] text-[10px] text-[var(--text-3)]">
               no published terms found
               {signal.termsReviewedAt
                 ? ` (checked ${signal.termsReviewedAt})`
@@ -412,14 +412,14 @@ function SignalRow({
           )}
 
           {signal.availability.reason ? (
-            <p className="mt-1 text-[9px] leading-relaxed text-[var(--text-3)]">
+            <p className="mt-1 text-[10px] leading-relaxed text-[var(--text-3)]">
               {signal.availability.reason}
             </p>
           ) : null}
           {signal.availability.needs.length ? (
             <ul className="mt-1">
               {signal.availability.needs.map((need) => (
-                <li key={need} className="text-[9px] text-[var(--text-3)]">
+                <li key={need} className="text-[10px] text-[var(--text-3)]">
                   needs · {need}
                 </li>
               ))}
@@ -428,7 +428,7 @@ function SignalRow({
           {signal.quality?.reasons.length ? (
             <ul className="mt-1">
               {signal.quality.reasons.map((reason) => (
-                <li key={reason} className="text-[9px] text-[var(--warn)]">
+                <li key={reason} className="text-[10px] text-[var(--warn)]">
                   {reason}
                 </li>
               ))}

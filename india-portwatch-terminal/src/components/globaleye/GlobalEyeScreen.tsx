@@ -61,6 +61,7 @@ import { LENS_DEFINITIONS, lensLayers } from "@/lib/maritime/lenses";
 import { LENSES, useWorld, type Lens } from "@/world/WorldContext";
 
 import { ActionRail } from "./ActionRail";
+import { SecurityLensReport, TradeExposureReport } from "./LensReports";
 import { EvidenceDrawer } from "./EvidenceDrawer";
 import { useCascadeReveal } from "./useCascadeReveal";
 
@@ -404,7 +405,7 @@ export function GlobalEyeScreen({
               height pushes the register out of the column entirely. The rail
               scrolls inside its cap instead.
             */}
-            <div className="pointer-events-none absolute bottom-[184px] left-2.5 top-2.5 z-20 flex w-[286px] flex-col gap-2 overflow-hidden">
+            <div className="pointer-events-none absolute bottom-[184px] left-2.5 top-2.5 z-20 flex w-[300px] flex-col gap-2 overflow-hidden">
               <FloatPanel
                 title="Action required"
                 note={
@@ -436,7 +437,7 @@ export function GlobalEyeScreen({
                 />
                 {createDecision.isError ? (
                   <p
-                    className="px-2 py-1 text-[9.5px] text-[var(--crit)]"
+                    className="px-2 py-1 text-[10.5px] text-[var(--crit)]"
                     data-testid="decide-error"
                   >
                     {(createDecision.error as Error).message}
@@ -537,10 +538,30 @@ export function GlobalEyeScreen({
               </div>
             ) : null}
 
+            {/* --------------------------------------------- lens reports -- */}
+            {/*
+              Two lenses read the backend rather than a static note: the
+              security lens asks the feed and is told UNAVAILABLE under the
+              replay; the cargo lens traces the selected event's structural
+              exposure. Both replace the fabricated-layer refusal with the
+              API's own answer, which is the same refusal with evidence.
+            */}
+            {lens === "SECURITY" ? (
+              <div className="pointer-events-none absolute bottom-[150px] left-1/2 z-20 w-[480px] -translate-x-1/2">
+                <SecurityLensReport mode="DEMO" />
+              </div>
+            ) : lens === "CARGO" ? (
+              <div className="pointer-events-none absolute bottom-[150px] left-1/2 z-20 w-[480px] -translate-x-1/2">
+                <TradeExposureReport eventId={selectedEventId ?? null} />
+              </div>
+            ) : null}
+
             {/* --------------------------------------------- lens notice -- */}
-            {lensDefinition.unavailable ? (
+            {lensDefinition.unavailable &&
+            lens !== "SECURITY" &&
+            lens !== "CARGO" ? (
               <div
-                className="pointer-events-none absolute bottom-24 left-1/2 z-20 w-[420px] -translate-x-1/2"
+                className="pointer-events-none absolute bottom-[150px] left-1/2 z-20 w-[420px] -translate-x-1/2"
                 data-testid="lens-unavailable"
               >
                 <div className="rounded border border-[var(--line)] bg-[var(--surface)]/94 px-2.5 py-2 backdrop-blur">
@@ -552,14 +573,14 @@ export function GlobalEyeScreen({
                   <p className="mt-1 text-[10.5px] font-medium text-[var(--text)]">
                     {lensDefinition.unavailable.headline}
                   </p>
-                  <p className="mt-1 text-[9.5px] leading-relaxed text-[var(--text-2)]">
+                  <p className="mt-1 text-[10.5px] leading-relaxed text-[var(--text-2)]">
                     {lensDefinition.unavailable.detail}
                   </p>
                   <ul className="mt-1.5 flex flex-col gap-0.5">
                     {lensDefinition.unavailable.needs.map((need) => (
                       <li
                         key={need}
-                        className="text-[9px] text-[var(--text-3)]"
+                        className="text-[10px] text-[var(--text-3)]"
                       >
                         · {need}
                       </li>
@@ -573,12 +594,16 @@ export function GlobalEyeScreen({
             {selectedCascade ? (
               <div
                 className={cn(
-                  "pointer-events-none absolute top-2.5 z-20 -translate-x-1/2",
-                  // With the decision panel open the free water is left of
-                  // centre; the headline sits over it, clear of the copilot.
+                  "pointer-events-none absolute top-2.5 z-20",
+                  // The headline is anchored just right of the rail and never
+                  // wider than the water between the rail and the copilot
+                  // column, so at 1366px with a decision open it shrinks
+                  // rather than sliding under the lens bar.
                   decisionOpen
-                    ? "left-[calc(50%-190px)] w-[380px]"
-                    : "left-1/2 w-[420px]",
+                    ? "left-[314px] w-[min(380px,calc(100vw-314px-392px-380px))]"
+                    : evidenceOpen && selectedAttentionId
+                      ? "left-[314px] w-[min(420px,calc(100vw-314px-350px-380px))]"
+                      : "left-1/2 w-[420px] -translate-x-1/2",
                 )}
                 data-testid="cascade-headline"
               >
@@ -586,7 +611,7 @@ export function GlobalEyeScreen({
                   <p className="truncate text-[11px] font-medium text-[var(--text)]">
                     {selectedCascade.title}
                   </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[9.5px] text-[var(--text-2)]">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10.5px] text-[var(--text-2)]">
                     {totals.vessels ? (
                       <span className="num" data-testid="total-vessels">
                         {totals.vessels.value.toFixed(0)} vessels
@@ -797,7 +822,7 @@ function CascadeRow({
       )}
     >
       <p className="truncate text-[10.5px] text-[var(--text)]">{row.title}</p>
-      <div className="mt-0.5 flex items-center gap-2 text-[9px] text-[var(--text-3)]">
+      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-3)]">
         <span className="num">{row.nodeCount} affected</span>
         {row.totals?.vessels ? (
           <span className="num">
@@ -837,7 +862,7 @@ function ProjectionBar({
       className="pointer-events-auto flex items-center gap-1 rounded border border-[var(--line)] bg-[var(--surface)]/92 px-1.5 py-1 backdrop-blur"
       data-testid="projection-bar"
     >
-      <span className="mr-1 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+      <span className="mr-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
         Project
       </span>
       {PROJECTION_OFFSETS.map((offset) => (

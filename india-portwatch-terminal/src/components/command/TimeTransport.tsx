@@ -110,7 +110,7 @@ export function TimeTransport({
       </div>
 
       <div className="shrink-0 leading-none">
-        <div className="eyebrow text-[8.5px]">Traffic</div>
+        <div className="eyebrow text-[10px]">Traffic</div>
         <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
           {clockLabel(state.at)}
         </div>
@@ -167,7 +167,7 @@ export function TimeTransport({
       </button>
 
       <div className="shrink-0 leading-none">
-        <div className="eyebrow text-[8.5px]">Weather</div>
+        <div className="eyebrow text-[10px]">Weather</div>
         <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
           <span data-testid="weather-offset">
             {offsetLabel(state.offsetHours)}
@@ -220,7 +220,7 @@ export function TimeTransport({
                 clock.setOffsetHours(step);
               }}
               className={cn(
-                "num text-[9px] transition-colors",
+                "num text-[10px] transition-colors",
                 Math.abs(state.offsetHours - step) < 0.5
                   ? "text-[var(--info)]"
                   : "text-[var(--text-3)] hover:text-[var(--text-2)]",
@@ -233,7 +233,7 @@ export function TimeTransport({
       </div>
 
       {!timeline.available ? (
-        <span className="shrink-0 text-[9.5px] text-[var(--crit)]">
+        <span className="shrink-0 text-[10.5px] text-[var(--crit)]">
           Forecast unavailable
         </span>
       ) : null}

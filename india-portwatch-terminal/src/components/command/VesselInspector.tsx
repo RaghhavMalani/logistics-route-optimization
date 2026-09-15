@@ -192,7 +192,7 @@ export function VesselInspector({
         <Pill tone="unc" solid>
           SIMULATED TRAFFIC
         </Pill>
-        <span className="text-[9.5px] text-[var(--text-3)]">
+        <span className="text-[10.5px] text-[var(--text-3)]">
           replay engine · not an AIS observation
         </span>
       </div>
@@ -484,7 +484,7 @@ export function VesselInspector({
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[9px] leading-snug text-[var(--text-3)]">
+        <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
           CPA assumes both vessels hold course and speed. A contact at anchor
           shows range and bearing only.
         </p>
@@ -509,7 +509,7 @@ export function VesselInspector({
         <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-2)]">
           {advice.detail}
         </p>
-        <div className="mt-1 flex items-baseline justify-between gap-2 text-[9.5px] text-[var(--text-3)]">
+        <div className="mt-1 flex items-baseline justify-between gap-2 text-[10.5px] text-[var(--text-3)]">
           <span className="truncate">{advice.basis}</span>
           {advice.confidence != null ? (
             <span className="num">conf {advice.confidence.toFixed(2)}</span>
@@ -517,7 +517,7 @@ export function VesselInspector({
         </div>
       </PanelSection>
 
-      <div className="px-2 py-1.5 text-[9.5px] text-[var(--text-3)]">
+      <div className="px-2 py-1.5 text-[10.5px] text-[var(--text-3)]">
         Source: {source.info.provider}
       </div>
     </FloatPanel>
@@ -570,7 +570,7 @@ export function VesselHoverCard({ fix }: { fix: VesselFix }) {
           {clockZ(fix.etaMs)}
         </dd>
       </dl>
-      <div className="mt-1 border-t border-[var(--line)] pt-1 text-[9px] text-[var(--unc)]">
+      <div className="mt-1 border-t border-[var(--line)] pt-1 text-[10px] text-[var(--unc)]">
         SIMULATED position · click to inspect
       </div>
     </div>

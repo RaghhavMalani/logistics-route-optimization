@@ -132,7 +132,7 @@ export function FinancialEvidence({
           </Pill>
         ) : null}
         {!financial.complete ? (
-          <span className="num text-[9px] text-[var(--text-3)]">
+          <span className="num text-[10px] text-[var(--text-3)]">
             {financial.unknown.length} unknown · partial{" "}
             {money(financial.partialTotal)}
           </span>
@@ -160,7 +160,7 @@ export function FinancialEvidence({
                     : "—"}
               </span>
             </div>
-            <p className="pl-1 text-[9px] leading-snug text-[var(--text-3)]">
+            <p className="pl-1 text-[10px] leading-snug text-[var(--text-3)]">
               {component.state === "KNOWN"
                 ? `${component.sourceType}${component.isAssumption ? " (assumption)" : ""} · ${component.basis}`
                 : component.reason}
@@ -171,7 +171,7 @@ export function FinancialEvidence({
 
       {isRecommended && avoidable ? (
         <div className="rounded border border-[var(--line)] bg-[var(--surface-2)]/60 px-1.5 py-1">
-          <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
             Cost of doing nothing vs this option
           </p>
           {avoidable.available ? (
@@ -204,7 +204,7 @@ export function FinancialEvidence({
               ) : null}
             </div>
           ) : (
-            <p className="mt-0.5 text-[9.5px] leading-snug text-[var(--text-2)]">
+            <p className="mt-0.5 text-[10.5px] leading-snug text-[var(--text-2)]">
               Not computable:{" "}
               {String(avoidable.reason ?? "one side is unpriced")}.
               {baseline
@@ -215,7 +215,7 @@ export function FinancialEvidence({
         </div>
       ) : null}
       {financial.notes.length ? (
-        <p className="text-[9px] leading-snug text-[var(--text-3)]">
+        <p className="text-[10px] leading-snug text-[var(--text-3)]">
           {financial.notes.join(" · ")}
         </p>
       ) : null}
@@ -286,10 +286,10 @@ function AssumptionForm({
         onRecompute({ rates, vessel });
       }}
     >
-      <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+      <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
         Price this scenario with your own figures
       </p>
-      <p className="mt-0.5 text-[9px] leading-snug text-[var(--text-3)]">
+      <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-3)]">
         Each figure is an assumption, labelled as one on every number it
         touches. Leave a field empty and that component stays unknown.
       </p>
@@ -297,7 +297,7 @@ function AssumptionForm({
         {offered.map((a) => (
           <label
             key={a.id}
-            className="flex min-w-0 flex-col gap-[1px] text-[9px] text-[var(--text-2)]"
+            className="flex min-w-0 flex-col gap-[1px] text-[10px] text-[var(--text-2)]"
           >
             <span>
               {a.label}{" "}
@@ -324,11 +324,11 @@ function AssumptionForm({
           type="submit"
           data-testid="assume-submit"
           disabled={busy || !entered.length || !valid}
-          className="rounded bg-[var(--accent)] px-1.5 py-0.5 text-[9.5px] font-medium text-[var(--surface)] disabled:opacity-50"
+          className="rounded bg-[var(--accent)] px-1.5 py-0.5 text-[10.5px] font-medium text-[var(--surface)] disabled:opacity-50"
         >
           {busy ? "Re-pricing…" : "Re-price with these assumptions"}
         </button>
-        <span className="text-[9px] text-[var(--text-3)]">
+        <span className="text-[10px] text-[var(--text-3)]">
           {entered.length
             ? `${entered.length} labelled ASSUMPTION`
             : "nothing assumed yet"}

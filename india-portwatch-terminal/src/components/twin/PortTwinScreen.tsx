@@ -209,7 +209,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
 
           {/* Overlay picker, bottom-left over the scene. */}
           <div className="pointer-events-auto absolute bottom-2.5 left-2.5 z-10 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1.5 backdrop-blur-[3px]">
-            <div className="eyebrow mb-1 text-[8.5px]">Colour by</div>
+            <div className="eyebrow mb-1 text-[10px]">Colour by</div>
             <div className="flex flex-wrap gap-1">
               {OVERLAYS.map((option) => (
                 <button
@@ -231,7 +231,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               ))}
             </div>
             <div className="mt-1.5 flex items-center gap-1.5 border-t border-[var(--line)]/60 pt-1.5">
-              <span className="text-[9px] text-[var(--text-3)]">low</span>
+              <span className="text-[10px] text-[var(--text-3)]">low</span>
               <span
                 className="h-[6px] w-[76px] rounded-[1px]"
                 style={{
@@ -239,8 +239,8 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                     "linear-gradient(90deg,#3f8f6b 0%,#c9a13a 50%,#c2564a 100%)",
                 }}
               />
-              <span className="text-[9px] text-[var(--text-3)]">high</span>
-              <span className="ml-1 text-[9px] text-[var(--text-3)]">
+              <span className="text-[10px] text-[var(--text-3)]">high</span>
+              <span className="ml-1 text-[10px] text-[var(--text-3)]">
                 drag to orbit · scroll to zoom · click to inspect
               </span>
             </div>
@@ -251,7 +251,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               className="pointer-events-none absolute left-2.5 top-2.5 z-10 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2.5 py-1.5 backdrop-blur-[3px]"
               data-testid="twin-decision-badge"
             >
-              <div className="text-[8.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+              <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                 Scene shows option
               </div>
               <div className="text-[11px] text-[var(--text)]">
@@ -259,7 +259,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                   ? "Continue current plan"
                   : decisionOption.label}
               </div>
-              <div className="num text-[9px] text-[var(--text-3)]">
+              <div className="num text-[10px] text-[var(--text-3)]">
                 simulated berth plan ·{" "}
                 {decisionOption.evaluation?.derived.policy as string}
               </div>
@@ -299,7 +299,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 ] as Array<[string, string]>
               ).map(([label, value]) => (
                 <div key={label}>
-                  <div className="text-[8.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                  <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                     {label}
                   </div>
                   <div className="num text-[14px] leading-none text-[var(--text)]">
@@ -375,7 +375,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                       <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">
                         {call.name}
                       </span>
-                      <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+                      <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
                         {call.moves.toLocaleString()} mv
                       </span>
                       <span
@@ -563,7 +563,7 @@ function PolicyRow({
           </span>
         ) : null}
       </div>
-      <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[9px] text-[var(--text-3)]">
+      <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--text-3)]">
         <span className="num">
           wait {row.metrics.meanWaitHours?.toFixed(2) ?? "n/a"} h
         </span>

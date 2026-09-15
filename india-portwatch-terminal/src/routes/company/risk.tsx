@@ -146,7 +146,7 @@ function CompanyRisk() {
                         </span>
                       </div>
                       {port.arrivalShiftHours ? (
-                        <div className="num text-[9.5px] text-[var(--text-3)]">
+                        <div className="num text-[10.5px] text-[var(--text-3)]">
                           arrivals shift +{port.arrivalShiftHours.toFixed(1)} h
                         </div>
                       ) : null}

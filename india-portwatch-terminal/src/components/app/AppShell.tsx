@@ -20,9 +20,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { ROLE_PROFILE, ROLES, type Role } from "@/auth/types";
 import { TRAFFIC_LABEL, TRAFFIC_TONE } from "@/components/fabric/signal-format";
-import { Pill, ProvenanceTag, formatUtc } from "@/components/kit/primitives";
+import {
+  Pill,
+  ProvenanceTag,
+  formatAge,
+  formatUtc,
+} from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
+import { useWorldClock } from "@/services/lenses";
 import {
   useObservedTracks,
   useSignalHealth,
@@ -175,7 +181,7 @@ function RoleSwitcher() {
       width={252}
       label={
         <span className="flex items-center gap-1.5">
-          <span className="eyebrow text-[9px]">View as</span>
+          <span className="eyebrow text-[10px]">View as</span>
           <span className="font-medium">
             {ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}
           </span>
@@ -243,7 +249,7 @@ function ProfileMenu() {
     <Menu
       label={
         <span className="flex items-center gap-1.5">
-          <span className="grid h-[19px] w-[19px] place-items-center rounded-[2px] bg-[var(--panel-4)] text-[9.5px] font-semibold text-[var(--text-2)]">
+          <span className="grid h-[19px] w-[19px] place-items-center rounded-[2px] bg-[var(--panel-4)] text-[10.5px] font-semibold text-[var(--text-2)]">
             {initials}
           </span>
           <span className="hidden max-w-[120px] truncate xl:inline">
@@ -407,7 +413,7 @@ function StatusLine() {
         data-testid="status-traffic"
         data-mode={serverTraffic?.mode ?? source.info.kind}
       >
-        <span className="eyebrow text-[9px]">Traffic</span>
+        <span className="eyebrow text-[10px]">Traffic</span>
         <Pill tone={trafficTone}>{trafficLabel}</Pill>
         {liveTraffic ? (
           <span className="num text-[var(--text-3)]">
@@ -423,7 +429,7 @@ function StatusLine() {
       <span className="h-3 w-px bg-[var(--line)]" />
 
       <span className="flex items-center gap-1.5">
-        <span className="eyebrow text-[9px]">Replay</span>
+        <span className="eyebrow text-[10px]">Replay</span>
         <span className="num text-[var(--text-2)]">
           {new Date(clock.at).toUTCString().slice(5, 22)}Z
         </span>
@@ -433,7 +439,7 @@ function StatusLine() {
       <span className="h-3 w-px bg-[var(--line)]" />
 
       <span className="flex items-center gap-1.5">
-        <span className="eyebrow text-[9px]">Twin</span>
+        <span className="eyebrow text-[10px]">Twin</span>
         {health.isError ? (
           <Pill tone="crit">API down</Pill>
         ) : (
@@ -452,16 +458,65 @@ function StatusLine() {
 
       <span className="h-3 w-px bg-[var(--line)]" />
 
+      <WorldClockChip />
+
+      <span className="h-3 w-px bg-[var(--line)]" />
+
       <Link to="/admin/data" className="hover:text-[var(--text-2)]">
         Sources{" "}
         {data ? `${(data.sources.readiness * 100).toFixed(0)}% ready` : "—"}
       </Link>
 
       <span className="ml-auto flex items-center gap-1.5">
-        <span className="eyebrow text-[9px]">UTC</span>
+        <span className="eyebrow text-[10px]">UTC</span>
         <span className="num text-[var(--text-2)]">{utc}</span>
       </span>
     </footer>
+  );
+}
+
+/**
+ * The WorldClock, as the server reports it.
+ *
+ * LIVE reads the wall and says nothing more. A replay, mission or scenario
+ * clock is shown with its offset from the wall, so a screen can never show
+ * a replayed world as the present without the strip saying how far off it
+ * is.
+ */
+function WorldClockChip() {
+  const clock = useWorldClock();
+  const data = clock.data;
+  const mode = data?.mode ?? "LIVE";
+  const label =
+    mode === "LIVE"
+      ? "Live"
+      : mode === "HISTORICAL_MISSION"
+        ? "Mission"
+        : mode === "SCENARIO"
+          ? "Scenario"
+          : "Replay";
+  const offset = data?.offsetFromWallSeconds ?? 0;
+  const offsetLabel =
+    Math.abs(offset) < 90
+      ? null
+      : `${offset < 0 ? "−" : "+"}${formatAge(Math.abs(offset) / 3600)} from wall`;
+  return (
+    <span
+      className="flex items-center gap-1.5"
+      data-testid="status-world-clock"
+      data-mode={mode}
+      title={
+        data
+          ? `${data.reason || "the world reads the wall"} · ${data.now}`
+          : "world clock"
+      }
+    >
+      <span className="eyebrow text-[10px]">World</span>
+      <Pill tone={mode === "LIVE" ? "ok" : "info"}>{label}</Pill>
+      {offsetLabel ? (
+        <span className="num text-[var(--text-3)]">{offsetLabel}</span>
+      ) : null}
+    </span>
   );
 }
 

@@ -239,7 +239,7 @@ export function DecisionPanel({
           {problem.headline.split(" · ").slice(1).join(" · ") ||
             problem.headline}
         </p>
-        <div className="mt-1 flex items-center gap-3 text-[9.5px] text-[var(--text-3)]">
+        <div className="mt-1 flex items-center gap-3 text-[10.5px] text-[var(--text-3)]">
           <span>
             Decision window{" "}
             <span
@@ -304,7 +304,7 @@ export function DecisionPanel({
                 Compare
               </Chip>
               {recommendation ? (
-                <span className="ml-auto truncate text-[9.5px] text-[var(--text-3)]">
+                <span className="ml-auto truncate text-[10.5px] text-[var(--text-3)]">
                   Recommended:{" "}
                   <span className="text-[var(--text-2)]">
                     {
@@ -315,13 +315,13 @@ export function DecisionPanel({
                   </span>
                 </span>
               ) : (
-                <span className="ml-auto text-[9.5px] italic text-[var(--text-3)]">
+                <span className="ml-auto text-[10.5px] italic text-[var(--text-3)]">
                   no feasible option survived
                 </span>
               )}
             </div>
             {stacked ? null : (
-              <div className="grid grid-cols-[18px_minmax(0,1fr)_repeat(5,44px)] items-center gap-x-1 border-b border-[var(--line)] px-2 py-0.5 text-[8.5px] uppercase tracking-wide text-[var(--text-3)]">
+              <div className="grid grid-cols-[18px_minmax(0,1fr)_repeat(5,44px)] items-center gap-x-1 border-b border-[var(--line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                 <span />
                 <span>Option</span>
                 {columns.map((c) => (
@@ -352,7 +352,7 @@ export function DecisionPanel({
             ))}
             {rejected.length ? (
               <div className="border-t border-[var(--line)]">
-                <p className="px-2 pt-1.5 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+                <p className="px-2 pt-1.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                   Rejected · impossible, not merely worse
                 </p>
                 {rejected.map((option) => (
@@ -370,14 +370,14 @@ export function DecisionPanel({
                     {option.rejectedBy.map((c) => (
                       <p
                         key={c.key}
-                        className="pl-1 text-[9px] leading-snug text-[var(--text-3)]"
+                        className="pl-1 text-[10px] leading-snug text-[var(--text-3)]"
                       >
                         {c.label}: {c.detail}
                       </p>
                     ))}
                     {!option.rejectedBy.length &&
                     option.critic?.blocking?.length ? (
-                      <p className="pl-1 text-[9px] leading-snug text-[var(--text-3)]">
+                      <p className="pl-1 text-[10px] leading-snug text-[var(--text-3)]">
                         Critic: {option.critic.blocking[0].detail}
                       </p>
                     ) : null}
@@ -387,14 +387,14 @@ export function DecisionPanel({
             ) : null}
             {notOffered.length ? (
               <div className="border-t border-[var(--line)] px-2 py-1.5">
-                <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+                <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                   Not offered
                 </p>
                 {notOffered.map((row) => (
                   <p
                     key={row.kind}
                     data-testid="not-offered"
-                    className="text-[9px] leading-snug text-[var(--text-3)]"
+                    className="text-[10px] leading-snug text-[var(--text-3)]"
                   >
                     <span className="text-[var(--text-2)]">{row.label}</span> ·{" "}
                     {row.availability.status.toLowerCase().replace("_", " ")} —{" "}
@@ -434,7 +434,7 @@ export function DecisionPanel({
               </div>
             ) : null}
             {recommendation?.rankingBasis?.weights ? (
-              <p className="mt-1.5 text-[9px] leading-snug text-[var(--text-3)]">
+              <p className="mt-1.5 text-[10px] leading-snug text-[var(--text-3)]">
                 Balanced ranking weights:{" "}
                 {Object.entries(recommendation.rankingBasis.weights)
                   .map(([k, w]) => `${k} ${(w * 100).toFixed(0)}%`)
@@ -584,7 +584,7 @@ function OptionRow({
   const objectives = option.evaluation?.objectives ?? {};
   const confidence = option.evaluation?.weakestConfidence;
   const flags = (
-    <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[8.5px] text-[var(--text-3)]">
+    <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[10px] text-[var(--text-3)]">
       {recommended ? <Pill tone="ok">Recommended</Pill> : null}
       {dominatedBy ? (
         <span title={`dominated by ${dominatedBy}`}>dominated</span>
@@ -648,10 +648,10 @@ function OptionRow({
           {cells.map((cell) => (
             <span
               key={cell.key}
-              className="num flex items-baseline gap-0.5 text-[9.5px]"
+              className="num flex items-baseline gap-0.5 text-[10.5px]"
               title={cell.title}
             >
-              <span className="text-[8px] uppercase tracking-wide text-[var(--text-3)]">
+              <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                 {cell.label}
               </span>
               <span
@@ -726,7 +726,7 @@ function CriticView({
       {recommendation ? (
         <div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+            <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
               Recommendation
             </span>
             {recommendation.critic ? (
@@ -743,7 +743,7 @@ function CriticView({
               {recommendation.critic.reasons.map((r) => (
                 <li
                   key={r}
-                  className="text-[9px] leading-snug text-[var(--text-3)]"
+                  className="text-[10px] leading-snug text-[var(--text-3)]"
                 >
                   · {r}
                 </li>
@@ -755,7 +755,7 @@ function CriticView({
       {option?.critic ? (
         <div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+            <span className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
               Critic · {option.isBaseline ? "current plan" : option.label}
             </span>
             <Pill tone={VERDICT_TONE[option.critic.verdict]}>
@@ -770,7 +770,7 @@ function CriticView({
                 data-passed={check.passed}
                 className="flex flex-col"
               >
-                <span className="flex items-center gap-1.5 text-[9.5px]">
+                <span className="flex items-center gap-1.5 text-[10.5px]">
                   <span
                     className={cn(
                       "num w-1.5",
@@ -791,7 +791,7 @@ function CriticView({
                     {check.name.replace(/_/g, " ")}
                   </span>
                 </span>
-                <span className="pl-3 text-[9px] leading-snug text-[var(--text-3)]">
+                <span className="pl-3 text-[10px] leading-snug text-[var(--text-3)]">
                   {check.detail}
                   <span className="text-[var(--text-3)]/80">
                     {" "}
@@ -804,16 +804,16 @@ function CriticView({
         </div>
       ) : null}
       {option?.evaluation?.notes.length ? (
-        <p className="text-[9px] leading-snug text-[var(--text-3)]">
+        <p className="text-[10px] leading-snug text-[var(--text-3)]">
           {option.evaluation.notes.join(" · ")}
         </p>
       ) : null}
       {problem.notes.length ? (
-        <p className="text-[9px] leading-snug text-[var(--text-3)]">
+        <p className="text-[10px] leading-snug text-[var(--text-3)]">
           {problem.notes.join(" · ")}
         </p>
       ) : null}
-      <p className="text-[9px] leading-snug text-[var(--text-3)]">
+      <p className="text-[10px] leading-snug text-[var(--text-3)]">
         World {problem.worldStateId} ·{" "}
         {String(problem.worldRevision?.mode ?? "")} · queried {problem.at}
       </p>
@@ -875,7 +875,7 @@ function WorkflowView({
               data-state={step.state}
               data-reached={index <= current}
               className={cn(
-                "num rounded px-1 py-[1px] text-[8.5px] uppercase tracking-wide",
+                "num rounded px-1 py-[1px] text-[10px] uppercase tracking-wide",
                 index === current
                   ? "bg-[var(--accent)] text-[var(--surface)]"
                   : index < current
@@ -886,12 +886,12 @@ function WorkflowView({
               {step.label}
             </span>
             {index < WORKFLOW.length - 1 ? (
-              <span className="text-[8px] text-[var(--text-3)]">›</span>
+              <span className="text-[10px] text-[var(--text-3)]">›</span>
             ) : null}
           </li>
         ))}
       </ol>
-      <p className="text-[9px] leading-snug text-[var(--text-3)]">
+      <p className="text-[10px] leading-snug text-[var(--text-3)]">
         Decision ≠ execution. A named person reviews and approves;{" "}
         {execution?.mechanism === "ISSUE_ADVISORY"
           ? `the approved option reaches the ${problem.domain === "CARGO_CONNECTION" ? "booking party" : "vessel"} as an advisory to ${execution.by}, never as a command.`
@@ -962,7 +962,7 @@ function WorkflowView({
             </button>
           ) : null}
           {chosen?.isBaseline ? (
-            <p className="text-[9px] text-[var(--text-3)]">
+            <p className="text-[10px] text-[var(--text-3)]">
               Continuing the current plan needs no advisory.
             </p>
           ) : null}
@@ -976,7 +976,7 @@ function WorkflowView({
           {handoffResult.advisories.map((a) => (
             <li
               key={a.advisoryId}
-              className="num text-[9.5px] text-[var(--text-2)]"
+              className="num text-[10.5px] text-[var(--text-2)]"
             >
               {a.advisoryId} · {a.kind} · <Pill tone="neutral">{a.state}</Pill>
             </li>
@@ -997,10 +997,10 @@ function WorkflowView({
             onOutcome(chosen?.action ?? "", observed);
           }}
         >
-          <p className="text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
             Record the observed outcome
           </p>
-          <label className="flex items-center gap-1 text-[9.5px] text-[var(--text-2)]">
+          <label className="flex items-center gap-1 text-[10.5px] text-[var(--text-2)]">
             Observed arrival shift (h)
             <input
               value={observedEta}
@@ -1009,7 +1009,7 @@ function WorkflowView({
               data-testid="outcome-eta"
             />
           </label>
-          <label className="flex items-center gap-1 text-[9.5px] text-[var(--text-2)]">
+          <label className="flex items-center gap-1 text-[10.5px] text-[var(--text-2)]">
             <input
               type="checkbox"
               checked={incident}
@@ -1034,13 +1034,13 @@ function WorkflowView({
         </p>
       ) : null}
       {error ? (
-        <p className="text-[9.5px] text-[var(--crit)]">{error}</p>
+        <p className="text-[10.5px] text-[var(--crit)]">{error}</p>
       ) : null}
       <ol className="flex flex-col gap-[2px]">
         {problem.workflowHistory.map((step, index) => (
           <li
             key={`${step.state}-${index}`}
-            className="num text-[9px] text-[var(--text-3)]"
+            className="num text-[10px] text-[var(--text-3)]"
           >
             {step.at.slice(0, 16).replace("T", " ")} · {step.state} ·{" "}
             {step.actor}

@@ -157,14 +157,14 @@ function LearningDashboard() {
                       ] as Array<[string, number | null, string]>
                     ).map(([label, value, hint]) => (
                       <div key={label}>
-                        <div className="text-[9px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                        <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                           {label}
                         </div>
                         <div className="num text-[17px] leading-none text-[var(--text)]">
                           {value == null ? "n/a" : value.toFixed(3)}
                         </div>
                         {hint ? (
-                          <div className="num text-[9px] text-[var(--text-3)]">
+                          <div className="num text-[10px] text-[var(--text-3)]">
                             {hint}
                           </div>
                         ) : null}
@@ -283,7 +283,7 @@ function LearningDashboard() {
                         ] as Array<[string, number | null]>
                       ).map(([label, value]) => (
                         <div key={label}>
-                          <div className="text-[9px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                          <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                             {label}
                           </div>
                           <div className="num text-[15px] leading-none text-[var(--text)]">
@@ -292,7 +292,7 @@ function LearningDashboard() {
                         </div>
                       ))}
                     </div>
-                    <p className="mt-1.5 text-[9.5px] leading-relaxed text-[var(--text-3)]">
+                    <p className="mt-1.5 text-[10.5px] leading-relaxed text-[var(--text-3)]">
                       Brier skill compares against always predicting the base
                       rate. A value at or below zero means the claims carry no
                       information the climatology did not.
@@ -301,7 +301,7 @@ function LearningDashboard() {
                   {events.overall.calibration ? (
                     <Section title="Calibration curve">
                       <CalibrationBars bins={events.overall.calibration.bins} />
-                      <p className="mt-1.5 text-[9.5px] leading-relaxed text-[var(--text-3)]">
+                      <p className="mt-1.5 text-[10.5px] leading-relaxed text-[var(--text-3)]">
                         Expected calibration error{" "}
                         {events.overall.calibration.expectedCalibrationError?.toFixed(
                           3,
@@ -347,7 +347,7 @@ function LearningDashboard() {
                       ] as Array<[string, number | null]>
                     ).map(([label, value]) => (
                       <div key={label}>
-                        <div className="text-[9px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                        <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                           {label}
                         </div>
                         <div className="num text-[15px] leading-none text-[var(--text)]">
@@ -356,7 +356,7 @@ function LearningDashboard() {
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1.5 text-[9.5px] leading-relaxed text-[var(--text-3)]">
+                  <p className="mt-1.5 text-[10.5px] leading-relaxed text-[var(--text-3)]">
                     Take-up is how the product finds out whether operators trust
                     it. A recommendation nobody accepts has no operational value
                     however good its simulated reward looks.
@@ -439,7 +439,7 @@ function MissRow({
             <span className="truncate text-[10.5px] text-[var(--text-3)]">
               {miss.target}
             </span>
-            <span className="num ml-auto shrink-0 text-[9.5px] text-[var(--text-3)]">
+            <span className="num ml-auto shrink-0 text-[10.5px] text-[var(--text-3)]">
               {miss.validAt.slice(0, 10)}
             </span>
           </div>
@@ -470,7 +470,7 @@ function MissRow({
             </span>
           </div>
           {attribution.available && worst ? (
-            <div className="mt-[3px] text-[9.5px] text-[var(--text-3)]">
+            <div className="mt-[3px] text-[10.5px] text-[var(--text-3)]">
               Dominated by{" "}
               <span className="text-[var(--text-2)]">
                 {attribution.dominant}
@@ -479,7 +479,7 @@ function MissRow({
               the miss.
             </div>
           ) : (
-            <div className="mt-[3px] text-[9.5px] text-[var(--unc)]">
+            <div className="mt-[3px] text-[10.5px] text-[var(--unc)]">
               Attribution unavailable for this prediction.
             </div>
           )}
@@ -490,7 +490,7 @@ function MissRow({
         <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-3 py-2">
           {attribution.available ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">
+              <h4 className="eyebrow text-[10px]">
                 Contribution to the error
               </h4>
               <div className="mt-1 space-y-1">
@@ -531,7 +531,7 @@ function MissRow({
                 ))}
                 {attribution.residual != null &&
                 Math.abs(attribution.residual) > 1e-6 ? (
-                  <p className="text-[9.5px] leading-snug text-[var(--text-3)]">
+                  <p className="text-[10.5px] leading-snug text-[var(--text-3)]">
                     Residual {attribution.residual.toFixed(3)} — error the
                     contributors do not account for, reported rather than
                     smeared across them.
@@ -547,12 +547,12 @@ function MissRow({
 
           {miss.reliabilityChanges.length ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">What changed as a result</h4>
+              <h4 className="eyebrow text-[10px]">What changed as a result</h4>
               <ul className="mt-1 space-y-0.5">
                 {miss.reliabilityChanges.map((change, index) => (
                   <li
                     key={`${change.contributor}-${index}`}
-                    className="flex items-baseline gap-2 text-[9.5px]"
+                    className="flex items-baseline gap-2 text-[10.5px]"
                   >
                     <span className="min-w-0 flex-1 truncate text-[var(--text-2)]">
                       {change.contributor}
@@ -578,7 +578,7 @@ function MissRow({
           ) : null}
 
           <section>
-            <h4 className="eyebrow text-[8.5px]">Context</h4>
+            <h4 className="eyebrow text-[10px]">Context</h4>
             <div className="mt-1 flex flex-wrap gap-1">
               {Object.entries(miss.context)
                 .filter(([, value]) => value != null && value !== "")
@@ -610,7 +610,7 @@ function CalibrationBars({ bins }: { bins: CalibrationBinView[] }) {
     <div className="space-y-1">
       {populated.map((bin) => (
         <div key={`${bin.lower}`}>
-          <div className="flex items-baseline gap-2 text-[9.5px]">
+          <div className="flex items-baseline gap-2 text-[10.5px]">
             <span className="num w-[62px] shrink-0 text-[var(--text-3)]">
               {(bin.lower * 100).toFixed(0)}–{(bin.upper * 100).toFixed(0)}%
             </span>
@@ -664,7 +664,7 @@ function PolicyCard({ policy }: { policy: PolicyRecordView }) {
         </Pill>
       }
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
         <span className="num">v{policy.version}</span>
         <span className="num">{policy.family}</span>
         {policy.environment ? (
@@ -678,7 +678,7 @@ function PolicyCard({ policy }: { policy: PolicyRecordView }) {
       {checks.length ? (
         <ul className="mt-1.5 space-y-0.5">
           {checks.map(([name, ok]) => (
-            <li key={name} className="flex items-baseline gap-1.5 text-[9.5px]">
+            <li key={name} className="flex items-baseline gap-1.5 text-[10.5px]">
               <span
                 className={cn(
                   "num shrink-0",
@@ -783,7 +783,7 @@ const reliabilityColumns: Array<Column<ReliabilityWeight>> = [
     render: (row) => (
       <span className="num text-[var(--text)]">
         {row.previousWeight != null ? (
-          <span className="mr-1 text-[9.5px] text-[var(--text-3)]">
+          <span className="mr-1 text-[10.5px] text-[var(--text-3)]">
             {row.previousWeight.toFixed(2)} →
           </span>
         ) : null}

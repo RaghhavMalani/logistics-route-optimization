@@ -65,5 +65,12 @@
   "POST /learning/run": "learning_run.json",
   "/decisions/learning": "decisions_learning.json",
   "/finance/basis": "finance_basis.json",
-  "/finance/tariffs": "finance_tariffs.json"
+  "/finance/tariffs": "finance_tariffs.json",
+  "/trade/exposure": "trade_exposure.json",
+  "/trade/catalogue": "trade_catalogue.json",
+  "/security/lens?mode=DEMO": "security_lens.json",
+  "/missions": "missions.json",
+  "/missions/compare": "missions_compare.json",
+  "/admin/freshness": "admin_freshness.json",
+  "/world/clock": "world_clock.json"
 }

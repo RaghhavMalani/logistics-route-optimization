@@ -84,7 +84,7 @@ function ToolChip({ call }: { call: ToolCallTrace }) {
           : `${call.tool} — ${call.error}`
       }
       className={cn(
-        "inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[1px] text-[9.5px]",
+        "inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[1px] text-[10.5px]",
         call.ok
           ? "border-[var(--line-strong)] text-[var(--text-2)]"
           : call.unavailable
@@ -119,7 +119,7 @@ function AgentBlock({ result }: { result: AgentResultView }) {
             </span>
             <Pill tone={OUTCOME_TONE[result.outcome] ?? "neutral"}>{result.outcome}</Pill>
             {result.confidence != null ? (
-              <span className="num text-[9.5px] text-[var(--text-3)]">
+              <span className="num text-[10.5px] text-[var(--text-3)]">
                 conf {result.confidence.toFixed(2)}
               </span>
             ) : null}
@@ -139,7 +139,7 @@ function AgentBlock({ result }: { result: AgentResultView }) {
         <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-3 py-2">
           {result.findings.length ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">Findings</h4>
+              <h4 className="eyebrow text-[10px]">Findings</h4>
               <ul className="mt-1 space-y-1">
                 {result.findings.map((finding, index) => (
                   <li key={`${finding.label}-${index}`}>
@@ -150,17 +150,17 @@ function AgentBlock({ result }: { result: AgentResultView }) {
                       <span className="num text-[11px] text-[var(--text)]">
                         {finding.value == null ? "n/a" : String(finding.value)}
                         {finding.unit ? (
-                          <span className="ml-0.5 text-[9px] text-[var(--text-3)]">
+                          <span className="ml-0.5 text-[10px] text-[var(--text-3)]">
                             {finding.unit}
                           </span>
                         ) : null}
                       </span>
-                      <span className="num ml-auto shrink-0 text-[8.5px] text-[var(--text-3)]">
+                      <span className="num ml-auto shrink-0 text-[10px] text-[var(--text-3)]">
                         {finding.sourceTool.replace(/^portwatch\./, "")}
                       </span>
                     </div>
                     {finding.detail ? (
-                      <p className="text-[9.5px] leading-snug text-[var(--text-3)]">
+                      <p className="text-[10.5px] leading-snug text-[var(--text-3)]">
                         {finding.detail}
                       </p>
                     ) : null}
@@ -172,10 +172,10 @@ function AgentBlock({ result }: { result: AgentResultView }) {
 
           {result.gaps.length ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">Evidence gaps</h4>
+              <h4 className="eyebrow text-[10px]">Evidence gaps</h4>
               <ul className="mt-1 space-y-0.5">
                 {result.gaps.map((gap) => (
-                  <li key={gap} className="text-[9.5px] leading-snug text-[var(--unc)]">
+                  <li key={gap} className="text-[10.5px] leading-snug text-[var(--unc)]">
                     {gap}
                   </li>
                 ))}
@@ -184,14 +184,14 @@ function AgentBlock({ result }: { result: AgentResultView }) {
           ) : null}
 
           <section>
-            <h4 className="eyebrow text-[8.5px]">Where the numbers came from</h4>
+            <h4 className="eyebrow text-[10px]">Where the numbers came from</h4>
             <ul className="mt-1 space-y-0.5">
               {result.trace
                 .filter((call) => call.ok && call.computedBy)
                 .map((call, index) => (
                   <li
                     key={`${call.tool}-${index}`}
-                    className="flex items-baseline gap-1.5 text-[9.5px]"
+                    className="flex items-baseline gap-1.5 text-[10.5px]"
                   >
                     <span className="num shrink-0 text-[var(--text-2)]">
                       {call.tool.replace(/^portwatch\./, "")}
@@ -305,7 +305,7 @@ export function AgentConsole({ className }: { className?: string }) {
               key={suggestion}
               type="button"
               onClick={() => ask(suggestion)}
-              className="truncate rounded-[2px] border border-[var(--line)] px-1.5 py-[2px] text-left text-[9.5px] text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
+              className="truncate rounded-[2px] border border-[var(--line)] px-1.5 py-[2px] text-left text-[10.5px] text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
             >
               {suggestion}
             </button>
@@ -332,18 +332,18 @@ export function AgentConsole({ className }: { className?: string }) {
                 <Pill tone="info">{run.intentLabel}</Pill>
                 <Pill tone={OUTCOME_TONE[run.outcome] ?? "neutral"}>{run.outcome}</Pill>
                 {run.confidence != null ? (
-                  <span className="num text-[9.5px] text-[var(--text-3)]">
+                  <span className="num text-[10.5px] text-[var(--text-3)]">
                     confidence {run.confidence.toFixed(2)}
                   </span>
                 ) : null}
-                <span className="num ml-auto text-[9px] text-[var(--text-3)]">
+                <span className="num ml-auto text-[10px] text-[var(--text-3)]">
                   {run.durationMs.toFixed(0)} ms · {run.trace.length} tool calls
                 </span>
               </div>
               <p className="mt-1.5 text-[11.5px] leading-relaxed text-[var(--text)]">
                 {run.summary}
               </p>
-              <p className="num mt-1 text-[9px] text-[var(--text-3)]">
+              <p className="num mt-1 text-[10px] text-[var(--text-3)]">
                 intent chosen by {run.intentBasis}
               </p>
             </div>
@@ -358,7 +358,7 @@ export function AgentConsole({ className }: { className?: string }) {
                 data-testid="agent-critic"
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="eyebrow text-[8.5px]">Critic</span>
+                  <span className="eyebrow text-[10px]">Critic</span>
                   <Pill
                     tone={
                       run.critic.verdict === "APPROVED"
@@ -371,7 +371,7 @@ export function AgentConsole({ className }: { className?: string }) {
                     {run.critic.verdict}
                   </Pill>
                   {run.critic.adjustedConfidence != null ? (
-                    <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">
+                    <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
                       adjusted {run.critic.adjustedConfidence.toFixed(2)}
                     </span>
                   ) : null}
@@ -380,7 +380,7 @@ export function AgentConsole({ className }: { className?: string }) {
                   {run.critic.checks.map((check) => (
                     <li
                       key={check.name}
-                      className="flex items-start gap-1.5 text-[9.5px] leading-snug"
+                      className="flex items-start gap-1.5 text-[10.5px] leading-snug"
                     >
                       {check.passed ? (
                         <Check size={9} className="mt-[2px] shrink-0 text-[var(--ok)]" />
@@ -415,7 +415,7 @@ export function AgentConsole({ className }: { className?: string }) {
             </ul>
 
             <footer className="border-t border-[var(--line)] px-2 py-1.5">
-              <p className="text-[9px] leading-snug text-[var(--text-3)]">{run.note}</p>
+              <p className="text-[10px] leading-snug text-[var(--text-3)]">{run.note}</p>
             </footer>
           </>
         ) : (

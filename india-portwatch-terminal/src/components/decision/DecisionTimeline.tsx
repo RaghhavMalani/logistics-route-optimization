@@ -72,7 +72,7 @@ export function DecisionTimeline({
         {ticks.map((t) => (
           <span
             key={t}
-            className="num absolute -translate-x-1/2 text-[8.5px] text-[var(--text-3)]"
+            className="num absolute -translate-x-1/2 text-[10px] text-[var(--text-3)]"
             style={{ left: x(t) }}
           >
             +{t}h
@@ -100,7 +100,7 @@ export function DecisionTimeline({
               }}
             />
             <span
-              className="num absolute left-0 top-0 -translate-y-[3px] rounded px-1 text-[8.5px] font-semibold"
+              className="num absolute left-0 top-0 -translate-y-[3px] rounded px-1 text-[10px] font-semibold"
               style={{ background: "var(--panel)", color: style.colour }}
             >
               {option.isBaseline ? "base" : style.letter}
@@ -109,7 +109,7 @@ export function DecisionTimeline({
               <span
                 key={`${mark.kind}-${index}`}
                 data-mark={mark.kind}
-                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[9px] leading-none"
+                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] leading-none"
                 style={{
                   left: x(mark.hours),
                   color:
@@ -130,7 +130,7 @@ export function DecisionTimeline({
           </button>
         );
       })}
-      <p className="text-[8.5px] leading-snug text-[var(--text-3)]">
+      <p className="text-[10px] leading-snug text-[var(--text-3)]">
         ▲ arrival · ◆ reaches the strait · ▮ option closes · ┃ claim lapses · ≋
         rough seas. Same scale for every row; each mark is the engine's own
         figure for that option.

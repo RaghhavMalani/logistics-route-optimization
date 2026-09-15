@@ -13,11 +13,7 @@ export type Coast = "west" | "east" | "south";
 
 /** Provenance vocabulary shared by the pipeline, the API and this UI. */
 export type DataStatus =
-  | "LIVE"
-  | "CACHED_LIVE"
-  | "STALE"
-  | "SYNTHETIC"
-  | "UNAVAILABLE";
+  "LIVE" | "CACHED_LIVE" | "STALE" | "SYNTHETIC" | "UNAVAILABLE";
 
 export interface GeoPoint {
   lat: number;
@@ -63,6 +59,20 @@ export interface Health {
     folds?: number | null;
   };
   sources: HealthSources;
+  /** The licence mode in force and whether anyone stated it. */
+  licenceMode?: {
+    mode: string;
+    source: "env" | "argument" | "default";
+    stated: boolean;
+    warning: string | null;
+  };
+  worldClock?: {
+    mode: "LIVE" | "REPLAY" | "HISTORICAL_MISSION" | "SCENARIO";
+    now: string;
+    offsetFromWallSeconds: number;
+    frozen: boolean;
+    reason: string;
+  };
 }
 
 export interface ProvenanceSource {

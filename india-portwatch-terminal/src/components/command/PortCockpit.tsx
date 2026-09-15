@@ -143,7 +143,7 @@ export function TrafficBoard({
               }
             }}
             className={cn(
-              "eyebrow truncate text-[8.5px]",
+              "eyebrow truncate text-[10px]",
               column.className,
               column.key ? "hover:text-[var(--text-2)]" : "cursor-default",
               sort === column.key && "text-[var(--info)]",
@@ -374,7 +374,7 @@ export function ArrivalSequence({
         })}
       </ul>
 
-      <p className="mt-1.5 text-[9px] leading-snug text-[var(--text-3)]">
+      <p className="mt-1.5 text-[10px] leading-snug text-[var(--text-3)]">
         Berth queue over predicted arrivals. Occupancy comes from the departures
         the traffic source carries; berth-hours are class envelopes scaled by
         length, not measured turnarounds.
@@ -445,10 +445,10 @@ export function PortWeatherPanel({
       <table className="w-full text-[10.5px]">
         <thead>
           <tr className="text-[var(--text-3)]">
-            <th className="eyebrow py-[2px] text-left text-[8.5px]">Time</th>
-            <th className="eyebrow py-[2px] text-right text-[8.5px]">Rain</th>
-            <th className="eyebrow py-[2px] text-right text-[8.5px]">Wind</th>
-            <th className="eyebrow py-[2px] text-right text-[8.5px]">Impact</th>
+            <th className="eyebrow py-[2px] text-left text-[10px]">Time</th>
+            <th className="eyebrow py-[2px] text-right text-[10px]">Rain</th>
+            <th className="eyebrow py-[2px] text-right text-[10px]">Wind</th>
+            <th className="eyebrow py-[2px] text-right text-[10px]">Impact</th>
           </tr>
         </thead>
         <tbody>
@@ -457,11 +457,11 @@ export function PortWeatherPanel({
               <td className="num py-[3px] text-[var(--text-2)]">
                 {clockZ(row.at)}
                 {row.hours === 0 ? (
-                  <span className="ml-1 text-[9px] text-[var(--text-3)]">
+                  <span className="ml-1 text-[10px] text-[var(--text-3)]">
                     now
                   </span>
                 ) : (
-                  <span className="ml-1 text-[9px] text-[var(--text-3)]">
+                  <span className="ml-1 text-[10px] text-[var(--text-3)]">
                     +{row.hours}h
                   </span>
                 )}
@@ -527,7 +527,7 @@ export function PortWeatherPanel({
         ))}
       </div>
 
-      <p className="mt-1.5 text-[9px] leading-snug text-[var(--text-3)]">
+      <p className="mt-1.5 text-[10px] leading-snug text-[var(--text-3)]">
         Significant wave height{" "}
         <span className="text-[var(--crit)]">UNAVAILABLE</span> in this run.
         Sub-daily values are interpolated from the daily impact forecast.
@@ -585,7 +585,7 @@ export function PortSummary({
                     })`,
                   }}
                 />
-                <span className="text-[9.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                <span className="text-[10.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                   {label}
                 </span>
               </div>
@@ -691,7 +691,7 @@ export function PortSummary({
           <p className="mt-1 text-[10.5px] leading-snug text-[var(--text-2)]">
             {decision.rationale}
           </p>
-          <div className="num mt-1 text-[9.5px] text-[var(--text-3)]">
+          <div className="num mt-1 text-[10.5px] text-[var(--text-3)]">
             priority {decision.priorityScore.toFixed(2)} · confidence{" "}
             {decision.confidence.toFixed(2)}
             {decision.expectedDelaySavedHours != null

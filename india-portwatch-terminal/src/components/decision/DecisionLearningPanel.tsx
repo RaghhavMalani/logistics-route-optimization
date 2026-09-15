@@ -67,7 +67,7 @@ export function DecisionLearningPanel() {
                 ] as Array<[string, string | null]>
               ).map(([label, value]) => (
                 <div key={label}>
-                  <div className="text-[9px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                  <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                     {label}
                   </div>
                   <div className="num text-[15px] leading-none text-[var(--text)]">
@@ -81,7 +81,7 @@ export function DecisionLearningPanel() {
             <Section title="Prediction error, option taken">
               <table className="w-full text-[10px]">
                 <thead>
-                  <tr className="text-[8.5px] uppercase tracking-wide text-[var(--text-3)]">
+                  <tr className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                     <th className="text-left font-normal">objective</th>
                     <th className="text-right font-normal">MAE</th>
                     <th className="text-right font-normal">bias</th>
@@ -132,7 +132,7 @@ export function DecisionLearningPanel() {
             </Section>
           ) : null}
           <Section title="Method">
-            <p className="text-[9.5px] leading-relaxed text-[var(--text-3)]">
+            <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
               {data.method}
             </p>
           </Section>

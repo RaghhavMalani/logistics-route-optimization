@@ -125,7 +125,7 @@ export function PortDecisionPanel({
         problem ? (
           <Pill tone="warn">Action required</Pill>
         ) : (
-          <span className="text-[9.5px]">what should we do?</span>
+          <span className="text-[10.5px]">what should we do?</span>
         )
       }
       testId="port-decision"
@@ -181,11 +181,11 @@ export function PortDecisionPanel({
             </button>
           </div>
           {create.isError ? (
-            <p className="mt-1 text-[9.5px] text-[var(--crit)]">
+            <p className="mt-1 text-[10.5px] text-[var(--crit)]">
               {(create.error as Error).message}
             </p>
           ) : null}
-          <p className="mt-2 text-[9px] leading-snug text-[var(--text-3)]">
+          <p className="mt-2 text-[10px] leading-snug text-[var(--text-3)]">
             The bunching is a scenario assumption on a clone of the observed
             twin, recorded as one. The observed twin is never edited.
           </p>

@@ -103,7 +103,7 @@ export function CommandBar() {
         )}
       >
         <span>Ask the world</span>
-        <kbd className="num rounded border border-[var(--line)] px-1 text-[9px]">
+        <kbd className="num rounded border border-[var(--line)] px-1 text-[10px]">
           ⌘K
         </kbd>
       </button>
@@ -141,7 +141,7 @@ export function CommandBar() {
           )}
         />
         {mutation.isPending ? (
-          <span className="num text-[9.5px] text-[var(--text-3)]">working…</span>
+          <span className="num text-[10.5px] text-[var(--text-3)]">working…</span>
         ) : null}
         <button
           type="button"
@@ -155,7 +155,7 @@ export function CommandBar() {
 
       {!run && !mutation.isPending ? (
         <div className="px-2.5 py-2">
-          <p className="mb-1.5 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+          <p className="mb-1.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
             Try
           </p>
           <div className="flex flex-col gap-1">
@@ -188,14 +188,14 @@ export function CommandBar() {
 
           {applied.length ? (
             <div className="mt-2">
-              <p className="mb-1 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+              <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                 What changed
               </p>
               <ul data-testid="command-applied" className="flex flex-col gap-0.5">
                 {applied.map((outcome, index) => (
                   <li
                     key={`${outcome.kind}-${index}`}
-                    className="num text-[9.5px] text-[var(--text-2)]"
+                    className="num text-[10.5px] text-[var(--text-2)]"
                   >
                     {outcome.reason}
                   </li>
@@ -210,14 +210,14 @@ export function CommandBar() {
           */}
           {refused.length ? (
             <div className="mt-2">
-              <p className="mb-1 text-[9px] uppercase tracking-wide text-[var(--text-3)]">
+              <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                 Not run
               </p>
               <ul data-testid="command-refused" className="flex flex-col gap-0.5">
                 {refused.map((outcome, index) => (
                   <li
                     key={`${outcome.kind}-${index}`}
-                    className="text-[9.5px] text-[var(--text-3)]"
+                    className="text-[10.5px] text-[var(--text-3)]"
                   >
                     <Pill tone="neutral">{outcome.kind}</Pill>{" "}
                     {outcome.reason}
@@ -228,7 +228,7 @@ export function CommandBar() {
           ) : null}
 
           {run.spatial?.length === 0 ? (
-            <p className="mt-2 text-[9.5px] italic text-[var(--text-3)]">
+            <p className="mt-2 text-[10.5px] italic text-[var(--text-3)]">
               Nothing in this answer named a subject the world could move to, so
               the view is unchanged.
             </p>

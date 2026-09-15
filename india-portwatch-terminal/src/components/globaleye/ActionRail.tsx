@@ -125,7 +125,7 @@ export function ActionRail({
                 {item.recommendedAction?.summary ?? item.doNothingOutcome}
               </p>
 
-              <div className="mt-1 flex items-center gap-2 text-[9.5px] text-[var(--text-3)]">
+              <div className="mt-1 flex items-center gap-2 text-[10.5px] text-[var(--text-3)]">
                 {effect.available ? (
                   <span className="num truncate">{effect.statement}</span>
                 ) : (
@@ -139,27 +139,25 @@ export function ActionRail({
               </div>
             </button>
 
-            <button
-              type="button"
-              data-testid="inspect-item"
-              onClick={() => onInspect(item)}
-              title="Show the computation behind this"
-              className={cn(
-                "absolute right-1.5 top-1.5 rounded px-1 py-0.5 text-[9px] uppercase tracking-wide",
-                "text-[var(--text-3)] opacity-0 transition-opacity",
-                "hover:bg-[var(--surface)] hover:text-[var(--text)]",
-                "focus:opacity-100 group-hover:opacity-100",
-              )}
-            >
-              why
-            </button>
             {/*
-            The product's primary question. Only an actionable hull gets it:
-            a committed one has no option left to compute, and offering the
-            button would be offering a fiction.
-          */}
-            {onDecide && item.subjectType === "vessel" && item.actionable ? (
-              <div className="flex justify-end px-2 pb-1.5">
+              A bottom row: the evidence affordance on the left, and on the
+              right the product's primary question. Only an actionable hull
+              gets the question: a committed one has no option left to
+              compute, and offering the button would be offering a fiction.
+              The row is always present so "why" never floats over the
+              deadline in the header, which it used to cover on hover.
+            */}
+            <div className="flex items-center justify-between px-2 pb-1.5">
+              <button
+                type="button"
+                data-testid="inspect-item"
+                onClick={() => onInspect(item)}
+                title="Show the computation behind this"
+                className="rounded px-1 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-3)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+              >
+                why
+              </button>
+              {onDecide && item.subjectType === "vessel" && item.actionable ? (
                 <button
                   type="button"
                   data-testid="decide-item"
@@ -167,7 +165,7 @@ export function ActionRail({
                   disabled={decidingId === item.attentionId}
                   className={cn(
                     "rounded border border-[var(--line-strong)] px-1.5 py-0.5",
-                    "text-[9px] font-semibold uppercase tracking-wide text-[var(--text)]",
+                    "text-[10px] font-semibold uppercase tracking-wide text-[var(--text)]",
                     "hover:bg-[var(--accent)] hover:text-[var(--surface)] disabled:opacity-50",
                   )}
                 >
@@ -175,14 +173,14 @@ export function ActionRail({
                     ? "computing…"
                     : "what should we do?"}
                 </button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         );
       })}
 
       {total > items.length ? (
-        <p className="px-2 py-1.5 text-[9.5px] text-[var(--text-3)]">
+        <p className="px-2 py-1.5 text-[10.5px] text-[var(--text-3)]">
           {total - items.length} further ranked below the cut.
         </p>
       ) : null}

@@ -314,7 +314,7 @@ function VesselBridge() {
                                 {formatBearing(contact.bearing)}
                               </span>
                             </button>
-                            <div className="px-1 pb-[2px] text-[9px] text-[var(--text-3)]">
+                            <div className="px-1 pb-[2px] text-[10px] text-[var(--text-3)]">
                               {waypoint(contact.fix.destinationId)?.name.split(
                                 " (",
                               )[0] ?? "—"}{" "}

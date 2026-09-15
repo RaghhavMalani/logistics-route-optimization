@@ -83,7 +83,7 @@ export function ContextMap({
               />
             </div>
             {note ? (
-              <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 max-w-[300px] rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1 text-[9.5px] leading-snug text-[var(--text-3)]">
+              <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 max-w-[300px] rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1 text-[10.5px] leading-snug text-[var(--text-3)]">
                 {note}
               </div>
             ) : null}

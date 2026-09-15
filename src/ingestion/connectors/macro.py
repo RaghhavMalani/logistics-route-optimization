@@ -54,12 +54,15 @@ def fetch_macro_conditions(days: int = 540) -> pd.DataFrame:
     if frames:
         macro = pd.concat(frames, axis=1).sort_index().ffill()
         macro = macro.tail(days).reset_index()
-        provenance.record("Macro: oil / FX / inflation (FRED)", provenance.LIVE)
+        provenance.record("Macro: oil / FX / inflation (FRED)", provenance.LIVE,
+                          "Brent, USD/INR and CPI series from the public CSV endpoints",
+                          provider="FRED (Federal Reserve Bank of St. Louis)")
     else:
         log.warning("Macro: FRED unavailable; using synthetic conditions.")
         macro = _synthetic(days)
         provenance.record("Macro: oil / FX / inflation (FRED)",
-                          provenance.SYNTHETIC, "FRED unreachable")
+                          provenance.SYNTHETIC, "FRED unreachable",
+                          provider="FRED (Federal Reserve Bank of St. Louis)", fallback="synthetic conditions")
 
     # ensure all columns exist
     for c in ["brent_usd", "usd_inr", "cpi_index"]:

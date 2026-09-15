@@ -73,7 +73,7 @@ export function TrafficFilters({
           <button
             type="button"
             onClick={workspace.resetFilters}
-            className="text-[9.5px] hover:text-[var(--text)]"
+            className="text-[10.5px] hover:text-[var(--text)]"
           >
             reset
           </button>
@@ -113,7 +113,7 @@ export function TrafficFilters({
           <button
             type="button"
             onClick={() => setShowFields((v) => !v)}
-            className="text-[9.5px] hover:text-[var(--text)]"
+            className="text-[10.5px] hover:text-[var(--text)]"
           >
             {showFields ? "hide fields" : "field"}
           </button>
@@ -163,7 +163,7 @@ export function TrafficFilters({
                 {spec.label}
               </Chip>
             ))}
-            <span className="mt-1 block w-full text-[9.5px] leading-snug text-[var(--text-3)]">
+            <span className="mt-1 block w-full text-[10.5px] leading-snug text-[var(--text-3)]">
               Significant wave height is{" "}
               <span className="text-[var(--crit)]">UNAVAILABLE</span>: the
               marine feed returned no wave data in this run.
@@ -223,11 +223,11 @@ export function EnvironmentLegend({
       )}
       data-testid="environment-legend"
     >
-      <div className="flex items-baseline gap-2">
-        <span className="eyebrow text-[9px]">
+      <div className="flex items-baseline gap-2 whitespace-nowrap">
+        <span className="eyebrow shrink-0 text-[10px]">
           {composite ? "Environment" : spec?.label}
         </span>
-        <span className="num text-[9.5px] text-[var(--text-3)]">
+        <span className="num min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-3)]">
           {composite ? "rain · wind · severe" : spec?.unit}
         </span>
         {frame.derived ? (
@@ -249,7 +249,7 @@ export function EnvironmentLegend({
               className="block h-[6px] w-full"
               style={{ background: stop.color }}
             />
-            <span className="num mt-[2px] block text-center text-[8.5px] text-[var(--text-3)]">
+            <span className="num mt-[2px] block text-center text-[10px] text-[var(--text-3)]">
               {stop.label}
             </span>
           </span>
@@ -269,12 +269,12 @@ export function EnvironmentLegend({
             ] as Array<[string, number | null, string]>
           ).map(([label, value, unit]) => (
             <div key={label}>
-              <div className="text-[8.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+              <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                 peak {label}
               </div>
               <div className="num text-[11px] leading-none text-[var(--text)]">
                 {value == null ? "—" : value.toFixed(value < 1 ? 3 : 1)}
-                <span className="ml-0.5 text-[8.5px] text-[var(--text-3)]">
+                <span className="ml-0.5 text-[10px] text-[var(--text-3)]">
                   {unit}
                 </span>
               </div>
@@ -283,7 +283,7 @@ export function EnvironmentLegend({
         </div>
       ) : null}
 
-      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--line)]/60 pt-1 text-[9px] text-[var(--text-3)]">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--line)]/60 pt-1 text-[10px] text-[var(--text-3)]">
         <span className="flex items-center gap-1">
           <span className="h-[2px] w-4 rounded-full bg-[#8fd0ef]" />
           Wind flow
@@ -336,8 +336,8 @@ function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
       data-status={marine?.availability.status ?? "LOADING"}
     >
       <div className="flex items-baseline gap-2">
-        <span className="eyebrow text-[9px]">Sea state</span>
-        <span className="num text-[9.5px] text-[var(--text-3)]">
+        <span className="eyebrow text-[10px]">Sea state</span>
+        <span className="num text-[10.5px] text-[var(--text-3)]">
           sig. wave · swell · current
         </span>
         {marine ? (
@@ -357,13 +357,13 @@ function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
               className="block h-[6px] w-full"
               style={{ background: color }}
             />
-            <span className="num mt-[2px] block text-center text-[8.5px] text-[var(--text-3)]">
+            <span className="num mt-[2px] block text-center text-[10px] text-[var(--text-3)]">
               {label}
             </span>
           </span>
         ))}
       </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[9px] text-[var(--text-3)]">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-[var(--text-3)]">
         <span className="flex items-center gap-1">
           <span className="h-[2px] w-4 border-t border-dashed border-[#d9c7ff]" />
           Swell from
@@ -379,7 +379,7 @@ function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
       </div>
       {marine?.availability.status === "AVAILABLE" ? (
         <p
-          className="mt-0.5 text-[8.5px] leading-snug text-[var(--text-3)]"
+          className="mt-0.5 text-[10px] leading-snug text-[var(--text-3)]"
           data-testid="seastate-attribution"
         >
           {marine.productId} · fetched{" "}
@@ -392,7 +392,7 @@ function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
           {marine.attribution}
         </p>
       ) : marine ? (
-        <p className="mt-0.5 text-[8.5px] leading-snug text-[var(--unc)]">
+        <p className="mt-0.5 text-[10px] leading-snug text-[var(--unc)]">
           {marine.availability.reason}
         </p>
       ) : null}
@@ -413,7 +413,7 @@ export function VesselClassLegend({ className }: { className?: string }) {
       {Object.values(VESSEL_CLASSES).map((spec) => (
         <span
           key={spec.key}
-          className="flex items-center gap-1 text-[9.5px] text-[var(--text-3)]"
+          className="flex items-center gap-1 text-[10.5px] text-[var(--text-3)]"
         >
           <span
             aria-hidden
@@ -423,7 +423,7 @@ export function VesselClassLegend({ className }: { className?: string }) {
           {spec.label}
         </span>
       ))}
-      <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[9.5px] text-[var(--text-3)]">
+      <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[10.5px] text-[var(--text-3)]">
         <span
           aria-hidden
           className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#93a7b8]"

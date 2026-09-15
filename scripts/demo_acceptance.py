@@ -44,6 +44,7 @@ class Api:
             self._client = TestClient(app)
 
     def get(self, path: str, headers: Optional[Dict[str, str]] = None, **params: Any) -> Tuple[int, Any]:
+        """GET with the acceptance identity; admin routes need National Command."""
         query = "&".join(f"{k}={v}" for k, v in params.items() if v is not None)
         url = f"{path}?{query}" if query else path
         head = headers or HEADERS
@@ -672,6 +673,217 @@ def run(api: Api, mode: str) -> int:
                 return f"the {name} ranking does not state its weights"
         return None
     rows.check("15. Port and cargo decisions run through the same engine as vessel routing", port_and_cargo)
+
+    # -------------------------------------------------------- productisation --
+    def world_ready():
+        status, body = api.get("/health")
+        if status != 200:
+            return f"HTTP {status}"
+        licence = body.get("licenceMode") or {}
+        if not licence.get("stated"):
+            return f"the licence mode is not stated: {licence.get('warning')}"
+        if licence.get("mode") != mode:
+            return f"the process runs in {licence.get('mode')}, not {mode}"
+        clock = body.get("worldClock") or {}
+        if clock.get("mode") != "LIVE":
+            return f"the world clock is {clock.get('mode')} at acceptance time"
+        state["health_body"] = body
+        return None
+    rows.check("16. World ready: the licence mode is stated and the world clock reads LIVE", world_ready)
+
+    def freshness():
+        status, body = api.get("/admin/freshness")
+        if status != 200:
+            return f"HTTP {status}"
+        rows_by = {r["artifact"]: r for r in body["artifacts"]}
+        for artifact in ("events", "marine", "port_forecast", "traffic", "world"):
+            if artifact not in rows_by:
+                return f"no freshness row for {artifact}"
+        register = rows_by["events"]
+        if register["state"] in ("MISSING", "STALE"):
+            return f"the event register is {register['state']}: {register['reason'] or register['job'].get('lastResult')}"
+        forecast = rows_by["port_forecast"]
+        if forecast["state"] == "MISSING":
+            return "the port forecast has never been produced"
+        for row in body["artifacts"]:
+            if row["observedAt"] and row["ageSeconds"] is not None and row["ageSeconds"] < 0:
+                return f"{row['artifact']} reports a negative age; a timestamp was moved"
+            if not row["policy"]["rationale"]:
+                return f"{row['artifact']} has no stated policy rationale"
+        state["freshness"] = body
+        return None
+    rows.check("17. Freshness is a policy per artifact, the register is within it, and no age was rewritten", freshness)
+
+    def provenance():
+        status, body = api.get("/provenance")
+        if status != 200:
+            return f"HTTP {status}"
+        sources = body.get("sources") or {}
+        if not sources:
+            return "no provenance sources recorded"
+        for name, source in sources.items():
+            if source.get("status") not in ("LIVE", "CACHED_LIVE", "STALE", "SYNTHETIC", "SIMULATED_TRAFFIC", "SCHEMATIC", "UNAVAILABLE"):
+                return f"{name} has an unknown provenance status {source.get('status')}"
+            if not source.get("provider"):
+                return f"{name} names no provider"
+        return None
+    rows.check("18. Every provenance source names its provider and a known status", provenance)
+
+    def cascade_reaches():
+        status, body = api.get("/world/cascades", mode=mode)
+        if status != 200:
+            return f"HTTP {status}"
+        live = [c for c in body.get("cascades", body.get("rows", [])) if c.get("live")]
+        if not live:
+            return "no live cascade in the register at acceptance time"
+        first = live[0]
+        status, detail = api.get(f"/world/cascades/{first['eventId']}", mode=mode)
+        if status != 200:
+            return f"detail HTTP {status}"
+        if not detail.get("steps"):
+            return "the cascade carries no step trace"
+        kinds = {s["kind"] for s in detail.get("affected", {}).get("chokepoints", [])} | {"port" for _ in detail["affected"].get("ports", [])}
+        if not detail["affected"].get("lanes"):
+            return "the cascade reaches no lane"
+        state["cascade"] = detail
+        return None
+    rows.check("19. A live event's cascade reaches lanes with a full step trace", cascade_reaches)
+
+    def commodity_exposure():
+        status, body = api.get("/trade/exposure")
+        if status != 200:
+            return f"HTTP {status}"
+        if body.get("kind") != "STRUCTURAL EXPOSURE":
+            return f"the exposure calls itself {body.get('kind')!r}"
+        text = json.dumps(body)
+        import re
+
+        if re.search(r"\b\d+(\.\d+)? ?(MMT|million tonnes|TEU|crore)\b", text) or "\u20b9" in text:
+            return "a volume or value appears in the structural exposure payload"
+        for chain in body.get("chains", []):
+            if not chain.get("sources"):
+                return f"a chain to {chain['commodityClass']} at {chain['portCode']} carries no source"
+        status, catalogue = api.get("/trade/catalogue")
+        if status != 200:
+            return f"catalogue HTTP {status}"
+        if not all(link.get("sources") for link in catalogue.get("links", [])):
+            return "a port-class link in the catalogue carries no source"
+        return None
+    rows.check("20. Commodity exposure is structural, sourced on every link, and carries no volume", commodity_exposure)
+
+    def security_honest():
+        status, body = api.get("/security/lens", mode=mode)
+        if status != 200:
+            return f"HTTP {status}"
+        traffic = state["traffic"]["mode"]
+        if traffic in ("LIVE_AIS", "AIS_STALE"):
+            if body.get("status") != "SECURITY ANALYTICS AVAILABLE":
+                return f"observed traffic but the lens says {body.get('status')}"
+            for d in body.get("detections", []):
+                for key in ("rule", "evidence", "threshold", "confidence", "observationTimestamps"):
+                    if key not in d:
+                        return f"a detection lacks {key}"
+            return None
+        if body.get("status") != "SECURITY ANALYTICS UNAVAILABLE":
+            return f"traffic is {traffic} but the lens says {body.get('status')}"
+        if body.get("detections"):
+            return "detections were produced on simulated traffic"
+        return None
+    rows.check("21. Security analytics run only on observed AIS, and say UNAVAILABLE otherwise", security_honest)
+
+    def second_mission():
+        status, body = api.get("/missions")
+        if status != 200:
+            return f"HTTP {status}"
+        kinds = {m.get("subjectKind") for m in body["missions"]}
+        if kinds != {"chokepoint", "port"}:
+            return f"the mission catalogue holds {sorted(k for k in kinds if k)}, not a strait and a port mission"
+        port_mission = next(m for m in body["missions"] if m["subjectKind"] == "port")
+        status, replay = api.post(f"/missions/{port_mission['missionId']}/replay", {"offsetHours": 0}, headers=HEADERS)
+        if status != 200:
+            return f"replay HTTP {status}"
+        if replay["hidden"] is not None or replay["hiddenCount"] <= 0:
+            return "the port mission leaks its future or has none"
+        status, world = api.get(f"/missions/{port_mission['missionId']}/world")
+        if status != 200:
+            return f"world HTTP {status}"
+        hull = replay["fleet"][0]["vesselId"]
+        status, problem = api.post(f"/missions/{port_mission['missionId']}/decide", {"vesselId": hull}, headers=COMPANY)
+        if status != 200:
+            return f"decide HTTP {status}: {problem}"
+        offered = {o["action"] for o in problem["options"]}
+        if "REROUTE" in offered:
+            return "a routing change was offered against a port closure"
+        rows_by = {r["kind"]: r for r in problem["availableActions"]}
+        if rows_by["REROUTE"]["availability"]["status"] == "AVAILABLE":
+            return "REROUTE is marked available against a port closure"
+        state["port_mission"] = port_mission["missionId"]
+        state["port_hull"] = hull
+        return None
+    rows.check("22. A second, structurally different mission (a cyclone over ports) replays and decides", second_mission)
+
+    def mission_comparison():
+        status, body = api.get("/missions/compare")
+        if status != 200:
+            return f"HTTP {status}"
+        if len(body.get("missions", [])) < 2:
+            return "fewer than two missions compared"
+        keys = {row["key"] for row in body["table"]}
+        for expected in ("forecastHorizonHours", "predictionErrorHours", "regret.meanHours", "calibration.meanBrier",
+                         "dataCompleteness.statedTimeShare"):
+            if expected not in keys:
+                return f"the comparison lacks {expected}"
+        for card in body["missions"]:
+            if card["regret"]["hullsScored"] == 0:
+                return f"{card['missionId']} scored no hull"
+        return None
+    rows.check("23. The mission scorecard comparison reads both missions the same way", mission_comparison)
+
+    def approval_guard():
+        problem = held.get("problem")
+        if not problem:
+            raise Skip("no vessel problem from claim 1")
+        # The engine's own guard, exercised in-process: a moved world refuses approval.
+        from src.portwatch_os.decision.engine import revision_moved
+
+        reason = revision_moved({"mode": "DEMO", "fingerprint": "a", "observedGeneration": 1},
+                                {"mode": "DEMO", "fingerprint": "b", "observedGeneration": 2})
+        if not reason:
+            return "a changed world revision is not detected"
+        if revision_moved({"mode": "REPLAY", "fingerprint": "a"}, {"mode": "DEMO", "fingerprint": "b"}):
+            return "a replayed world counts as moved"
+        return None
+    rows.check("24. Approval is refused on a world that moved on, unless acknowledged", approval_guard)
+
+    def diagnostics():
+        status, body = api.get("/admin/diagnostics")
+        if status != 200:
+            return f"HTTP {status}"
+        for key in ("counters", "timers", "world", "worldClock", "traffic", "freshness"):
+            if key not in body:
+                return f"diagnostics lack {key}"
+        if not any(k.startswith("api.latency") for k in body["timers"]):
+            return "no API latency has been recorded"
+        text = json.dumps(body)
+        for name in ("AISSTREAM_API_KEY", "OPEN_METEO_API_KEY"):
+            value = os.getenv(name)
+            if value and value in text:
+                return f"{name}'s value appears in the diagnostics"
+        return None
+    rows.check("25. Observability: diagnostics carry latency, world, traffic and freshness, and no secret", diagnostics)
+
+    def readiness():
+        status, body = api.get("/admin/readiness", mode=mode)
+        if status != 200:
+            return f"HTTP {status}"
+        if not body.get("ready"):
+            return f"the deployment is not ready: {body.get('refusals')}"
+        names = {c["name"] for c in body["checks"]}
+        for expected in ("licence_mode", "credentials", "traffic_honesty", "freshness:events", "world_clock"):
+            if expected not in names:
+                return f"readiness lacks the {expected} check"
+        return None
+    rows.check("26. Deployment readiness passes for this mode with every required check present", readiness)
 
     return rows.report()
 

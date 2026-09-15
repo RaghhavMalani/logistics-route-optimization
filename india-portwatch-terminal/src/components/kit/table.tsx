@@ -113,7 +113,7 @@ export function DataTable<T>({
                     {column.sort ? (
                       <span
                         className={cn(
-                          "text-[8px] leading-none transition-opacity",
+                          "text-[10px] leading-none transition-opacity",
                           active ? "text-[var(--info)] opacity-100" : "opacity-25",
                         )}
                         aria-hidden

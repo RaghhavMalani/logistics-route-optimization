@@ -84,13 +84,17 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
     emphasise: ["traffic", "chokepoints", "tracks"],
     recede: ["routes", "ports", "weather", "cascade"],
     hide: ["zones", "vectors", "events", "seastate"],
+    // The lens asks the backend's security rules; under the replay the answer
+    // is SECURITY ANALYTICS UNAVAILABLE and this is why. The marker on the bar
+    // says so before the click.
     unavailable: {
       headline: "No observed AIS in this deployment",
       detail:
-        "Every signal this lens reads -- transmission gaps, impossible jumps, " +
-        "loitering, identity changes, ship-to-ship proximity -- is a property " +
-        "of observed AIS. The traffic on this chart is a deterministic replay, " +
-        "so a detection drawn here would be a detection of the simulator.",
+        "Every rule this lens runs -- prolonged AIS gap, improbable jump, " +
+        "loitering, route deviation, destination inconsistency, abnormal speed " +
+        "state, repeated identity conflict -- is a property of observed AIS. The " +
+        "traffic on this chart is a deterministic replay, so a detection drawn " +
+        "here would be a detection of the simulator.",
       needs: [
         "an observed AIS provider (AISStream for research, Spire or Kpler commercially)",
         "vessel identity across registries, which Global Fishing Watch provides non-commercially",
@@ -102,22 +106,15 @@ export const LENS_DEFINITIONS: Record<Lens, LensDefinition> = {
   CARGO: {
     lens: "CARGO",
     label: "Cargo",
-    purpose: "Consignments moving between hulls, yards and quays.",
-    emphasise: ["ports", "routes", "zones", "cascade"],
-    recede: ["traffic", "weather", "chokepoints"],
-    hide: ["events", "vectors", "ghosts", "seastate"],
-    unavailable: {
-      headline: "Cargo is demo data behind real feasibility rules",
-      detail:
-        "The transshipment optimiser is real and its constraints are enforced, " +
-        "but the manifests it runs on are generated. Drawing cargo lineage " +
-        "across the world would present invented consignments as observed ones.",
-      needs: [
-        "a terminal operating system or customer manifest feed",
-        "container lineage across the vessels and yards a consignment passes",
-        "customs state, which no public source carries",
-      ],
-    },
+    // Structural exposure is real and sourced: which Indian cargo classes the
+    // selected event reaches, through which straits, lanes and ports. What
+    // stays unavailable is cargo *lineage* -- the manifests are generated --
+    // and the exposure panel says so in its own disclaimer rather than
+    // drawing consignments across the world.
+    purpose: "Which Indian cargo classes the event structurally reaches.",
+    emphasise: ["ports", "routes", "cascade", "chokepoints"],
+    recede: ["traffic", "weather", "events"],
+    hide: ["zones", "vectors", "ghosts", "seastate"],
   },
 
   FINANCIAL: {

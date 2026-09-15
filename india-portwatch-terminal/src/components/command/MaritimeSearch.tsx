@@ -209,7 +209,7 @@ export function MaritimeSearch({
               >
                 <span
                   className={cn(
-                    "shrink-0 rounded-[2px] px-1 py-[1px] text-[8.5px] font-semibold uppercase tracking-[0.08em]",
+                    "shrink-0 rounded-[2px] px-1 py-[1px] text-[10px] font-semibold uppercase tracking-[0.08em]",
                     hit.kind === "vessel"
                       ? "bg-[var(--info-dim)] text-[var(--info)]"
                       : hit.kind === "port"

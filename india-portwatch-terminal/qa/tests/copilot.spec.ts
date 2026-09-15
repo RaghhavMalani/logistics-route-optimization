@@ -31,9 +31,11 @@ async function settledCascade(page: import("@playwright/test").Page) {
   const read = () =>
     page.evaluate(
       () =>
-        (window as unknown as {
-          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-        }).__portwatchSources?.cascade?.features.length ?? 0,
+        (
+          window as unknown as {
+            __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+          }
+        ).__portwatchSources?.cascade?.features.length ?? 0,
     );
   let previous = -1;
   for (let i = 0; i < 20; i += 1) {
@@ -52,10 +54,13 @@ async function worldState(page: import("@playwright/test").Page) {
       .querySelector('[data-testid="lens-option"][data-active="true"]')
       ?.getAttribute("data-lens"),
     cascadeFeatures:
-      (window as unknown as {
-        __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-      }).__portwatchSources?.cascade?.features.length ?? 0,
-    attentionCount: document.querySelectorAll('[data-testid="attention-item"]').length,
+      (
+        window as unknown as {
+          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+        }
+      ).__portwatchSources?.cascade?.features.length ?? 0,
+    attentionCount: document.querySelectorAll('[data-testid="attention-item"]')
+      .length,
   }));
 }
 
@@ -92,7 +97,9 @@ test.describe("spatial copilot", () => {
     await page.getByTestId("command-bar-open").click();
     await page.getByTestId("command-suggestion").first().click();
 
-    await expect(page.getByTestId("command-answer")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("command-answer")).toBeVisible({
+      timeout: 20_000,
+    });
 
     // What changed is reported, and it is not empty.
     const applied = page.getByTestId("command-applied");
@@ -127,17 +134,29 @@ test.describe("spatial copilot", () => {
     // Drive the dispatcher directly with the two classes that must not run
     // automatically, then assert both were refused with a reason.
     const outcomes = await page.evaluate(() => {
-      const probe = (window as unknown as {
-        __portwatchWorld?: {
-          dispatch: (c: Record<string, unknown>) => {
-            kind: string; applied: boolean; reason: string;
+      const probe = (
+        window as unknown as {
+          __portwatchWorld?: {
+            dispatch: (c: Record<string, unknown>) => {
+              kind: string;
+              applied: boolean;
+              reason: string;
+            };
           };
-        };
-      }).__portwatchWorld;
+        }
+      ).__portwatchWorld;
       if (!probe) return null;
       return [
-        probe.dispatch({ kind: "COMPARE_SCENARIOS", subject: "x", safety: "SIMULATION" }),
-        probe.dispatch({ kind: "ISSUE_ADVISORY", subject: "x", safety: "OPERATIONAL" }),
+        probe.dispatch({
+          kind: "COMPARE_SCENARIOS",
+          subject: "x",
+          safety: "SIMULATION",
+        }),
+        probe.dispatch({
+          kind: "ISSUE_ADVISORY",
+          subject: "x",
+          safety: "OPERATIONAL",
+        }),
         probe.dispatch({ kind: "FOCUS_VESSEL", safety: "UI" }),
       ];
     });
@@ -170,7 +189,9 @@ test.describe("world lenses", () => {
     await expect(page.getByTestId("lens-option")).toHaveCount(6);
 
     const before = page.url();
-    await page.locator('[data-testid="lens-option"][data-lens="INTELLIGENCE"]').click();
+    await page
+      .locator('[data-testid="lens-option"][data-lens="INTELLIGENCE"]')
+      .click();
     await settle(page);
     // A lens is not a route.
     expect(page.url()).toBe(before);
@@ -197,7 +218,9 @@ test.describe("world lenses", () => {
     expect(beforeFeatures).toBeGreaterThan(0);
     const before = await worldState(page);
 
-    await page.locator('[data-testid="lens-option"][data-lens="INTELLIGENCE"]').click();
+    await page
+      .locator('[data-testid="lens-option"][data-lens="INTELLIGENCE"]')
+      .click();
     await settle(page);
     const afterFeatures = await settledCascade(page);
     const after = await worldState(page);
@@ -223,15 +246,45 @@ test.describe("world lenses", () => {
     await page.goto("/admin/global-eye");
     await settle(page);
 
-    for (const lens of ["SECURITY", "CARGO", "FINANCIAL"]) {
-      await page.locator(`[data-testid="lens-option"][data-lens="${lens}"]`).click();
-      await settle(page);
-      const notice = page.getByTestId("lens-unavailable");
-      await expect(notice).toBeVisible();
-      // It states what is missing and what would fix it, rather than an
-      // apology with no next step.
-      await expect(notice).toContainText(/unavailable/i);
-    }
+    // The security lens asks the backend and is told, under the replay,
+    // SECURITY ANALYTICS UNAVAILABLE with the reason; the financial lens
+    // states what is missing. Neither draws a layer it did not get.
+    await page
+      .locator('[data-testid="lens-option"][data-lens="SECURITY"]')
+      .click();
+    await settle(page);
+    const security = page.getByTestId("lens-security");
+    await expect(security).toBeVisible();
+    await expect(security).toContainText(/unavailable/i);
+    await expect(page.getByTestId("security-detection")).toHaveCount(0);
+
+    await page
+      .locator('[data-testid="lens-option"][data-lens="FINANCIAL"]')
+      .click();
+    await settle(page);
+    const notice = page.getByTestId("lens-unavailable");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText(/unavailable/i);
+  });
+
+  test("the cargo lens shows structural exposure and never a volume", async ({
+    context,
+    page,
+  }) => {
+    await seedSession(context, "NATIONAL_ADMIN");
+    await page.goto("/admin/global-eye");
+    await settle(page);
+    await page.getByTestId("cascade-row").first().click();
+    await page
+      .locator('[data-testid="lens-option"][data-lens="CARGO"]')
+      .click();
+    await settle(page);
+    const report = page.getByTestId("lens-cargo");
+    await expect(report).toBeVisible();
+    await expect(report).toContainText(/structural exposure/i);
+    expect(await page.getByTestId("exposure-class").count()).toBe(8);
+    const text = (await report.textContent()) ?? "";
+    expect(text).not.toMatch(/\d+(\.\d+)? ?(MMT|million tonnes|TEU|crore|₹)/);
   });
 
   test("an observable lens draws rather than apologising", async ({
@@ -243,7 +296,9 @@ test.describe("world lenses", () => {
     await settle(page);
 
     for (const lens of ["OPERATIONS", "INTELLIGENCE", "WEATHER"]) {
-      await page.locator(`[data-testid="lens-option"][data-lens="${lens}"]`).click();
+      await page
+        .locator(`[data-testid="lens-option"][data-lens="${lens}"]`)
+        .click();
       await settle(page);
       await expect(page.getByTestId("lens-unavailable")).toHaveCount(0);
     }

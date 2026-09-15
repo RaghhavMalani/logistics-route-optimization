@@ -137,7 +137,7 @@ function ActionRow({
         {row.eventCategoryLabel} · {row.chokepoint.replace(/_/g, "-")}
       </div>
 
-      <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
+      <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
         {row.hoursToRiskArea != null ? (
           <span className="num">
             {row.hoursToRiskArea.toFixed(0)}h to the risk area
@@ -162,7 +162,7 @@ function ActionRow({
           {row.recommendedAction.replace(/_/g, " ")}
         </Pill>
         {row.diversionDeadline ? (
-          <span className="num text-[9.5px] text-[var(--warn)]">
+          <span className="num text-[10.5px] text-[var(--warn)]">
             by {formatUtc(row.diversionDeadline)}
           </span>
         ) : null}
@@ -304,7 +304,7 @@ function FleetCommand() {
                 footer={fleet.data?.disclaimer}
               >
                 <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
-                  <span className="eyebrow text-[8.5px]">Horizon</span>
+                  <span className="eyebrow text-[10px]">Horizon</span>
                   {[24, 48, 72, 168].map((hours) => (
                     <button
                       key={hours}
@@ -362,7 +362,7 @@ function FleetCommand() {
                             size={11}
                             className="text-[var(--crit)]"
                           />
-                          <span className="eyebrow text-[9px] text-[var(--crit)]">
+                          <span className="eyebrow text-[10px] text-[var(--crit)]">
                             Action required
                           </span>
                           <span className="num ml-auto text-[10px] text-[var(--text-2)]">
@@ -401,7 +401,7 @@ function FleetCommand() {
                             <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">
                               {row.vesselName}
                             </span>
-                            <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+                            <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
                               {row.chokepoint.replace(/_/g, "-")}
                             </span>
                             <span className="num shrink-0 text-[10.5px] text-[var(--unc)]">
@@ -454,7 +454,7 @@ function FleetCommand() {
                               </span>
                             )}
                           </div>
-                          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[9.5px] text-[var(--text-3)]">
+                          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--text-3)]">
                             <span className="num">{vessel.vessel_id}</span>
                             <span className="truncate">
                               {vessel.laneName ?? "no lane"}
@@ -489,7 +489,7 @@ function FleetCommand() {
                             <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text)]">
                               {port.portName}
                             </span>
-                            <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+                            <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
                               {port.affectedVessels} vsl
                             </span>
                             <span
@@ -502,7 +502,7 @@ function FleetCommand() {
                             </span>
                           </div>
                           {port.arrivalShiftHours ? (
-                            <div className="num mt-[2px] text-[9.5px] text-[var(--text-3)]">
+                            <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
                               arrivals shift +
                               {port.arrivalShiftHours.toFixed(1)} h
                             </div>
@@ -574,7 +574,7 @@ function FleetCommand() {
                           <div className="truncate text-[10.5px] text-[var(--text-2)]">
                             {row.eventTitle}
                           </div>
-                          <p className="mt-[2px] text-[9.5px] leading-snug text-[var(--text-3)]">
+                          <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-3)]">
                             {row.actionBasis}
                           </p>
                         </div>

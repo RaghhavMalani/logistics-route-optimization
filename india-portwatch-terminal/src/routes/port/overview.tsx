@@ -300,7 +300,7 @@ function PortCockpitScreen() {
                     <button
                       type="button"
                       onClick={() => setBoardOpen((v) => !v)}
-                      className="text-[9.5px] uppercase tracking-[0.08em] text-[var(--text-3)] hover:text-[var(--text)]"
+                      className="text-[10.5px] uppercase tracking-[0.08em] text-[var(--text-3)] hover:text-[var(--text)]"
                     >
                       {boardOpen ? "collapse" : "expand"}
                     </button>

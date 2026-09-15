@@ -146,11 +146,11 @@ export function AuditTrail({ advisory }: { advisory: Advisory }) {
           ) : null}
           <div className="flex items-baseline gap-2">
             <span className="text-[10.5px] text-[var(--text)]">{entry.action}</span>
-            <span className="num ml-auto shrink-0 text-[9px] text-[var(--text-3)]">
+            <span className="num ml-auto shrink-0 text-[10px] text-[var(--text-3)]">
               {formatUtc(entry.at)}
             </span>
           </div>
-          <div className="mt-[1px] flex items-center gap-1.5 text-[9.5px] text-[var(--text-3)]">
+          <div className="mt-[1px] flex items-center gap-1.5 text-[10.5px] text-[var(--text-3)]">
             <span>{entry.actor}</span>
             <Pill tone={entry.actor_role === "system" ? "neutral" : "info"}>
               {entry.actor_role}
@@ -160,7 +160,7 @@ export function AuditTrail({ advisory }: { advisory: Advisory }) {
             </span>
           </div>
           {entry.reason ? (
-            <p className="mt-[2px] text-[9.5px] leading-snug text-[var(--text-2)]">
+            <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-2)]">
               {entry.reason}
             </p>
           ) : null}
@@ -269,7 +269,7 @@ export function AdvisoryActions({
 
       {active ? (
         <div className="rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] p-1.5">
-          <label className="eyebrow block text-[8.5px]" htmlFor="advisory-reason">
+          <label className="eyebrow block text-[10px]" htmlFor="advisory-reason">
             Reason — required for {active.label.toLowerCase()}
           </label>
           <textarea
@@ -342,7 +342,7 @@ export function AdvisoryCard({
             </span>
             <Pill tone={advisoryTone(advisory.state)}>{advisoryLabel(advisory.state)}</Pill>
           </div>
-          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9.5px] text-[var(--text-3)]">
+          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
             <span className="num">{advisory.portCode}</span>
             <span className="truncate">→ {advisory.recipientVesselName}</span>
             <span className="num">{formatUtc(advisory.createdAt)}</span>
@@ -368,7 +368,7 @@ export function AdvisoryCard({
       {expanded ? (
         <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-2 py-2">
           <section>
-            <h4 className="eyebrow text-[8.5px]">Recommendation</h4>
+            <h4 className="eyebrow text-[10px]">Recommendation</h4>
             <div className="mt-1">
               <RecommendationBody
                 recommendation={advisory.recommendation}
@@ -376,7 +376,7 @@ export function AdvisoryCard({
               />
             </div>
             {advisory.modifiedFrom ? (
-              <p className="mt-1 text-[9.5px] leading-snug text-[var(--unc)]">
+              <p className="mt-1 text-[10.5px] leading-snug text-[var(--unc)]">
                 A controller changed this before issuing it. The original is struck
                 through above.
               </p>
@@ -384,7 +384,7 @@ export function AdvisoryCard({
           </section>
 
           <section>
-            <h4 className="eyebrow text-[8.5px]">Reason</h4>
+            <h4 className="eyebrow text-[10px]">Reason</h4>
             <p className="mt-1 text-[10.5px] leading-snug text-[var(--text-2)]">
               {advisory.reason}
             </p>
@@ -392,7 +392,7 @@ export function AdvisoryCard({
 
           {Object.keys(advisory.evidence).length ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">Evidence</h4>
+              <h4 className="eyebrow text-[10px]">Evidence</h4>
               <div className="mt-1">
                 <RecommendationBody recommendation={advisory.evidence} />
               </div>
@@ -401,10 +401,10 @@ export function AdvisoryCard({
 
           {advisory.criticReasons.length ? (
             <section>
-              <h4 className="eyebrow text-[8.5px]">Critic</h4>
+              <h4 className="eyebrow text-[10px]">Critic</h4>
               <ul className="mt-1 space-y-0.5">
                 {advisory.criticReasons.map((entry) => (
-                  <li key={entry} className="text-[9.5px] leading-snug text-[var(--text-3)]">
+                  <li key={entry} className="text-[10.5px] leading-snug text-[var(--text-3)]">
                     {entry}
                   </li>
                 ))}
@@ -413,14 +413,14 @@ export function AdvisoryCard({
           ) : null}
 
           <section>
-            <h4 className="eyebrow text-[8.5px]">Audit trail</h4>
+            <h4 className="eyebrow text-[10px]">Audit trail</h4>
             <div className="mt-1">
               <AuditTrail advisory={advisory} />
             </div>
           </section>
 
           <section>
-            <h4 className="eyebrow text-[8.5px]">Action</h4>
+            <h4 className="eyebrow text-[10px]">Action</h4>
             <div className="mt-1">
               <AdvisoryActions advisory={advisory} headers={headers} />
             </div>
@@ -467,7 +467,7 @@ export function ModifyRecommendation({
     <div className="space-y-1.5">
       {Object.keys(values).map((key) => (
         <label key={key} className="block">
-          <span className="text-[9.5px] text-[var(--text-3)]">{humanise(key)}</span>
+          <span className="text-[10.5px] text-[var(--text-3)]">{humanise(key)}</span>
           <input
             value={values[key]}
             onChange={(event) =>
@@ -478,7 +478,7 @@ export function ModifyRecommendation({
         </label>
       ))}
       <label className="block">
-        <span className="text-[9.5px] text-[var(--text-3)]">
+        <span className="text-[10.5px] text-[var(--text-3)]">
           Why the change — kept with the original for review
         </span>
         <input

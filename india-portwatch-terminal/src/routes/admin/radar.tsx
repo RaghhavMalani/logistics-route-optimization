@@ -261,7 +261,7 @@ function NationalRadar() {
                         ] as Array<[string, number]>
                       ).map(([label, count]) => (
                         <div key={label}>
-                          <div className="text-[9.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+                          <div className="text-[10.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                             {label}
                           </div>
                           <div className="num mt-[1px] text-[16px] leading-none text-[var(--text)]">
@@ -291,7 +291,7 @@ function NationalRadar() {
                             }}
                             className="grid w-full grid-cols-[16px_1fr_38px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
                           >
-                            <span className="num text-[9.5px] text-[var(--text-3)]">
+                            <span className="num text-[10.5px] text-[var(--text-3)]">
                               {String(index + 1).padStart(2, "0")}
                             </span>
                             <span className="truncate text-[11px] text-[var(--text)]">
@@ -337,7 +337,7 @@ function NationalRadar() {
                               >
                                 {alert.severity}
                               </Pill>
-                              <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">
+                              <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
                                 conf {alert.confidence?.toFixed(2) ?? "n/a"}
                               </span>
                             </div>

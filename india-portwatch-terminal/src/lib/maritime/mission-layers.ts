@@ -77,6 +77,25 @@ export function missionLayers(
     focusIds.add(hull.vesselId);
   }
 
+  // A port mission: the closed ports are the subject, drawn as rings the
+  // event's own position sits between.
+  for (const port of geography.ports ?? []) {
+    if (port.lat == null || port.lon == null) continue;
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [port.lon, port.lat] },
+      properties: {
+        part: "ring",
+        radius: 11,
+        color: BLOCKAGE_COLOUR,
+        width: 1.6,
+        opacity: problem ? 0.55 : 0.9,
+        kind: "port",
+        id: `mission:port:${port.code}`,
+      },
+    });
+  }
+
   // The blocked water. The decision layers draw it too when a problem is
   // open, from the problem's own evidence; without one, the mission says
   // where it is.
@@ -115,16 +134,34 @@ export function missionLabels(
     const ahead = Object.entries(hull.hoursToChokepoint)
       .filter(([, h]) => h != null && h >= 0)
       .sort((a, b) => a[1] - b[1])[0];
+    const toPort =
+      geography.subjectKind === "port" && hull.hoursToDestination != null
+        ? `${hull.hoursToDestination.toFixed(0)} h to ${hull.destinationPort} · modelled`
+        : null;
     out.push({
       id: `mission:hull:${hull.vesselId}`,
       lon: hull.lon,
       lat: hull.lat,
       text: hull.name,
-      sub: ahead
-        ? `${ahead[1].toFixed(0)} h to ${ahead[0]} · modelled`
-        : "past the strait · modelled",
+      sub:
+        toPort ??
+        (ahead
+          ? `${ahead[1].toFixed(0)} h to ${ahead[0]} · modelled`
+          : "past the strait · modelled"),
       color: SUBJECT_COLOUR,
       muted: Boolean(problem),
+    });
+  }
+  for (const port of geography.ports ?? []) {
+    if (port.lat == null || port.lon == null) continue;
+    out.push({
+      id: `mission:port:${port.code}`,
+      lon: port.lon,
+      lat: port.lat,
+      text: port.name,
+      sub: `${port.code} · closed to arrivals as reported at the clock`,
+      color: BLOCKAGE_COLOUR,
+      emphasis: !problem,
     });
   }
   const blockage = geography.chokepoint;
@@ -159,6 +196,9 @@ export function missionBounds(
   }
   if (geography.chokepoint.lat != null && geography.chokepoint.lon != null) {
     points.push([geography.chokepoint.lon, geography.chokepoint.lat]);
+  }
+  for (const port of geography.ports ?? []) {
+    if (port.lat != null && port.lon != null) points.push([port.lon, port.lat]);
   }
   return boundsOf(points);
 }
