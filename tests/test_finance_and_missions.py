@@ -231,6 +231,15 @@ class ApiTests(unittest.TestCase):
 
         reset_engine()
         reset_replays()
+        # Assumptions entered here are journalled; keep the journal out of the
+        # checkout's state directory.
+        import tempfile
+        from pathlib import Path
+
+        from src.portwatch_os.decision.engine import get_engine
+        from src.portwatch_os.finance.basis import AssumptionJournal
+
+        get_engine().assumption_journal = AssumptionJournal(Path(tempfile.mkdtemp(prefix="pw-test-")) / "a.jsonl")
         cls.client = TestClient(app)
         cls.company = {"X-PortWatch-Role": "SHIPPING_COMPANY", "X-PortWatch-Actor": "ops.desk",
                        "X-PortWatch-Org": "PortWatch Demo Shipping"}

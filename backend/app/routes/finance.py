@@ -79,7 +79,15 @@ def add_assumption(
         raise HTTPException(status_code=400, detail=str(exc))
     engine = get_engine()
     engine.basis.add(rate)
-    return {"added": rate.to_dict(), "label": "ASSUMPTION",
+    # Journalled before it is answered: an assumption that priced a decision
+    # must still exist after a restart, with who entered it.
+    journal = getattr(engine, "assumption_journal", None)
+    if journal is not None:
+        try:
+            journal.append(rate)
+        except OSError as exc:
+            raise HTTPException(status_code=503, detail=f"the assumption could not be journalled: {exc}")
+    return {"added": rate.to_dict(), "label": "ASSUMPTION", "journalled": journal is not None,
             "assumptions": [r.to_dict() for r in engine.basis.rates if r.is_assumption]}
 
 
@@ -115,7 +123,13 @@ def clear_assumptions(actor: Optional[str] = Header(None, alias="X-PortWatch-Act
     engine = get_engine()
     kept = [r for r in engine.basis.rates if not r.is_assumption]
     engine.basis._rates = kept  # noqa: SLF001 - the basis is the engine's own
-    return {"remaining": len(kept), "clearedBy": actor}
+    journal = getattr(engine, "assumption_journal", None)
+    if journal is not None:
+        try:
+            journal.clear(actor)
+        except OSError as exc:
+            raise HTTPException(status_code=503, detail=f"the clear could not be journalled: {exc}")
+    return {"remaining": len(kept), "clearedBy": actor, "journalled": journal is not None}
 
 
 @router.post("/finance/fx")

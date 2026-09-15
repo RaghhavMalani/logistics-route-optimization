@@ -45,6 +45,32 @@ def _licence_mode() -> dict:
     }
 
 
+def durable_stores() -> dict:
+    """What must survive a restart, and whether it will: the ledger, the
+    advisory register and the assumption journal, each probed on its own
+    path, with the state directory it lives in and how it was chosen."""
+    import os
+
+    from src.portwatch_os.advisories.store import probe_advisory_store
+    from src.portwatch_os.finance.basis import AssumptionJournal
+    from src.portwatch_os.ledger.store import probe_ledger
+    from src.utils.config import STATE_DIR
+
+    ledger = probe_ledger()
+    advisories = probe_advisory_store()
+    assumptions = AssumptionJournal().probe()
+    return {
+        "stateDir": str(STATE_DIR),
+        "stateDirSource": "PORTWATCH_STATE_DIR" if os.environ.get("PORTWATCH_STATE_DIR") else "default (outputs/)",
+        "ok": ledger["ok"] and advisories["ok"] and assumptions["ok"],
+        "ledger": ledger,
+        "advisories": advisories,
+        "costAssumptions": assumptions,
+        "ephemeral": ["decision engine memory (recomputable; the ledger holds every problem)",
+                      "scenario branches", "mission replays", "agent runs", "telemetry", "world state and caches"],
+    }
+
+
 @router.get("/health")
 def health_check() -> dict:
     now = wall_now()  # wall-clock: serverTimeUtc is the server's own time
@@ -72,8 +98,12 @@ def health_check() -> dict:
     except cache.CacheNotReadyError:
         available_ports = []
 
+    # The durable stores, probed rather than assumed: a ledger that will not
+    # open is reported here with its path, and the readiness page refuses.
+    stores = durable_stores()
+
     payload = {
-        "status": "ok" if artefacts["forecast"] else "degraded",
+        "status": "ok" if artefacts["forecast"] and stores["ok"] else "degraded",
         "service": "india-portwatch-backend",
         "serverTimeUtc": now.isoformat(),
         # The world's own clock: LIVE reads the wall; a replay, mission or
@@ -93,6 +123,7 @@ def health_check() -> dict:
         "ports": status.get("ports"),
         "availablePorts": available_ports,
         "artefacts": artefacts,
+        "durableStores": stores,
         "benchmark": {
             "available": bool(benchmark.get("available")),
             "version": benchmark.get("version"),

@@ -99,6 +99,32 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(Exception)
+async def _storage_failures(request: Request, exc: Exception):
+    """A durable store that will not open or write is a 503 with its reason,
+    never a 500 with a traceback and never a silently empty answer."""
+    import sqlite3
+
+    from fastapi.responses import JSONResponse
+
+    from src.portwatch_os.advisories.model import AdvisoryError
+    from src.portwatch_os.ledger.store import LedgerError
+
+    store_fault = isinstance(exc, AdvisoryError) and (
+        "cannot be opened" in str(exc) or "integrity check" in str(exc)
+    )
+    if isinstance(exc, (LedgerError, sqlite3.DatabaseError)) or store_fault:
+        from src.portwatch_os import telemetry
+
+        telemetry.incr("api.errors", route=request.url.path, status=503)
+        return JSONResponse(status_code=503, content={
+            "detail": f"a durable store is unavailable: {exc}",
+            "store": "ledger" if isinstance(exc, (LedgerError, sqlite3.DatabaseError)) else "advisories",
+            "remedy": "check PORTWATCH_STATE_DIR and /api/health.durableStores; nothing was substituted",
+        })
+    raise exc
+
+
 @app.middleware("http")
 async def _telemetry(request: Request, call_next):
     """Latency and error counts per route, for the diagnostics page.

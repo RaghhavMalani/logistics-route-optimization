@@ -27,6 +27,9 @@ label travels with every figure so the two are never confused.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -246,6 +249,72 @@ def assumption(
             "enteredAt": entered_at or wall_now().isoformat(timespec="seconds"),
         },
     )
+
+
+class AssumptionJournal:
+    """The operator's scenario assumptions, appended to a JSON-lines file so a
+    restart keeps them. Each line is one :func:`assumption` as entered, with
+    who entered it and when; nothing is ever rewritten."""
+
+    def __init__(self, path: Optional[Path] = None) -> None:
+        from src.utils.config import STATE_DIR
+
+        self.path = Path(path) if path is not None else STATE_DIR / "cost_assumptions.jsonl"
+
+    def append(self, rate: "CostRate") -> None:
+        if not rate.is_assumption:
+            raise ValueError("only an assumption is journalled; observations carry their own source")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(rate.to_dict(), sort_keys=True) + "\n")
+
+    def clear(self, actor: str) -> None:
+        """Record that ``actor`` cleared the assumptions. The journal stays
+        append-only: a marker line is written and :meth:`load` returns only
+        what was entered after the last marker, so the audit keeps every
+        figure ever entered and a restart honours the clear."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"cleared": True, "by": actor,
+                                     # wall-clock: audit stamp of a person clearing the assumptions
+                                     "at": wall_now().isoformat(timespec="seconds")}, sort_keys=True) + "\n")
+
+    def load(self) -> List["CostRate"]:
+        """Every journalled assumption since the last clear, in entry order. A
+        line that cannot be read is reported, not skipped silently."""
+        if not self.path.exists():
+            return []
+        out: List[CostRate] = []
+        with self.path.open("r", encoding="utf-8") as handle:
+            for number, line in enumerate(handle, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                    if row.get("cleared"):
+                        out = []
+                        continue
+                    provenance = row.get("provenance") or {}
+                    out.append(assumption(
+                        str(row["primitive"]), float(row["value"]), str(row["currency"]),
+                        entered_by=str(provenance.get("enteredBy") or "unknown"),
+                        purpose=str(provenance.get("purpose") or "scenario"),
+                        scope=str(row.get("scope") or "*"), note=str(provenance.get("note") or ""),
+                        entered_at=provenance.get("enteredAt"),
+                    ))
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                    raise ValueError(f"{self.path}:{number}: unreadable assumption: {exc}") from exc
+        return out
+
+    def probe(self) -> Dict[str, Any]:
+        try:
+            rows = self.load()
+        except ValueError as exc:
+            return {"path": str(self.path), "exists": self.path.exists(), "ok": False, "durable": True,
+                    "error": str(exc), "counts": {}}
+        return {"path": str(self.path), "exists": self.path.exists(), "ok": True, "durable": True,
+                "error": None, "counts": {"assumptions": len(rows)}}
 
 
 def observation(

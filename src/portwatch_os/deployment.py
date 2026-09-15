@@ -280,8 +280,10 @@ def validate(
         report.checks.append(Check("traffic_honesty", FAIL, f"could not determine the traffic mode: {exc}"))
 
     # -- storage ------------------------------------------------------------------
+    from src.utils.config import STATE_DIR
+
     for label, path in (("data/cache", ROOT / "data" / "cache"), ("outputs", ROOT / "outputs"),
-                        ("ledger", ROOT / "data" / "ledger")):
+                        ("state", STATE_DIR)):
         try:
             path.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(dir=path, prefix=".write-check-", delete=True):
@@ -289,6 +291,33 @@ def validate(
             report.checks.append(Check(f"storage:{label}", PASS, f"{path} is writable"))
         except OSError as exc:
             report.checks.append(Check(f"storage:{label}", FAIL, f"{path} is not writable: {exc}"))
+    if not environ.get("PORTWATCH_STATE_DIR"):
+        report.checks.append(Check(
+            "storage:state_dir", WARN,
+            f"PORTWATCH_STATE_DIR is not set; durable state (ledger, advisories, assumptions) lives in "
+            f"{STATE_DIR}, which a container host discards on redeploy unless it is a mounted volume",
+            required=False, facts={"stateDir": str(STATE_DIR)},
+        ))
+    else:
+        report.checks.append(Check("storage:state_dir", PASS, f"durable state in {STATE_DIR} (PORTWATCH_STATE_DIR)",
+                                   facts={"stateDir": str(STATE_DIR)}))
+    # The durable stores must open and read. A corrupt ledger is a refusal,
+    # never a fresh empty one started in its place.
+    try:
+        from src.portwatch_os.advisories.store import probe_advisory_store
+        from src.portwatch_os.finance.basis import AssumptionJournal
+        from src.portwatch_os.ledger.store import probe_ledger
+
+        for label, probe in (("ledger", probe_ledger()), ("advisories", probe_advisory_store()),
+                             ("assumptions", AssumptionJournal().probe())):
+            if probe["ok"]:
+                report.checks.append(Check(f"store:{label}", PASS,
+                                           f"{probe['path']} opens and reads ({probe['counts']})", facts=probe))
+            else:
+                report.checks.append(Check(f"store:{label}", FAIL,
+                                           f"{probe['path']}: {probe['error']}", facts=probe))
+    except Exception as exc:  # noqa: BLE001
+        report.checks.append(Check("store:probe", FAIL, f"the durable stores could not be probed: {exc}"))
 
     # -- freshness -------------------------------------------------------------------
     try:

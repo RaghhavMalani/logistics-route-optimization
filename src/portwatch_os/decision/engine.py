@@ -164,6 +164,8 @@ class DecisionEngine:
         self.ledger = ledger
         self.capacity = capacity
         self.policy = policy
+        #: Where operator assumptions are journalled; None keeps them in memory.
+        self.assumption_journal: Any = None
         self._problems: Dict[str, DecisionProblem] = {}
         self._order: List[str] = []
         self._lock = threading.RLock()
@@ -520,14 +522,26 @@ _ENGINE_LOCK = threading.Lock()
 
 
 def get_engine() -> DecisionEngine:
-    """The process-wide engine, holding public tariffs and the process ledger."""
+    """The process-wide engine, holding public tariffs, the journalled
+    assumptions and the process ledger.
+
+    The assumptions an operator entered before a restart are reloaded from
+    the journal, so a priced scenario is still priced the same way after a
+    redeploy; each is still labelled ASSUMPTION with who entered it.
+    """
     global _ENGINE
     with _ENGINE_LOCK:
         if _ENGINE is None:
+            from src.portwatch_os.finance.basis import AssumptionJournal
             from src.portwatch_os.finance.tariffs import basis_with_public_tariffs
             from src.portwatch_os.ledger.store import get_ledger
 
-            _ENGINE = DecisionEngine(basis=basis_with_public_tariffs(), ledger=get_ledger())
+            basis = basis_with_public_tariffs()
+            journal = AssumptionJournal()
+            for rate in journal.load():
+                basis.add(rate)
+            _ENGINE = DecisionEngine(basis=basis, ledger=get_ledger())
+            _ENGINE.assumption_journal = journal
         return _ENGINE
 
 

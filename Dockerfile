@@ -44,13 +44,30 @@ COPY run_award_demo.py run_demo.py ./
 
 # The API reads artefacts from these directories; create them so a container
 # started before the first pipeline run reports "not ready" instead of crashing.
+#
+# Three kinds of state, three places:
+#   /app/state       MUST PERSIST  the decision ledger, the advisory register,
+#                                  the operator's cost assumptions. Mount a
+#                                  persistent volume here; PORTWATCH_STATE_DIR
+#                                  points the stores at it.
+#   /app/data/cache  CACHE         provider fetches (event register, marine
+#                                  grid, port forecasts). Rebuilt by the
+#                                  freshness coordinator; a volume keeps a
+#                                  restart from refetching, nothing more.
+#   /app/outputs     REBUILDABLE   pipeline artefacts. A volume or a pipeline run.
 RUN mkdir -p outputs/expert_features outputs/regimes outputs/forecasts \
-             outputs/analytics data/cache
+             outputs/analytics data/cache state
+VOLUME ["/app/state", "/app/data/cache", "/app/outputs"]
 
-ENV PORT=8000
+ENV PORT=8000 \
+    PORTWATCH_STATE_DIR=/app/state
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS http://localhost:${PORT}/api/health || exit 1
 
-CMD ["sh", "-c", "exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# One worker, always. The world, the freshness coordinator, the branch
+# registry and the decision engine's memory are per process; a second worker
+# would hold a second world and answer differently. Scale by giving this
+# process more CPU, not by adding workers.
+CMD ["sh", "-c", "exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

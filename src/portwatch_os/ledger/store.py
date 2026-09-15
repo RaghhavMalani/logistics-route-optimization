@@ -43,10 +43,10 @@ from src.portwatch_os.ledger.schema import (
     can_transition,
     utc_now,
 )
-from src.utils.config import OUTPUTS_DIR
+from src.utils.config import STATE_DIR
 from src.portwatch_os.clock import world_now
 
-DEFAULT_LEDGER_PATH = OUTPUTS_DIR / "portwatch_ledger.db"
+DEFAULT_LEDGER_PATH = STATE_DIR / "portwatch_ledger.db"
 
 
 class LedgerError(RuntimeError):
@@ -357,13 +357,21 @@ class SqliteLedgerStore(LedgerStore):
         if str(self.path) != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
-        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA foreign_keys=ON")
-        with self._lock:
-            self._conn.executescript(_SCHEMA)
-            self._conn.commit()
+        try:
+            self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA foreign_keys=ON")
+            # A corrupt file is refused at open, with its path, rather than
+            # discovered one query at a time; nothing is repaired or replaced.
+            verdict = self._conn.execute("PRAGMA quick_check").fetchone()[0]
+            if verdict != "ok":
+                raise LedgerError(f"the ledger at {self.path} failed its integrity check: {verdict}")
+            with self._lock:
+                self._conn.executescript(_SCHEMA)
+                self._conn.commit()
+        except sqlite3.DatabaseError as exc:
+            raise LedgerError(f"the ledger at {self.path} cannot be opened: {exc}") from exc
 
     # -- plumbing ----------------------------------------------------------
     @contextmanager
@@ -989,6 +997,27 @@ _DEFAULT: Optional[SqliteLedgerStore] = None
 _DEFAULT_LOCK = threading.Lock()
 
 
+def probe_ledger(path: Path | str | None = None) -> Dict[str, Any]:
+    """Whether the ledger at ``path`` can be opened and read, without keeping it
+    open. For health and readiness: the answer names the file and the fault."""
+    target = Path(path) if path is not None else DEFAULT_LEDGER_PATH
+    out: Dict[str, Any] = {"path": str(target), "exists": target.exists(), "ok": False,
+                           "durable": True, "error": None, "counts": {}}
+    try:
+        store = SqliteLedgerStore(target)
+        try:
+            with store._lock:
+                for table, key in (("decision_problems", "decisionProblems"), ("decisions", "decisions"),
+                                   ("policies", "policies"), ("event_outcomes", "eventOutcomes")):
+                    out["counts"][key] = store._conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        finally:
+            store.close()
+        out["ok"] = True
+    except (LedgerError, sqlite3.DatabaseError, OSError) as exc:
+        out["error"] = str(exc)
+    return out
+
+
 def get_ledger(path: Path | str | None = None) -> SqliteLedgerStore:
     """The process-wide ledger.
 
@@ -1015,6 +1044,7 @@ def reset_default_ledger() -> None:
 
 
 __all__ = [
+    "probe_ledger",
     "DEFAULT_LEDGER_PATH",
     "LedgerError",
     "LedgerStore",

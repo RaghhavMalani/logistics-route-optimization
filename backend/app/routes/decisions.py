@@ -74,8 +74,43 @@ def _require_actor_name(actor: Optional[str]) -> str:
 def _problem_or_404(engine: DecisionEngine, decision_id: str) -> DecisionProblem:
     problem = engine.get(decision_id)
     if problem is None:
-        raise HTTPException(status_code=404, detail=f"no decision {decision_id} in this process")
+        recorded = engine.ledger is not None and engine.ledger.get_decision_problem(decision_id) is not None
+        raise HTTPException(
+            status_code=404 if not recorded else 409,
+            detail=(f"no decision {decision_id} in this process" + (
+                "; the ledger holds it as computed before a restart (GET /decisions/problems/{id}), and a decision "
+                "pinned to a world this process has not rebuilt is not moved on: recompute it and decide on the "
+                "world as it is now" if recorded else "")),
+        )
     return problem
+
+
+def _from_ledger(engine: DecisionEngine, decision_id: str) -> Optional[Dict[str, Any]]:
+    """A problem this process no longer holds, as the ledger recorded it.
+
+    After a restart the engine's memory is empty but the ledger is not. The
+    record is served read-only -- the payload as computed, with the workflow
+    columns the ledger kept up to date -- and says so. It cannot be moved
+    through the workflow: it was pinned to a world revision this process has
+    not rebuilt, so the operator recomputes and decides on the world as it
+    is now.
+    """
+    if engine.ledger is None:
+        return None
+    record = engine.ledger.get_decision_problem(decision_id)
+    if record is None:
+        return None
+    body = dict(record.problem or {})
+    body["workflow"] = record.workflow
+    body["humanChoice"] = record.human_choice
+    body["restoredFromLedger"] = True
+    body["restoredNote"] = ("served from the decision ledger: this process did not compute it (restart or "
+                            "another process); recompute to move it through the workflow")
+    if record.actual_action:
+        body["actualAction"] = record.actual_action
+    if record.observed_outcome:
+        body["observedOutcome"] = record.observed_outcome
+    return body
 
 
 # --------------------------------------------------------------------------
@@ -341,15 +376,33 @@ def _cargo_problem(engine, payload, actor, moment, basis, mode, header_port) -> 
 
 @router.get("/decisions/problems")
 def list_problems(limit: int = Query(20, ge=1, le=100)) -> Dict[str, Any]:
+    """This process's problems first, then the ledger's from before it started."""
     engine = get_engine()
     rows = [p.to_dict(include_options=False) for p in engine.all()]
     rows.reverse()
-    return {"problems": rows[:limit], "total": len(rows)}
+    held = {r["decisionId"] for r in rows}
+    restored = 0
+    if engine.ledger is not None:
+        for record in engine.ledger.decision_problems(limit=limit):
+            if record.problem_id in held:
+                continue
+            body = _from_ledger(engine, record.problem_id) or {}
+            body.pop("options", None)
+            rows.append(body)
+            restored += 1
+    return {"problems": rows[:limit], "total": len(rows), "restoredFromLedger": restored}
 
 
 @router.get("/decisions/problems/{decision_id}")
 def get_problem(decision_id: str) -> Dict[str, Any]:
-    return _problem_or_404(get_engine(), decision_id).to_dict()
+    engine = get_engine()
+    problem = engine.get(decision_id)
+    if problem is not None:
+        return problem.to_dict()
+    restored = _from_ledger(engine, decision_id)
+    if restored is None:
+        raise HTTPException(status_code=404, detail=f"no decision {decision_id} in this process or its ledger")
+    return restored
 
 
 @router.post("/decisions/problems/{decision_id}/transition")
