@@ -39,7 +39,8 @@ import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
 
-type Tab = "options" | "robust" | "frontier" | "timeline" | "money" | "why" | "workflow";
+type Tab =
+  "options" | "robust" | "frontier" | "timeline" | "money" | "why" | "workflow";
 
 const VERDICT_TONE: Record<CriticVerdict, Tone> = {
   PASS: "ok",

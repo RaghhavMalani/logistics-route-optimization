@@ -224,7 +224,11 @@ export interface BreakEven {
   gridSpanHours?: number;
   gridStepHours?: number;
   statement?: string;
-  curve?: Array<{ closureFromNowHours: number; option: number; baseline: number }>;
+  curve?: Array<{
+    closureFromNowHours: number;
+    option: number;
+    baseline: number;
+  }>;
 }
 
 export interface RobustSummary {
@@ -238,7 +242,11 @@ export interface RobustSummary {
   baselineAdvantageHours: Record<string, number>;
   meanBaselineAdvantageHours: number | null;
   robustnessMargin: number | null;
-  reversibility: { class: ReversibilityClass; closesInHours: number | null; detail: string };
+  reversibility: {
+    class: ReversibilityClass;
+    closesInHours: number | null;
+    detail: string;
+  };
   breakEven: BreakEven | null;
 }
 
@@ -289,7 +297,10 @@ export interface RobustAssessment {
     reevaluateInHours?: number;
     branchPointInHours?: number | null;
   };
-  queueModel: { name: string; drainFraction: number; basis: string } & Record<string, unknown>;
+  queueModel: { name: string; drainFraction: number; basis: string } & Record<
+    string,
+    unknown
+  >;
   notModelled: Record<string, string>;
   why: string;
   statement: string;

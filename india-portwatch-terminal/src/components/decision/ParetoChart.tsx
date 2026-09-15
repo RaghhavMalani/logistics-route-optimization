@@ -171,7 +171,7 @@ export function ParetoChart({
             x={width - pad.r}
             y={height - 8}
             textAnchor="end"
-            fontSize={8}
+            fontSize={10}
             fill="var(--text-3)"
             className="num"
           >
@@ -184,7 +184,7 @@ export function ParetoChart({
             x={pad.l - 2}
             y={pad.t + 8}
             textAnchor="end"
-            fontSize={8}
+            fontSize={10}
             fill="var(--text-3)"
             transform={`rotate(-90 ${pad.l - 2} ${pad.t + 8})`}
             className="num"
@@ -240,7 +240,7 @@ export function ParetoChart({
                 <text
                   x={sx(p.x) + 9}
                   y={sy(p.y) + 3}
-                  fontSize={9}
+                  fontSize={10}
                   fill="var(--text-2)"
                   className="num"
                 >

@@ -49,9 +49,14 @@ function hours(value: number | null | undefined): string {
   return m ? `${h}h ${m.toString().padStart(2, "0")}m` : `${h}h`;
 }
 
-function optionLabel(problem: DecisionProblem, optionId: string | null | undefined): string {
+function optionLabel(
+  problem: DecisionProblem,
+  optionId: string | null | undefined,
+): string {
   if (!optionId) return "—";
-  return problem.options.find((o) => o.optionId === optionId)?.label ?? optionId;
+  return (
+    problem.options.find((o) => o.optionId === optionId)?.label ?? optionId
+  );
 }
 
 /** The header block: the verdict, the why, and the four facts an operator acts on. */
@@ -60,8 +65,7 @@ export function RobustHeadline({ problem }: { problem: DecisionProblem }) {
   if (!rec) return null;
   const rob = rec.robustness;
   const kind = rec.kind ?? "ACT";
-  const contender =
-    rob?.provisionalOptionId ?? rob?.contenderId ?? null;
+  const contender = rob?.provisionalOptionId ?? rob?.contenderId ?? null;
   const contenderSummary = contender ? rob?.summary[contender] : undefined;
   const baseSummary = problem.baselineOptionId
     ? rob?.summary[problem.baselineOptionId]
@@ -81,7 +85,10 @@ export function RobustHeadline({ problem }: { problem: DecisionProblem }) {
           {kindLabel(kind)}
         </Pill>
         {rec.policy ? (
-          <span className="ml-auto text-[10px] text-[var(--text-3)]" title="the policy that produced this recommendation">
+          <span
+            className="ml-auto text-[10px] text-[var(--text-3)]"
+            title="the policy that produced this recommendation"
+          >
             {rec.policy}
           </span>
         ) : null}
@@ -103,12 +110,19 @@ export function RobustHeadline({ problem }: { problem: DecisionProblem }) {
           </dd>
           <dt className="text-[var(--text-3)]">Duration confidence</dt>
           <dd className="text-[var(--text-2)]">
-            <span className="text-[var(--warn)]">{rob.durationConfidence.label}</span>
-            <span className="text-[var(--text-3)]"> · {rob.durationConfidence.basis}</span>
+            <span className="text-[var(--warn)]">
+              {rob.durationConfidence.label}
+            </span>
+            <span className="text-[var(--text-3)]">
+              {" "}
+              · {rob.durationConfidence.basis}
+            </span>
           </dd>
           <dt className="text-[var(--text-3)]">Decision window</dt>
           <dd className="num text-[var(--text-2)]">
-            {problem.decisionWindowHours != null ? hours(problem.decisionWindowHours) : "open"}
+            {problem.decisionWindowHours != null
+              ? hours(problem.decisionWindowHours)
+              : "open"}
             {info.branchPointInHours != null
               ? ` · branch point in ${hours(info.branchPointInHours)}`
               : ""}
@@ -170,12 +184,21 @@ export function RobustView({
   }
   if (!rob || !rob.applicable) {
     return (
-      <div className="px-2 py-2 text-[10px] leading-snug text-[var(--text-3)]" data-testid="robust-view">
-        <p>{rob?.why ?? "The recommendation was not assessed across stress horizons."}</p>
+      <div
+        className="px-2 py-2 text-[10px] leading-snug text-[var(--text-3)]"
+        data-testid="robust-view"
+      >
+        <p>
+          {rob?.why ??
+            "The recommendation was not assessed across stress horizons."}
+        </p>
         <p className="mt-1">
           Expected-value pick:{" "}
           <span className="text-[var(--text-2)]">
-            {optionLabel(problem, rec.rankingBasis?.expectedBest ?? rec.optionId)}
+            {optionLabel(
+              problem,
+              rec.rankingBasis?.expectedBest ?? rec.optionId,
+            )}
           </span>
         </p>
       </div>
@@ -191,7 +214,8 @@ export function RobustView({
     <div className="flex flex-col gap-2 px-2 py-1.5" data-testid="robust-view">
       <div>
         <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
-          Regret by stress horizon · hours against the best option under that horizon
+          Regret by stress horizon · hours against the best option under that
+          horizon
         </p>
         <div className="mt-1 overflow-x-auto">
           <table className="w-full text-[10px]">
@@ -206,18 +230,26 @@ export function RobustView({
                   >
                     {s.label.toLowerCase()}
                     {s.closureFromNowHours != null ? (
-                      <span className="block text-[9px] text-[var(--text-3)]/80">
+                      <span className="block text-[10px] text-[var(--text-3)]/80">
                         {s.closureFromNowHours.toFixed(0)} h
                       </span>
                     ) : (
-                      <span className="block text-[9px] text-[var(--text-3)]/80">open</span>
+                      <span className="block text-[10px] text-[var(--text-3)]/80">
+                        open
+                      </span>
                     )}
                   </th>
                 ))}
-                <th className="num text-right font-normal" title="the largest regret across the horizons">
+                <th
+                  className="num text-right font-normal"
+                  title="the largest regret across the horizons"
+                >
                   worst
                 </th>
-                <th className="num text-right font-normal" title="horizons where the option is within tolerance of the best">
+                <th
+                  className="num text-right font-normal"
+                  title="horizons where the option is within tolerance of the best"
+                >
                   wins
                 </th>
               </tr>
@@ -241,7 +273,9 @@ export function RobustView({
                     <td className="max-w-[140px] truncate py-[3px] pr-1 text-[var(--text-2)]">
                       {optionLabel(problem, id)}
                       {isRec ? (
-                        <span className="ml-1 text-[9px] uppercase text-[var(--ok)]">rec</span>
+                        <span className="ml-1 text-[10px] uppercase text-[var(--ok)]">
+                          rec
+                        </span>
                       ) : null}
                     </td>
                     {labels.map((label) => {
@@ -255,7 +289,11 @@ export function RobustView({
                               ? "text-[var(--ok)]"
                               : "text-[var(--text-2)]",
                           )}
-                          title={cell ? `delay ${cell.delay.toFixed(1)} h — ${cell.how}` : "not modelled"}
+                          title={
+                            cell
+                              ? `delay ${cell.delay.toFixed(1)} h — ${cell.how}`
+                              : "not modelled"
+                          }
                         >
                           {cell ? cell.regret.toFixed(0) : "—"}
                         </td>
@@ -274,8 +312,9 @@ export function RobustView({
           </table>
         </div>
         <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
-          Queue model {rob.queueModel.name.toLowerCase()} (drain {rob.queueModel.drainFraction} × closure) —{" "}
-          {rob.queueModel.basis}. Tolerance {rob.tolerance.hours} h: {rob.tolerance.basis}.
+          Queue model {rob.queueModel.name.toLowerCase()} (drain{" "}
+          {rob.queueModel.drainFraction} × closure) — {rob.queueModel.basis}.
+          Tolerance {rob.tolerance.hours} h: {rob.tolerance.basis}.
         </p>
       </div>
 
@@ -304,25 +343,40 @@ export function RobustView({
             }
           >
             <span className="text-[var(--text-3)]">{name} · </span>
-            <span className="text-[var(--text)]">{optionLabel(problem, id)}</span>
+            <span className="text-[var(--text)]">
+              {optionLabel(problem, id)}
+            </span>
           </button>
         ))}
       </div>
 
       {ordered
-        .filter((id) => id !== problem.baselineOptionId && rob.summary[id]?.breakEven)
+        .filter(
+          (id) => id !== problem.baselineOptionId && rob.summary[id]?.breakEven,
+        )
         .map((id) => {
           const summary = rob.summary[id];
           const be = summary.breakEven!;
           return (
-            <p key={id} className="text-[10px] leading-snug text-[var(--text-2)]" data-testid="break-even">
-              <span className="text-[var(--text)]">{optionLabel(problem, id)}</span>{" "}
-              {be.available ? be.statement : `break-even unavailable: ${be.reason}`}
+            <p
+              key={id}
+              className="text-[10px] leading-snug text-[var(--text-2)]"
+              data-testid="break-even"
+            >
+              <span className="text-[var(--text)]">
+                {optionLabel(problem, id)}
+              </span>{" "}
+              {be.available
+                ? be.statement
+                : `break-even unavailable: ${be.reason}`}
               {be.available && be.winningShare != null
                 ? ` (${Math.round(be.winningShare * 100)}% of closure lengths up to ${be.gridSpanHours?.toFixed(0)} h)`
                 : ""}
               <span className="text-[var(--text-3)]">
-                {" "}· {REVERSIBILITY_LABEL[summary.reversibility.class] ?? summary.reversibility.class}
+                {" "}
+                ·{" "}
+                {REVERSIBILITY_LABEL[summary.reversibility.class] ??
+                  summary.reversibility.class}
                 {summary.reversibility.closesInHours != null
                   ? `, closes in ${hours(summary.reversibility.closesInHours)}`
                   : ""}
@@ -334,11 +388,20 @@ export function RobustView({
       {rob.checks.length ? (
         <div>
           <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
-            Intervention gate · {optionLabel(problem, rob.provisionalOptionId ?? rob.contenderId ?? rec.optionId)}
+            Intervention gate ·{" "}
+            {optionLabel(
+              problem,
+              rob.provisionalOptionId ?? rob.contenderId ?? rec.optionId,
+            )}
           </p>
           <ul className="mt-0.5 flex flex-col gap-[2px]">
             {rob.checks.map((check) => (
-              <li key={check.name} data-testid="gate-check" data-passed={check.passed} className="flex flex-col">
+              <li
+                key={check.name}
+                data-testid="gate-check"
+                data-passed={check.passed}
+                className="flex flex-col"
+              >
                 <span className="flex items-center gap-1.5 text-[10.5px]">
                   <span
                     className={cn(
@@ -352,14 +415,21 @@ export function RobustView({
                   >
                     {check.passed ? "✓" : check.blocking ? "✕" : "!"}
                   </span>
-                  <span className="text-[var(--text)]">{check.name.replace(/_/g, " ")}</span>
+                  <span className="text-[var(--text)]">
+                    {check.name.replace(/_/g, " ")}
+                  </span>
                   {!check.blocking ? (
-                    <span className="text-[9px] uppercase text-[var(--text-3)]">advisory</span>
+                    <span className="text-[10px] uppercase text-[var(--text-3)]">
+                      advisory
+                    </span>
                   ) : null}
                 </span>
                 <span className="pl-3 text-[10px] leading-snug text-[var(--text-3)]">
                   {check.detail}
-                  <span className="text-[var(--text-3)]/80"> — {check.basis}</span>
+                  <span className="text-[var(--text-3)]/80">
+                    {" "}
+                    — {check.basis}
+                  </span>
                 </span>
               </li>
             ))}

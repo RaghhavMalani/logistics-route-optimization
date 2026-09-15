@@ -184,7 +184,14 @@ export const revealMission = (
 
 /* ----------------------------------------------------------------- hooks -- */
 
-const HEAVY = { staleTime: 300_000, gcTime: 1_800_000 } as const;
+// A decision problem is pinned to a world revision and never changes, so it
+// is never stale while it is on screen; but at ~80 KB of JSON each, holding
+// every problem an operator has opened for half an hour is what a
+// fifteen-minute session of opening decisions measured as a 4 MB/min heap
+// climb (docs/FRONTEND_PERFORMANCE.md). Five minutes after the panel closes
+// the entry is collected; reopening it is one round trip the API answers
+// from its memory or the ledger.
+const HEAVY = { staleTime: 300_000, gcTime: 300_000 } as const;
 
 export const useDecision = (
   decisionId: string | null | undefined,

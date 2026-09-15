@@ -111,7 +111,10 @@ fs.mkdirSync(OUT, { recursive: true });
  * critic block and the agent chain render.
  */
 const POSTS = [
-  ["/agents/run", { question: "Which vessels require action because of Red Sea risk?" }],
+  [
+    "/agents/run",
+    { question: "Which vessels require action because of Red Sea risk?" },
+  ],
   ["/learning/run", {}],
 ];
 
@@ -121,7 +124,11 @@ for (const route of GETS) {
   // recorder captures them as national command, which is what the admin
   // workspace sends.
   const response = await fetch(BASE + route, {
-    headers: { Accept: "application/json", "X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "fixtures" },
+    headers: {
+      Accept: "application/json",
+      "X-PortWatch-Role": "NATIONAL_ADMIN",
+      "X-PortWatch-Actor": "fixtures",
+    },
   });
   if (!response.ok) {
     console.warn(`skip ${route}: ${response.status}`);
@@ -148,7 +155,9 @@ const worldHeaders = {
   "X-PortWatch-Role": "NATIONAL_ADMIN",
 };
 
-const cascadeList = await fetch(`${BASE}/world/cascades`, { headers: worldHeaders });
+const cascadeList = await fetch(`${BASE}/world/cascades`, {
+  headers: worldHeaders,
+});
 if (cascadeList.ok) {
   const live = (await cascadeList.json()).cascades.find((row) => row.live);
   if (live) {
@@ -165,7 +174,9 @@ if (cascadeList.ok) {
       console.log("/world/cascades/{id} -> world_cascade_detail.json");
     }
   } else {
-    console.warn("skip /world/cascades/{id}: no event propagates consequence right now");
+    console.warn(
+      "skip /world/cascades/{id}: no event propagates consequence right now",
+    );
   }
 }
 
@@ -173,10 +184,9 @@ const queue = await fetch(`${BASE}/attention`, { headers: worldHeaders });
 if (queue.ok) {
   const first = (await queue.json()).items[0];
   if (first) {
-    const detail = await fetch(
-      `${BASE}/attention/${first.attentionId}`,
-      { headers: worldHeaders },
-    );
+    const detail = await fetch(`${BASE}/attention/${first.attentionId}`, {
+      headers: worldHeaders,
+    });
     if (detail.ok) {
       fs.writeFileSync(
         path.join(OUT, "attention_item.json"),
@@ -245,5 +255,8 @@ for (const [route, body] of POSTS) {
   console.log(`POST ${route} -> ${file}`);
 }
 
-fs.writeFileSync(path.join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2));
+fs.writeFileSync(
+  path.join(OUT, "manifest.json"),
+  JSON.stringify(manifest, null, 2),
+);
 console.log(`\n${Object.keys(manifest).length} fixtures written to ${OUT}`);

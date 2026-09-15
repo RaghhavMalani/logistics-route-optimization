@@ -129,6 +129,35 @@ async function moveTo(
     .toBe(wanted);
 }
 
+test("the status strip names the licence mode and the traffic truth, and says when the mode was defaulted", async ({
+  context,
+  page,
+}) => {
+  await seedSession(context, "NATIONAL_ADMIN");
+  await page.goto(GLOBAL_EYE);
+  const mode = page.getByTestId("status-mode");
+  await expect(mode).toHaveAttribute(
+    "data-mode",
+    /^(DEMO|RESEARCH|COMMERCIAL|GOVERNMENT)$/,
+    { timeout: 30_000 },
+  );
+  await expect(mode).toHaveAttribute("data-stated", /^(true|false)$/);
+  const stated = await mode.getAttribute("data-stated");
+  const text = (await mode.innerText()).toLowerCase();
+  if (stated === "false") expect(text).toContain("default");
+  else expect(text).not.toContain("default");
+  await expect(page.getByTestId("status-traffic")).toHaveAttribute(
+    "data-mode",
+    /^(LIVE_AIS|AIS_STALE|SIMULATED_TRAFFIC|UNAVAILABLE)$/,
+  );
+  const traffic = (
+    await page.getByTestId("status-traffic").innerText()
+  ).toLowerCase();
+  expect(traffic).toMatch(
+    /live ais|ais stale|simulated replay|no traffic feed/,
+  );
+});
+
 async function goLive(context: Parameters<typeof withFixture>[0], page: Page) {
   await moveTo(context, page, "live");
 }

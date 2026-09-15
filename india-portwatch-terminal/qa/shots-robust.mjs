@@ -53,7 +53,8 @@ async function open(path, [width, height]) {
   const page = await context.newPage();
   page.on("pageerror", (error) => findings.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
-    if (message.type() === "error") findings.push(`console error: ${message.text()}`);
+    if (message.type() === "error")
+      findings.push(`console error: ${message.text()}`);
   });
   await page.goto(`${BASE}${path}`);
   await page.waitForFunction(
@@ -87,13 +88,23 @@ for (const size of SIZES) {
   const count = Math.min(await items.count(), 4);
   for (let index = 0; index < count; index += 1) {
     await items.nth(index).click();
-    await page.waitForSelector('[data-testid="robust-headline"]', { timeout: 90000 });
+    await page.waitForSelector('[data-testid="robust-headline"]', {
+      timeout: 90000,
+    });
     await page.waitForTimeout(1800);
     const headline = page.locator('[data-testid="robust-headline"]');
     const kind = await headline.getAttribute("data-kind");
-    const why = await page.locator('[data-testid="robust-why"]').innerText().catch(() => "");
-    const wins = await page.locator('[data-testid="robust-wins"]').innerText().catch(() => "");
-    const subject = await page.locator('[data-testid="decision-panel"]').getAttribute("data-decision");
+    const why = await page
+      .locator('[data-testid="robust-why"]')
+      .innerText()
+      .catch(() => "");
+    const wins = await page
+      .locator('[data-testid="robust-wins"]')
+      .innerText()
+      .catch(() => "");
+    const subject = await page
+      .locator('[data-testid="decision-panel"]')
+      .getAttribute("data-decision");
     console.log(`  ${index + 1}. ${subject} -> ${kind}`);
     console.log(`     why: ${why}`);
     console.log(`     robustness: ${wins}`);
@@ -102,24 +113,35 @@ for (const size of SIZES) {
       await page.screenshot({ path: `${OUT}/01-robust-headline-${tag}.png` });
     }
     await page
-      .locator('[data-testid="decision-panel"] button', { hasText: /^robust$/i })
+      .locator('[data-testid="decision-panel"] button', {
+        hasText: /^robust$/i,
+      })
       .first()
       .click();
-    await page.waitForSelector('[data-testid="robust-view"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="robust-view"]', {
+      timeout: 10000,
+    });
     await page.waitForTimeout(600);
     const rows = await page.locator('[data-testid="robust-row"]').count();
-    const breakEvens = await page.locator('[data-testid="break-even"]').allInnerTexts();
+    const breakEvens = await page
+      .locator('[data-testid="break-even"]')
+      .allInnerTexts();
     const checks = await page.locator('[data-testid="gate-check"]').count();
     console.log(`     table rows ${rows}, gate checks ${checks}`);
     for (const line of breakEvens) console.log(`     break-even: ${line}`);
     if (rows === 0) findings.push(`${subject}: the robust table is empty`);
-    if (breakEvens.some((line) => /\d+\.\d+ score/i.test(line))) findings.push(`${subject}: a break-even reads as a score`);
-    await page.screenshot({ path: `${OUT}/02-robust-table-${index + 1}-${tag}.png` });
+    if (breakEvens.some((line) => /\d+\.\d+ score/i.test(line)))
+      findings.push(`${subject}: a break-even reads as a score`);
+    await page.screenshot({
+      path: `${OUT}/02-robust-table-${index + 1}-${tag}.png`,
+    });
     if (kind === "WAIT_FOR_MORE_INFORMATION") {
       await page.screenshot({ path: `${OUT}/03-wait-${tag}.png` });
     }
     await page
-      .locator('[data-testid="decision-panel"] button', { hasText: /^options/i })
+      .locator('[data-testid="decision-panel"] button', {
+        hasText: /^options/i,
+      })
       .first()
       .click();
     const close = page.locator('button[aria-label="Close decision"]');

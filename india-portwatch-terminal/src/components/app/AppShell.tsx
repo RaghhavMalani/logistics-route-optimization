@@ -405,8 +405,44 @@ function StatusLine() {
   const liveTraffic =
     serverTraffic?.mode === "LIVE_AIS" || serverTraffic?.mode === "AIS_STALE";
 
+  // The deployment's own truth, in two words nobody can misread: which
+  // licence mode the world is served in (and whether anyone stated it or it
+  // is the most restrictive default), and what the traffic is.
+  const licence = data?.licenceMode ?? null;
+  const licenceLabel = licence
+    ? licence.mode.charAt(0) + licence.mode.slice(1).toLowerCase()
+    : "…";
+  const licenceTone =
+    licence?.mode === "DEMO"
+      ? "unc"
+      : licence?.mode === "RESEARCH"
+        ? "info"
+        : licence
+          ? "ok"
+          : "neutral";
+
   return (
     <footer className="flex h-[var(--status-h)] shrink-0 items-center gap-3 border-t border-[var(--line)] bg-[var(--panel)] px-3 text-[10.5px] text-[var(--text-3)]">
+      <span
+        className="flex items-center gap-1.5"
+        title={
+          licence
+            ? `${licence.mode}: ${licence.stated ? `stated by ${licence.source}` : "nobody stated a mode; the most restrictive default is in force"}${licence.warning ? ` — ${licence.warning}` : ""}`
+            : "licence mode not yet read"
+        }
+        data-testid="status-mode"
+        data-mode={licence?.mode ?? ""}
+        data-stated={licence ? String(licence.stated) : ""}
+      >
+        <span className="eyebrow text-[10px]">Mode</span>
+        <Pill tone={licenceTone}>
+          {licenceLabel}
+          {licence && !licence.stated ? " · default" : ""}
+        </Pill>
+      </span>
+
+      <span className="h-3 w-px bg-[var(--line)]" />
+
       <span
         className="flex items-center gap-1.5"
         title={serverTraffic?.statement ?? source.info.detail}
@@ -500,19 +536,26 @@ function WorldClockChip() {
     Math.abs(offset) < 90
       ? null
       : `${offset < 0 ? "−" : "+"}${formatAge(Math.abs(offset) / 3600)} from wall`;
+  // A clock the API stopped answering is not LIVE: the last reading is kept
+  // for the offset, the pill says the truth.
+  const unreachable = clock.isError;
   return (
     <span
       className="flex items-center gap-1.5"
       data-testid="status-world-clock"
-      data-mode={mode}
+      data-mode={unreachable ? "UNREACHABLE" : mode}
       title={
-        data
-          ? `${data.reason || "the world reads the wall"} · ${data.now}`
-          : "world clock"
+        unreachable
+          ? "the API is not answering; the world clock cannot be read"
+          : data
+            ? `${data.reason || "the world reads the wall"} · ${data.now}`
+            : "world clock"
       }
     >
       <span className="eyebrow text-[10px]">World</span>
-      <Pill tone={mode === "LIVE" ? "ok" : "info"}>{label}</Pill>
+      <Pill tone={unreachable ? "crit" : mode === "LIVE" ? "ok" : "info"}>
+        {unreachable ? "Unreachable" : label}
+      </Pill>
       {offsetLabel ? (
         <span className="num text-[var(--text-3)]">{offsetLabel}</span>
       ) : null}
