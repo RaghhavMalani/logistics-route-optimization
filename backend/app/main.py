@@ -19,6 +19,7 @@ from backend.app.routes import (
     global_eye,
     health,
     learning,
+    lenses,
     missions,
     model,
     news,
@@ -153,6 +154,9 @@ app.include_router(missions.router, prefix="/api")
 
 # Administration: freshness, diagnostics, readiness. National Command only.
 app.include_router(admin.router, prefix="/api")
+
+# Two lenses: structural trade exposure, and security over observed AIS.
+app.include_router(lenses.router, prefix="/api")
 
 
 @app.get("/")
