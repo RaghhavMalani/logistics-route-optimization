@@ -1,0 +1,57 @@
+# Render Blueprint for the PortWatch API: one long-running container with a
+# persistent disk, built from the root Dockerfile.
+#
+#   Render dashboard -> New -> Blueprint -> this repository -> Apply
+#
+# What it provisions, and why it is shaped this way:
+#
+#   - one web service, one instance, never more: the world graph, the freshness
+#     coordinator, the branch registry and the decision engine's memory are per
+#     process (docs/DEPLOYMENT.md, section 3).
+#   - a disk at /app/state, the MUST-PERSIST directory: the decision ledger, the
+#     advisory register and the operator's cost assumptions (PORTWATCH_STATE_DIR).
+#     data/cache and outputs/ are not on the disk; the coordinator rebuilds them
+#     after a deploy within each artefact's SLA, and /api/admin/readiness says
+#     "not ready" until it has.
+#   - the licence mode stated explicitly. Without it the API would run in
+#     COMMERCIAL and say so on /api/health; the public demo is DEMO.
+#   - CORS pinned to the deployed terminal: the production domain and this
+#     team's preview URLs, nothing wider. No wildcard.
+#   - the Starter plan, not Free: a Free instance is put to sleep after fifteen
+#     idle minutes, which stops the coordinator's schedule and the AIS client
+#     and throws the in-memory world away; the ledger on the disk survives, the
+#     rest is rebuilt on the next request, minutes later.
+#
+# This is the Render alternative; the deployed API runs on Railway
+# (railway.json, docs/DEPLOYMENT.md 4.1). The service URL here would be
+# https://<name>.onrender.com: set VITE_PORTWATCH_API_BASE on the Vercel
+# terminal project to it and redeploy the terminal if this host is used.
+#
+# Credentials: none are required for DEMO. AISSTREAM_API_KEY is for RESEARCH
+# only (AISStream's commercial terms are REQUIRES_REVIEW; docs/DATA_SOURCES.md)
+# and is added in the dashboard, never in this file.
+
+services:
+  - type: web
+    name: india-portwatch-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    region: singapore
+    numInstances: 1
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: portwatch-state
+      mountPath: /app/state
+      sizeGB: 1
+    envVars:
+      - key: PORTWATCH_LICENCE_MODE
+        value: DEMO
+      - key: PORTWATCH_STATE_DIR
+        value: /app/state
+      - key: PORTWATCH_CORS_REGEX
+        value: ^https://india-portwatch(-([a-z0-9-]+-)?flash2404s-projects)?\.vercel\.app$
+      - key: PYTHONUNBUFFERED
+        value: "1"

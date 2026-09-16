@@ -1,0 +1,11 @@
+# Only the terminal is deployed to Vercel (project Root Directory:
+# india-portwatch-terminal). A CLI deploy from the repository root would
+# otherwise upload the pipeline, its data and every build artefact.
+/*
+!/india-portwatch-terminal
+/india-portwatch-terminal/node_modules
+/india-portwatch-terminal/.output
+/india-portwatch-terminal/.vercel
+/india-portwatch-terminal/.wrangler
+/india-portwatch-terminal/test-results
+/india-portwatch-terminal/playwright-report

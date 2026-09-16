@@ -9,10 +9,16 @@ never on a request-scoped function platform.
 ## 1. Shape
 
 ```
-  browser ── terminal (static build; Vercel, or the node preset in a container)
-                │  https, VITE_PORTWATCH_API_BASE
+  browser ── https://india-portwatch.vercel.app
+                │   the terminal: Vercel project `india-portwatch`, root directory
+                │   india-portwatch-terminal, framework tanstack-start, SSR in a
+                │   Vercel function, assets on the CDN; nothing stateful lives here
+                │
+                │  https, VITE_PORTWATCH_API_BASE = https://<api host>/api  (baked in at build)
                 ▼
   API service ── uvicorn, ONE worker, long-running  (Dockerfile, port $PORT)
+                 Render (render.yaml) or Railway (railway.json): one instance,
+                 a persistent disk at /app/state, PORTWATCH_LICENCE_MODE stated
       │  in memory: world graph + cascades, freshness coordinator, branch
       │  registry, decision engine (last 64 problems), mission replays,
       │  agent runs, telemetry, AIS client
@@ -24,11 +30,20 @@ never on a request-scoped function platform.
 
 Why not Vercel for the API: a function is created per request and discarded;
 it cannot hold the world, run the coordinator's schedule, keep a websocket to
-AISStream open, or write a ledger that the next request reads. The Vercel
-project `india-portwatch` still builds the root Dockerfile as a container
-function and answers `/api/health` -- `degraded`, `not_ready`, no caches, mode
-defaulting to COMMERCIAL -- which is exactly what a stateless host can offer
-and is labelled as such. Vercel is kept for the terminal's static build only.
+AISStream open, or write a ledger that the next request reads. Until
+2026-09-16 the Vercel project `india-portwatch` built the root Dockerfile as
+a container function, and the public domain answered with the API's JSON --
+`degraded`, `not_ready`, no caches, the mode defaulting to COMMERCIAL. That
+project now serves the terminal and nothing else (section 4.1); the API is
+not deployed on Vercel at all.
+
+The two halves are on different origins, so the API's CORS is pinned to the
+terminal's: `PORTWATCH_CORS_REGEX` allows `https://india-portwatch.vercel.app`
+and this team's preview URLs (`india-portwatch-*-flash2404s-projects.vercel.app`)
+and nothing wider -- a regex, never `*`, with credentials. The terminal never
+calls a relative `/api`: `VITE_PORTWATCH_API_BASE` is the API host, inlined
+at build time, and a terminal built without it is a misconfiguration the
+status strip shows as the API being unreachable.
 
 ## 2. State audit
 
@@ -90,6 +105,50 @@ PORTWATCH_STATE_DIR=/var/lib/portwatch PORTWATCH_LICENCE_MODE=DEMO \
 `python -m portwatch.demo start --mode DEMO --detach` is the local form of
 the same thing (validation, cache refresh, API on :8000, terminal on :8080).
 
+### 4.1 The public deployment
+
+**Terminal -- Vercel project `india-portwatch`** (owns
+`india-portwatch.vercel.app`; git-linked to `main`):
+
+| setting | value |
+|---|---|
+| Root Directory | `india-portwatch-terminal` |
+| Framework Preset | TanStack Start (`india-portwatch-terminal/vercel.json` says the same, and sets `NITRO_PRESET=vercel` for the build) |
+| Build | the framework default (`vite build` through `npm run build`); Nitro's Vercel preset writes `.vercel/output`: static assets on the CDN, one `__server` function for SSR |
+| `VITE_PORTWATCH_API_BASE` | `https://india-portwatch-api.up.railway.app/api` on production and preview |
+
+The terminal makes every API call from the browser; the SSR function renders
+shells and never talks to the API, so it holds nothing and needs no
+credentials. A direct load of any route (`/admin/global-eye`, a refresh) is
+answered by that function.
+
+**API -- Railway project `india-portwatch-api`, service `api`**, at
+`https://india-portwatch-api.up.railway.app`: built from the root Dockerfile
+(`railway.json`), one replica, never asleep, a Railway volume mounted at
+`/app/state`, target port 8000 (`PORT=8000` is set explicitly so Railway's
+injected port matches the image and the domain), region us-west (sfo). The
+environment:
+
+```
+PORTWATCH_LICENCE_MODE=DEMO
+PORTWATCH_STATE_DIR=/app/state
+PORTWATCH_CORS_REGEX=^https://india-portwatch(-([a-z0-9-]+-)?flash2404s-projects)?\.vercel\.app$
+```
+
+The volume and the variables were created with the CLI (`railway volume add
+--mount-path /app/state`, `railway variable set`); `railway up --service api`
+uploads the repository and builds the image. `render.yaml` is the same
+service for Render, kept as the alternative. On either host the first
+minutes after a deploy are `not ready` while the coordinator fetches the
+register and the marine grid and runs the port-forecast pipeline in a
+subprocess; `/api/admin/readiness` says which artefact is still missing.
+Railway's shared egress hits GDELT's rate limit now and then; the
+coordinator backs off and retries, and the register stays last-known-good.
+
+If the API's URL ever changes, set `VITE_PORTWATCH_API_BASE` on the Vercel
+project to it and redeploy the terminal; nothing else refers to the API's
+address.
+
 ## 5. What was tested
 
 `scripts/demo_restart.py` starts a throwaway API on a fresh state directory,
@@ -121,13 +180,10 @@ corrupt cache, database unavailable, frontend cut off from the API.
 
 ## 6. Not done in this release
 
-- No public container host was provisioned: the workstation's Docker Desktop
-  would not start (a stale `sailor-ingest.sock` it cannot remove without a
-  reboot), and provisioning a cloud VM or an always-on Cloud Run service on
-  the owner's account is a billable action taken only on their say-so. The
-  image, the compose file and the environment contract above are what such a
-  host runs; the restart and failure tests ran against the same process
-  under the same environment on this machine.
+- The workstation's Docker Desktop would not start (a stale
+  `sailor-ingest.sock` it cannot remove without a reboot); the restart and
+  failure tests ran against the same process under the same environment on
+  this machine, and the image itself was first built by Railway.
 - PostgreSQL is not used. The ledger's SQL is SQLite's and the write volume
   is small; a migration would be a project of its own and nothing here needs
   it. The compose file's `infra` profile (PostgreSQL + Kafka) backs the

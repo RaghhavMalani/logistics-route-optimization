@@ -2,14 +2,36 @@
  * Loading, empty and failure states.
  *
  * A control room does not want a red wall when a feed drops. It wants to know
- * what is missing, how old the last good state was, and the one command that
- * fixes it -- in the same layout, so the screen does not jump.
+ * what is missing, how old the last good state was, and what restores it --
+ * in the same layout, so the screen does not jump. What restores it depends
+ * on who is looking: on a developer's machine the command that starts the
+ * API; on the public product, the fact that the backend is unavailable and
+ * which host that is. A uvicorn command means nothing to a buyer.
  */
 
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { ApiError } from "@/services/api";
+import { API_BASE, ApiError } from "@/services/api";
+
+const LOCAL_API_HINT = "uvicorn backend.app.main:app --reload --port 8000";
+
+/** Whether the terminal is being operated from a developer's machine. */
+function operatedLocally(): boolean {
+  if (import.meta.env.DEV) return true;
+  if (typeof window === "undefined") return false;
+  return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+}
+
+/** The host the terminal is trying to reach, for the status line. */
+function apiHost(): string | null {
+  try {
+    const origin = typeof window === "undefined" ? "http://localhost" : window.location.href;
+    return new URL(API_BASE, origin).host;
+  } catch {
+    return null;
+  }
+}
 import { Button, Page, PageBody, PageHeader } from "./layout";
 import { Pill, type Tone } from "./primitives";
 
@@ -111,9 +133,12 @@ export function FailureState({
   retry?: () => void;
   /** Age of the newest state the operator can still trust, if any. */
   lastGood?: { label: string; age?: string | null } | null;
+  /** A local recovery command; shown only when the operator is on a developer's machine. */
   hint?: string;
 }) {
   const { headline, detail } = describe(error);
+  const local = operatedLocally();
+  const host = apiHost();
   return (
     <div className="flex h-full min-h-[140px] w-full items-center justify-center p-5">
       <div className="w-full max-w-[520px]">
@@ -135,9 +160,19 @@ export function FailureState({
               Retry
             </Button>
           ) : null}
-          <code className="truncate rounded-[2px] bg-[var(--panel-2)] px-2 py-[5px] font-mono text-[10.5px] text-[var(--text-3)]">
-            {hint ?? "uvicorn backend.app.main:app --reload --port 8000"}
-          </code>
+          {local ? (
+            <code className="truncate rounded-[2px] bg-[var(--panel-2)] px-2 py-[5px] font-mono text-[10.5px] text-[var(--text-3)]">
+              {hint ?? LOCAL_API_HINT}
+            </code>
+          ) : (
+            <span
+              className="flex items-center gap-2 text-[11.5px] text-[var(--text-3)]"
+              data-testid="failure-status"
+            >
+              <span className="eyebrow">System status</span>
+              <span>backend unavailable{host ? ` · ${host}` : ""}</span>
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -43,7 +43,6 @@ function SystemState() {
             error={health.error}
             retry={() => void health.refetch()}
             lastGood={null}
-            hint="uvicorn backend.app.main:app --reload --port 8000"
           />
         </PageBody>
       </Page>
