@@ -77,7 +77,12 @@ Scoping rules (`backend.app.identity.may_see_decision`, the advisory store's
   subject is its port); a shipping company the decisions its organisation
   holds; a vessel operator the decisions about its own hulls and its
   organisation's. Read, list, transition, hand-off and outcome all apply it,
-  and so does a record restored from the ledger.
+  and so does a record restored from the ledger. The listing applies it
+  inside the ledger query, before the page, so a tenant's rows behind other
+  tenants' newer ones are found without reading a body. A company or
+  operator that names no organisation, or a port authority that names no
+  port, is refused a new decision (400) rather than handed one that its own
+  scope could never read back.
 - **advisories** -- an issuer sees what it issued at its port; a recipient sees
   what was issued to its vessels once ISSUED, never a DRAFT.
 - **attention** -- each role's queue is framed for its scope.

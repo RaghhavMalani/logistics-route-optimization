@@ -45,9 +45,6 @@ from src.portwatch_os.world.quantity import utc
 
 router = APIRouter()
 
-#: How far back a scoped listing reads the ledger before filtering to what
-#: the caller may see. National command reads it whole.
-LEDGER_SCAN_LIMIT = 2000
 
 
 # --------------------------------------------------------------------------
@@ -452,14 +449,19 @@ def list_problems(
     held = {r["decisionId"] for r in rows} | {p.decision_id for p in engine.all()}
     restored = 0
     if engine.ledger is not None:
-        # Scoping runs after the read, so read past the page: a tenant whose
-        # records sit behind other tenants' newer ones must still find them.
-        for record in engine.ledger.decision_problems(limit=None if identity.is_admin else LEDGER_SCAN_LIMIT):
+        # A scoped identity's rows may sit behind other tenants' newer ones,
+        # so the ledger applies the visibility rule itself, before the page,
+        # and never reads a body to do it. This process's own problems are
+        # in the ledger too: they are asked for on top and skipped.
+        def visible(actor: Dict[str, Any], subject: Dict[str, Any], domain: str) -> bool:
+            return may_see_decision(identity, actor, subject, domain)
+
+        for problem_id in engine.ledger.visible_decision_problem_ids(visible, limit=limit + len(held)):
             if len(rows) >= limit:
                 break
-            if record.problem_id in held:
+            if problem_id in held:
                 continue
-            body = _from_ledger(engine, record.problem_id) or {}
+            body = _from_ledger(engine, problem_id) or {}
             if not may_see_decision(identity, body.get("actor") or {}, body.get("subject") or {}, str(body.get("domain") or "")):
                 continue
             body.pop("options", None)

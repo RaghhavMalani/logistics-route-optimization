@@ -22,13 +22,14 @@ Two properties this module guarantees, and the tests hold it to:
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence
 
 from src.portwatch_os.ledger.schema import (
     APPROVED,
@@ -47,6 +48,15 @@ from src.utils.config import STATE_DIR
 from src.portwatch_os.clock import world_now
 
 DEFAULT_LEDGER_PATH = STATE_DIR / "portwatch_ledger.db"
+log = logging.getLogger(__name__)
+
+
+#: Applied after the schema, and allowed to fail: see ``_ensure_holder_index``.
+_HOLDER_INDEX = (
+    "CREATE INDEX IF NOT EXISTS ix_dp_holder ON decision_problems("
+    "issued_at DESC, problem_id, actor, subject, domain, "
+    "json_extract(problem, '$.actor.organisation'), json_extract(problem, '$.actor.portCode'))"
+)
 
 
 class LedgerError(RuntimeError):
@@ -266,6 +276,7 @@ CREATE TABLE IF NOT EXISTS decision_problems (
     notes               TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_dp_domain ON decision_problems(domain, status);
+CREATE INDEX IF NOT EXISTS ix_dp_issued ON decision_problems(issued_at DESC, problem_id);
 
 CREATE TABLE IF NOT EXISTS event_outcomes (
     outcome_id              TEXT PRIMARY KEY,
@@ -372,6 +383,21 @@ class SqliteLedgerStore(LedgerStore):
                 self._conn.commit()
         except sqlite3.DatabaseError as exc:
             raise LedgerError(f"the ledger at {self.path} cannot be opened: {exc}") from exc
+        self._ensure_holder_index()
+
+    def _ensure_holder_index(self) -> None:
+        """The covering index a scoped listing walks: newest first, with the
+        holder's role, organisation and port, the subject and the domain
+        beside the id, so visibility is judged from the index alone and no
+        88 KB body is read. It is an aid, not a requirement -- a ledger whose
+        ``problem`` column it cannot index (SQLite without JSON, a body that
+        is not JSON) opens without it and lists more slowly."""
+        try:
+            with self._lock:
+                self._conn.execute(_HOLDER_INDEX)
+                self._conn.commit()
+        except sqlite3.DatabaseError as exc:
+            log.warning("ledger %s: listing without the holder index (%s)", self.path, exc)
 
     # -- plumbing ----------------------------------------------------------
     @contextmanager
@@ -707,6 +733,39 @@ class SqliteLedgerStore(LedgerStore):
         with self._lock:
             rows = self._conn.execute(sql, params).fetchall()
         return [DecisionProblemRecord.from_row(dict(row)) for row in rows]
+
+    def visible_decision_problem_ids(
+        self,
+        visible: Callable[[Dict[str, Any], Dict[str, Any], str], bool],
+        *,
+        limit: int,
+    ) -> List[str]:
+        """The newest problems ``visible`` admits, by id, without reading a body.
+
+        A scoped listing has to look past the page to find a tenant's rows
+        behind other tenants' newer ones; reading every 88 KB body to do so
+        cost seconds. ``visible(actor, subject, domain)`` is the caller's own
+        rule -- the same one it judges a restored body by -- and it runs
+        inside the query on the columns it reads: the holder's role,
+        organisation and port (``json_extract``, in SQLite), the subject id
+        and the domain. The walk is the covering ``ix_dp_holder`` where it
+        exists (``ix_dp_issued`` and the rows where it does not) and stops
+        at ``limit`` admissions.
+        """
+        def admit(role: Any, organisation: Any, port_code: Any, subject: Any, domain: Any) -> int:
+            holder = {"role": role, "organisation": organisation, "portCode": port_code}
+            return 1 if visible(holder, {"id": subject}, str(domain or "")) else 0
+
+        with self._lock:
+            self._conn.create_function("pw_visible", 5, admit)
+            rows = self._conn.execute(
+                "SELECT problem_id FROM decision_problems "
+                "WHERE pw_visible(actor, json_extract(problem, '$.actor.organisation'), "
+                "json_extract(problem, '$.actor.portCode'), subject, domain) "
+                "ORDER BY issued_at DESC, problem_id LIMIT ?",
+                (int(limit),),
+            ).fetchall()
+        return [row["problem_id"] for row in rows]
 
     # -- event outcomes ----------------------------------------------------
     def record_event_outcome(self, record: EventOutcomeRecord) -> str:

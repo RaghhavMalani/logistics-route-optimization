@@ -5,6 +5,7 @@
     the probes name the fault; health and readiness carry them
     a ledger route answers 503 on a corrupt ledger, saying nothing was substituted
     a decision computed by another process is served from the ledger, read-only
+    a scoped listing finds a tenant's rows behind other tenants' newer ones
     the assumption journal round-trips with its author and refuses an unreadable line
 """
 
@@ -195,6 +196,71 @@ class ApiTests(unittest.TestCase):
         listed = self.client.get("/api/decisions/problems?limit=50").json()
         self.assertIn(record.problem_id, {r["decisionId"] for r in listed["problems"]})
         self.assertGreaterEqual(listed["restoredFromLedger"], 1)
+
+    def test_a_scoped_listing_finds_a_tenant_behind_other_tenants_newer_rows(self):
+        """Forty newer rows belong to one carrier and one port; the five oldest
+        to another carrier. Each caller lists its own, and only its own, from
+        the ledger -- the page limit is not applied before the scope."""
+        from src.portwatch_os.ledger import store as ledger_store
+        from src.portwatch_os.ledger.schema import DecisionProblemRecord
+
+        state = Path(tempfile.mkdtemp(prefix="pw-scoped-")) / "portwatch_ledger.db"
+        ledger = ledger_store.SqliteLedgerStore(state)
+
+        def write(index: int, domain: str, subject: str, actor: dict) -> None:
+            problem = {"decisionId": f"dec-{index:03d}", "domain": domain, "actor": actor,
+                       "subject": {"id": subject, "type": "vessel" if domain == "VESSEL_ROUTING" else "port"},
+                       "options": [{"id": "keep"}]}
+            ledger.record_decision_problem(DecisionProblemRecord(
+                problem_id=problem["decisionId"], domain=domain, subject=subject, actor=actor["role"],
+                issued_at=f"2026-09-01T{index // 60:02d}:{index % 60:02d}:00+00:00",
+                world_state_id="ws-test", world_revision={"fingerprint": "t"}, at=None, problem=problem,
+            ))
+
+        company = lambda org: {"role": "SHIPPING_COMPANY", "organisation": org, "portCode": None, "vesselIds": []}
+        port = {"role": "PORT_AUTHORITY", "organisation": None, "portCode": "INNSA", "vesselIds": []}
+        for i in range(5):                                   # the oldest five: Small Carrier
+            write(i, "VESSEL_ROUTING", f"SC-{i}", company("Small Carrier"))
+        for i in range(5, 35):                               # thirty newer: Big Carrier
+            write(i, "VESSEL_ROUTING", f"BC-{i}", company("Big Carrier"))
+        for i in range(35, 45):                              # ten newest: the port's berth plans
+            write(i, "PORT_BERTHING", "INNSA", port)
+        ledger.close()
+
+        with mock.patch.object(ledger_store, "DEFAULT_LEDGER_PATH", state):
+            ledger_store.reset_default_ledger()
+            from src.portwatch_os.decision import engine as engine_module
+
+            engine_module.reset_engine()
+            try:
+                def listing(headers: dict, limit: int = 25) -> dict:
+                    response = self.client.get(f"/api/decisions/problems?limit={limit}", headers=headers)
+                    self.assertEqual(response.status_code, 200, response.text)
+                    return response.json()
+
+                small = listing({"X-PortWatch-Role": "SHIPPING_COMPANY", "X-PortWatch-Org": "small carrier "})
+                self.assertEqual(sorted(r["decisionId"] for r in small["problems"]),
+                                 [f"dec-{i:03d}" for i in range(5)])
+                self.assertEqual(small["restoredFromLedger"], 5)
+
+                big = listing({"X-PortWatch-Role": "SHIPPING_COMPANY", "X-PortWatch-Org": "Big Carrier"})
+                self.assertEqual(len(big["problems"]), 25)
+                self.assertTrue(all(r["actor"]["organisation"] == "Big Carrier" for r in big["problems"]))
+                self.assertEqual(big["problems"][0]["decisionId"], "dec-034")      # newest first
+
+                harbour = listing({"X-PortWatch-Role": "PORT_AUTHORITY", "X-PortWatch-Port": "INNSA"})
+                self.assertEqual({r["domain"] for r in harbour["problems"]}, {"PORT_BERTHING"})
+                self.assertEqual(len(harbour["problems"]), 10)
+
+                other_port = listing({"X-PortWatch-Role": "PORT_AUTHORITY", "X-PortWatch-Port": "INMAA"})
+                self.assertEqual(other_port["problems"], [])
+
+                national = listing({"X-PortWatch-Role": "NATIONAL_ADMIN"}, limit=50)
+                self.assertEqual(len(national["problems"]), 45)
+                self.assertEqual(national["problems"][0]["decisionId"], "dec-044")
+            finally:
+                engine_module.reset_engine()
+                ledger_store.reset_default_ledger()
 
 
 if __name__ == "__main__":
