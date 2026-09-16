@@ -108,6 +108,8 @@ Scoping rules (`backend.app.identity.may_see_decision`, the advisory store's
 | 12 | INFO | Secrets: `AISSTREAM_API_KEY` and `OPEN_METEO_API_KEY` are read on the server, `/admin/*` payloads are scrubbed against their values, and the fuzz suite asserts no response carries a configured secret. Nothing logs a key. | Reviewed; no change. |
 | 13 | INFO | CORS: `PORTWATCH_CORS_REGEX` defaults to localhost; production sets the exact terminal origin. Every mutating request carries custom `X-PortWatch-*` headers, so a cross-site request is preflighted and refused unless the origin matches. | Reviewed; documented. |
 | 14 | INFO | MCP: the server withholds EXECUTE at the default ceiling (CI asserts the catalogue); agent tool access follows the identity headers. | Reviewed; no change. |
+| 15 | LOW | (release review) A shipping company or vessel operator with no `X-PortWatch-Org`, or a port authority with no `X-PortWatch-Port`, could create a decision that its own scope could never read, list or move; only national command could. | Fixed: refused at creation with a 400 naming the header (`_actor`). |
+| 16 | LOW | (release review) `GET /decisions/problems` read the ledger's newest `limit` rows and scoped them afterwards, so a tenant whose rows sat behind other tenants' newer ones was shown none of them. | Fixed: the visibility rule runs inside the ledger query over a covering index (`visible_decision_problem_ids`), before the page. Test: `test_a_scoped_listing_finds_a_tenant_behind_other_tenants_newer_rows`. |
 
 ## 4. What was attacked
 
