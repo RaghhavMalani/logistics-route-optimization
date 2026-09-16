@@ -131,7 +131,7 @@ and the environment:
 ```
 PORTWATCH_LICENCE_MODE=DEMO
 PORTWATCH_STATE_DIR=/app/state
-PORTWATCH_CORS_REGEX=^https://india-portwatch(-[a-z0-9-]+-flash2404s-projects)?\.vercel\.app$
+PORTWATCH_CORS_REGEX=^https://india-portwatch(-([a-z0-9-]+-)?flash2404s-projects)?\.vercel\.app$
 ```
 
 `railway.json` is the same service for Railway (Dockerfile build, one

@@ -1,0 +1,1773 @@
+{
+  "base": "https://india-portwatch.vercel.app",
+  "at": "2026-09-16T15:04:43.981Z",
+  "sizes": {
+    "1920x1080": {
+      "landing": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8"
+      },
+      "afterLogin": "https://india-portwatch.vercel.app/admin/radar",
+      "deepRouteStatus": 200,
+      "strip": {
+        "nationalCommand": {
+          "apiState": "Operational data service unavailable",
+          "mode": null,
+          "traffic": "SIMULATED REPLAY"
+        },
+        "signalHealth": {
+          "apiState": "Operational data service unavailable",
+          "mode": null,
+          "traffic": "SIMULATED REPLAY"
+        }
+      },
+      "apiHosts": [
+        "india-portwatch-api.onrender.com"
+      ],
+      "failedRequests": [
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/cascades",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/attention?limit=5",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/cascades",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/attention?limit=5",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/provenance",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/model/benchmark",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/model/benchmark",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/provenance",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions/compare",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions/compare",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "mixedContent": [],
+      "consoleErrors": [
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/cascades' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/attention?limit=5' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested r",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/cascades' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/attention?limit=5' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested r",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/provenance' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/model/benchmark' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/model/benchmark' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/provenance' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions/compare' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions/compare' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "screenshots": {
+        "01-landing": "../docs/qa/deploy/01-landing-1920x1080.png",
+        "02-sign-in": "../docs/qa/deploy/02-sign-in-1920x1080.png",
+        "03-national-command": "../docs/qa/deploy/03-national-command-1920x1080.png",
+        "04-global-eye": "../docs/qa/deploy/04-global-eye-1920x1080.png",
+        "05-signal-health": "../docs/qa/deploy/05-signal-health-1920x1080.png",
+        "06-direct-route": "../docs/qa/deploy/06-direct-route-1920x1080.png"
+      }
+    },
+    "1440x900": {
+      "landing": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8"
+      },
+      "afterLogin": "https://india-portwatch.vercel.app/admin/radar",
+      "deepRouteStatus": 200,
+      "strip": {
+        "nationalCommand": {
+          "apiState": "Operational data service unavailable",
+          "mode": null,
+          "traffic": "SIMULATED REPLAY"
+        },
+        "signalHealth": {
+          "apiState": "Operational data service unavailable",
+          "mode": null,
+          "traffic": "SIMULATED REPLAY"
+        }
+      },
+      "apiHosts": [
+        "india-portwatch-api.onrender.com"
+      ],
+      "failedRequests": [
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/cascades",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/attention?limit=5",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/cascades",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/attention?limit=5",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/model/benchmark",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/provenance",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/provenance",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/model/benchmark",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions/compare",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions/compare",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "mixedContent": [],
+      "consoleErrors": [
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/cascades' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/attention?limit=5' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested r",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/cascades' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/attention?limit=5' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested r",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/model/benchmark' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/provenance' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/provenance' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/model/benchmark' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions/compare' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions/compare' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "screenshots": {
+        "01-landing": "../docs/qa/deploy/01-landing-1440x900.png",
+        "02-sign-in": "../docs/qa/deploy/02-sign-in-1440x900.png",
+        "03-national-command": "../docs/qa/deploy/03-national-command-1440x900.png",
+        "04-global-eye": "../docs/qa/deploy/04-global-eye-1440x900.png",
+        "05-signal-health": "../docs/qa/deploy/05-signal-health-1440x900.png",
+        "06-direct-route": "../docs/qa/deploy/06-direct-route-1440x900.png"
+      }
+    },
+    "1366x768": {
+      "landing": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8"
+      },
+      "afterLogin": "https://india-portwatch.vercel.app/admin/radar",
+      "deepRouteStatus": 200,
+      "strip": {
+        "nationalCommand": {
+          "apiState": "Operational data service unavailable",
+          "mode": null,
+          "traffic": "SIMULATED REPLAY"
+        },
+        "signalHealth": {
+          "apiState": "Operational data service unavailable",
+          "mode": null,
+          "traffic": "SIMULATED REPLAY"
+        }
+      },
+      "apiHosts": [
+        "india-portwatch-api.onrender.com"
+      ],
+      "failedRequests": [
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/cascades",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/attention?limit=5",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/attention?limit=5",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/cascades",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/provenance",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/model/benchmark",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/provenance",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/model/benchmark",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions/compare",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports/registry",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions/compare",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/ports",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/missions",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fleet",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/world/clock",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/weather",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/health",
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://india-portwatch-api.onrender.com/api/news",
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "mixedContent": [],
+      "consoleErrors": [
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/cascades' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/attention?limit=5' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested r",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/attention?limit=5' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested r",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/cascades' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/provenance' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/model/benchmark' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/provenance' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/model/benchmark' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions/compare' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports/registry' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions/compare' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/ports' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/missions' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fleet' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/world/clock' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/fabric/health?mode=DEMO' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/weather' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/health' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED",
+        "Access to fetch at 'https://india-portwatch-api.onrender.com/api/news' from origin 'https://india-portwatch.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "Failed to load resource: net::ERR_FAILED"
+      ],
+      "pageErrors": [],
+      "screenshots": {
+        "01-landing": "../docs/qa/deploy/01-landing-1366x768.png",
+        "02-sign-in": "../docs/qa/deploy/02-sign-in-1366x768.png",
+        "03-national-command": "../docs/qa/deploy/03-national-command-1366x768.png",
+        "04-global-eye": "../docs/qa/deploy/04-global-eye-1366x768.png",
+        "05-signal-health": "../docs/qa/deploy/05-signal-health-1366x768.png",
+        "06-direct-route": "../docs/qa/deploy/06-direct-route-1366x768.png"
+      }
+    }
+  }
+}

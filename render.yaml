@@ -51,6 +51,6 @@ services:
       - key: PORTWATCH_STATE_DIR
         value: /app/state
       - key: PORTWATCH_CORS_REGEX
-        value: ^https://india-portwatch(-[a-z0-9-]+-flash2404s-projects)?\.vercel\.app$
+        value: ^https://india-portwatch(-([a-z0-9-]+-)?flash2404s-projects)?\.vercel\.app$
       - key: PYTHONUNBUFFERED
         value: "1"
