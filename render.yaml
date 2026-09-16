@@ -22,9 +22,10 @@
 #     and throws the in-memory world away; the ledger on the disk survives, the
 #     rest is rebuilt on the next request, minutes later.
 #
-# The service URL is https://<name>.onrender.com. If Render has to rename the
-# service, set VITE_PORTWATCH_API_BASE on the Vercel terminal project to the
-# URL it assigned, and redeploy the terminal.
+# This is the Render alternative; the deployed API runs on Railway
+# (railway.json, docs/DEPLOYMENT.md 4.1). The service URL here would be
+# https://<name>.onrender.com: set VITE_PORTWATCH_API_BASE on the Vercel
+# terminal project to it and redeploy the terminal if this host is used.
 #
 # Credentials: none are required for DEMO. AISSTREAM_API_KEY is for RESEARCH
 # only (AISStream's commercial terms are REQUIRES_REVIEW; docs/DATA_SOURCES.md)

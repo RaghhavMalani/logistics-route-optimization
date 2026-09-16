@@ -115,18 +115,19 @@ the same thing (validation, cache refresh, API on :8000, terminal on :8080).
 | Root Directory | `india-portwatch-terminal` |
 | Framework Preset | TanStack Start (`india-portwatch-terminal/vercel.json` says the same, and sets `NITRO_PRESET=vercel` for the build) |
 | Build | the framework default (`vite build` through `npm run build`); Nitro's Vercel preset writes `.vercel/output`: static assets on the CDN, one `__server` function for SSR |
-| `VITE_PORTWATCH_API_BASE` | `https://india-portwatch-api.onrender.com/api` on production and preview |
+| `VITE_PORTWATCH_API_BASE` | `https://india-portwatch-api.up.railway.app/api` on production and preview |
 
 The terminal makes every API call from the browser; the SSR function renders
 shells and never talks to the API, so it holds nothing and needs no
 credentials. A direct load of any route (`/admin/global-eye`, a refresh) is
 answered by that function.
 
-**API -- one long-running host.** `render.yaml` is the reference: a Docker
-web service on the Starter plan (a Free instance sleeps after fifteen idle
-minutes and takes the coordinator and the AIS client with it), one instance,
-a 1 GB disk at `/app/state`, health check `/api/health`, region Singapore,
-and the environment:
+**API -- Railway project `india-portwatch-api`, service `api`**, at
+`https://india-portwatch-api.up.railway.app`: built from the root Dockerfile
+(`railway.json`), one replica, never asleep, a Railway volume mounted at
+`/app/state`, target port 8000 (`PORT=8000` is set explicitly so Railway's
+injected port matches the image and the domain), region us-west (sfo). The
+environment:
 
 ```
 PORTWATCH_LICENCE_MODE=DEMO
@@ -134,17 +135,19 @@ PORTWATCH_STATE_DIR=/app/state
 PORTWATCH_CORS_REGEX=^https://india-portwatch(-([a-z0-9-]+-)?flash2404s-projects)?\.vercel\.app$
 ```
 
-`railway.json` is the same service for Railway (Dockerfile build, one
-replica, health check, no sleeping); the volume at `/app/state` and the
-three variables are set in Railway's dashboard, which has no file form for
-them. On either host the first minutes after a deploy are `not ready`
-while the coordinator fetches the register and the marine grid and runs the
-port-forecast pipeline; `/api/admin/readiness` says which artefact is still
-missing.
+The volume and the variables were created with the CLI (`railway volume add
+--mount-path /app/state`, `railway variable set`); `railway up --service api`
+uploads the repository and builds the image. `render.yaml` is the same
+service for Render, kept as the alternative. On either host the first
+minutes after a deploy are `not ready` while the coordinator fetches the
+register and the marine grid and runs the port-forecast pipeline in a
+subprocess; `/api/admin/readiness` says which artefact is still missing.
+Railway's shared egress hits GDELT's rate limit now and then; the
+coordinator backs off and retries, and the register stays last-known-good.
 
-If the host assigns a different URL, set `VITE_PORTWATCH_API_BASE` on the
-Vercel project to it and redeploy the terminal; nothing else refers to the
-API's address.
+If the API's URL ever changes, set `VITE_PORTWATCH_API_BASE` on the Vercel
+project to it and redeploy the terminal; nothing else refers to the API's
+address.
 
 ## 5. What was tested
 
@@ -177,14 +180,10 @@ corrupt cache, database unavailable, frontend cut off from the API.
 
 ## 6. Not done in this release
 
-- The API host is prepared, not provisioned: `render.yaml` and
-  `railway.json` are ready to apply, but creating the service is a billable
-  action on the owner's account. Until it exists the public terminal shows
-  the API as unreachable on its status strip -- it does not fall back to the
-  old Vercel container function, which was never a production backend. The
-  workstation's Docker Desktop would not start (a stale `sailor-ingest.sock`
-  it cannot remove without a reboot); the restart and failure tests ran
-  against the same process under the same environment on this machine.
+- The workstation's Docker Desktop would not start (a stale
+  `sailor-ingest.sock` it cannot remove without a reboot); the restart and
+  failure tests ran against the same process under the same environment on
+  this machine, and the image itself was first built by Railway.
 - PostgreSQL is not used. The ledger's SQL is SQLite's and the write volume
   is small; a migration would be a project of its own and nothing here needs
   it. The compose file's `infra` profile (PostgreSQL + Kafka) backs the

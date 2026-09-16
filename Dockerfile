@@ -57,7 +57,9 @@ COPY run_award_demo.py run_demo.py ./
 #   /app/outputs     REBUILDABLE   pipeline artefacts. A volume or a pipeline run.
 RUN mkdir -p outputs/expert_features outputs/regimes outputs/forecasts \
              outputs/analytics data/cache state
-VOLUME ["/app/state", "/app/data/cache", "/app/outputs"]
+# No VOLUME instruction: the host mounts what it persists (docker compose
+# names its volumes; Railway attaches its volume to /app/state and refuses
+# an image that declares its own).
 
 ENV PORT=8000 \
     PORTWATCH_STATE_DIR=/app/state
