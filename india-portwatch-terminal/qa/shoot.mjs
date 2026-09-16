@@ -23,30 +23,57 @@ const ROUTES = JSON.parse(process.env.SHOT_ROUTES ?? '{"login":"/login"}');
 const ROLE = process.env.SHOT_ROLE ?? null;
 const SETTLE = Number(process.env.SHOT_SETTLE ?? 2200);
 
+/**
+ * The demo accounts, in the terminal's current role vocabulary.
+ *
+ * These drifted: the harness moved to NATIONAL_ADMIN / PORT_AUTHORITY /
+ * SHIPPING_COMPANY while this file still seeded ADMIN and PORT_OPERATOR, so a
+ * screenshot run silently bounced to the login screen and captured that
+ * instead. Kept in step with `qa/harness.ts`.
+ */
+const DEMO_COMPANY_NAME = "PortWatch Demo Shipping";
+const DEMO_COMPANY_ID = "portwatch-demo-shipping";
+
 const ACCOUNTS = {
-  ADMIN: {
+  NATIONAL_ADMIN: {
     id: "demo-admin",
     email: "admin@portwatch.demo",
     displayName: "A. Deshmukh",
-    role: "ADMIN",
+    role: "NATIONAL_ADMIN",
     organisation: "National Maritime Operations Centre",
     portCode: null,
+    companyId: null,
+    vesselIds: [],
   },
-  PORT_OPERATOR: {
+  PORT_AUTHORITY: {
     id: "demo-port",
     email: "port@portwatch.demo",
     displayName: "S. Iyer",
-    role: "PORT_OPERATOR",
+    role: "PORT_AUTHORITY",
     organisation: "Chennai Port Authority — Control Room",
     portCode: "INMAA",
+    companyId: null,
+    vesselIds: [],
+  },
+  SHIPPING_COMPANY: {
+    id: "demo-company",
+    email: "company@portwatch.demo",
+    displayName: "M. Fernandes",
+    role: "SHIPPING_COMPANY",
+    organisation: DEMO_COMPANY_NAME,
+    portCode: null,
+    companyId: DEMO_COMPANY_ID,
+    vesselIds: [],
   },
   VESSEL_OPERATOR: {
     id: "demo-vessel",
     email: "vessel@portwatch.demo",
     displayName: "R. Nayar",
     role: "VESSEL_OPERATOR",
-    organisation: "Konkan Line — Fleet Operations",
+    organisation: DEMO_COMPANY_NAME,
     portCode: null,
+    companyId: DEMO_COMPANY_ID,
+    vesselIds: ["PWD-001"],
   },
 };
 

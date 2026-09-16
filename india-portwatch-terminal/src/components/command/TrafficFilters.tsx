@@ -25,6 +25,7 @@ import {
   type WeatherFrame,
 } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
+import { formatAge, formatInstant } from "@/components/fabric/signal-format";
 import { Pill } from "@/components/kit/primitives";
 import { Chip, FloatPanel, PanelSection } from "./panels";
 import type { WorkspaceMap } from "./useWorkspaceMap";
@@ -58,7 +59,9 @@ export function TrafficFilters({
   return (
     <FloatPanel
       title="Layers and filters"
-      note={workspace.filterActive ? <Pill tone="warn">filtered</Pill> : undefined}
+      note={
+        workspace.filterActive ? <Pill tone="warn">filtered</Pill> : undefined
+      }
       collapsible
       defaultOpen={defaultOpen}
       width={216}
@@ -70,7 +73,7 @@ export function TrafficFilters({
           <button
             type="button"
             onClick={workspace.resetFilters}
-            className="text-[9.5px] hover:text-[var(--text)]"
+            className="text-[10.5px] hover:text-[var(--text)]"
           >
             reset
           </button>
@@ -110,7 +113,7 @@ export function TrafficFilters({
           <button
             type="button"
             onClick={() => setShowFields((v) => !v)}
-            className="text-[9.5px] hover:text-[var(--text)]"
+            className="text-[10.5px] hover:text-[var(--text)]"
           >
             {showFields ? "hide fields" : "field"}
           </button>
@@ -123,10 +126,16 @@ export function TrafficFilters({
           >
             Weather
           </Chip>
-          <Chip active={workspace.showWind} onClick={() => workspace.setShowWind(!workspace.showWind)}>
+          <Chip
+            active={workspace.showWind}
+            onClick={() => workspace.setShowWind(!workspace.showWind)}
+          >
             Wind flow
           </Chip>
-          <Chip active={workspace.layers.storms} onClick={() => workspace.toggleLayer("storms")}>
+          <Chip
+            active={workspace.layers.storms}
+            onClick={() => workspace.toggleLayer("storms")}
+          >
             Storm cells
           </Chip>
         </div>
@@ -147,14 +156,17 @@ export function TrafficFilters({
               <Chip
                 key={spec.key}
                 active={workspace.weatherField === spec.key}
-                onClick={() => workspace.setWeatherField(spec.key as WeatherFieldKey)}
+                onClick={() =>
+                  workspace.setWeatherField(spec.key as WeatherFieldKey)
+                }
               >
                 {spec.label}
               </Chip>
             ))}
-            <span className="mt-1 block w-full text-[9.5px] leading-snug text-[var(--text-3)]">
-              Significant wave height is <span className="text-[var(--crit)]">UNAVAILABLE</span>:
-              the marine feed returned no wave data in this run.
+            <span className="mt-1 block w-full text-[10.5px] leading-snug text-[var(--text-3)]">
+              Significant wave height is{" "}
+              <span className="text-[var(--crit)]">UNAVAILABLE</span>: the
+              marine feed returned no wave data in this run.
             </span>
           </div>
         ) : null}
@@ -191,8 +203,12 @@ export function EnvironmentLegend({
   const composite = workspace.weatherField === null;
   const spec = composite
     ? null
-    : (WEATHER_FIELD_LIST.find((field) => field.key === workspace.weatherField) ?? null);
-  const stops = legendStops(composite ? "precipitation" : workspace.weatherField!);
+    : (WEATHER_FIELD_LIST.find(
+        (field) => field.key === workspace.weatherField,
+      ) ?? null);
+  const stops = legendStops(
+    composite ? "precipitation" : workspace.weatherField!,
+  );
   const raster = workspace.raster;
   const covered = raster?.covered ?? 0;
   const peaks = raster?.peaks;
@@ -207,11 +223,11 @@ export function EnvironmentLegend({
       )}
       data-testid="environment-legend"
     >
-      <div className="flex items-baseline gap-2">
-        <span className="eyebrow text-[9px]">
+      <div className="flex items-baseline gap-2 whitespace-nowrap">
+        <span className="eyebrow shrink-0 text-[10px]">
           {composite ? "Environment" : spec?.label}
         </span>
-        <span className="num text-[9.5px] text-[var(--text-3)]">
+        <span className="num min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-3)]">
           {composite ? "rain · wind · severe" : spec?.unit}
         </span>
         {frame.derived ? (
@@ -229,8 +245,11 @@ export function EnvironmentLegend({
       <div className="mt-1 flex items-center">
         {stops.map((stop) => (
           <span key={stop.label} className="flex-1">
-            <span className="block h-[6px] w-full" style={{ background: stop.color }} />
-            <span className="num mt-[2px] block text-center text-[8.5px] text-[var(--text-3)]">
+            <span
+              className="block h-[6px] w-full"
+              style={{ background: stop.color }}
+            />
+            <span className="num mt-[2px] block text-center text-[10px] text-[var(--text-3)]">
               {stop.label}
             </span>
           </span>
@@ -250,19 +269,21 @@ export function EnvironmentLegend({
             ] as Array<[string, number | null, string]>
           ).map(([label, value, unit]) => (
             <div key={label}>
-              <div className="text-[8.5px] uppercase tracking-[0.06em] text-[var(--text-3)]">
+              <div className="text-[10px] uppercase tracking-[0.06em] text-[var(--text-3)]">
                 peak {label}
               </div>
               <div className="num text-[11px] leading-none text-[var(--text)]">
                 {value == null ? "—" : value.toFixed(value < 1 ? 3 : 1)}
-                <span className="ml-0.5 text-[8.5px] text-[var(--text-3)]">{unit}</span>
+                <span className="ml-0.5 text-[10px] text-[var(--text-3)]">
+                  {unit}
+                </span>
               </div>
             </div>
           ))}
         </div>
       ) : null}
 
-      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--line)]/60 pt-1 text-[9px] text-[var(--text-3)]">
+      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-[var(--line)]/60 pt-1 text-[10px] text-[var(--text-3)]">
         <span className="flex items-center gap-1">
           <span className="h-[2px] w-4 rounded-full bg-[#8fd0ef]" />
           Wind flow
@@ -275,6 +296,106 @@ export function EnvironmentLegend({
         </span>
         <span className="num">{covered} stations</span>
       </div>
+
+      {workspace.layers.seastate ? (
+        <SeaStateLegend workspace={workspace} />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The sea-state key: what the discs and strokes mean, and where they came
+ * from. The product and the fetch age are on the legend itself because a
+ * forecast without its age is a picture, not a reading.
+ */
+function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
+  const marine = workspace.marine;
+  const cells = marine?.cells.length ?? 0;
+  const peak = marine
+    ? marine.cells.reduce<number | null>(
+        (best, cell) =>
+          cell.waveHeightM != null && (best === null || cell.waveHeightM > best)
+            ? cell.waveHeightM
+            : best,
+        null,
+      )
+    : null;
+  const stops: Array<[string, string]> = [
+    ["0", "#2b5f8c"],
+    ["1.5", "#3f8fb8"],
+    ["2.5", "#d8b23c"],
+    ["4", "#e2622f"],
+    ["6m", "#c0223a"],
+  ];
+  return (
+    <div
+      className="mt-1.5 border-t border-[var(--line)]/60 pt-1.5"
+      data-testid="seastate-legend"
+      data-cells={cells}
+      data-status={marine?.availability.status ?? "LOADING"}
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="eyebrow text-[10px]">Sea state</span>
+        <span className="num text-[10.5px] text-[var(--text-3)]">
+          sig. wave · swell · current
+        </span>
+        {marine ? (
+          marine.availability.status === "AVAILABLE" ? (
+            <Pill tone={marine.withinHorizon ? "info" : "warn"}>
+              {marine.withinHorizon ? "forecast" : "outside horizon"}
+            </Pill>
+          ) : (
+            <Pill tone="unc">{marine.availability.status.toLowerCase()}</Pill>
+          )
+        ) : null}
+      </div>
+      <div className="mt-1 flex items-center">
+        {stops.map(([label, color]) => (
+          <span key={label} className="flex-1">
+            <span
+              className="block h-[6px] w-full"
+              style={{ background: color }}
+            />
+            <span className="num mt-[2px] block text-center text-[10px] text-[var(--text-3)]">
+              {label}
+            </span>
+          </span>
+        ))}
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] text-[var(--text-3)]">
+        <span className="flex items-center gap-1">
+          <span className="h-[2px] w-4 border-t border-dashed border-[#d9c7ff]" />
+          Swell from
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-[2px] w-4 rounded-full bg-[#7fe0ff]" />
+          Current to
+        </span>
+        {peak != null ? (
+          <span className="num">peak {peak.toFixed(1)} m</span>
+        ) : null}
+        <span className="num">{cells} cells</span>
+      </div>
+      {marine?.availability.status === "AVAILABLE" ? (
+        <p
+          className="mt-0.5 text-[10px] leading-snug text-[var(--text-3)]"
+          data-testid="seastate-attribution"
+        >
+          {marine.productId} · fetched{" "}
+          {marine.ageSeconds == null ? "—" : formatAge(marine.ageSeconds)} ago ·
+          valid {formatInstant(marine.cells[0]?.validAt ?? null)}
+          {marine.withinHorizon
+            ? ""
+            : " (nearest hour the forecast covers; the clock is outside its window)"}
+          {" · "}
+          {marine.attribution}
+        </p>
+      ) : marine ? (
+        <p className="mt-0.5 text-[10px] leading-snug text-[var(--unc)]">
+          {marine.availability.reason}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -290,7 +411,10 @@ export function VesselClassLegend({ className }: { className?: string }) {
       )}
     >
       {Object.values(VESSEL_CLASSES).map((spec) => (
-        <span key={spec.key} className="flex items-center gap-1 text-[9.5px] text-[var(--text-3)]">
+        <span
+          key={spec.key}
+          className="flex items-center gap-1 text-[10.5px] text-[var(--text-3)]"
+        >
           <span
             aria-hidden
             className="h-[8px] w-[8px] rounded-[1px]"
@@ -299,10 +423,16 @@ export function VesselClassLegend({ className }: { className?: string }) {
           {spec.label}
         </span>
       ))}
-      <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[9.5px] text-[var(--text-3)]">
-        <span aria-hidden className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#93a7b8]" />
+      <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[10.5px] text-[var(--text-3)]">
+        <span
+          aria-hidden
+          className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#93a7b8]"
+        />
         under way
-        <span aria-hidden className="ml-1 h-[8px] w-[8px] rounded-full border border-[#93a7b8]" />
+        <span
+          aria-hidden
+          className="ml-1 h-[8px] w-[8px] rounded-full border border-[#93a7b8]"
+        />
         stopped
       </span>
     </div>

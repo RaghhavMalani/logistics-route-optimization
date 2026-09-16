@@ -222,6 +222,10 @@ class GlobalEvent:
     excerpts: List[str] = field(default_factory=list)
     #: Ports the feed itself named, before exposure is computed.
     reported_ports: List[str] = field(default_factory=list)
+    #: Ports the event acts on *directly* -- a closure, a cyclone over the
+    #: approaches -- as stated by the source, never inferred from exposure.
+    #: Empty for a chokepoint event, whose ports are reached through the lane.
+    threatened_ports: List[str] = field(default_factory=list)
     #: How many raw items were merged into this event.
     report_count: int = 1
     #: Set when calibration adjusted the raw probability, with the reason.
@@ -262,6 +266,7 @@ class GlobalEvent:
             "forecastTrack": list(self.forecast_track),
             "excerpts": self.excerpts[:6],
             "reportedPorts": list(self.reported_ports),
+            "threatenedPorts": list(self.threatened_ports),
             "calibrationNote": self.calibration_note,
             "dataSource": self.data_source,
         }

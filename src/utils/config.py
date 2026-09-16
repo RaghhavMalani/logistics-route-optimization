@@ -12,6 +12,7 @@ all speak the same vocabulary (same port_id values, same date column, etc.).
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
@@ -30,6 +31,12 @@ SAMPLE_DIR: Path = DATA_DIR / "sample"
 PREPROCESSED_DIR: Path = DATA_DIR / "preprocessed"
 
 OUTPUTS_DIR: Path = PROJECT_ROOT / "outputs"
+# Durable state -- the decision ledger, the advisory register, the operator's
+# cost assumptions -- lives here. It defaults to outputs/ so a checkout works
+# unchanged, and a container host points PORTWATCH_STATE_DIR at a persistent
+# volume so a restart or a redeploy keeps what people decided. Caches and
+# pipeline artefacts are rebuildable and stay where they are.
+STATE_DIR: Path = Path(os.environ.get("PORTWATCH_STATE_DIR") or OUTPUTS_DIR).expanduser()
 EXPERT_FEATURES_DIR: Path = OUTPUTS_DIR / "expert_features"
 REGIMES_DIR: Path = OUTPUTS_DIR / "regimes"
 FORECASTS_DIR: Path = OUTPUTS_DIR / "forecasts"

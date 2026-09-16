@@ -28,6 +28,7 @@ import hashlib
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+from src.portwatch_os.clock import wall_now
 
 # --------------------------------------------------------------------------
 # states
@@ -318,7 +319,8 @@ class Advisory:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # wall-clock: audit stamp of a human's action on an advisory
+    return wall_now().isoformat(timespec="seconds")
 
 
 def transition(

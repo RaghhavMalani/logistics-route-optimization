@@ -142,7 +142,7 @@ export function AdvisoryScreen({
                   )}
                 >
                   {option.label}
-                  <span className="num ml-1 text-[9.5px] text-[var(--text-3)]">{count}</span>
+                  <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">{count}</span>
                 </button>
               );
             })}

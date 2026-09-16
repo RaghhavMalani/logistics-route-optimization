@@ -1,0 +1,340 @@
+[
+ {
+  "latitude": 26.625,
+  "longitude": 56.29167,
+  "generationtime_ms": 0.2938508987426758,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 0.0,
+  "hourly_units": {
+   "time": "iso8601",
+   "wave_height": "m",
+   "wave_direction": "\u00b0",
+   "wave_period": "s",
+   "swell_wave_height": "m",
+   "swell_wave_direction": "\u00b0",
+   "swell_wave_period": "s",
+   "wind_wave_height": "m",
+   "sea_surface_temperature": "\u00b0C",
+   "ocean_current_velocity": "km/h",
+   "ocean_current_direction": "\u00b0"
+  },
+  "hourly": {
+   "time": [
+    "2026-09-13T00:00",
+    "2026-09-13T01:00",
+    "2026-09-13T02:00",
+    "2026-09-13T03:00",
+    "2026-09-13T04:00",
+    "2026-09-13T05:00"
+   ],
+   "wave_height": [
+    0.9,
+    0.94,
+    1.0,
+    1.04,
+    1.0,
+    0.94
+   ],
+   "wave_direction": [
+    130,
+    130,
+    130,
+    130,
+    130,
+    131
+   ],
+   "wave_period": [
+    3.75,
+    3.9,
+    4.05,
+    4.2,
+    4.25,
+    4.25
+   ],
+   "swell_wave_height": [
+    0.08,
+    0.1,
+    0.12,
+    0.14,
+    0.28,
+    0.44
+   ],
+   "swell_wave_direction": [
+    109,
+    130,
+    151,
+    172,
+    155,
+    139
+   ],
+   "swell_wave_period": [
+    8.95,
+    8.1,
+    6.15,
+    4.6,
+    4.15,
+    4.1
+   ],
+   "wind_wave_height": [
+    0.88,
+    0.92,
+    0.96,
+    1.0,
+    0.86,
+    0.74
+   ],
+   "sea_surface_temperature": [
+    32.3,
+    32.3,
+    32.3,
+    32.3,
+    32.3,
+    32.3
+   ],
+   "ocean_current_velocity": [
+    0.5,
+    0.9,
+    1.0,
+    1.1,
+    1.2,
+    1.4
+   ],
+   "ocean_current_direction": [
+    45,
+    37,
+    31,
+    0,
+    333,
+    310
+   ]
+  }
+ },
+ {
+  "latitude": 12.625,
+  "longitude": 43.375015,
+  "generationtime_ms": 0.24712085723876953,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 0.0,
+  "location_id": 1,
+  "hourly_units": {
+   "time": "iso8601",
+   "wave_height": "m",
+   "wave_direction": "\u00b0",
+   "wave_period": "s",
+   "swell_wave_height": "m",
+   "swell_wave_direction": "\u00b0",
+   "swell_wave_period": "s",
+   "wind_wave_height": "m",
+   "sea_surface_temperature": "\u00b0C",
+   "ocean_current_velocity": "km/h",
+   "ocean_current_direction": "\u00b0"
+  },
+  "hourly": {
+   "time": [
+    "2026-09-13T00:00",
+    "2026-09-13T01:00",
+    "2026-09-13T02:00",
+    "2026-09-13T03:00",
+    "2026-09-13T04:00",
+    "2026-09-13T05:00"
+   ],
+   "wave_height": [
+    0.12,
+    0.12,
+    0.1,
+    0.1,
+    0.1,
+    0.1
+   ],
+   "wave_direction": [
+    105,
+    105,
+    104,
+    104,
+    103,
+    103
+   ],
+   "wave_period": [
+    4.25,
+    4.25,
+    4.25,
+    4.25,
+    4.25,
+    4.2
+   ],
+   "swell_wave_height": [
+    0.12,
+    0.12,
+    0.1,
+    0.1,
+    0.1,
+    0.08
+   ],
+   "swell_wave_direction": [
+    105,
+    105,
+    105,
+    105,
+    105,
+    104
+   ],
+   "swell_wave_period": [
+    3.35,
+    3.35,
+    3.3,
+    3.3,
+    3.3,
+    3.35
+   ],
+   "wind_wave_height": [
+    0.0,
+    0.0,
+    0.02,
+    0.02,
+    0.02,
+    0.04
+   ],
+   "sea_surface_temperature": [
+    32.1,
+    32.1,
+    32.1,
+    32.0,
+    32.0,
+    32.0
+   ],
+   "ocean_current_velocity": [
+    0.8,
+    1.0,
+    1.0,
+    0.8,
+    0.0,
+    0.6
+   ],
+   "ocean_current_direction": [
+    135,
+    135,
+    135,
+    135,
+    90,
+    326
+   ]
+  }
+ },
+ {
+  "latitude": 29.541664,
+  "longitude": 32.625015,
+  "generationtime_ms": 0.18310546875,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 0.0,
+  "location_id": 2,
+  "hourly_units": {
+   "time": "iso8601",
+   "wave_height": "m",
+   "wave_direction": "\u00b0",
+   "wave_period": "s",
+   "swell_wave_height": "m",
+   "swell_wave_direction": "\u00b0",
+   "swell_wave_period": "s",
+   "wind_wave_height": "m",
+   "sea_surface_temperature": "\u00b0C",
+   "ocean_current_velocity": "km/h",
+   "ocean_current_direction": "\u00b0"
+  },
+  "hourly": {
+   "time": [
+    "2026-09-13T00:00",
+    "2026-09-13T01:00",
+    "2026-09-13T02:00",
+    "2026-09-13T03:00",
+    "2026-09-13T04:00",
+    "2026-09-13T05:00"
+   ],
+   "wave_height": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "wave_direction": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "wave_period": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "swell_wave_height": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "swell_wave_direction": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "swell_wave_period": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "wind_wave_height": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "sea_surface_temperature": [
+    27.6,
+    27.6,
+    27.5,
+    27.5,
+    27.5,
+    27.5
+   ],
+   "ocean_current_velocity": [
+    0.6,
+    0.7,
+    0.7,
+    0.6,
+    0.4,
+    0.2
+   ],
+   "ocean_current_direction": [
+    162,
+    166,
+    166,
+    162,
+    180,
+    270
+   ]
+  }
+ }
+]

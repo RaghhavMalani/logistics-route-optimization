@@ -34,6 +34,7 @@ from src.portwatch_os.agents.tools import (
     ToolScope,
 )
 from src.portwatch_os.roles import NATIONAL_ADMIN
+from src.portwatch_os.clock import wall_now
 
 #: What an agent concluded about its own output.
 COMPLETE = "complete"
@@ -44,7 +45,8 @@ OUTCOMES: Tuple[str, ...] = (COMPLETE, PARTIAL, BLOCKED)
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # wall-clock: audit stamp of an agent run
+    return wall_now().isoformat(timespec="seconds")
 
 
 @dataclass

@@ -50,9 +50,11 @@ from src.portwatch_os.agents.critic import (
     recommendation_from_agents,
 )
 from src.portwatch_os.agents.specialists import SPECIALISTS
-from src.portwatch_os.agents.tools import PROPOSE, ToolRegistry, ToolScope
+from src.portwatch_os.agents.spatial import SpatialCommand, commands_from_trace
+from src.portwatch_os.agents.tools import PROPOSE, ToolCall, ToolRegistry, ToolScope
 from src.portwatch_os.roles import NATIONAL_ADMIN
 from src.utils.logging_utils import get_logger
+from src.portwatch_os.clock import wall_now
 
 log = get_logger(__name__)
 
@@ -78,6 +80,19 @@ class Intent:
 
 
 INTENTS: Tuple[Intent, ...] = (
+    Intent(
+        "decision", "What should this vessel do?",
+        ("decision",),
+        ("what should", "should we do", "should it do", "safest option", "cheapest option",
+         "fastest option", "best option", "best trade-off", "what happens if it keeps",
+         "keeps its current route", "current route", "do nothing", "compare rerouting",
+         "compare reroute", "slow steaming", "avoid the storm", "still make", "what are the options",
+         "which option"),
+        True,
+        "Runs the deterministic decision engine for one hull: every feasible option simulated on its "
+        "own branch, infeasible ones rejected with their constraint, a Pareto frontier and a "
+        "recommendation. The agent explains computed options; it invents none. Ends at the Critic.",
+    ),
     Intent(
         "fleet_exposure", "Which vessels need intervention?",
         ("global_eye", "fleet", "route"),
@@ -264,6 +279,36 @@ class AgentRun:
             for call in result.calls
         ]
 
+    @property
+    def calls(self) -> List[ToolCall]:
+        return [call for result in self.results for call in result.calls]
+
+    @property
+    def spatial(self) -> List[SpatialCommand]:
+        """What the world should show, derived from what the tools returned.
+
+        An answer to "show me the affected vessels" is the chart changing, not a
+        paragraph the operator then has to find on a chart themselves. Every
+        command names the tool call that justifies it, and one that cannot is
+        dropped -- an agent inventing a subject to fly the camera to would be
+        the spatial equivalent of inventing a number.
+        """
+        commands = commands_from_trace(self.calls)
+        # The decision agent knows which option the question was about --
+        # "what if it keeps its route" focuses the baseline, "safest" the
+        # lowest-risk pick. The command stays grounded in the tool call; only
+        # its focus follows the question.
+        decision = next((r for r in self.results if r.agent == "decision"), None)
+        focus = None if decision is None else decision.data.get("focusOptionId")
+        if focus:
+            commands = [
+                SpatialCommand(kind=c.kind, subject=c.subject, evidence_tool=c.evidence_tool, reason=c.reason,
+                               params={**c.params, "optionId": focus})
+                if c.kind == "SHOW_DECISION" else c
+                for c in commands
+            ]
+        return commands
+
     def to_dict(self, *, include_results: bool = False) -> Dict[str, Any]:
         return {
             "runId": self.run_id,
@@ -285,6 +330,7 @@ class AgentRun:
             ),
             "critic": self.verdict.to_dict() if self.verdict else None,
             "decisionId": self.decision_id,
+            "spatial": [command.to_dict() for command in self.spatial],
             "note": (
                 "Agents orchestrate and explain. Every number above came from a tool "
                 "listed in the trace, and every tool names the deterministic model that "
@@ -364,7 +410,7 @@ class CommandAgent:
             intent_label=intent.label,
             intent_basis=basis,
             role=role,
-            started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            started_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: audit stamp of the run
         )
 
         for agent_name in intent.agents:
@@ -418,6 +464,39 @@ class CommandAgent:
         fleet = next((r for r in run.results if r.agent == "fleet"), None)
         routing = next((r for r in run.results if r.agent == "route"), None)
         twin = next((r for r in run.results if r.agent == "port_twin"), None)
+        decision = next((r for r in run.results if r.agent == "decision"), None)
+
+        if intent.key == "decision" and decision is not None:
+            option_id = decision.data.get("recommendationOptionId")
+            options = {o["optionId"]: o for o in decision.data.get("options", [])}
+            chosen = options.get(option_id)
+            if chosen is None:
+                return None, None
+            baseline = next((o for o in options.values() if o.get("isBaseline")), None)
+            impact: Dict[str, float] = {}
+            if baseline and chosen.get("risk") is not None and baseline.get("risk") is not None:
+                impact["riskReduction"] = round(baseline["risk"] - chosen["risk"], 4)
+            if baseline and chosen.get("eta") is not None and baseline.get("eta") is not None:
+                impact["etaHoursSaved"] = round(baseline["eta"] - chosen["eta"], 2)
+            rejected = [{"detail": "; ".join(o["rejectedBy"])} for o in options.values() if o["rejectedBy"]]
+            recommendation = recommendation_from_agents(
+                run.results,
+                kind="decision",
+                subject=decision.data.get("vesselId", request.vessel_id or "unknown"),
+                action=chosen["action"].lower(),
+                values={"optionId": option_id, "eta": chosen.get("eta"), "risk": chosen.get("risk"),
+                        "fuel": chosen.get("fuel")},
+                expected_impact={k: v for k, v in impact.items() if v > 0} or impact,
+                reason=chosen.get("label", ""),
+                evidence={
+                    "alreadyEntered": False,
+                    "hoursToDeadline": next((c.result.get("decisionWindowHours") for c in decision.calls
+                                             if c.ok and isinstance(c.result, dict)), None),
+                    "rejectedActions": rejected,
+                    "decisionId": decision.data.get("decisionId"),
+                },
+            )
+            return recommendation, self.critic.review(recommendation, agent_results=run.results)
 
         if intent.key == "fleet_exposure" and fleet is not None:
             rows: List[Dict[str, Any]] = fleet.data.get("rows", [])
@@ -563,7 +642,7 @@ class CommandAgent:
 def _run_id(question: str) -> str:
     import hashlib
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    stamp = wall_now().strftime("%Y%m%dT%H%M%S")  # wall-clock: a run id is unique per real run
     digest = hashlib.sha1(f"{stamp}|{question}".encode("utf-8")).hexdigest()[:8]
     return f"RUN-{stamp}-{digest}"
 

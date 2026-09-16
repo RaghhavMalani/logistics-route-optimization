@@ -32,6 +32,7 @@ from src.portwatch_os.global_eye.exposure import (
 )
 from src.portwatch_os.global_eye.ingest import from_news_bundle
 from src.portwatch_os.ledger.store import get_ledger
+from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
@@ -127,7 +128,7 @@ def _events():
     events, _ = from_news_bundle(bundle)
     calibrator = fit_calibrator(
         get_ledger().event_outcomes(),
-        fitted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        fitted_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: when this fit ran
     )
     apply_calibration(events, calibrator)
     return events

@@ -28,6 +28,7 @@ import { Route as AdminDataRouteImport } from './routes/admin/data'
 import { Route as AdminGlobalEyeRouteImport } from './routes/admin/global-eye'
 import { Route as AdminIntelligenceRouteImport } from './routes/admin/intelligence'
 import { Route as AdminLearningRouteImport } from './routes/admin/learning'
+import { Route as AdminMissionsRouteImport } from './routes/admin/missions'
 import { Route as AdminModelRouteImport } from './routes/admin/model'
 import { Route as AdminPortsRouteImport } from './routes/admin/ports'
 import { Route as AdminRadarRouteImport } from './routes/admin/radar'
@@ -40,6 +41,7 @@ import { Route as CompanyAdvisoriesRouteImport } from './routes/company/advisori
 import { Route as CompanyCargoRouteImport } from './routes/company/cargo'
 import { Route as CompanyFleetRouteImport } from './routes/company/fleet'
 import { Route as CompanyGlobalEyeRouteImport } from './routes/company/global-eye'
+import { Route as CompanyMissionsRouteImport } from './routes/company/missions'
 import { Route as CompanyOverviewRouteImport } from './routes/company/overview'
 import { Route as CompanyRiskRouteImport } from './routes/company/risk'
 import { Route as CompanyRoutesRouteImport } from './routes/company/routes'
@@ -161,6 +163,11 @@ const AdminLearningRoute = AdminLearningRouteImport.update({
   path: '/learning',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminMissionsRoute = AdminMissionsRouteImport.update({
+  id: '/missions',
+  path: '/missions',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminModelRoute = AdminModelRouteImport.update({
   id: '/model',
   path: '/model',
@@ -219,6 +226,11 @@ const CompanyFleetRoute = CompanyFleetRouteImport.update({
 const CompanyGlobalEyeRoute = CompanyGlobalEyeRouteImport.update({
   id: '/global-eye',
   path: '/global-eye',
+  getParentRoute: () => CompanyRouteRoute,
+} as any)
+const CompanyMissionsRoute = CompanyMissionsRouteImport.update({
+  id: '/missions',
+  path: '/missions',
   getParentRoute: () => CompanyRouteRoute,
 } as any)
 const CompanyOverviewRoute = CompanyOverviewRouteImport.update({
@@ -366,6 +378,7 @@ export interface FileRoutesByFullPath {
   '/admin/global-eye': typeof AdminGlobalEyeRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/learning': typeof AdminLearningRoute
+  '/admin/missions': typeof AdminMissionsRoute
   '/admin/model': typeof AdminModelRoute
   '/admin/ports': typeof AdminPortsRoute
   '/admin/radar': typeof AdminRadarRoute
@@ -377,6 +390,7 @@ export interface FileRoutesByFullPath {
   '/company/cargo': typeof CompanyCargoRoute
   '/company/fleet': typeof CompanyFleetRoute
   '/company/global-eye': typeof CompanyGlobalEyeRoute
+  '/company/missions': typeof CompanyMissionsRoute
   '/company/overview': typeof CompanyOverviewRoute
   '/company/risk': typeof CompanyRiskRoute
   '/company/routes': typeof CompanyRoutesRoute
@@ -420,6 +434,7 @@ export interface FileRoutesByTo {
   '/admin/global-eye': typeof AdminGlobalEyeRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/learning': typeof AdminLearningRoute
+  '/admin/missions': typeof AdminMissionsRoute
   '/admin/model': typeof AdminModelRoute
   '/admin/ports': typeof AdminPortsRoute
   '/admin/radar': typeof AdminRadarRoute
@@ -431,6 +446,7 @@ export interface FileRoutesByTo {
   '/company/cargo': typeof CompanyCargoRoute
   '/company/fleet': typeof CompanyFleetRoute
   '/company/global-eye': typeof CompanyGlobalEyeRoute
+  '/company/missions': typeof CompanyMissionsRoute
   '/company/overview': typeof CompanyOverviewRoute
   '/company/risk': typeof CompanyRiskRoute
   '/company/routes': typeof CompanyRoutesRoute
@@ -479,6 +495,7 @@ export interface FileRoutesById {
   '/admin/global-eye': typeof AdminGlobalEyeRoute
   '/admin/intelligence': typeof AdminIntelligenceRoute
   '/admin/learning': typeof AdminLearningRoute
+  '/admin/missions': typeof AdminMissionsRoute
   '/admin/model': typeof AdminModelRoute
   '/admin/ports': typeof AdminPortsRoute
   '/admin/radar': typeof AdminRadarRoute
@@ -490,6 +507,7 @@ export interface FileRoutesById {
   '/company/cargo': typeof CompanyCargoRoute
   '/company/fleet': typeof CompanyFleetRoute
   '/company/global-eye': typeof CompanyGlobalEyeRoute
+  '/company/missions': typeof CompanyMissionsRoute
   '/company/overview': typeof CompanyOverviewRoute
   '/company/risk': typeof CompanyRiskRoute
   '/company/routes': typeof CompanyRoutesRoute
@@ -539,6 +557,7 @@ export interface FileRouteTypes {
     | '/admin/global-eye'
     | '/admin/intelligence'
     | '/admin/learning'
+    | '/admin/missions'
     | '/admin/model'
     | '/admin/ports'
     | '/admin/radar'
@@ -550,6 +569,7 @@ export interface FileRouteTypes {
     | '/company/cargo'
     | '/company/fleet'
     | '/company/global-eye'
+    | '/company/missions'
     | '/company/overview'
     | '/company/risk'
     | '/company/routes'
@@ -593,6 +613,7 @@ export interface FileRouteTypes {
     | '/admin/global-eye'
     | '/admin/intelligence'
     | '/admin/learning'
+    | '/admin/missions'
     | '/admin/model'
     | '/admin/ports'
     | '/admin/radar'
@@ -604,6 +625,7 @@ export interface FileRouteTypes {
     | '/company/cargo'
     | '/company/fleet'
     | '/company/global-eye'
+    | '/company/missions'
     | '/company/overview'
     | '/company/risk'
     | '/company/routes'
@@ -651,6 +673,7 @@ export interface FileRouteTypes {
     | '/admin/global-eye'
     | '/admin/intelligence'
     | '/admin/learning'
+    | '/admin/missions'
     | '/admin/model'
     | '/admin/ports'
     | '/admin/radar'
@@ -662,6 +685,7 @@ export interface FileRouteTypes {
     | '/company/cargo'
     | '/company/fleet'
     | '/company/global-eye'
+    | '/company/missions'
     | '/company/overview'
     | '/company/risk'
     | '/company/routes'
@@ -841,6 +865,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLearningRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/missions': {
+      id: '/admin/missions'
+      path: '/missions'
+      fullPath: '/admin/missions'
+      preLoaderRoute: typeof AdminMissionsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/model': {
       id: '/admin/model'
       path: '/model'
@@ -923,6 +954,13 @@ declare module '@tanstack/react-router' {
       path: '/global-eye'
       fullPath: '/company/global-eye'
       preLoaderRoute: typeof CompanyGlobalEyeRouteImport
+      parentRoute: typeof CompanyRouteRoute
+    }
+    '/company/missions': {
+      id: '/company/missions'
+      path: '/missions'
+      fullPath: '/company/missions'
+      preLoaderRoute: typeof CompanyMissionsRouteImport
       parentRoute: typeof CompanyRouteRoute
     }
     '/company/overview': {
@@ -1110,6 +1148,7 @@ interface AdminRouteRouteChildren {
   AdminGlobalEyeRoute: typeof AdminGlobalEyeRoute
   AdminIntelligenceRoute: typeof AdminIntelligenceRoute
   AdminLearningRoute: typeof AdminLearningRoute
+  AdminMissionsRoute: typeof AdminMissionsRoute
   AdminModelRoute: typeof AdminModelRoute
   AdminPortsRoute: typeof AdminPortsRoute
   AdminRadarRoute: typeof AdminRadarRoute
@@ -1127,6 +1166,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminGlobalEyeRoute: AdminGlobalEyeRoute,
   AdminIntelligenceRoute: AdminIntelligenceRoute,
   AdminLearningRoute: AdminLearningRoute,
+  AdminMissionsRoute: AdminMissionsRoute,
   AdminModelRoute: AdminModelRoute,
   AdminPortsRoute: AdminPortsRoute,
   AdminRadarRoute: AdminRadarRoute,
@@ -1146,6 +1186,7 @@ interface CompanyRouteRouteChildren {
   CompanyCargoRoute: typeof CompanyCargoRoute
   CompanyFleetRoute: typeof CompanyFleetRoute
   CompanyGlobalEyeRoute: typeof CompanyGlobalEyeRoute
+  CompanyMissionsRoute: typeof CompanyMissionsRoute
   CompanyOverviewRoute: typeof CompanyOverviewRoute
   CompanyRiskRoute: typeof CompanyRiskRoute
   CompanyRoutesRoute: typeof CompanyRoutesRoute
@@ -1158,6 +1199,7 @@ const CompanyRouteRouteChildren: CompanyRouteRouteChildren = {
   CompanyCargoRoute: CompanyCargoRoute,
   CompanyFleetRoute: CompanyFleetRoute,
   CompanyGlobalEyeRoute: CompanyGlobalEyeRoute,
+  CompanyMissionsRoute: CompanyMissionsRoute,
   CompanyOverviewRoute: CompanyOverviewRoute,
   CompanyRiskRoute: CompanyRiskRoute,
   CompanyRoutesRoute: CompanyRoutesRoute,

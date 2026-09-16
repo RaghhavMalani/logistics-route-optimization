@@ -59,6 +59,26 @@ const GETS = [
   "/learning/misses",
   "/learning/policies",
   "/learning/calibration",
+  // The world engine. The cascade list and the attention queue are what the
+  // Global Eye screen opens with, so both are part of the interface snapshot.
+  "/world/state",
+  "/world/cascades",
+  "/attention",
+  // The signal fabric. Health is the trust surface; providers is the licence
+  // matrix behind it.
+  "/fabric/health?mode=DEMO",
+  "/fabric/providers?mode=DEMO",
+  // The sea and the observed layer. The traffic-state variants of health and
+  // tracks (live, stale) are produced by qa/record-ais-states.py, because a
+  // real socket cannot be asked to go stale on cue.
+  "/world/marine?mode=DEMO",
+  "/world/ais/tracks?mode=DEMO",
+  "/world/entities",
+  // The decision engine's learning surface and the financial basis: both are
+  // read by screens the routes suite opens (/admin/learning, /admin/data).
+  "/decisions/learning",
+  "/finance/basis",
+  "/finance/tariffs",
   ...PORTS.flatMap((code) => [
     `/port-twin/${code}`,
     `/port-twin/${code}/simulate`,
@@ -91,13 +111,25 @@ fs.mkdirSync(OUT, { recursive: true });
  * critic block and the agent chain render.
  */
 const POSTS = [
-  ["/agents/run", { question: "Which vessels require action because of Red Sea risk?" }],
+  [
+    "/agents/run",
+    { question: "Which vessels require action because of Red Sea risk?" },
+  ],
   ["/learning/run", {}],
 ];
 
 const manifest = {};
 for (const route of GETS) {
-  const response = await fetch(BASE + route, { headers: { Accept: "application/json" } });
+  // Administration and learning routes need the operator's identity; the
+  // recorder captures them as national command, which is what the admin
+  // workspace sends.
+  const response = await fetch(BASE + route, {
+    headers: {
+      Accept: "application/json",
+      "X-PortWatch-Role": "NATIONAL_ADMIN",
+      "X-PortWatch-Actor": "fixtures",
+    },
+  });
   if (!response.ok) {
     console.warn(`skip ${route}: ${response.status}`);
     continue;
@@ -107,6 +139,65 @@ for (const route of GETS) {
   fs.writeFileSync(path.join(OUT, file), JSON.stringify(body));
   manifest[route] = file;
   console.log(`${route} -> ${file}`);
+}
+
+/**
+ * The world engine's addressed routes.
+ *
+ * A cascade is keyed by event id and an attention item by a composite key, and
+ * neither survives the next ingest. One live example of each is recorded and
+ * the replayer serves it for any id, which keeps this a snapshot of the
+ * interface rather than a transcript of one feed.
+ */
+const worldHeaders = {
+  Accept: "application/json",
+  "X-PortWatch-Actor": "A. Deshmukh",
+  "X-PortWatch-Role": "NATIONAL_ADMIN",
+};
+
+const cascadeList = await fetch(`${BASE}/world/cascades`, {
+  headers: worldHeaders,
+});
+if (cascadeList.ok) {
+  const live = (await cascadeList.json()).cascades.find((row) => row.live);
+  if (live) {
+    const detail = await fetch(
+      `${BASE}/world/cascades/${encodeURIComponent(live.eventId)}`,
+      { headers: worldHeaders },
+    );
+    if (detail.ok) {
+      fs.writeFileSync(
+        path.join(OUT, "world_cascade_detail.json"),
+        JSON.stringify(await detail.json()),
+      );
+      manifest["/world/cascades/{id}"] = "world_cascade_detail.json";
+      console.log("/world/cascades/{id} -> world_cascade_detail.json");
+    }
+  } else {
+    console.warn(
+      "skip /world/cascades/{id}: no event propagates consequence right now",
+    );
+  }
+}
+
+const queue = await fetch(`${BASE}/attention`, { headers: worldHeaders });
+if (queue.ok) {
+  const first = (await queue.json()).items[0];
+  if (first) {
+    const detail = await fetch(`${BASE}/attention/${first.attentionId}`, {
+      headers: worldHeaders,
+    });
+    if (detail.ok) {
+      fs.writeFileSync(
+        path.join(OUT, "attention_item.json"),
+        JSON.stringify(await detail.json()),
+      );
+      manifest["/attention/{id}"] = "attention_item.json";
+      console.log("/attention/{id} -> attention_item.json");
+    }
+  } else {
+    console.warn("skip /attention/{id}: the queue is empty right now");
+  }
 }
 
 // One propagated scenario, so the Scenario Room has an outcome to render.
@@ -164,5 +255,8 @@ for (const [route, body] of POSTS) {
   console.log(`POST ${route} -> ${file}`);
 }
 
-fs.writeFileSync(path.join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2));
+fs.writeFileSync(
+  path.join(OUT, "manifest.json"),
+  JSON.stringify(manifest, null, 2),
+);
 console.log(`\n${Object.keys(manifest).length} fixtures written to ${OUT}`);

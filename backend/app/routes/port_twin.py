@@ -25,6 +25,7 @@ from src.portwatch_os.twin.simulation import (
 )
 from src.portwatch_os.twin.state import PortState, state_from_snapshot
 from src.utils import port_registry
+from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
@@ -187,7 +188,7 @@ def port_twin_benchmark(
     )
     result = benchmark(
         PortEnvironment(spec), default_policies(), episodes=episodes,
-        ran_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        ran_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: when this run happened
     )
     return result.to_dict()
 

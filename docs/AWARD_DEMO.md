@@ -399,12 +399,12 @@ built the seams.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Every screen says *Intelligence API unavailable* | Backend not running | `uvicorn backend.app.main:app --port 8000` |
+| Every screen says *Intelligence API unavailable* | Backend not running | `python -m portwatch.demo start --mode DEMO` (or `uvicorn backend.app.main:app --port 8000` with `PORTWATCH_LICENCE_MODE` set) |
 | Screens load but say *has not been exported* | Pipeline never ran | `python run_award_demo.py --source portwatch` |
 | `/admin/learning` says the ledger is empty | Learning pass skipped | `curl -X POST localhost:8000/api/learning/backfill` |
 | Model Intelligence shows *No benchmark artefacts* | Benchmark not run | `python -m src.evaluation.model_benchmark --folds 4` |
 | The twin renders nothing | Three.js chunk blocked | Check the console; the scene is lazy-loaded and will report the failure |
-| Everything reads `STALE` | PortWatch cache is old | `python run_award_demo.py --source portwatch --refresh` |
+| Everything reads `STALE` | PortWatch cache is old | `python -m portwatch.demo start` refreshes whatever has lapsed before it starts; a running deployment refreshes on its own schedule (System → Freshness shows the job) |
 | No network in the room | Expected | `python run_award_demo.py --source portwatch --offline` — it runs on cache and labels itself accordingly |
 
 **Rehearse the account switches.** Three of the seven segments change role, and

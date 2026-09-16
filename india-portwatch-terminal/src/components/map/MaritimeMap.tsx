@@ -65,6 +65,27 @@ export interface MapView {
   zoom: number;
 }
 
+/** [[west, south], [east, north]]. */
+export type MapBounds = [[number, number], [number, number]];
+export type MapPadding = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+};
+
+/**
+ * One camera request. A centre with an optional zoom, or a box to frame with
+ * room left for the panels over the chart; the token makes repeats fire.
+ */
+export type MapFocus = {
+  center?: [number, number];
+  zoom?: number;
+  bounds?: MapBounds;
+  padding?: MapPadding;
+  token: number;
+};
+
 export interface MaritimeMapProps {
   layers: Partial<Record<LayerKey, boolean>>;
   data?: Partial<Record<RuntimeSource, GeoJSON.FeatureCollection>>;
@@ -79,6 +100,8 @@ export interface MaritimeMapProps {
   pinnedIds?: Set<string>;
   selectedVesselId?: string | null;
   onSelectVessel?: (id: string | null) => void;
+  /** An observed transponder was clicked. Keyed by MMSI, never by a name. */
+  onSelectObserved?: (mmsi: string | null) => void;
   onHoverVessel?: (id: string | null) => void;
   selectedPortCode?: string | null;
   onSelectPort?: (code: string) => void;
@@ -88,7 +111,7 @@ export interface MaritimeMapProps {
   labels?: MapLabel[];
   view?: MapView;
   /** Bump `token` to fly somewhere without owning the camera. */
-  focus?: { center: [number, number]; zoom?: number; token: number } | null;
+  focus?: MapFocus | null;
   renderHoverCard?: (fix: VesselFix) => ReactNode;
   overlay?: ReactNode;
   className?: string;
@@ -106,6 +129,12 @@ const RUNTIME_KEYS: RuntimeSource[] = [
   "tracks",
   "chokepoints",
   "events",
+  // Consequence. Deliberately its own source rather than sharing `rings`,
+  // which the traffic layer writes for own-vessel marks -- two writers on one
+  // source means whichever renders last wins, silently.
+  "cascade",
+  "seastate",
+  "observed",
 ];
 
 interface Overlay {
@@ -115,7 +144,12 @@ interface Overlay {
   clusters: Array<{ mark: ClusterMark; x: number; y: number }>;
 }
 
-const EMPTY_OVERLAY: Overlay = { labels: [], seas: [], vessels: [], clusters: [] };
+const EMPTY_OVERLAY: Overlay = {
+  labels: [],
+  seas: [],
+  vessels: [],
+  clusters: [],
+};
 
 /**
  * The geometry the chart last wrote, exposed for the browser suite.
@@ -126,10 +160,14 @@ const EMPTY_OVERLAY: Overlay = { labels: [], seas: [], vessels: [], clusters: []
  * passages. This is the same object the map just handed the GL context, which is
  * exactly what a test about "does the chart draw a route across land" needs.
  */
-function publish(key: string, data: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+function publish(
+  key: string,
+  data: GeoJSON.FeatureCollection,
+): GeoJSON.FeatureCollection {
   if (typeof window !== "undefined") {
-    const registry = ((window as unknown as { __portwatchSources?: Record<string, unknown> })
-      .__portwatchSources ??= {});
+    const registry = ((
+      window as unknown as { __portwatchSources?: Record<string, unknown> }
+    ).__portwatchSources ??= {});
     registry[key] = data;
   }
   return data;
@@ -146,6 +184,7 @@ export function MaritimeMap({
   pinnedIds,
   selectedVesselId = null,
   onSelectVessel,
+  onSelectObserved,
   onHoverVessel,
   selectedPortCode = null,
   onSelectPort,
@@ -168,7 +207,11 @@ export function MaritimeMap({
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
-  const [hovered, setHovered] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [hovered, setHovered] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [overlayState, setOverlayState] = useState<Overlay>(EMPTY_OVERLAY);
 
   const { clock, fixesAt } = useTraffic();
@@ -200,8 +243,20 @@ export function MaritimeMap({
     trafficOn: layers.traffic !== false,
   };
 
-  const handlers = useRef({ onSelectVessel, onHoverVessel, onSelectPort, onZoomChange });
-  handlers.current = { onSelectVessel, onHoverVessel, onSelectPort, onZoomChange };
+  const handlers = useRef({
+    onSelectVessel,
+    onSelectObserved,
+    onHoverVessel,
+    onSelectPort,
+    onZoomChange,
+  });
+  handlers.current = {
+    onSelectVessel,
+    onSelectObserved,
+    onHoverVessel,
+    onSelectPort,
+    onZoomChange,
+  };
 
   /* ------------------------------------------------------------- create -- */
   useEffect(() => {
@@ -229,14 +284,17 @@ export function MaritimeMap({
         instance.keyboard.enable();
         mapRef.current = instance;
         // The browser suite drives the live GL map through this handle.
-        (window as unknown as { __portwatchMap?: MapLibreMap }).__portwatchMap = instance;
+        (window as unknown as { __portwatchMap?: MapLibreMap }).__portwatchMap =
+          instance;
 
         instance.on("load", () => {
           if (!alive || !instance) return;
           publish("corridors", corridorFeatures());
           for (const icon of buildVesselIcons()) {
             if (!instance.hasImage(icon.id)) {
-              instance.addImage(icon.id, icon.data, { pixelRatio: icon.pixelRatio });
+              instance.addImage(icon.id, icon.data, {
+                pixelRatio: icon.pixelRatio,
+              });
             }
           }
           setReady(true);
@@ -253,11 +311,19 @@ export function MaritimeMap({
         });
 
         /* --------------------------------------------------- interaction -- */
-        const pickable = ["vessel-mark", "cluster-mark", "port-mark", "port-core"];
+        const pickable = [
+          "observed-mark",
+          "vessel-mark",
+          "cluster-mark",
+          "port-mark",
+          "port-core",
+        ];
 
         instance.on("mousemove", (event: MapMouseEvent) => {
           if (!instance) return;
-          const features = instance.queryRenderedFeatures(event.point, { layers: pickable });
+          const features = instance.queryRenderedFeatures(event.point, {
+            layers: pickable,
+          });
           const top = features[0];
           const id = top?.properties?.id;
           if (top?.layer.id === "vessel-mark" && typeof id === "string") {
@@ -278,20 +344,32 @@ export function MaritimeMap({
 
         instance.on("click", (event: MapMouseEvent) => {
           if (!instance) return;
-          const features = instance.queryRenderedFeatures(event.point, { layers: pickable });
+          const features = instance.queryRenderedFeatures(event.point, {
+            layers: pickable,
+          });
           const top = features[0];
           if (!top) {
             handlers.current.onSelectVessel?.(null);
+            handlers.current.onSelectObserved?.(null);
             return;
           }
           const id = top.properties?.id;
+          if (top.layer.id === "observed-mark" && typeof id === "string") {
+            handlers.current.onSelectObserved?.(id);
+            handlers.current.onSelectVessel?.(null);
+            return;
+          }
           if (top.layer.id === "vessel-mark" && typeof id === "string") {
             handlers.current.onSelectVessel?.(id);
+            handlers.current.onSelectObserved?.(null);
             return;
           }
           if (top.layer.id === "cluster-mark") {
             instance.easeTo({
-              center: (top.geometry as GeoJSON.Point).coordinates as [number, number],
+              center: (top.geometry as GeoJSON.Point).coordinates as [
+                number,
+                number,
+              ],
               zoom: Math.min(maxZoom, instance.getZoom() + 2.2),
               duration: 420,
             });
@@ -303,7 +381,9 @@ export function MaritimeMap({
       })
       .catch((error: unknown) => {
         if (!alive) return;
-        setFailed(error instanceof Error ? error.message : "MapLibre failed to load");
+        setFailed(
+          error instanceof Error ? error.message : "MapLibre failed to load",
+        );
       });
 
     return () => {
@@ -332,10 +412,14 @@ export function MaritimeMap({
     if (!instance || !ready) return;
     for (const key of RUNTIME_KEYS) {
       const source = instance.getSource(key) as
-        | { setData: (value: GeoJSON.FeatureCollection) => void }
-        | undefined;
+        { setData: (value: GeoJSON.FeatureCollection) => void } | undefined;
       if (!source) continue;
-      source.setData(publish(key, data?.[key] ?? { type: "FeatureCollection", features: [] }));
+      source.setData(
+        publish(
+          key,
+          data?.[key] ?? { type: "FeatureCollection", features: [] },
+        ),
+      );
     }
   }, [data, ready]);
 
@@ -345,12 +429,18 @@ export function MaritimeMap({
     if (!instance || !ready) return;
     const source = instance.getSource("wxraster") as
       | {
-          updateImage: (options: { url: string; coordinates: number[][] }) => void;
+          updateImage: (options: {
+            url: string;
+            coordinates: number[][];
+          }) => void;
         }
       | undefined;
     if (!source) return;
     if (weatherRaster) {
-      source.updateImage({ url: weatherRaster.url, coordinates: weatherRaster.coordinates });
+      source.updateImage({
+        url: weatherRaster.url,
+        coordinates: weatherRaster.coordinates,
+      });
     } else {
       source.updateImage({
         url: BLANK_IMAGE,
@@ -389,6 +479,28 @@ export function MaritimeMap({
   useEffect(() => {
     const instance = mapRef.current;
     if (!instance || !ready || !focus) return;
+    if (focus.bounds) {
+      const box = instance.getContainer();
+      const padding = focus.padding ?? {
+        top: 40,
+        bottom: 40,
+        left: 40,
+        right: 40,
+      };
+      // Padding wider than the chart itself would throw; a narrow pane frames
+      // the box with what room it has.
+      const fits =
+        padding.left + padding.right < box.clientWidth - 80 &&
+        padding.top + padding.bottom < box.clientHeight - 80;
+      instance.fitBounds(focus.bounds, {
+        padding: fits ? padding : 24,
+        duration: 900,
+        essential: true,
+        maxZoom: 7,
+      });
+      return;
+    }
+    if (!focus.center) return;
     instance.flyTo({
       center: focus.center,
       zoom: focus.zoom ?? Math.max(instance.getZoom(), 7),
@@ -407,16 +519,20 @@ export function MaritimeMap({
     let lastWrite = 0;
     let lastOverlay = 0;
 
-    const sourceOf = (key: RuntimeSource | "vessels" | "clusters" | "vectors" | "ghosts" | "rings") =>
+    const sourceOf = (
+      key:
+        RuntimeSource | "vessels" | "clusters" | "vectors" | "ghosts" | "rings",
+    ) =>
       instance.getSource(key) as
-        | { setData: (value: GeoJSON.FeatureCollection) => void }
-        | undefined;
+        { setData: (value: GeoJSON.FeatureCollection) => void } | undefined;
 
     const write = () => {
       const config = settings.current;
       const at = clock.now();
       const all = fixesAt(at);
-      const visible = config.vesselFilter ? all.filter(config.vesselFilter) : all;
+      const visible = config.vesselFilter
+        ? all.filter(config.vesselFilter)
+        : all;
 
       const built = buildTrafficFeatures(visible, {
         zoom: instance.getZoom(),
@@ -432,7 +548,9 @@ export function MaritimeMap({
       sourceOf("vessels")?.setData(
         publish(
           "vessels",
-          config.trafficOn ? built.vessels : { type: "FeatureCollection", features: [] },
+          config.trafficOn
+            ? built.vessels
+            : { type: "FeatureCollection", features: [] },
         ),
       );
       sourceOf("clusters")?.setData(publish("clusters", built.clusters));
@@ -448,7 +566,10 @@ export function MaritimeMap({
                 : fixesAt(clock.forecastAt()),
               config.focusIds,
             )
-          : ({ type: "FeatureCollection", features: [] } as GeoJSON.FeatureCollection);
+          : ({
+              type: "FeatureCollection",
+              features: [],
+            } as GeoJSON.FeatureCollection);
       sourceOf("ghosts")?.setData(publish("ghosts", ghosts));
 
       return built;
@@ -469,9 +590,19 @@ export function MaritimeMap({
       const currentZoom = instance.getZoom();
       const boxes: Array<[number, number, number, number]> = [];
       const fits = (x: number, y: number, width: number, height = 13) => {
-        const box: [number, number, number, number] = [x, y - height / 2, x + width, y + height / 2];
+        const box: [number, number, number, number] = [
+          x,
+          y - height / 2,
+          x + width,
+          y + height / 2,
+        ];
         for (const other of boxes) {
-          if (box[0] < other[2] && box[2] > other[0] && box[1] < other[3] && box[3] > other[1]) {
+          if (
+            box[0] < other[2] &&
+            box[2] > other[0] &&
+            box[1] < other[3] &&
+            box[3] > other[1]
+          ) {
             return false;
           }
         }
@@ -485,22 +616,28 @@ export function MaritimeMap({
       )) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
-        const width = 14 + label.text.length * 6.2 + (label.sub?.length ?? 0) * 5.2;
+        const width =
+          14 + label.text.length * 6.2 + (label.sub?.length ?? 0) * 5.2;
         if (!fits(point.x + 8, point.y, width)) continue;
         placedLabels.push({ label, x: point.x, y: point.y });
       }
 
+      // No traffic, no traffic names: a chart whose hulls are hidden must not
+      // keep naming them.
       const placedVessels: Overlay["vessels"] = [];
-      for (const label of latest.labels) {
+      for (const label of settings.current.trafficOn ? latest.labels : []) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
         const width = 12 + label.text.length * 5.6;
-        if (!label.emphasis && !fits(point.x + 9, point.y - 9, width, 12)) continue;
+        if (!label.emphasis && !fits(point.x + 9, point.y - 9, width, 12))
+          continue;
         placedVessels.push({ label, x: point.x, y: point.y });
       }
 
       const placedClusters: Overlay["clusters"] = [];
-      for (const mark of latest.clusterMarks) {
+      for (const mark of settings.current.trafficOn
+        ? latest.clusterMarks
+        : []) {
         const point = project(mark.lon, mark.lat);
         if (!inFrame(point)) continue;
         placedClusters.push({ mark, x: point.x, y: point.y });
@@ -509,7 +646,12 @@ export function MaritimeMap({
       const seas = SEA_LABELS.filter((sea) => currentZoom >= sea.minZoom)
         .map((sea) => ({ sea, point: project(sea.lon, sea.lat) }))
         .filter(({ point }) => inFrame(point))
-        .map(({ sea, point }) => ({ id: sea.id, name: sea.name, x: point.x, y: point.y }));
+        .map(({ sea, point }) => ({
+          id: sea.id,
+          name: sea.name,
+          x: point.x,
+          y: point.y,
+        }));
 
       setOverlayState({
         labels: placedLabels,
@@ -561,17 +703,26 @@ export function MaritimeMap({
   }, []);
 
   return (
-    <div className={cn("relative h-full w-full overflow-hidden bg-[#061520]", className)}>
+    <div
+      className={cn(
+        "relative h-full w-full overflow-hidden bg-[#061520]",
+        className,
+      )}
+    >
       <div ref={containerRef} className="pw-map h-full w-full" />
 
-      <WindLayer map={map} frame={windFrame ?? null} enabled={showWind && ready} />
+      <WindLayer
+        map={map}
+        frame={windFrame ?? null}
+        enabled={showWind && ready}
+      />
 
       {/* Chart text: the product's typography, positioned from the projection. */}
       <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
         {overlayState.seas.map((sea) => (
           <span
             key={sea.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[9.5px] font-medium uppercase tracking-[0.26em] text-[#33637d]"
+            className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.26em] text-[#33637d]"
             style={{ left: sea.x, top: sea.y }}
           >
             {sea.name}
@@ -582,8 +733,10 @@ export function MaritimeMap({
           <span
             key={label.id}
             className={cn(
-              "absolute whitespace-nowrap text-[9.5px] leading-none",
-              label.emphasis ? "font-semibold text-[#eaf3f9]" : "font-medium text-[#a9c2d2]",
+              "absolute whitespace-nowrap text-[10.5px] leading-none",
+              label.emphasis
+                ? "font-semibold text-[#eaf3f9]"
+                : "font-medium text-[#a9c2d2]",
             )}
             style={{
               left: x + 9,
@@ -593,7 +746,9 @@ export function MaritimeMap({
           >
             {label.text}
             {label.sub ? (
-              <span className="num ml-1 text-[8.5px] text-[#7d97a8]">{label.sub}</span>
+              <span className="num ml-1 text-[10px] text-[#7d97a8]">
+                {label.sub}
+              </span>
             ) : null}
           </span>
         ))}
@@ -601,7 +756,7 @@ export function MaritimeMap({
         {overlayState.clusters.map(({ mark, x, y }) => (
           <span
             key={mark.id}
-            className="num absolute -translate-x-1/2 -translate-y-1/2 text-[9.5px] font-semibold text-[#bcd6e5]"
+            className="num absolute -translate-x-1/2 -translate-y-1/2 text-[10.5px] font-semibold text-[#bcd6e5]"
             style={{ left: x, top: y }}
           >
             {mark.count}
@@ -616,8 +771,14 @@ export function MaritimeMap({
             className={cn(
               "pointer-events-auto absolute -translate-y-1/2 whitespace-nowrap px-1 text-left leading-tight",
               "tracking-[0.02em] transition-colors",
-              label.muted ? "text-[9.5px] font-normal uppercase" : "text-[10.5px]",
-              label.emphasis ? "font-semibold" : label.muted ? "" : "font-medium",
+              label.muted
+                ? "text-[10.5px] font-normal uppercase"
+                : "text-[10.5px]",
+              label.emphasis
+                ? "font-semibold"
+                : label.muted
+                  ? ""
+                  : "font-medium",
             )}
             style={{
               left: x + 9,
@@ -627,12 +788,15 @@ export function MaritimeMap({
                 : label.emphasis
                   ? (label.color ?? "var(--text)")
                   : "var(--text-2)",
-              textShadow: "0 0 3px #04121b, 0 0 6px #04121b, 1px 1px 0 #04121b, -1px -1px 0 #04121b",
+              textShadow:
+                "0 0 3px #04121b, 0 0 6px #04121b, 1px 1px 0 #04121b, -1px -1px 0 #04121b",
             }}
           >
             {label.text}
             {label.sub ? (
-              <span className="num ml-1 text-[9.5px] text-[var(--text-3)]">{label.sub}</span>
+              <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
+                {label.sub}
+              </span>
             ) : null}
           </button>
         ))}
@@ -642,8 +806,17 @@ export function MaritimeMap({
         <div
           className="pointer-events-none absolute z-30 w-[230px] rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/97 p-2 shadow-[0_10px_28px_rgba(0,0,0,0.6)]"
           style={{
-            left: Math.min(hovered.x + 16, (containerRef.current?.clientWidth ?? 900) - 244),
-            top: Math.max(8, Math.min(hovered.y - 10, (containerRef.current?.clientHeight ?? 600) - 168)),
+            left: Math.min(
+              hovered.x + 16,
+              (containerRef.current?.clientWidth ?? 900) - 244,
+            ),
+            top: Math.max(
+              8,
+              Math.min(
+                hovered.y - 10,
+                (containerRef.current?.clientHeight ?? 600) - 168,
+              ),
+            ),
           }}
         >
           {renderHoverCard(hoverFix)}
@@ -679,7 +852,14 @@ export function MaritimeMap({
           }
           className="grid h-[22px] w-[22px] place-items-center text-[var(--text-2)] hover:bg-[var(--panel-3)] hover:text-[var(--text)]"
         >
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
             <path d="M2 6V2h4M14 10v4h-4M14 6V2h-4M2 10v4h4" />
           </svg>
         </button>

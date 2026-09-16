@@ -25,12 +25,14 @@ from src.portwatch_os.global_eye.exposure import (
 from src.portwatch_os.global_eye.ingest import from_news_bundle
 from src.portwatch_os.global_eye.model import CATEGORIES
 from src.portwatch_os.ledger.store import get_ledger
+from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # wall-clock: fitted_at audit stamp of the calibration
+    return wall_now().isoformat(timespec="seconds")
 
 
 def _load_events():

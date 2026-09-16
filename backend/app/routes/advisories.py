@@ -45,6 +45,7 @@ from src.portwatch_os.advisories.store import (
 from src.portwatch_os.ledger.schema import ACTION_PENDING, DecisionRecord, utc_now
 from src.portwatch_os.ledger.store import get_ledger
 from src.utils import port_registry
+from src.portwatch_os.clock import world_now
 
 router = APIRouter()
 
@@ -57,7 +58,13 @@ def principal_from_request(
     vessel_ids: Optional[str],
     is_admin: bool = False,
 ) -> Principal:
-    """Build the acting principal. The seam a real token verifier replaces."""
+    """Build the acting principal. The seam a real token verifier replaces.
+
+    Administrator standing follows the role alone: national command holds it,
+    nobody else does, and the ``is_admin`` argument callers used to pass from
+    the ``X-PortWatch-Admin`` header is ignored (``backend.app.identity``).
+    """
+    is_admin = False
     if not actor:
         raise HTTPException(
             status_code=401,
@@ -120,6 +127,7 @@ def advisory_policy() -> Dict[str, Any]:
             "navigation and an advisory is never an instruction.",
         ],
         "identity": {
+            **__import__("backend.app.identity", fromlist=["describe"]).describe(),
             "source": "request headers set by the terminal from its session",
             "verified": False,
             "note": (
@@ -579,14 +587,14 @@ def _instant(epoch: Optional[str], hour: float) -> str:
         except ValueError:
             base = None
     if base is None:
-        base = datetime.now(timezone.utc)
+        base = world_now()
     if base.tzinfo is None:
         base = base.replace(tzinfo=timezone.utc)
     return (base + timedelta(hours=float(hour))).isoformat(timespec="seconds")
 
 
 def _default_validity() -> str:
-    return (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(timespec="seconds")
+    return (world_now() + timedelta(hours=24)).isoformat(timespec="seconds")
 
 
 def _sync_decision(advisory: Advisory) -> None:

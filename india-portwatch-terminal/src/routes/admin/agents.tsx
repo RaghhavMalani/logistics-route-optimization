@@ -126,10 +126,10 @@ function AgentsScreen() {
                         </span>
                         {intent.highImpact ? <Pill tone="warn">critic</Pill> : null}
                       </div>
-                      <div className="num mt-[2px] text-[9.5px] text-[var(--text-3)]">
+                      <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
                         {intent.agents.join(" → ")}
                       </div>
-                      <p className="mt-[2px] text-[9.5px] leading-snug text-[var(--text-3)]">
+                      <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-3)]">
                         {intent.description}
                       </p>
                     </li>
@@ -188,7 +188,7 @@ function AgentsScreen() {
                       <Pill tone={ACCESS_TONE[agent.maxAccess as ToolAccess] ?? "neutral"}>
                         {agent.maxAccess}
                       </Pill>
-                      <span className="num ml-auto text-[9.5px] text-[var(--text-3)]">
+                      <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
                         {agent.allowedTools.length} tools
                       </span>
                     </div>
@@ -199,22 +199,22 @@ function AgentsScreen() {
                   {openAgent === agent.name ? (
                     <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-3 py-2">
                       <section>
-                        <h4 className="eyebrow text-[8.5px]">Allowed tools</h4>
+                        <h4 className="eyebrow text-[10px]">Allowed tools</h4>
                         <ul className="mt-1 space-y-0.5">
                           {agent.allowedTools.map((tool) => (
-                            <li key={tool} className="num text-[9.5px] text-[var(--text-2)]">
+                            <li key={tool} className="num text-[10.5px] text-[var(--text-2)]">
                               {tool}
                             </li>
                           ))}
                         </ul>
                       </section>
                       <section>
-                        <h4 className="eyebrow text-[8.5px]">Failure modes</h4>
+                        <h4 className="eyebrow text-[10px]">Failure modes</h4>
                         <ul className="mt-1 space-y-0.5">
                           {agent.failureModes.map((mode) => (
                             <li
                               key={mode}
-                              className="text-[9.5px] leading-snug text-[var(--text-3)]"
+                              className="text-[10.5px] leading-snug text-[var(--text-3)]"
                             >
                               {mode}
                             </li>
@@ -255,36 +255,36 @@ function AgentsScreen() {
                           <div className="num text-[10.5px] text-[var(--text)]">
                             {tool.name}
                           </div>
-                          <p className="mt-[2px] text-[9.5px] leading-snug text-[var(--text-3)]">
+                          <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-3)]">
                             {tool.description}
                           </p>
                         </button>
                         {openTool === tool.name ? (
                           <div className="mt-1 space-y-1 rounded-[2px] bg-[var(--panel-2)]/50 p-1.5">
                             <div>
-                              <span className="eyebrow text-[8px]">Computed by</span>
-                              <div className="num text-[9.5px] text-[var(--text-2)]">
+                              <span className="eyebrow text-[10px]">Computed by</span>
+                              <div className="num text-[10.5px] text-[var(--text-2)]">
                                 {tool.computedBy || "unstated"}
                               </div>
                             </div>
                             <div>
-                              <span className="eyebrow text-[8px]">Returns</span>
-                              <div className="text-[9.5px] text-[var(--text-3)]">
+                              <span className="eyebrow text-[10px]">Returns</span>
+                              <div className="text-[10.5px] text-[var(--text-3)]">
                                 {tool.returns}
                               </div>
                             </div>
                             {Object.keys(tool.inputSchema.properties).length ? (
                               <div>
-                                <span className="eyebrow text-[8px]">Arguments</span>
+                                <span className="eyebrow text-[10px]">Arguments</span>
                                 <ul className="space-y-0.5">
                                   {Object.entries(tool.inputSchema.properties).map(
                                     ([key, value]) => (
-                                      <li key={key} className="text-[9.5px]">
+                                      <li key={key} className="text-[10.5px]">
                                         <span className="num text-[var(--text-2)]">
                                           {key}
                                         </span>
                                         {tool.inputSchema.required.includes(key) ? (
-                                          <span className="ml-1 text-[8.5px] text-[var(--warn)]">
+                                          <span className="ml-1 text-[10px] text-[var(--warn)]">
                                             required
                                           </span>
                                         ) : null}
@@ -299,12 +299,12 @@ function AgentsScreen() {
                             ) : null}
                             {tool.failureModes.length ? (
                               <div>
-                                <span className="eyebrow text-[8px]">Fails when</span>
+                                <span className="eyebrow text-[10px]">Fails when</span>
                                 <ul className="space-y-0.5">
                                   {tool.failureModes.map((mode) => (
                                     <li
                                       key={mode}
-                                      className="text-[9.5px] text-[var(--text-3)]"
+                                      className="text-[10.5px] text-[var(--text-3)]"
                                     >
                                       {mode}
                                     </li>

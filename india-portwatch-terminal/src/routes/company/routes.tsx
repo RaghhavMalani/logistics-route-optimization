@@ -109,7 +109,7 @@ function CompanyRoutes() {
                         <span className="min-w-0 flex-1 truncate text-[var(--text-2)]">
                           {vessel.name}
                         </span>
-                        <span className="num shrink-0 text-[9.5px] text-[var(--text-3)]">
+                        <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
                           → {vessel.destination}
                         </span>
                       </li>

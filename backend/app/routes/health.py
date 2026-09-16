@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 
 from backend.app.services import cache_service as cache
+from src.portwatch_os.clock import get_clock, wall_now
 
 router = APIRouter()
 
@@ -32,9 +33,64 @@ def _intelligence_state(age_seconds: int | None) -> str:
     return "stale"
 
 
+def _licence_mode() -> dict:
+    from src.portwatch_os.deployment import resolve_mode
+
+    mode, source, problem = resolve_mode(None)
+    return {
+        "mode": mode,
+        "source": source,
+        "stated": source != "default",
+        "warning": problem,
+    }
+
+
+#: How long a durable-store probe is served from memory. Health is polled
+#: every thirty seconds by the terminal and by a container's healthcheck, and
+#: a probe opens and integrity-checks two databases; a minute's memory keeps
+#: that off the request path without hiding a fault for long.
+PROBE_TTL_SECONDS = 60.0
+_PROBE_CACHE: dict = {"at": 0.0, "value": None}
+
+
+def durable_stores(*, fresh: bool = False) -> dict:
+    """What must survive a restart, and whether it will: the ledger, the
+    advisory register and the assumption journal, each probed on its own
+    path, with the state directory it lives in and how it was chosen."""
+    import os
+    import time
+
+    from src.portwatch_os.advisories.store import probe_advisory_store
+    from src.portwatch_os.finance.basis import AssumptionJournal
+    from src.portwatch_os.ledger.store import probe_ledger
+    from src.utils.config import STATE_DIR
+
+    now = time.monotonic()
+    cached = _PROBE_CACHE["value"]
+    if not fresh and cached is not None and now - _PROBE_CACHE["at"] < PROBE_TTL_SECONDS:
+        return cached
+    ledger = probe_ledger()
+    advisories = probe_advisory_store()
+    assumptions = AssumptionJournal().probe()
+    value = {
+        "stateDir": str(STATE_DIR),
+        "stateDirSource": "PORTWATCH_STATE_DIR" if os.environ.get("PORTWATCH_STATE_DIR") else "default (outputs/)",
+        "ok": ledger["ok"] and advisories["ok"] and assumptions["ok"],
+        "ledger": ledger,
+        "advisories": advisories,
+        "costAssumptions": assumptions,
+        "ephemeral": ["decision engine memory (recomputable; the ledger holds every problem)",
+                      "scenario branches", "mission replays", "agent runs", "telemetry", "world state and caches"],
+        "probedAt": __import__("src.portwatch_os.clock", fromlist=["wall_now"]).wall_now().isoformat(timespec="seconds"),  # wall-clock: when the stores were last probed
+        "probeTtlSeconds": PROBE_TTL_SECONDS,
+    }
+    _PROBE_CACHE["at"], _PROBE_CACHE["value"] = now, value
+    return value
+
+
 @router.get("/health")
 def health_check() -> dict:
-    now = datetime.now(timezone.utc)
+    now = wall_now()  # wall-clock: serverTimeUtc is the server's own time
     export_age = cache.artefact_age_seconds(cache.STATUS_CACHE)
     status = cache.get_live_status()
     provenance = cache.get_provenance()
@@ -59,10 +115,20 @@ def health_check() -> dict:
     except cache.CacheNotReadyError:
         available_ports = []
 
+    # The durable stores, probed rather than assumed: a ledger that will not
+    # open is reported here with its path, and the readiness page refuses.
+    stores = durable_stores()
+
     payload = {
-        "status": "ok" if artefacts["forecast"] else "degraded",
+        "status": "ok" if artefacts["forecast"] and stores["ok"] else "degraded",
         "service": "india-portwatch-backend",
         "serverTimeUtc": now.isoformat(),
+        # The world's own clock: LIVE reads the wall; a replay, mission or
+        # scenario reads its anchor and says how far from the wall it sits.
+        "worldClock": get_clock().describe(),
+        # The licence mode in force and whether anyone stated it. A default is
+        # reported as a default: the most restrictive mode, chosen by nobody.
+        "licenceMode": _licence_mode(),
         "intelligence": _intelligence_state(export_age),
         "cacheAgeSeconds": export_age,
         "lastRefreshUtc": status.get("exportedAt"),
@@ -74,6 +140,7 @@ def health_check() -> dict:
         "ports": status.get("ports"),
         "availablePorts": available_ports,
         "artefacts": artefacts,
+        "durableStores": stores,
         "benchmark": {
             "available": bool(benchmark.get("available")),
             "version": benchmark.get("version"),
