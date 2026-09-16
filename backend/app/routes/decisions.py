@@ -45,6 +45,10 @@ from src.portwatch_os.world.quantity import utc
 
 router = APIRouter()
 
+#: How far back a scoped listing reads the ledger before filtering to what
+#: the caller may see. National command reads it whole.
+LEDGER_SCAN_LIMIT = 2000
+
 
 # --------------------------------------------------------------------------
 # identity
@@ -56,6 +60,14 @@ def _actor(role: Optional[str], organisation: Optional[str], port_code: Optional
     scope = _scope(role)
     if scope not in ACTORS:
         raise HTTPException(status_code=403, detail=f"{scope} cannot hold a decision")
+    # Ownership is what scoping reads back: a company's or an operator's
+    # decision belongs to its organisation, a port authority's to its port.
+    # An identity that names neither would hold a decision nobody -- itself
+    # included -- could read or move, so it is refused up front.
+    if scope in ("SHIPPING_COMPANY", "VESSEL_OPERATOR") and not (organisation or "").strip():
+        raise HTTPException(status_code=400, detail=f"a {scope} decision needs X-PortWatch-Org: the organisation that will hold it")
+    if scope == "PORT_AUTHORITY" and not (port_code or "").strip():
+        raise HTTPException(status_code=400, detail="a PORT_AUTHORITY decision needs X-PortWatch-Port: the port that will hold it")
     return DecisionActor(
         role=scope, organisation=organisation, port_code=port_code,
         vessel_ids=tuple(v.strip() for v in (vessel_ids or "").split(",") if v.strip()),
@@ -440,7 +452,11 @@ def list_problems(
     held = {r["decisionId"] for r in rows} | {p.decision_id for p in engine.all()}
     restored = 0
     if engine.ledger is not None:
-        for record in engine.ledger.decision_problems(limit=limit):
+        # Scoping runs after the read, so read past the page: a tenant whose
+        # records sit behind other tenants' newer ones must still find them.
+        for record in engine.ledger.decision_problems(limit=None if identity.is_admin else LEDGER_SCAN_LIMIT):
+            if len(rows) >= limit:
+                break
             if record.problem_id in held:
                 continue
             body = _from_ledger(engine, record.problem_id) or {}

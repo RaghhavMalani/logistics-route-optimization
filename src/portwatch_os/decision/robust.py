@@ -594,14 +594,16 @@ def assess(problem: DecisionProblem, *, expected_best: Optional[str]) -> RobustA
         assessment.contender_id = minimax
         assessment.information.update({"reevaluateInHours": wait_hours,
                                        "branchPointInHours": reversibility.get("closesInHours")})
+        closes = reversibility.get("closesInHours")
+        available = f"for {closes:.0f} h" if closes is not None else "with no stated branch point"
         assessment.why = (
             f"{candidate.label} clears the robust gate but is {reversibility['class'].lower().replace('_', ' ')}: "
-            f"it stays available for {reversibility.get('closesInHours'):.0f} h and the register refreshes in "
+            f"it stays available {available} and the register refreshes in "
             f"{next_obs:.0f} h, so nothing is lost by re-evaluating first."
         )
         assessment.statement = (
             f"Do nothing yet. Re-evaluate in {wait_hours:.0f} h when the event register refreshes; "
-            f"{candidate.label.lower()} remains available for {reversibility.get('closesInHours'):.0f} h. "
+            f"{candidate.label.lower()} remains available {available}. "
             f"If the claim still stands, take it."
         )
         return assessment
