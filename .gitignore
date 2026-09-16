@@ -52,3 +52,6 @@ Thumbs.db
 .vscode/
 .idea/
 .portwatch/
+
+# Vercel CLI link and local build output
+.vercel/
