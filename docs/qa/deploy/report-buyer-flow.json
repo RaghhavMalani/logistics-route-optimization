@@ -1,0 +1,201 @@
+{
+  "base": "https://india-portwatch.vercel.app",
+  "at": "2026-09-16T16:36:15.790Z",
+  "sizes": {
+    "1920x1080": {
+      "steps": {
+        "login": "https://india-portwatch.vercel.app/admin/radar",
+        "nationalCommand": {
+          "mode": "MODE",
+          "traffic": "SIMULATED REPLAY",
+          "twin": "TWIN",
+          "world": "WORLD",
+          "feedDown": false
+        },
+        "globalEye": {
+          "mode": "MODE",
+          "traffic": "SIMULATED REPLAY",
+          "twin": "TWIN",
+          "world": "WORLD",
+          "feedDown": false,
+          "mapLayers": 39
+        },
+        "attention": {
+          "cascadeRows": 0,
+          "decideItems": 0,
+          "saysNothingToDecide": true
+        },
+        "copilot": {
+          "applied": "",
+          "refused": ""
+        },
+        "vesselDecision": "no actionable hull in the register at this instant (nothing to decide; reported, not invented)",
+        "portDecision": {
+          "decisionId": "dec-prt-9795012952"
+        },
+        "financialAssumption": "no assumption form on this decision",
+        "cargoDecision": "ok",
+        "loginAgain": "ok",
+        "mission": "ok",
+        "signalHealth": {
+          "mode": "DEMO visible",
+          "traffic": "SIMULATED visible",
+          "strip": {
+            "mode": "MODE",
+            "traffic": "AISStream · positions are a deterministic replay, not observed AIS, and are labelled as simulated wherever they are drawn",
+            "twin": "TWIN STATE",
+            "world": "WORLD",
+            "feedDown": false
+          }
+        }
+      },
+      "apiHosts": [
+        "india-portwatch-api.up.railway.app"
+      ],
+      "failedRequests": [],
+      "mixedContent": [],
+      "localhostRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshots": {
+        "10-national-command": "../docs/qa/deploy/10-national-command-1920x1080.png",
+        "11-global-eye": "../docs/qa/deploy/11-global-eye-1920x1080.png",
+        "12-spatial-copilot": "../docs/qa/deploy/12-spatial-copilot-1920x1080.png",
+        "14-port-decision": "../docs/qa/deploy/14-port-decision-1920x1080.png",
+        "16-cargo-decision": "../docs/qa/deploy/16-cargo-decision-1920x1080.png",
+        "17-mission-reveal": "../docs/qa/deploy/17-mission-reveal-1920x1080.png",
+        "18-signal-health": "../docs/qa/deploy/18-signal-health-1920x1080.png"
+      }
+    },
+    "1440x900": {
+      "steps": {
+        "login": "https://india-portwatch.vercel.app/admin/radar",
+        "nationalCommand": {
+          "mode": "MODE",
+          "traffic": "SIMULATED REPLAY",
+          "twin": "TWIN",
+          "world": "WORLD",
+          "feedDown": false
+        },
+        "globalEye": {
+          "mode": "MODE",
+          "traffic": "SIMULATED REPLAY",
+          "twin": "TWIN",
+          "world": "WORLD",
+          "feedDown": false,
+          "mapLayers": 39
+        },
+        "attention": {
+          "cascadeRows": 0,
+          "decideItems": 0,
+          "saysNothingToDecide": true
+        },
+        "copilot": {
+          "applied": "",
+          "refused": ""
+        },
+        "vesselDecision": "no actionable hull in the register at this instant (nothing to decide; reported, not invented)",
+        "portDecision": {
+          "decisionId": "dec-prt-574eda87eb"
+        },
+        "financialAssumption": "no assumption form on this decision",
+        "cargoDecision": "ok",
+        "loginAgain": "ok",
+        "mission": "ok",
+        "signalHealth": {
+          "mode": "DEMO visible",
+          "traffic": "SIMULATED visible",
+          "strip": {
+            "mode": "MODE",
+            "traffic": "AISStream · positions are a deterministic replay, not observed AIS, and are labelled as simulated wherever they are drawn",
+            "twin": "TWIN STATE",
+            "world": "WORLD",
+            "feedDown": false
+          }
+        }
+      },
+      "apiHosts": [
+        "india-portwatch-api.up.railway.app"
+      ],
+      "failedRequests": [],
+      "mixedContent": [],
+      "localhostRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshots": {
+        "10-national-command": "../docs/qa/deploy/10-national-command-1440x900.png",
+        "11-global-eye": "../docs/qa/deploy/11-global-eye-1440x900.png",
+        "12-spatial-copilot": "../docs/qa/deploy/12-spatial-copilot-1440x900.png",
+        "14-port-decision": "../docs/qa/deploy/14-port-decision-1440x900.png",
+        "16-cargo-decision": "../docs/qa/deploy/16-cargo-decision-1440x900.png",
+        "17-mission-reveal": "../docs/qa/deploy/17-mission-reveal-1440x900.png",
+        "18-signal-health": "../docs/qa/deploy/18-signal-health-1440x900.png"
+      }
+    },
+    "1366x768": {
+      "steps": {
+        "login": "https://india-portwatch.vercel.app/admin/radar",
+        "nationalCommand": {
+          "mode": "MODE",
+          "traffic": "SIMULATED REPLAY",
+          "twin": "TWIN",
+          "world": "WORLD",
+          "feedDown": false
+        },
+        "globalEye": {
+          "mode": "MODE",
+          "traffic": "SIMULATED REPLAY",
+          "twin": "TWIN",
+          "world": "WORLD",
+          "feedDown": false,
+          "mapLayers": 39
+        },
+        "attention": {
+          "cascadeRows": 0,
+          "decideItems": 0,
+          "saysNothingToDecide": true
+        },
+        "copilot": {
+          "applied": "",
+          "refused": ""
+        },
+        "vesselDecision": "no actionable hull in the register at this instant (nothing to decide; reported, not invented)",
+        "portDecision": {
+          "decisionId": "dec-prt-27bf83822b"
+        },
+        "financialAssumption": "no assumption form on this decision",
+        "cargoDecision": "ok",
+        "loginAgain": "ok",
+        "mission": "ok",
+        "signalHealth": {
+          "mode": "DEMO visible",
+          "traffic": "SIMULATED visible",
+          "strip": {
+            "mode": "MODE",
+            "traffic": "AISStream · positions are a deterministic replay, not observed AIS, and are labelled as simulated wherever they are drawn",
+            "twin": "TWIN STATE",
+            "world": "WORLD",
+            "feedDown": false
+          }
+        }
+      },
+      "apiHosts": [
+        "india-portwatch-api.up.railway.app"
+      ],
+      "failedRequests": [],
+      "mixedContent": [],
+      "localhostRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshots": {
+        "10-national-command": "../docs/qa/deploy/10-national-command-1366x768.png",
+        "11-global-eye": "../docs/qa/deploy/11-global-eye-1366x768.png",
+        "12-spatial-copilot": "../docs/qa/deploy/12-spatial-copilot-1366x768.png",
+        "14-port-decision": "../docs/qa/deploy/14-port-decision-1366x768.png",
+        "16-cargo-decision": "../docs/qa/deploy/16-cargo-decision-1366x768.png",
+        "17-mission-reveal": "../docs/qa/deploy/17-mission-reveal-1366x768.png",
+        "18-signal-health": "../docs/qa/deploy/18-signal-health-1366x768.png"
+      }
+    }
+  }
+}
