@@ -57,6 +57,13 @@ def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile
     of the process, so the fleet clock drifted away from the port state shown
     beside it.
     """
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        if company_id and company_id != DEMO_COMPANY_ID:
+            raise HTTPException(404, "Company is outside this fictional demo")
+        from backend.app.services.demo_terminal import company_for
+        return company_for(scoped.world)
     provider_path = os.getenv("PORTWATCH_FLEET_PROVIDER")
     if provider_path and os.path.exists(provider_path):
         try:
@@ -126,12 +133,21 @@ def _events():
     except cache.CacheNotReadyError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     events, _ = from_news_bundle(bundle)
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        from backend.app.services.demo_terminal import event_for
+        events = [event_for(scoped.world)] + events
     calibrator = fit_calibrator(
         get_ledger().event_outcomes(),
         fitted_at=wall_now().isoformat(timespec="seconds"),  # wall-clock: when this fit ran
     )
     apply_calibration(events, calibrator)
-    return events
+    from src.portwatch_os.clock import world_now
+    from datetime import timedelta
+    now = world_now()
+    return [e for e in events if datetime.fromisoformat(e.first_seen.replace("Z", "+00:00")) <= now
+            <= datetime.fromisoformat(e.last_seen.replace("Z", "+00:00")) + timedelta(hours=e.horizon_hours)]
 
 
 @router.get("/company")

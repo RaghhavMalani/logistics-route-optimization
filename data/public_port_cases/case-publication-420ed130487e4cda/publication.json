@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "public-case-v1",
+  "publishedAt": "2026-10-08T09:54:41.093333Z",
+  "cases": [
+    {
+      "caseId": "9ee7f41bdb419cbe0fc5a697a84365464ac94d91e707f0ac8175e8059c29fd2d",
+      "portCode": "INPRT",
+      "vesselName": "MV. GLAD YOUNG",
+      "identity": {
+        "loaMetres": 229.0,
+        "beamMetres": 32.26,
+        "mmsi": null,
+        "basis": "Public vessel name and dimensions; no verified MMSI."
+      },
+      "berthRef": "SQ",
+      "publishedEtaBaselineErrorMinutes": -24.0,
+      "reportedWaitingHours": 2.4,
+      "events": [
+        {
+          "event": "frozenEta",
+          "at": "2026-10-07T19:30:00.000000Z",
+          "rawClock": "08-10 0100",
+          "availableAt": "2026-10-07T11:42:18.380791Z",
+          "firstSeenAt": "2026-10-07T11:42:18.380791Z",
+          "reportDate": "2026-10-07",
+          "page": 4,
+          "sha256": "44cec3890afd3cb3dcb6e6ab2981747100b9af1074a6ff285fc5b2da2c9ce70e",
+          "url": "/api/public/port-calls/evidence/44cec3890afd3cb3dcb6e6ab2981747100b9af1074a6ff285fc5b2da2c9ce70e.pdf#page=4",
+          "sourceUrl": "https://www.paradipport.gov.in/uploads/2026/10/dtr0710.pdf",
+          "parserVersion": "public-port-report-v1.1",
+          "parsedAt": "2026-10-07T11:46:14.306521Z"
+        },
+        {
+          "event": "reportedArrival",
+          "at": "2026-10-07T19:06:00.000000Z",
+          "rawClock": "00:36\n08-10",
+          "availableAt": "2026-10-08T08:25:09.569959Z",
+          "firstSeenAt": "2026-10-08T08:25:09.569959Z",
+          "reportDate": "2026-10-08",
+          "page": 1,
+          "sha256": "6ab1199e5f3ce2997955317fd61e14295bb3146cc5986a31d27fda5f172fe8bd",
+          "url": "/api/public/port-calls/evidence/6ab1199e5f3ce2997955317fd61e14295bb3146cc5986a31d27fda5f172fe8bd.pdf#page=1",
+          "sourceUrl": "https://www.paradipport.gov.in/uploads/2026/10/dtr0810.pdf",
+          "parserVersion": "public-port-report-v1.1",
+          "parsedAt": "2026-10-08T08:25:09.569959Z"
+        },
+        {
+          "event": "reportedBerth",
+          "at": "2026-10-07T21:30:00.000000Z",
+          "rawClock": "03:00\n08-10",
+          "availableAt": "2026-10-08T08:25:09.569959Z",
+          "firstSeenAt": "2026-10-08T08:25:09.569959Z",
+          "reportDate": "2026-10-08",
+          "page": 1,
+          "sha256": "6ab1199e5f3ce2997955317fd61e14295bb3146cc5986a31d27fda5f172fe8bd",
+          "url": "/api/public/port-calls/evidence/6ab1199e5f3ce2997955317fd61e14295bb3146cc5986a31d27fda5f172fe8bd.pdf#page=1",
+          "sourceUrl": "https://www.paradipport.gov.in/uploads/2026/10/dtr0810.pdf",
+          "parserVersion": "public-port-report-v1.1",
+          "parsedAt": "2026-10-08T08:25:09.569959Z"
+        }
+      ],
+      "review": {
+        "status": "PASSED",
+        "reviewedAt": "2026-10-08T09:12:12.275680+00:00",
+        "preparedAt": "2026-10-08T08:25:13.619081Z"
+      },
+      "timezoneNote": "Assumed Asia/Kolkata (UTC+05:30); publisher event/timezone definitions are unconfirmed",
+      "uncertainty": "The publisher supplies no ETA confidence interval. Timestamp meanings and timezone remain unconfirmed; reported berth is not confirmed all-fast.",
+      "meaning": "Published ETA baseline error = reported arrival minus the prospectively frozen published ETA. This ETA was not produced by the ML model.",
+      "auditUrl": "/api/public/port-calls/9ee7f41bdb419cbe0fc5a697a84365464ac94d91e707f0ac8175e8059c29fd2d/audit"
+    }
+  ],
+  "documents": [
+    {
+      "sha256": "44cec3890afd3cb3dcb6e6ab2981747100b9af1074a6ff285fc5b2da2c9ce70e",
+      "sourceUrl": "https://www.paradipport.gov.in/uploads/2026/10/dtr0710.pdf",
+      "firstSeenAt": "2026-10-07T11:42:18.380791Z"
+    },
+    {
+      "sha256": "6ab1199e5f3ce2997955317fd61e14295bb3146cc5986a31d27fda5f172fe8bd",
+      "sourceUrl": "https://www.paradipport.gov.in/uploads/2026/10/dtr0810.pdf",
+      "firstSeenAt": "2026-10-08T08:25:09.569959Z"
+    }
+  ]
+}

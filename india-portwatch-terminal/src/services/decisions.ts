@@ -37,6 +37,12 @@ export interface CreateDecisionPayload {
   portCode?: string;
   shipmentId?: string;
   bunchArrivals?: number;
+  cameraPlanning?: { evidenceId: string; berthId: string; holdHours: number };
+  currentArrival?: {
+    plannedArrival: string;
+    maxGustKn: number;
+    minVisibilityM: number;
+  };
   horizonHours?: number;
   attentionId?: string;
   at?: string | null;

@@ -1,0 +1,105 @@
+{
+  "generatedAt": "2026-10-09T16:28:07.655253+00:00",
+  "status": "REJECTED",
+  "target": "IMF daily congestion-index proxy; not observed vessel waiting or savings",
+  "scores": [
+    {
+      "model": "network",
+      "validationMae": 6.6807,
+      "testMae": 5.9844,
+      "testRows": 4260,
+      "coverage80": 0.8775,
+      "intervalWidth": 23.0073,
+      "calibrationRadius": 0.0
+    },
+    {
+      "model": "linear",
+      "validationMae": 6.7559,
+      "testMae": 6.0397,
+      "testRows": 4260,
+      "coverage80": 0.8756,
+      "intervalWidth": 23.1944,
+      "calibrationRadius": 0.0
+    },
+    {
+      "model": "equal weighting",
+      "validationMae": 6.6369,
+      "testMae": 5.933,
+      "testRows": 4260,
+      "coverage80": 0.8746,
+      "intervalWidth": 22.7058,
+      "calibrationRadius": 0.0
+    },
+    {
+      "model": "persistence",
+      "validationMae": 7.4811,
+      "testMae": 6.8003,
+      "testRows": 4260,
+      "coverage80": 0.8638,
+      "intervalWidth": 25.7824,
+      "calibrationRadius": 0.0
+    },
+    {
+      "model": "GBM",
+      "validationMae": 6.74,
+      "testMae": 5.8279,
+      "testRows": 4260,
+      "coverage80": 0.8444,
+      "intervalWidth": 20.4851,
+      "calibrationRadius": 0.639
+    },
+    {
+      "model": "Ridge",
+      "validationMae": 6.7647,
+      "testMae": 6.0832,
+      "testRows": 4260,
+      "coverage80": 0.892,
+      "intervalWidth": 25.3002,
+      "calibrationRadius": 1.0862
+    },
+    {
+      "model": "adaptive ensemble",
+      "validationMae": 6.7822,
+      "testMae": 6.065,
+      "testRows": 4260,
+      "coverage80": 0.8735,
+      "intervalWidth": 23.4435,
+      "calibrationRadius": 0.0
+    }
+  ],
+  "split": {
+    "train": 12420,
+    "validation": 2220,
+    "calibration": 2220,
+    "test": 4260,
+    "fitEnd": "2026-06-15 00:00:00",
+    "calibrationStart": "2026-07-09 00:00:00",
+    "testStart": "2026-08-02 00:00:00"
+  },
+  "sourceDropout": [
+    {
+      "missing": "Naive persistence",
+      "testMae": 5.8231
+    },
+    {
+      "missing": "GBM quantile",
+      "testMae": 6.197
+    },
+    {
+      "missing": "Ridge quantile",
+      "testMae": 6.1539
+    }
+  ],
+  "dataSha256": "dc91ae93e436e21aff401a2cab5878b0e05d65567bf2cc533b0ff8517c5ffecf",
+  "codeSha256": "5ede57bbbf9cece32748fddf053a54dfba90de03856911570256c1dbaef34d82",
+  "seed": 168,
+  "features": "horizon, port, specialist quantiles, interval width, availability masks and disagreement implicit in specialist medians",
+  "unavailableFeatures": [
+    "issue-time source ages",
+    "historical future weather",
+    "causal regime vintages"
+  ],
+  "incumbent": "adaptive ensemble",
+  "promotion": "Shadow inference only; no deployment or operational adoption",
+  "tftAudit": "Existing TFTForecaster uses pytorch-forecasting and expanding-window fit; benchmark excludes it unless --include-tft. This gate does not duplicate it."
+}

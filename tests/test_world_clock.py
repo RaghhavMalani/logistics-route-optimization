@@ -350,6 +350,10 @@ class ApiReadsTheClockTests(unittest.TestCase):
     ADMIN = {"X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "qa"}
 
     def setUp(self):
+        from unittest.mock import patch
+        self.identity_patch = patch.dict("os.environ", {"PORTWATCH_IDENTITY_MODE": "asserted"})
+        self.identity_patch.start()
+        self.addCleanup(self.identity_patch.stop)
         from fastapi.testclient import TestClient
 
         from backend.app.main import app

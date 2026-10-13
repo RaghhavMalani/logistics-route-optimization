@@ -1,0 +1,9 @@
+# Stage 5 validation
+
+October 7 validation: **49 distinct Python tests passed**, with two existing decision-scope tests skipped because the register had no actionable vessel fixture. **Six browser checks against the real backend passed** at 1920×1080 and 1366×768, plus seven offline intelligence UI regressions. TypeScript and production/demo builds passed. Changed-file ESLint reported no errors and two existing React fast-refresh export warnings.
+
+The identity and intelligence suite covers verified login/session/logout, malformed and invented credentials, forged administrator/port headers, server memberships, rate limiting, password/token storage, expiry independent of replay, revoked/disabled accounts, camera scope, immutable evidence, replay observation/recording availability, server variable filtering across all thirteen ports, weather outcome semantics and the existing role matrix.
+
+The real-backend browser suite uses `scripts.serve_verified_qa` with isolated SQLite stores and labelled QA inputs. API requests use the running FastAPI app without response interception. It verifies camera registration/restoration, thirteen-port forecast selection, replay with zero current-media requests, computed decision approval, advisory issue and a separate verified recipient's acknowledgment. Verified weather measurements resolve forecasts while preserving originals; forged cross-port writes return 403. It is distinct from the existing offline frontend fixtures.
+
+This verification establishes identity enforcement and workflow behavior. It does not establish private-camera health, measured delay/cost savings, institutional SSO, MFA, dependency locking or production backup recovery. The next implementation priority is the operational consequence contract in [INTELLIGENCE_WORKSPACE.md](INTELLIGENCE_WORKSPACE.md).

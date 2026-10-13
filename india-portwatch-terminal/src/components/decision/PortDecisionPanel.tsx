@@ -10,6 +10,9 @@
  */
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getJson } from "@/services/api";
+import { usePortTwin } from "@/services/os-hooks";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { Panel } from "@/components/kit/layout";
@@ -68,9 +71,11 @@ export function applyPortPlan(
           }
         : {
             ...berth,
-            occupied_by: berth.occupied_by?.startsWith("seed-")
-              ? berth.occupied_by
-              : null,
+            occupied_by:
+              berth.occupied_by?.startsWith("seed-") ||
+              berth.occupied_by?.startsWith("camera-hold:")
+                ? berth.occupied_by
+                : null,
           };
     }),
     cranes: state.cranes.map((crane) => {
@@ -111,11 +116,49 @@ export function PortDecisionPanel({
   selectedOptionId: string | null;
   onSelectOption: (optionId: string | null) => void;
 }) {
-  const { identityHeaders } = useAuth();
+  const { identityHeaders, session } = useAuth();
   const { role } = useWorkspace();
   const create = useCreateDecision(identityHeaders);
   const decision = useDecision(decisionId);
   const [bunch, setBunch] = useState(3);
+  const [cameraEvidenceId, setCameraEvidenceId] = useState("");
+  const [cameraBerthId, setCameraBerthId] = useState("");
+  const [cameraHoldHours, setCameraHoldHours] = useState(2);
+  const twin = usePortTwin(portCode);
+  const cameras = useQuery({
+    queryKey: ["camera-evidence", portCode],
+    queryFn: ({ signal }) =>
+      getJson<{
+        evidence: Array<{
+          id: string;
+          cameraId: string;
+          observedAt: string;
+          kind: string;
+          reviewed: boolean;
+          summary: string;
+        }>;
+      }>(
+        `/intelligence/cameras?portCode=${encodeURIComponent(portCode)}`,
+        identityHeaders,
+        { signal },
+      ),
+    enabled: session?.mode === "production",
+    refetchInterval: 30_000,
+  });
+  const reviewedOccupancy = (cameras.data?.evidence ?? []).filter(
+    (e) =>
+      e.reviewed &&
+      e.kind === "berth_occupied" &&
+      Date.now() - Date.parse(e.observedAt) >= 0 &&
+      Date.now() - Date.parse(e.observedAt) <= 30 * 60_000,
+  );
+  const cameraSelectionValid =
+    !cameraEvidenceId ||
+    (reviewedOccupancy.some((e) => e.id === cameraEvidenceId) &&
+      Boolean(cameraBerthId) &&
+      Number.isFinite(cameraHoldHours) &&
+      cameraHoldHours >= 0.25 &&
+      cameraHoldHours <= 6);
   const problem: DecisionProblem | undefined = decision.data;
 
   return (
@@ -153,13 +196,22 @@ export function PortDecisionPanel({
             <button
               type="button"
               data-testid="port-decide"
-              disabled={create.isPending}
+              disabled={create.isPending || !cameraSelectionValid}
               onClick={() =>
                 create.mutate(
                   {
                     domain: "port",
                     portCode,
                     bunchArrivals: bunch,
+                    ...(cameraEvidenceId
+                      ? {
+                          cameraPlanning: {
+                            evidenceId: cameraEvidenceId,
+                            berthId: cameraBerthId,
+                            holdHours: cameraHoldHours,
+                          },
+                        }
+                      : {}),
                     mode: "DEMO",
                   },
                   {
@@ -180,6 +232,71 @@ export function PortDecisionPanel({
                 : "What should we do?"}
             </button>
           </div>
+          {session?.mode === "production" && reviewedOccupancy.length > 0 ? (
+            <fieldset className="mt-3 space-y-2 text-[10.5px]">
+              <legend className="text-[var(--text-2)]">
+                Reviewed camera scenario
+              </legend>
+              <label className="block">
+                Berth observation
+                <select
+                  aria-label="Reviewed berth observation"
+                  value={cameraEvidenceId}
+                  onChange={(e) => setCameraEvidenceId(e.target.value)}
+                  className="block w-full rounded border border-[var(--line)] bg-[var(--panel)] p-1"
+                >
+                  <option value="">Use the original twin only</option>
+                  {reviewedOccupancy.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.cameraId} · {e.observedAt} · {e.summary}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {cameraEvidenceId ? (
+                <>
+                  <label className="block">
+                    Operator mapping to schematic berth
+                    <select
+                      aria-label="Camera scenario berth"
+                      value={cameraBerthId}
+                      onChange={(e) => setCameraBerthId(e.target.value)}
+                      className="block w-full rounded border border-[var(--line)] bg-[var(--panel)] p-1"
+                    >
+                      <option value="">Select the affected berth</option>
+                      {twin.data?.berths.map((b) => (
+                        <option key={b.berth_id} value={b.berth_id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    Assumed remaining hold, hours
+                    <input
+                      aria-label="Assumed camera berth hold hours"
+                      type="number"
+                      min={0.25}
+                      max={6}
+                      step={0.25}
+                      value={cameraHoldHours}
+                      onChange={(e) =>
+                        setCameraHoldHours(Number(e.target.value))
+                      }
+                      className="num ml-2 w-14 rounded border border-[var(--line)] bg-transparent px-1"
+                    />
+                  </label>
+                  <p className="text-[var(--text-3)]">
+                    A frame cannot determine release time. Berth mapping and
+                    hold duration are operator assumptions on a scenario clone.
+                    This viewpoint does not establish other berths or vessel
+                    identity. Evidence and assumptions are retained with the
+                    decision.
+                  </p>
+                </>
+              ) : null}
+            </fieldset>
+          ) : null}
           {create.isError ? (
             <p className="mt-1 text-[10.5px] text-[var(--crit)]">
               {(create.error as Error).message}

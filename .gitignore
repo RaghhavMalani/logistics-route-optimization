@@ -15,9 +15,16 @@ data/cache/
 data/processed/
 data/sample/
 work/
+tmp/
+qa/shots/
 *.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.private.json
 
 # --- Frontend generated artifacts ---
 india-portwatch-terminal/node_modules/

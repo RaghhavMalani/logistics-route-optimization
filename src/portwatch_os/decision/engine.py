@@ -212,6 +212,8 @@ class DecisionEngine:
         attention_item_id: Optional[str] = None,
         basis: Optional[CostBasis] = None,
         decision_id: Optional[str] = None,
+        evidence: Optional[Dict[str, Any]] = None,
+        notes: Optional[Sequence[str]] = None,
     ) -> DecisionProblem:
         from src.portwatch_os.decision.port import build_port_problem
 
@@ -221,6 +223,8 @@ class DecisionEngine:
             basis=basis if basis is not None else self.basis, fx=self.fx, currency=self.currency,
             horizon_hours=horizon_hours, attention_item_id=attention_item_id,
         )
+        problem.evidence.update(evidence or {})
+        problem.notes.extend(notes or ())
         return self.finish(problem)
 
     def solve_cargo(
@@ -278,7 +282,7 @@ class DecisionEngine:
         assessment = None
         provisional = None
         why = ""
-        if self.policy == ROBUST_POLICY:
+        if self.policy == ROBUST_POLICY and not (problem.evidence.get("currentEnvironment") or problem.evidence.get("intelligenceBasis")):
             assessment = assess_robust(problem, expected_best=None if expected is None else expected.option_id)
             chosen = problem.option(assessment.option_id) if assessment.option_id else None
             kind = assessment.kind
@@ -316,6 +320,12 @@ class DecisionEngine:
             problem.recommendation = None
             problem.notes.append("no feasible option survived constraints and the Critic; nothing is recommended")
 
+        if problem.evidence.get("currentEnvironment"):
+            from .continuation import weather_explanation
+            weather_explanation(problem)
+        if problem.evidence.get("intelligenceBasis"):
+            from .continuation import intelligence_explanation
+            intelligence_explanation(problem)
         problem.workflow_history.append({
             "at": moment.isoformat(timespec="seconds"), "state": COMPUTED, "actor": "portwatch-decision-engine",
             "note": f"{len(problem.feasible_options)} feasible, {len(problem.rejected_options)} rejected",
@@ -355,7 +365,34 @@ class DecisionEngine:
 
     def get(self, decision_id: str) -> Optional[DecisionProblem]:
         with self._lock:
-            return self._problems.get(decision_id)
+            problem = self._problems.get(decision_id)
+            if problem is not None:
+                return problem
+            from src.portwatch_os.sandbox import current_sandbox
+            # Rehydration is confined to the server-owned visitor ledger and
+            # this bounded weather workflow. Operational decisions stay guarded.
+            if current_sandbox.get() is None or self.ledger is None:
+                return None
+            record = self.ledger.get_decision_problem(decision_id)
+            if record is None or not (record.problem.get("evidence", {}).get("currentEnvironment") or record.problem.get("evidence", {}).get("intelligenceBasis")):
+                return None
+            from .continuation import restore
+            body = self.ledger.get_continuation(decision_id) or dict(record.problem)
+            body.update(workflow=record.workflow, humanChoice=record.human_choice)
+            problem = restore(body)
+            from src.portwatch_os.advisories.store import get_advisory_store
+            linked = [a for a in get_advisory_store().all() if a.evidence.get("decisionId") == decision_id]
+            if linked:
+                problem.evidence["advisories"] = [a.advisory_id for a in linked]
+                # Also repairs a crash between durable advisory creation and
+                # recording the handoff; never creates or issues an advisory.
+                if problem.workflow == "APPROVED":
+                    problem.workflow = "PROPOSED"
+                outcome = next((a.evidence.get("demoOutcome") for a in linked if a.evidence.get("demoOutcome")), None)
+                if outcome:
+                    problem.evidence["demoOutcome"] = outcome
+            self._store(problem)
+            return problem
 
     def all(self) -> List[DecisionProblem]:
         with self._lock:
@@ -395,6 +432,10 @@ class DecisionEngine:
         problem = self.get(decision_id)
         if problem is None:
             raise DecisionError(f"no decision {decision_id}")
+        if (problem.evidence.get("currentEnvironment") or problem.evidence.get("intelligenceBasis")) and problem.workflow == target:
+            if target == APPROVED and option_id != problem.human_choice:
+                raise DecisionError("The saved approval chose a different option")
+            return problem
         allowed = TRANSITIONS.get(problem.workflow, ())
         if target not in allowed:
             raise DecisionError(
@@ -477,6 +518,10 @@ class DecisionEngine:
             return
         from src.portwatch_os.decision.ledger import record_problem, resolve_problem
 
+        from src.portwatch_os.sandbox import current_sandbox
+        if current_sandbox.get() is not None and (problem.evidence.get("currentEnvironment") or problem.evidence.get("intelligenceBasis")):
+            self.ledger.save_continuation(problem.decision_id, problem.to_dict())
+
         if outcome:
             resolve_problem(self.ledger, problem)
         else:
@@ -529,6 +574,21 @@ def get_engine() -> DecisionEngine:
     the journal, so a priced scenario is still priced the same way after a
     redeploy; each is still labelled ASSUMPTION with who entered it.
     """
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        def create():
+            from src.portwatch_os.finance.basis import AssumptionJournal
+            from src.portwatch_os.finance.tariffs import basis_with_public_tariffs
+            from src.portwatch_os.ledger.store import get_ledger
+            journal = AssumptionJournal(scoped.root / "cost_assumptions.jsonl")
+            basis = basis_with_public_tariffs()
+            for rate in journal.load():
+                basis.add(rate)
+            engine = DecisionEngine(basis=basis, ledger=get_ledger())
+            engine.assumption_journal = journal
+            return engine
+        return scoped.resource("decisions", create)
     global _ENGINE
     with _ENGINE_LOCK:
         if _ENGINE is None:

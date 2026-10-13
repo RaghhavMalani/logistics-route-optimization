@@ -41,6 +41,13 @@ def _mission_or_404(mission_id: str):
 
 def _replay(mission_id: str, *, create: bool = False) -> MissionReplay:
     mission = _mission_or_404(mission_id)
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        if create:
+            with scoped.lock:
+                scoped.resources.pop("mission:" + mission_id, None)
+        return scoped.resource("mission:" + mission_id, lambda: MissionReplay(mission, get_engine()))
     with _LOCK:
         held = _REPLAYS.get(mission_id)
         if held is None or create:

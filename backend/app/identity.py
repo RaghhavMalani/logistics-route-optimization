@@ -1,36 +1,16 @@
-"""Who is asking, and what the API will believe about it.
+"""Verified request identity and server-owned workspace scope.
 
-Identity reaches the API as headers the terminal sets from its session --
-``X-PortWatch-Role``, ``X-PortWatch-Actor``, ``X-PortWatch-Port``,
-``X-PortWatch-Org``, ``X-PortWatch-Vessels``. Nothing here verifies a token;
-this module is the seam a verifier replaces, and until one does the API runs
-in one of two identity modes:
-
-    asserted   the default. The headers are believed. A request with no role
-               is treated as national command, which is what a checkout, the
-               benchmark and the in-process test client have always been. For
-               a demo on a private network behind the terminal.
-    required   PORTWATCH_IDENTITY_MODE=required. A request with no role is
-               401; nothing is defaulted to national command. For a deployment
-               behind an authenticating proxy that sets the headers from a
-               verified session and strips whatever the client sent.
-
-Two rules hold in both modes, because a default that grants administration is
-not a default anyone chose:
-
-*   an administration surface needs the role header present and equal to
-    NATIONAL_ADMIN; a missing header is a refusal, never a promotion;
-*   administrator standing is derived from the role alone. The legacy
-    ``X-PortWatch-Admin`` flag is read only to be reported as ignored.
-
-Readiness reports the mode, and a COMMERCIAL or GOVERNMENT deployment in
-``asserted`` mode is a warning there: the licence says production, the
-identity says demo.
+The default verified mode accepts revocable opaque sessions from the identity
+store. Client role, actor and membership headers are replaced before route
+dependencies run. Asserted demo and legacy proxy-required modes are explicit
+compatibility settings; private cameras and evidence writes still require a
+verified session. Authentication uses wall time independently of replay.
 """
 
 from __future__ import annotations
 
 import os
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
@@ -48,12 +28,14 @@ from src.portwatch_os.roles import (
 
 ASSERTED = "asserted"
 REQUIRED = "required"
-IDENTITY_MODES: Tuple[str, ...] = (ASSERTED, REQUIRED)
+VERIFIED = "verified"
+IDENTITY_MODES: Tuple[str, ...] = (ASSERTED, REQUIRED, VERIFIED)
+current_identity: ContextVar[Optional["Identity"]] = ContextVar("verified_identity", default=None)
 
 
 def identity_mode() -> str:
-    value = (os.getenv("PORTWATCH_IDENTITY_MODE") or ASSERTED).strip().lower()
-    return value if value in IDENTITY_MODES else ASSERTED
+    value = (os.getenv("PORTWATCH_IDENTITY_MODE") or VERIFIED).strip().lower()
+    return value if value in IDENTITY_MODES else VERIFIED
 
 
 def describe() -> dict:
@@ -61,13 +43,15 @@ def describe() -> dict:
     return {
         "mode": mode,
         "source": "PORTWATCH_IDENTITY_MODE" if os.getenv("PORTWATCH_IDENTITY_MODE") else "default",
-        "verified": False,
+        "verified": mode == VERIFIED,
         "statement": (
-            "identity headers are believed as sent; a request with no role is national command"
+            "explicit demo mode: identity headers are asserted; private cameras and evidence writes require a verified session"
             if mode == ASSERTED else
+            "opaque sessions are verified against server-managed accounts; roles and memberships come from the server"
+            if mode == VERIFIED else
             "identity headers are required on every scoped route; a request with no role is refused"
         ),
-        "replaceWith": "backend.app.identity.resolve_role: a verifier that reads a session token and sets the role",
+        "privateCameraIdentity": "verified session required in every mode",
         "adminFlagHonoured": False,
     }
 
@@ -78,6 +62,11 @@ def resolve_role(role: Optional[str], *, admin_surface: bool = False) -> str:
     ``admin_surface`` marks a route that must never be reached by default:
     the header has to be there, and it has to say NATIONAL_ADMIN.
     """
+    principal = current_identity.get()
+    if principal:
+        role = principal.role
+    elif identity_mode() == VERIFIED:
+        raise HTTPException(401, "A verified session is required")
     if role is None or not role.strip():
         if admin_surface:
             raise HTTPException(
@@ -91,6 +80,8 @@ def resolve_role(role: Optional[str], *, admin_surface: bool = False) -> str:
                 detail="this deployment requires an identity on every request: send X-PortWatch-Role with one of "
                        + ", ".join(WORKSPACE_ROLES),
             )
+        # Compatibility only for explicitly selected demo mode. The default VERIFIED
+        # mode is refused above; private cameras always require_verified independently.
         return DEFAULT_ROLE
     normalised = role.strip().upper()
     if not is_workspace_role(normalised):
@@ -113,13 +104,15 @@ def require_roles(role: Optional[str], allowed: Tuple[str, ...], *, what: str) -
 
 @dataclass(frozen=True)
 class Identity:
-    """The asserted identity, folded to what the scoping rules read."""
+    """Workspace scope, marked verified only by the server session middleware."""
 
     role: str
     actor: Optional[str] = None
     port_code: Optional[str] = None
     organisation: Optional[str] = None
     vessel_ids: Tuple[str, ...] = field(default_factory=tuple)
+    port_codes: Tuple[str, ...] = field(default_factory=tuple)
+    verified: bool = False
 
     @property
     def is_admin(self) -> bool:
@@ -127,7 +120,8 @@ class Identity:
 
     def to_dict(self) -> dict:
         return {"role": self.role, "actor": self.actor, "portCode": self.port_code,
-                "organisation": self.organisation, "vesselIds": list(self.vessel_ids)}
+                "organisation": self.organisation, "vesselIds": list(self.vessel_ids),
+                "portCodes": list(self.port_codes), "verified": self.verified}
 
 
 def identity_from_headers(
@@ -140,6 +134,8 @@ def identity_from_headers(
     admin_surface: bool = False,
 ) -> Identity:
     resolved = resolve_role(role, admin_surface=admin_surface)
+    if current_identity.get():
+        return current_identity.get()
     return Identity(
         role=resolved,
         actor=(actor or "").strip() or None,
@@ -147,6 +143,13 @@ def identity_from_headers(
         organisation=(organisation or "").strip() or None,
         vessel_ids=tuple(v.strip() for v in (vessel_ids or "").split(",") if v.strip()),
     )
+
+
+def require_verified() -> Identity:
+    principal = current_identity.get()
+    if not principal or not principal.verified:
+        raise HTTPException(401, "Private cameras and evidence writes require a verified session")
+    return principal
 
 
 def _same(a: Optional[str], b: Optional[str]) -> bool:
@@ -187,10 +190,12 @@ __all__ = [
     "IDENTITY_MODES",
     "Identity",
     "REQUIRED",
+    "VERIFIED",
     "describe",
     "identity_from_headers",
     "identity_mode",
     "may_see_decision",
     "require_roles",
+    "require_verified",
     "resolve_role",
 ]

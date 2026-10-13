@@ -63,7 +63,9 @@ def _catalogue_path() -> Path:
     override = os.getenv("PORTWATCH_SEA_ROUTES")
     if override:
         return Path(override)
-    return Path(__file__).resolve().parents[3] / SOURCE_CATALOGUE
+    root = Path(__file__).resolve().parents[3]
+    source = root / SOURCE_CATALOGUE
+    return source if source.exists() else root / "data/sea-routes.json"
 
 
 def catalogue() -> Dict[str, Any]:

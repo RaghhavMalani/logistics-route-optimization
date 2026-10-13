@@ -59,6 +59,7 @@ import {
 import type { PortSnapshot } from "@/types/portwatch";
 import type { MarineState, ObservedTracks } from "@/types/portwatch-os";
 import { bearingLine, circleRing, sectorRing } from "@/components/map/geometry";
+import { useCurrentMapWeather } from "@/services/current-inputs";
 
 /* ---------------------------------------------------------------- layers -- */
 
@@ -333,6 +334,7 @@ export function useWorkspaceMap(
 ): WorkspaceMap {
   const { ports: enrichedPorts, query: portsQuery } = useEnrichedPorts();
   const weatherQuery = useWeather();
+  const currentWeather = useCurrentMapWeather();
   const newsQuery = useNews();
   const health = useHealth();
   const clockState = useClockState();
@@ -416,8 +418,14 @@ export function useWorkspaceMap(
   const [showWind, setShowWind] = useState(true);
 
   const timeline = useMemo(
-    () => buildWeatherTimeline(weatherQuery.data ?? [], ports),
-    [ports, weatherQuery.data],
+    () =>
+      buildWeatherTimeline(
+        currentWeather.data?.length
+          ? currentWeather.data
+          : (weatherQuery.data ?? []),
+        ports,
+      ),
+    [ports, currentWeather.data, weatherQuery.data],
   );
 
   // The weather clock is the forecast series, not the replay clock: a raster

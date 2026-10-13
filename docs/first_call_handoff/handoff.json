@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "jnpa-first-call-handoff-v1",
+  "portCode": "INNSA",
+  "sourceAgreement": {
+    "organisation": "",
+    "terminal": "",
+    "operatorName": "",
+    "operatorRole": "",
+    "operatorContact": "",
+    "confirmedAt": null,
+    "confirmationRef": "",
+    "researchUsePermissionRef": "",
+    "sourceTimezone": "",
+    "callIdentityDefinition": "",
+    "mmsiVerificationSourceRef": "",
+    "anchorageArrivalDefinition": "",
+    "allFastDefinition": "",
+    "schedulerWaitDefinition": "",
+    "availabilityDefinition": ""
+  },
+  "call": {
+    "operationRef": "",
+    "mmsi": "",
+    "vesselName": ""
+  },
+  "evidenceDocuments": {
+    "agreement": { "path": "", "sha256": "", "sourceRef": "" },
+    "identity": { "path": "", "sha256": "", "sourceRef": "" },
+    "scheduler": { "path": "operator-arrival.csv", "sha256": "", "sourceRef": "" },
+    "outcome": { "path": "operator-outcome.csv", "sha256": "", "sourceRef": "" }
+  },
+  "reconciliation": {
+    "confirmedBy": "",
+    "confirmedAt": null,
+    "confirmationRef": ""
+  }
+}

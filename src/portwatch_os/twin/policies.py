@@ -502,6 +502,11 @@ class ContextualBanditPolicy(BasePolicy):
 
 
 #: The registry the benchmark and the API iterate over.
+def _masked_candidate():
+    from src.portwatch_os.twin.constrained_rl import load_candidate
+    return load_candidate()
+
+
 POLICY_REGISTRY: Dict[str, Callable[[], BasePolicy]] = {
     "fcfs": FirstComeFirstServed,
     "random": RandomPolicy,
@@ -509,9 +514,15 @@ POLICY_REGISTRY: Dict[str, Callable[[], BasePolicy]] = {
     "lookahead": LookaheadPolicy,
     "bandit": ContextualBanditPolicy,
 }
+from src.utils.config import FORECASTS_DIR
+if (FORECASTS_DIR / "constrained_rl.json").is_file():
+    POLICY_REGISTRY["masked_q"] = _masked_candidate
 
 
 def build_policy(policy_id: str) -> BasePolicy:
+    if policy_id == "masked_q":
+        from src.portwatch_os.twin.constrained_rl import load_candidate
+        return load_candidate()
     factory = POLICY_REGISTRY.get(policy_id)
     if factory is None:
         raise KeyError(

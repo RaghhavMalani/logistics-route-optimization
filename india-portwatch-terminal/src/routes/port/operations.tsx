@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PortCameraPanel } from "@/components/intelligence/CapabilityPanels";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { BarRanking, ColumnChart, SeriesChart } from "@/components/kit/charts";
@@ -200,6 +201,7 @@ function PortOperations() {
       />
 
       <PageBody className="grid grid-cols-1 gap-3 xl:grid-cols-[1.55fr_1fr]">
+        <PortCameraPanel portCode={port.code} />
         <div className="flex min-w-0 flex-col gap-3">
           <Panel
             title="Is the queue building or draining?"

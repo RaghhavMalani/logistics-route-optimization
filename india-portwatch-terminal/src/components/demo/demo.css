@@ -1,0 +1,459 @@
+.demo-entry,
+.demo-app {
+  color: #dce7eb;
+  background: #0c1822;
+  font:
+    13px/1.6 Inter,
+    sans-serif;
+  min-height: 100dvh;
+}
+.demo-entry {
+  display: grid;
+  grid-template-columns: 1fr minmax(400px, 600px);
+}
+.demo-entry-intro {
+  position: relative;
+  overflow: hidden;
+  padding: 64px;
+  display: flex;
+  align-items: center;
+}
+.demo-entry-intro > svg {
+  opacity: 0.65;
+}
+.demo-entry-intro > div {
+  position: relative;
+  max-width: 600px;
+}
+.demo-brand {
+  color: #edf3f5 !important;
+  font-size: 21px;
+  font-weight: 700;
+  text-decoration: none !important;
+}
+.demo-entry-intro small {
+  display: block;
+  margin: 18px 0;
+  color: #88a5b6;
+  letter-spacing: 0.1em;
+}
+.demo-entry h1 {
+  font-size: clamp(36px, 5vw, 72px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  margin: 30px 0;
+}
+.demo-entry p {
+  color: #97afbe;
+}
+.demo-entry a {
+  display: block;
+  margin: 20px 0;
+  color: #90def0;
+}
+.demo-entry-controls {
+  padding: 48px;
+  border-left: 1px solid #2b4050;
+  background: #10202c;
+}
+.demo-entry h2 {
+  font-size: 24px;
+  margin: 20px 0;
+}
+.demo-entry-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 28px 0;
+}
+.demo-entry button,
+.demo-app button,
+.demo-app select,
+.demo-entry input,
+.demo-app input {
+  font: inherit;
+  color: inherit;
+  border: 1px solid #395366;
+  background: #142836;
+  border-radius: 3px;
+  padding: 10px;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.demo-entry-buttons button {
+  text-align: left;
+  min-height: 118px;
+}
+.demo-entry-buttons strong,
+.demo-entry-buttons span {
+  display: block;
+}
+.demo-entry-buttons strong {
+  color: #edbc73;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.demo-entry-buttons span {
+  font-size: 12px;
+  color: #9ab4c4;
+}
+.demo-entry button:hover,
+.demo-app button:hover {
+  background: #213b4b;
+  border-color: #e7b875;
+}
+.demo-entry button:disabled,
+.demo-app button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.demo-entry :focus-visible,
+.demo-app :focus-visible {
+  outline: 2px solid #ebbd76;
+  outline-offset: 3px;
+}
+.demo-badge {
+  display: inline-block;
+  color: #edbf7d;
+  border: 1px solid #6c5635;
+  padding: 3px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.demo-operator {
+  border-top: 1px solid #334858;
+  padding-top: 20px;
+  margin-top: 28px;
+}
+.demo-operator summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.demo-entry form {
+  display: grid;
+  gap: 12px;
+}
+.demo-entry label,
+.demo-app label {
+  display: grid;
+  gap: 5px;
+}
+.demo-entry input,
+.demo-app input,
+.demo-app select {
+  width: 100%;
+  min-width: 0;
+}
+.demo-app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.demo-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid #314654;
+  flex-wrap: wrap;
+}
+.demo-top > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 11px;
+}
+.demo-top select {
+  width: auto;
+  padding: 6px;
+}
+.demo-top button {
+  padding: 6px 10px;
+}
+.demo-nav {
+  display: flex;
+  gap: 18px;
+  padding: 9px 18px;
+  background: #10202b;
+  border-bottom: 1px solid #304250;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.demo-nav a,
+.demo-app a {
+  color: #95def0;
+  text-decoration: none;
+}
+.demo-nav a.active {
+  color: #f1be71;
+  border-bottom: 1px solid;
+}
+.demo-layout {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 370px;
+}
+.demo-assets,
+.demo-inspector {
+  overflow-y: auto;
+  padding: 20px;
+  background: #10212d;
+}
+.demo-assets {
+  border-right: 1px solid #304555;
+}
+.demo-inspector {
+  border-left: 1px solid #304555;
+}
+.demo-assets h1 {
+  font-size: 22px;
+  line-height: 1.2;
+}
+.demo-app h2 {
+  font-size: 18px;
+  line-height: 1.3;
+}
+.demo-app h3 {
+  font-size: 15px;
+  color: #edf3f5;
+}
+.demo-app p {
+  color: #9ab3c3;
+}
+.demo-app small {
+  font-size: 10px;
+  color: #c6a56f;
+}
+.demo-assets section,
+.demo-inspector section {
+  border-top: 1px solid #324959;
+  padding-top: 18px;
+  margin-top: 20px;
+}
+.demo-asset {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 9px 0;
+}
+.demo-asset strong,
+.demo-asset span {
+  display: block;
+}
+.demo-asset span {
+  font-size: 11px;
+  color: #91b0c3;
+}
+.demo-asset.selected,
+.demo-options button.selected {
+  border-color: #edb86b;
+  background: #26352f;
+}
+.demo-risk-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 6px !important;
+  margin: 4px 0;
+}
+.demo-scene {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: #070f18;
+}
+.demo-scene-heading {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  pointer-events: none;
+}
+.demo-scene-heading h2 {
+  font-size: clamp(18px, 2vw, 26px);
+  margin: 0;
+}
+.demo-scene-heading p {
+  font-size: 11px;
+  margin-top: 4px;
+}
+.demo-scene .intelligence-globe,
+.demo-renderer {
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.demo-scene-note {
+  position: absolute;
+  bottom: 34px;
+  left: 16px;
+  right: 16px;
+  z-index: 2;
+  pointer-events: none;
+  color: #a3bdc9;
+  background: #10212dde;
+  padding: 7px;
+  font-size: 10px;
+}
+.demo-number {
+  font-size: 32px;
+  font-weight: 500;
+}
+.demo-number small {
+  font-size: 12px;
+}
+.demo-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+.demo-primary {
+  width: 100%;
+  background: #e5b76f !important;
+  color: #12202b !important;
+  font-weight: 600 !important;
+}
+.demo-options button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 9px 0;
+}
+.demo-options span {
+  display: block;
+  font-size: 11px;
+}
+.demo-advisory {
+  border: 1px solid #395265;
+  margin: 12px 0;
+  padding: 12px;
+}
+.demo-advisory strong {
+  font-size: 12px;
+  color: #e9bd79;
+}
+.demo-option-details {
+  font-size: 11px;
+}
+.demo-inspector a {
+  display: block;
+  margin: 8px 0;
+}
+.demo-error {
+  background: #552a29;
+  color: #f0c1b7 !important;
+  padding: 10px;
+  margin: 0;
+}
+.demo-loading {
+  padding: 25px;
+}
+.demo-mobile-panels {
+  display: none;
+}
+@media (max-width: 1150px) {
+  .demo-layout {
+    grid-template-columns: 230px minmax(0, 1fr) 330px;
+  }
+  .demo-top {
+    gap: 8px;
+  }
+  .demo-top .demo-brand {
+    font-size: 17px;
+  }
+}
+@media (max-width: 850px) {
+  .demo-entry {
+    grid-template-columns: 1fr;
+  }
+  .demo-entry-intro {
+    padding: 28px;
+  }
+  .demo-entry h1 {
+    font-size: 40px;
+    margin: 15px 0;
+  }
+  .demo-entry-intro a {
+    display: inline-block;
+    margin: 12px 20px 0 0;
+  }
+  .demo-entry-controls {
+    padding: 24px;
+    border-left: 0;
+  }
+  .demo-entry-buttons {
+    margin: 20px 0;
+  }
+  .demo-entry-buttons button {
+    min-height: 115px;
+  }
+  .demo-top {
+    padding: 9px 12px;
+  }
+  .demo-top > span:not(.demo-badge) {
+    display: none;
+  }
+  .demo-top > label {
+    margin: 0;
+    flex: 1;
+  }
+  .demo-top label {
+    font-size: 10px;
+  }
+  .demo-top .demo-badge {
+    font-size: 9px;
+  }
+  .demo-nav {
+    font-size: 11px;
+    gap: 15px;
+  }
+  .demo-mobile-panels {
+    display: flex;
+  }
+  .demo-mobile-panels button {
+    flex: 1;
+    font-size: 11px;
+    border-radius: 0;
+    padding: 8px;
+  }
+  .demo-mobile-panels button[aria-pressed="true"] {
+    color: #eebe73;
+    border-bottom: 2px solid;
+  }
+  .demo-layout {
+    display: block;
+    overflow: hidden;
+    position: relative;
+  }
+  .demo-assets,
+  .demo-inspector,
+  .demo-scene {
+    display: none;
+    height: 100%;
+    width: 100%;
+  }
+  .pane-scene .demo-scene,
+  .pane-signals .demo-assets,
+  .pane-inspector .demo-inspector {
+    display: block;
+  }
+  .demo-scene-heading {
+    top: 12px;
+    left: 12px;
+  }
+  .demo-scene-note {
+    bottom: 26px;
+  }
+  .demo-inspector,
+  .demo-assets {
+    padding: 18px;
+  }
+}

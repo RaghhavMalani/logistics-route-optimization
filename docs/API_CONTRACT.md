@@ -1,5 +1,29 @@
 # API contract
 
+## Isolated visitor demonstrations
+
+`POST /api/demo/session` accepts one of the four demonstration roles and creates an independent visitor world with an opaque 12-hour token. Every other defined `/api/demo/*` endpoint verifies that token against the separate demo store. `GET /session` restores it; `POST /role`, `/reset` and `/logout` switch demonstration permissions, reset only that world and revoke it.
+
+`GET /api/demo/workspace` joins the visitor's fictional fleet/advisories/twin with sanitized public context. `/selection`, `/scenario`, `/proposal`, `/port-scenario`, `/advisories`, `/advisories/{id}/ack` and `/advisories/{id}/outcome` are explicit sandbox actions with server-derived demo permissions. They run existing engines without forwarding to operational APIs. Proposal approval preserves the selected policy, simulation seed, inputs and metrics; a changed proposal requires a new port review. Outcomes carry `DEMONSTRATOR_ENTRY`, not operational truth.
+
+Demo credentials and asserted role headers never authenticate production workflows, cameras, collection writes or the operational world clock. Limits and route meanings are documented in [MILESTONE_A_ROLE_DEMOS.md](MILESTONE_A_ROLE_DEMOS.md).
+
+## Anonymous research projection
+
+`GET /api/public/explore` exposes curated public event sources, trade-lane/port exposure and dated congestion-proxy forecasts. Real-source provenance is required; synthetic source fallbacks and live snapshots during backend replay are withheld. Route/cost calculations are visitor assumptions, not measured savings or event-caused waiting.
+
+`GET /api/public/research` serves the hash-checked immutable historical release plus public Open-Meteo/ERA5 paired weather scores and aggregate public-port collection status. Station/operator weather outcomes, actor identities, individual operational workflow records, private camera URLs and fleet records are excluded. Optional store failures have `available: false`; unknown weather counts are `null`, never fabricated zeroes. Static research stays accessible independently.
+
+`GET /api/public/research/download/{artifact}` serves only manifest-listed public files after SHA-256 validation. Unknown files return 404 and integrity failures return 503. No request runs collection, fitting or cohort evaluation.
+
+`GET /api/public/port-calls` exposes current public-report collection counts/freshness and complete visually reviewed official-report cases. Cases retain raw publisher clocks, collection/field-availability times, vessel name/dimensions, identity/timezone limits, published ETA baseline error and reported arrival-to-berth waiting. The ETA is a published baseline, not an ML prediction; berth is not confirmed all-fast. Replay withholds later evidence and reviews. Current conflicts or failed reviews withhold a case.
+
+`GET /api/public/port-calls/evidence/{sha}.pdf` accepts a 64-character lowercase SHA-256 for an approved official original, verifies its hash and availability, and serves an inline PDF with SHA ETag and `no-store`. Its `#page=N` fragment opens the cited page. `GET /api/public/port-calls/{caseId}/audit` downloads a sanitized public JSON case. Local paths, collector/reviewer identities and private workflow fields are omitted. Only these exact GET routes bypass identity; writes and unknown child routes retain verified permissions.
+
+The hash-checked public-only bundle under `data/public_port_cases` lets a new backend serve archived reviewed studies without migrating private state. Such cases have `archivedPublication: true` and an actual `publishedAt`. Unknown current freshness is explicit, not inferred as zero; bundle integrity failures return 503. The archive does not restore a current ambiguous/invalidated case. See [PUBLIC_RESEARCH_APP.md](PUBLIC_RESEARCH_APP.md) for GLAD YOUNG and the parser revision review.
+
+These exceptions apply to GET only. Protected operations, collection writes, private camera evidence and operator workflows still require verified sessions and server-derived scope. Client role/port headers do not authorize visitor writes. See [PUBLIC_RESEARCH_APP.md](PUBLIC_RESEARCH_APP.md).
+
 FastAPI, mounted under `/api`. Interactive docs at `/docs`.
 
 The API computes no intelligence of its own. It serves exactly what
@@ -629,8 +653,64 @@ done from here" send an operator to different places.
 
 ---
 
-## CORS
+## Global intelligence and weather feedback
+
+All paths below have the `/api` prefix. Responses retain source times and unavailable/stale states. See [INTELLIGENCE_WORKSPACE.md](INTELLIGENCE_WORKSPACE.md) for data semantics, observation statistics and limitations.
+
+| Method | Path | Result |
+|---|---|---|
+| GET | `/intelligence/context?portCode=INNSA&weatherVariable=wind_speed` | World clock, all registered ports, selected scope, news/exposure, economic series, visible cameras/evidence, forecast inspections and integration coverage. Omit `portCode` for all ports. |
+| GET | `/intelligence/cameras?portCode=INNSA` | Scoped registry and immutable evidence. |
+| POST | `/intelligence/cameras` | Register/update a viewpoint; requires a named national admin or this port's authority. Required: `id`, `portCode`, `name`, `lat`, `lon`, `coverage`, `source`, `rightsBasis`. Optional HTTPS `mediaUrl`, `feedType`, `viewpoint`, `access`, `poseBasis`, `enabled`. |
+| POST | `/intelligence/camera-evidence` | Immutable observation: `id`, `cameraId`, `observedAt`, `kind`, `confidence`, `summary`, `source`; optional `method`, `modelVersion`, `reviewed`. CV requires a model version. Scope matches camera ownership; duplicate IDs return 409. |
+| GET | `/intelligence/earthquakes` | Fixed USGS daily GeoJSON plus `portwatch.status`, `fetchedAt`, `source`. Live clock only; historical/scenario returns 409, unavailable returns 503. |
+| GET | `/weather/feedback?portCode=INNSA&variable=wind_speed&limit=100` | Snapshot counts, raw/corrected MAE cells, immutable originals and visible outcomes. Limit 1–500. |
+| POST | `/weather/observations` | Resolve matching daily targets; named national admin or owning authority required. Returns count and actor; neither creates past forecasts nor runs decisions. |
+
+Example weather observation:
+
+```json
+{"portCode":"INNSA","variable":"wind_speed","validAt":"2026-10-05T00:00:00Z","availableAt":"2026-10-05T02:00:00Z","value":14.2,"unit":"kn","aggregation":"daily","statistic":"maximum","kind":"station","source":"Supplied JNPA station daily maximum at 10 m"}
+```
+
+This example describes the UTC day ending October 5. `statistic` is required and must match the variable; future/uncompleted aggregates, newer forecasts and wrong units return 422. Cameras with authority-only access and their evidence are hidden from other workspaces. Private camera access and evidence writes require verified bearer sessions and server-owned membership in every identity mode. Historical camera responses withhold current URLs and require both observation and recording availability.
+
+The intelligence client validates the context schema at runtime and shows a retryable contract error for malformed responses. Historical clocks hide live news/economic vintages and future weather outcomes rather than reconstructing missing publication history.
+
+## CORS configuration
 
 `PORTWATCH_CORS_REGEX` controls allowed origins; it defaults to localhost. Set
 it to the exact deployed terminal origin in production, e.g.
 `https://portwatch\.example\.com`.
+
+## Verified session API
+
+Production identity defaults to verified sessions; see [setup](VERIFIED_WORKFLOWS.md).
+
+| Method | Path | Contract |
+|---|---|---|
+| POST | `/api/auth/login` | `{email,password}` only. Returns server-owned user, mode, issuedAt, expiresAt and accessToken. Invalid credentials 401; throttled 429; no provisioned accounts 503. |
+| GET | `/api/auth/session` | Bearer token required. Revalidates session and current server-owned membership; returns user and expiry metadata. |
+| POST | `/api/auth/logout` | Bearer token required; revokes it and returns 204. |
+
+Session and verified data responses use `Cache-Control: no-store`. The middleware strips caller identity assertions and derives scope from the verified account. Forecast variables are filtered before the limit; `matchingForecasts` reports truncation. Camera/evidence/weather writes are refused outside the live clock.
+
+## Measured arrival workflow
+
+The verified JNPA workflow is available under `/api/arrivals`: `GET /workspace`, `POST /operations`, operation `/{id}/approve`, `/{id}/advisory`, `/{id}/action`, `/{id}/outcome`, and `POST /benchmark`. Full payload, time, availability, baseline and evaluation semantics are documented in [ARRIVAL_WORKFLOW.md](ARRIVAL_WORKFLOW.md). The normal advisory transition endpoints issue and receive the advisory; accepting it does not resolve actual action or measured waiting. Other ports are explicitly unsupported by this first operational pilot.
+
+Prospective collection adds `POST /collection`, `POST /import` with `{recordType: operations|outcomes, csvText, commit}`, `POST /operations/{id}/disposition`, and `GET /dataset`. Imports preview without keeping writes and commit atomically; outcomes require a matching call reference/MMSI. Workspace adds collection quality and staged public berth evidence. Measurements may be recorded independently of an advisory/action. See the exact columns, availability rules, protocol and evaluation metrics in [JNPA_DATA_COLLECTION.md](JNPA_DATA_COLLECTION.md).
+
+## Public arrival pilot
+
+Verified national command or exact server-derived INPRT/INMAA authority membership is required. No physical-port aliases or caller-supplied URLs are accepted. All routes use `?portCode=INPRT` or `?portCode=INMAA`.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/public-arrivals/workspace` | Collection-time-filtered originals, cases, flags, outcomes and sealed baseline report |
+| GET | `/api/public-arrivals/dataset` | Complete currently available public pilot export |
+| GET | `/api/public-arrivals/evidence/{snapshotId}` | Hash-checked archived PDF; verified and replay-scoped |
+| POST | `/api/public-arrivals/refresh` | LIVE-only collection from approved official sources |
+| POST | `/api/public-arrivals/evaluate` | LIVE-only chronological baseline sealing, unavailable before minimums |
+
+See [PUBLIC_PORT_PILOT.md](PUBLIC_PORT_PILOT.md) for event/identity/timezone assumptions, first-seen preservation, parser revision history and target boundaries. This workflow does not change `/api/arrivals/*` or JNPA's confirmed all-fast target.

@@ -483,6 +483,10 @@ def get_client() -> AisStreamClient:
     in" with a dummy key in the environment would otherwise dial the real
     server. The application starts the client on startup, explicitly.
     """
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("ais-client", lambda: AisStreamClient(api_key=""))
     global _CLIENT
     with _CLIENT_LOCK:
         if _CLIENT is None:
@@ -511,7 +515,10 @@ def _fuse(observation: AisObservation) -> None:
     """Every accepted observation becomes evidence about a hull, and moves the world on."""
     from src.portwatch_os.fusion.engine import get_engine
     from src.portwatch_os.world.live import get_live_world
+    from src.portwatch_os.intelligence.arrivals import archive_track
+    from src.portwatch_os.ledger.store import get_ledger
 
+    archive_track(get_ledger(), observation)
     get_engine().ingest_ais(observation)
     get_live_world().bump()
 

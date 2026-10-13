@@ -85,6 +85,7 @@ def _live_weather(observed: pd.DataFrame, storm_source: pd.DataFrame | None,
     Returns ``(nowcast_frame, raw_frame)``. Falls back to whatever the bundle
     supplied when the live connector cannot deliver -- and says so.
     """
+    from src.portwatch_os.ledger.store import LedgerError
     try:
         from src.ingestion.connectors import weather_live
         history_start = pd.to_datetime(observed[DATE], errors="coerce").min()
@@ -93,6 +94,8 @@ def _live_weather(observed: pd.DataFrame, storm_source: pd.DataFrame | None,
             history_start=history_start)
         if not live.empty:
             return weather_live.merge_storm_flags(live, storm_source), True
+    except LedgerError:
+        raise
     except Exception as exc:
         log.warning("Live weather connector unavailable (%s).", exc)
         provenance.record(
@@ -180,10 +183,10 @@ def _forecast(panel: pd.DataFrame, weather_now: pd.DataFrame, horizon: int,
               model: str, epochs: int, deep: bool = False):
     """Produce the live forecast using the requested model configuration.
 
-    ``ensemble`` blends the members the walk-forward benchmark actually scored:
-    probabilistic persistence, the GBM quantile model, and the TFT when the deep
-    stack is installed. Weights come from the fitted policy artefact, so the
-    blend the terminal shows is the blend the benchmark measured.
+    ``ensemble`` blends probabilistic persistence, GBM and an available deep
+    member. It renormalises a compatible fitted policy over members present.
+    Benchmark headlines cover their recorded offline feature/member setup;
+    live future-weather inputs and a reduced member set are not a scored replay.
     """
     baseline = run_baseline(panel, weather_now, horizon)
     if model == "baseline":
@@ -233,8 +236,14 @@ def _forecast(panel: pd.DataFrame, weather_now: pd.DataFrame, horizon: int,
 
     policy = load_ensemble_policy(FORECASTS_DIR / "ensemble_weights.json")
     log.info("Ensemble policy: %s", policy.describe())
-    return blend_members(members, policy, panel=panel,
-                         secondary_from=ensemble_members.GBM)
+    incumbent = blend_members(members, policy, panel=panel,
+                              secondary_from=ensemble_members.GBM)
+    try:
+        from src.forecasting.neural_fusion import shadow_inference
+        shadow_inference(members, incumbent, FORECASTS_DIR)
+    except (ValueError, OSError, KeyError) as exc:
+        log.warning("Neural shadow inference unavailable (%s); incumbent unchanged.", exc)
+    return incumbent
 
 
 def main() -> dict:

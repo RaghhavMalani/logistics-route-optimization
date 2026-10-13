@@ -144,8 +144,9 @@ export interface WeatherStation {
   impact: number | null;
   /** Direction the wind is blowing FROM, degrees true. Modelled, not observed. */
   windFromDeg: number;
-  /** Significant wave height. Always null: the marine feed carries none. */
-  waveHeightM: null;
+  windDirectionAvailable?: boolean;
+  /** Significant wave height, unavailable beyond the marine provider horizon. */
+  waveHeightM: number | null;
   regime: string | null;
   advisory: string;
 }
@@ -156,6 +157,8 @@ export interface WeatherFrame {
   stations: WeatherStation[];
   /** True when values were scaled off the daily forecast rather than observed. */
   derived: boolean;
+  /** Actual hourly provider forecasts, independent of the old impact series. */
+  forecast?: boolean;
   /** Hours ahead of the observation instant. */
   leadHours: number;
 }
@@ -174,6 +177,7 @@ export interface WeatherTimeline {
   available: boolean;
   /** One sentence naming what the field is and how it was made. */
   note: string;
+  stripLabel?: string;
 }
 
 /* ------------------------------------------------------ wind climatology -- */
@@ -263,6 +267,13 @@ export function buildWeatherTimeline(
   ports: PortSnapshot[],
 ): WeatherTimeline {
   if (!signals.length) return EMPTY_TIMELINE;
+  if (
+    signals.some(
+      (signal) => signal.sourceState === "FORECAST" && signal.hourly?.length,
+    )
+  ) {
+    return buildHourlyTimeline(signals, ports);
+  }
 
   const byCode = new Map(ports.map((port) => [port.code, port]));
   const located = signals
@@ -363,6 +374,92 @@ export function buildWeatherTimeline(
       "from the observation instant are scaled by the model's daily weather-impact " +
       "forecast and interpolated between forecast days. Wind direction is monsoon " +
       "climatology, not an observation. Significant wave height is unavailable.",
+  };
+}
+
+/** Read actual forecast hours; never scale October observations or invent storm/impact values. */
+function buildHourlyTimeline(
+  signals: WeatherSignal[],
+  ports: PortSnapshot[],
+): WeatherTimeline {
+  const portByCode = new Map(ports.map((port) => [port.code, port]));
+  const located = signals.flatMap((signal) => {
+    const port = portByCode.get(signal.portCode);
+    if (!port?.location || !signal.hourly?.length) return [];
+    const rows = signal.hourly.map((row) => ({
+      ...row,
+      time: Date.parse(row.validAt),
+    }));
+    return [{ signal, port, rows }];
+  });
+  if (!located.length) return EMPTY_TIMELINE;
+  const steps = [
+    ...new Set(located.flatMap((entry) => entry.rows.map((row) => row.time))),
+  ].sort((a, b) => a - b);
+  const from = steps[0];
+  const to = steps[steps.length - 1];
+  const frameAt = (at: number): WeatherFrame => {
+    const clamped = Math.min(to, Math.max(from, at));
+    const stations: WeatherStation[] = located.flatMap(
+      ({ signal, port, rows }) => {
+        const row = rows.find(
+          (r) => r.time <= clamped && clamped < r.time + 3600000,
+        );
+        if (!row) return [];
+        const day = rows.filter(
+          (r) => r.validAt.slice(0, 10) === row.validAt.slice(0, 10),
+        );
+        // A partial valid day remains unavailable rather than claiming a 24h total.
+        const rain =
+          day.length === 24 && day.every((r) => r.precipitation != null)
+            ? day.reduce((sum, r) => sum + (r.precipitation ?? 0), 0)
+            : null;
+        return [
+          {
+            portCode: signal.portCode,
+            name: signal.name,
+            lon: port.location!.lon,
+            lat: port.location!.lat,
+            rainMm: rain,
+            windKn: row.wind_speed_10m,
+            gustKn: row.wind_gusts_10m,
+            visibilityKm: row.visibility == null ? null : row.visibility / 1000,
+            stormRisk: null,
+            impact: null,
+            windFromDeg: row.wind_direction_10m ?? 0,
+            windDirectionAvailable: row.wind_direction_10m != null,
+            waveHeightM: row.wave_height,
+            regime: null,
+            advisory: signal.advisory,
+          },
+        ];
+      },
+    );
+    return {
+      at: clamped,
+      stations,
+      derived: false,
+      forecast: true,
+      leadHours: (clamped - from) / 3600000,
+    };
+  };
+  return {
+    observedAt: from,
+    from,
+    to,
+    steps,
+    available: true,
+    frameAt,
+    meanImpact: steps.map((step) => {
+      const values = frameAt(step).stations.flatMap((s) =>
+        s.gustKn == null ? [] : [s.gustKn],
+      );
+      return values.length
+        ? values.reduce((sum, v) => sum + v, 0) / values.length
+        : 0;
+    }),
+    stripLabel: "Mean forecast gust (kn)",
+    note: "Hourly Open-Meteo surface and offshore marine forecasts. Issue/observation times unavailable; receipt times retained separately. Rain is a complete UTC-day forecast total. Wind direction comes from the forecast. Coastal fields are spatial interpolation, not observations or whole-route coverage. Operational impact and storm probability are unavailable; October 2 activity keeps its original age.",
   };
 }
 

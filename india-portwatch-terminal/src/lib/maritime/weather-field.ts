@@ -129,7 +129,8 @@ export function sampleWind(
   let nearest = Infinity;
 
   for (const station of frame.stations) {
-    if (station.windKn == null) continue;
+    if (station.windKn == null || station.windDirectionAvailable === false)
+      continue;
     const km = haversineKm([lon, lat], [station.lon, station.lat]);
     if (km < nearest) nearest = km;
     if (km > FIELD_CUTOFF_KM) continue;

@@ -15,7 +15,14 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, MessageSquare, Pencil, Send, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  MessageSquare,
+  Pencil,
+  Send,
+  X,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/kit/layout";
@@ -23,6 +30,12 @@ import { Pill, formatUtc, type Tone } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { modifyAdvisory, transitionAdvisory } from "@/services/portwatch-os";
 import type { Advisory, AdvisoryState } from "@/types/portwatch-os";
+import { FrozenWeatherBasis } from "@/components/intelligence/FrozenWeatherBasis";
+import {
+  FrozenIntelligenceBasis,
+  type IntelligenceBasis,
+} from "@/components/intelligence/FrozenIntelligenceBasis";
+import type { FrozenEnvironment } from "@/services/current-inputs";
 
 /* ------------------------------------------------------------------ tone -- */
 
@@ -94,7 +107,9 @@ export function RecommendationBody({
         const changed = before !== undefined && before !== value;
         return (
           <div key={key} className="flex items-baseline justify-between gap-3">
-            <dt className="text-[10.5px] text-[var(--text-3)]">{humanise(key)}</dt>
+            <dt className="text-[10.5px] text-[var(--text-3)]">
+              {humanise(key)}
+            </dt>
             <dd className="text-right text-[11px] text-[var(--text)]">
               {changed ? (
                 <span className="num mr-1.5 text-[10px] text-[var(--text-3)] line-through">
@@ -121,6 +136,7 @@ function formatValue(value: unknown): string {
   if (value == null) return "n/a";
   if (typeof value === "number") return value.toFixed(value % 1 === 0 ? 0 : 2);
   if (typeof value === "boolean") return value ? "yes" : "no";
+  if (typeof value === "object") return JSON.stringify(value);
   const text = String(value);
   // ISO instants are the common case in an arrival advisory; render them the
   // way every other timestamp in the product is rendered.
@@ -145,7 +161,9 @@ export function AuditTrail({ advisory }: { advisory: Advisory }) {
             />
           ) : null}
           <div className="flex items-baseline gap-2">
-            <span className="text-[10.5px] text-[var(--text)]">{entry.action}</span>
+            <span className="text-[10.5px] text-[var(--text)]">
+              {entry.action}
+            </span>
             <span className="num ml-auto shrink-0 text-[10px] text-[var(--text-3)]">
               {formatUtc(entry.at)}
             </span>
@@ -204,14 +222,23 @@ export function AdvisoryActions({
   // of the workflow this identity sits on, so a controller is not shown the
   // recipient's buttons on a screen where both could theoretically render.
   const party =
-    role === "PORT_AUTHORITY" || role === "NATIONAL_ADMIN" ? "issuer" : "recipient";
+    role === "PORT_AUTHORITY" || role === "NATIONAL_ADMIN"
+      ? "issuer"
+      : "recipient";
   const options = advisory.availableTransitions.filter(
-    (t) => t.actorRole === party || (party === "issuer" && role === "NATIONAL_ADMIN"),
+    (t) =>
+      t.actorRole === party ||
+      (party === "issuer" && role === "NATIONAL_ADMIN"),
   );
 
   const mutation = useMutation({
     mutationFn: (input: { target: string; reason?: string }) =>
-      transitionAdvisory(headers, advisory.advisoryId, input.target, input.reason),
+      transitionAdvisory(
+        headers,
+        advisory.advisoryId,
+        input.target,
+        input.reason,
+      ),
     onSuccess: (next) => {
       setPending(null);
       setReason("");
@@ -220,7 +247,9 @@ export function AdvisoryActions({
       onDone?.(next);
     },
     onError: (err: unknown) => {
-      setError(err instanceof Error ? err.message : "The transition was refused.");
+      setError(
+        err instanceof Error ? err.message : "The transition was refused.",
+      );
     },
   });
 
@@ -259,7 +288,9 @@ export function AdvisoryActions({
               pending === option.target && "bg-[var(--panel-3)]",
               mutation.isPending && "cursor-not-allowed opacity-50",
             )}
-            style={{ color: `var(--${TONE_FOR_TARGET[option.target] ?? "text-2"})` }}
+            style={{
+              color: `var(--${TONE_FOR_TARGET[option.target] ?? "text-2"})`,
+            }}
           >
             {ACTION_ICON[option.target] ?? null}
             {option.label}
@@ -269,7 +300,10 @@ export function AdvisoryActions({
 
       {active ? (
         <div className="rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] p-1.5">
-          <label className="eyebrow block text-[10px]" htmlFor="advisory-reason">
+          <label
+            className="eyebrow block text-[10px]"
+            htmlFor="advisory-reason"
+          >
             Reason — required for {active.label.toLowerCase()}
           </label>
           <textarea
@@ -340,14 +374,18 @@ export function AdvisoryCard({
             <span className="truncate text-[11.5px] font-medium text-[var(--text)]">
               {advisory.kindLabel}
             </span>
-            <Pill tone={advisoryTone(advisory.state)}>{advisoryLabel(advisory.state)}</Pill>
+            <Pill tone={advisoryTone(advisory.state)}>
+              {advisoryLabel(advisory.state)}
+            </Pill>
           </div>
           <div className="mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
             <span className="num">{advisory.portCode}</span>
             <span className="truncate">→ {advisory.recipientVesselName}</span>
             <span className="num">{formatUtc(advisory.createdAt)}</span>
             {advisory.modelConfidence != null ? (
-              <span className="num">conf {advisory.modelConfidence.toFixed(2)}</span>
+              <span className="num">
+                conf {advisory.modelConfidence.toFixed(2)}
+              </span>
             ) : null}
             {advisory.criticVerdict ? (
               <Pill tone={advisory.criticVerdict === "APPROVED" ? "ok" : "unc"}>
@@ -377,8 +415,8 @@ export function AdvisoryCard({
             </div>
             {advisory.modifiedFrom ? (
               <p className="mt-1 text-[10.5px] leading-snug text-[var(--unc)]">
-                A controller changed this before issuing it. The original is struck
-                through above.
+                A controller changed this before issuing it. The original is
+                struck through above.
               </p>
             ) : null}
           </section>
@@ -394,7 +432,29 @@ export function AdvisoryCard({
             <section>
               <h4 className="eyebrow text-[10px]">Evidence</h4>
               <div className="mt-1">
-                <RecommendationBody recommendation={advisory.evidence} />
+                {advisory.evidence.intelligenceBasis ? (
+                  <FrozenIntelligenceBasis
+                    evidence={
+                      advisory.evidence.intelligenceBasis as IntelligenceBasis
+                    }
+                  />
+                ) : null}
+                {advisory.evidence.currentEnvironment ? (
+                  <FrozenWeatherBasis
+                    evidence={
+                      advisory.evidence.currentEnvironment as FrozenEnvironment
+                    }
+                  />
+                ) : null}
+                <RecommendationBody
+                  recommendation={Object.fromEntries(
+                    Object.entries(advisory.evidence).filter(
+                      ([key]) =>
+                        key !== "currentEnvironment" &&
+                        key !== "intelligenceBasis",
+                    ),
+                  )}
+                />
               </div>
             </section>
           ) : null}
@@ -404,7 +464,10 @@ export function AdvisoryCard({
               <h4 className="eyebrow text-[10px]">Critic</h4>
               <ul className="mt-1 space-y-0.5">
                 {advisory.criticReasons.map((entry) => (
-                  <li key={entry} className="text-[10.5px] leading-snug text-[var(--text-3)]">
+                  <li
+                    key={entry}
+                    className="text-[10.5px] leading-snug text-[var(--text-3)]"
+                  >
                     {entry}
                   </li>
                 ))}
@@ -445,7 +508,10 @@ export function ModifyRecommendation({
   const queryClient = useQueryClient();
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      Object.entries(advisory.recommendation).map(([k, v]) => [k, String(v ?? "")]),
+      Object.entries(advisory.recommendation).map(([k, v]) => [
+        k,
+        String(v ?? ""),
+      ]),
     ),
   );
   const [reason, setReason] = useState("");
@@ -467,7 +533,9 @@ export function ModifyRecommendation({
     <div className="space-y-1.5">
       {Object.keys(values).map((key) => (
         <label key={key} className="block">
-          <span className="text-[10.5px] text-[var(--text-3)]">{humanise(key)}</span>
+          <span className="text-[10.5px] text-[var(--text-3)]">
+            {humanise(key)}
+          </span>
           <input
             value={values[key]}
             onChange={(event) =>

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 from src.portwatch_os.clock import wall_now
@@ -85,8 +85,12 @@ def get_decision_by_port() -> dict[str, dict]:
 
 
 def get_benchmark() -> dict:
-    return _read_json_optional(BENCHMARK_CACHE, {"available": False,
-                                                 "reason": REBUILD_HINT})
+    result = _read_json_optional(BENCHMARK_CACHE, {"available": False, "reason": REBUILD_HINT})
+    from src.forecasting.ensemble import EVALUATION_PROTOCOL
+    if result.get("available") and result.get("version") != EVALUATION_PROTOCOL:
+        return {"available": False, "version": result.get("version"),
+                "reason": "Legacy benchmark accuracy is withheld: weights and calibration were not evaluated on a disjoint chronological holdout. Run `python run_award_demo.py --source portwatch --benchmark`."}
+    return result
 
 
 def get_provenance() -> dict:
@@ -114,7 +118,30 @@ def get_news_bundle() -> dict:
 
 
 def get_live_status() -> dict:
-    return _read_json_optional(STATUS_CACHE, {})
+    status = dict(_read_json_optional(STATUS_CACHE, {}))
+    now = wall_now()
+    for source, age_key, state_key, budget in (("forecastOrigin", "forecastOriginAgeHours", "forecastOriginStatus", 36),
+                                              ("exportedAt", "generationAgeHours", "generationStatus", 24)):
+        try:
+            at = datetime.fromisoformat(str(status[source]).replace("Z", "+00:00"))
+            if at.tzinfo is None:
+                at = at.replace(tzinfo=timezone.utc)
+            age = max(0, (now-at).total_seconds()/3600)
+            status[age_key] = round(age,1)
+            status[state_key] = "STALE" if age>budget else "CACHED_LIVE" if source=="forecastOrigin" else "CURRENT"
+        except (ValueError, KeyError, TypeError):
+            status[state_key] = "UNAVAILABLE"
+    # A ten-day series issued last week has fewer future targets today. Never
+    # shift its dates forward or present its original horizon as remaining.
+    try:
+        through = datetime.fromisoformat(str(status["targetThrough"])[:10]).date()
+        start = datetime.fromisoformat(str(status["targetFrom"])[:10]).date()
+        status["futureTargetDays"] = max(0, (through-max(start,now.date()+timedelta(days=1))).days+1)
+        status["targetStatus"] = "EXPIRED" if through < now.date() else "PARTIAL_HORIZON" if start <= now.date() else "CURRENT_HORIZON"
+    except (ValueError, KeyError, TypeError):
+        status["futureTargetDays"] = 0
+        status["targetStatus"] = "UNAVAILABLE"
+    return status
 
 
 # --- per-port lookups ------------------------------------------------------

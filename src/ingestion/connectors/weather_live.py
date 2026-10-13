@@ -2,10 +2,10 @@
 
 IMF PortWatch carries no meteorology, so before this connector existed the
 weather expert scored 0.0 on every port and the "Weather Intelligence" screen
-had nothing real behind it. Open-Meteo is a free, keyless API that serves both
-recent observations (ERA5-backed reanalysis and station blends) and a 10-day
-forecast, which is exactly the shape the pipeline needs: measured history for
-training and a genuine known-future covariate for the horizon.
+had nothing real behind it. Open-Meteo provides surface and marine forecasts.
+The forecast endpoint's past_days backfill is distinguished from the separate
+ERA5 reanalysis archive. Only reanalysis or supplied measured outcomes may
+resolve weather feedback; a newer forecast cannot act as ground truth.
 
 Two endpoints are used, both batched across all ports in a single request:
 
@@ -14,7 +14,7 @@ Two endpoints are used, both batched across all ports in a single request:
 
 Failure is handled honestly. A live fetch records LIVE; a replay from the local
 cache records CACHED_LIVE (downgraded to STALE by the provenance layer once the
-newest observation ages out); a total failure records SYNTHETIC and returns
+newest observation ages out); a total failure records UNAVAILABLE and returns
 nothing, so the weather expert falls back to GDACS storm flags alone rather than
 inventing wind speeds.
 """
@@ -22,7 +22,9 @@ inventing wind speeds.
 from __future__ import annotations
 
 import json
+import hashlib
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -69,7 +71,10 @@ def _fresh(path: Path, ttl: int) -> bool:
 def _fetch(url: str, params: dict, cache: Path, ttl: int,
            timeout: int = 30) -> tuple[Optional[list], str]:
     """Return (payload, mode) where mode is 'live', 'cache' or 'unavailable'."""
-    if _fresh(cache, ttl):
+    signature = hashlib.sha256(json.dumps({"url": url, "params": params}, sort_keys=True).encode()).hexdigest()
+    signature_file = cache.with_suffix(".request")
+    matches = signature_file.exists() and signature_file.read_text(encoding="utf-8") == signature
+    if _fresh(cache, ttl) and matches:
         try:
             return json.loads(cache.read_text(encoding="utf-8")), "cache"
         except (OSError, json.JSONDecodeError):
@@ -85,11 +90,12 @@ def _fetch(url: str, params: dict, cache: Path, ttl: int,
             payload = payload if isinstance(payload, list) else [payload]
             CACHE_DIR.mkdir(parents=True, exist_ok=True)
             cache.write_text(json.dumps(payload), encoding="utf-8")
+            signature_file.write_text(signature, encoding="utf-8")
             return payload, "live"
         except Exception as exc:
             log.warning("Open-Meteo fetch failed for %s (%s).", cache.stem, exc)
 
-    if cache.exists():
+    if cache.exists() and matches:
         try:
             return json.loads(cache.read_text(encoding="utf-8")), "cache"
         except (OSError, json.JSONDecodeError):
@@ -127,7 +133,7 @@ def fetch_archive_weather(start: pd.Timestamp,
     end = end or (pd.Timestamp.utcnow().normalize().tz_localize(None)
                   - pd.Timedelta(days=ARCHIVE_LAG_DAYS))
     start = pd.Timestamp(start).normalize()
-    if start >= end:
+    if start > end:
         return pd.DataFrame(columns=[PORT_ID, DATE])
 
     payload, mode = _fetch(
@@ -138,6 +144,9 @@ def fetch_archive_weather(start: pd.Timestamp,
             "start_date": start.strftime("%Y-%m-%d"),
             "end_date": end.strftime("%Y-%m-%d"),
             "daily": "wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum",
+            "models": "era5",
+            "wind_speed_unit": "kmh",
+            "precipitation_unit": "mm",
             "timezone": "UTC",
         },
         ARCHIVE_CACHE, ttl_seconds, timeout=60)
@@ -161,6 +170,7 @@ def fetch_archive_weather(start: pd.Timestamp,
     frame["visibility"] = np.nan
     frame["wave_height"] = np.nan
     frame["is_forecast"] = 0
+    frame["observation_kind"] = "reanalysis"
     frame["storm_flag"] = 0.0
 
     # This feed is a *history* segment by design: it ends where the forecast
@@ -203,6 +213,8 @@ def fetch_port_weather(past_days: int = 92,
             "longitude": longitudes,
             "daily": ("wind_speed_10m_max,wind_gusts_10m_max,"
                       "precipitation_sum,visibility_mean"),
+            "wind_speed_unit": "kmh",
+            "precipitation_unit": "mm",
             "timezone": "UTC",
             "past_days": past_days,
             "forecast_days": forecast_days,
@@ -258,6 +270,9 @@ def fetch_port_weather(past_days: int = 92,
 
     today = pd.Timestamp.utcnow().normalize().tz_localize(None)
     frame["is_forecast"] = (frame[DATE] > today).astype(int)
+    # The forecast endpoint's past_days values are model backfill, not verified
+    # station outcomes. This marker prevents them entering the feedback loop.
+    frame["observation_kind"] = "forecast_api_backfill"
     frame["storm_flag"] = 0.0
 
     # Extend backwards with the reanalysis archive when the caller needs more
@@ -283,7 +298,39 @@ def fetch_port_weather(past_days: int = 92,
         observed_at=observed, rows=len(frame), freshness_hours=24.0,
         fallback=None if surface_mode == "live" else "local response cache")
 
+    frame = _weather_feedback(frame, surface_mode, marine_mode)
     return frame.sort_values([PORT_ID, DATE]).reset_index(drop=True)
+
+
+def _weather_feedback(frame: pd.DataFrame, surface_mode: str, marine_mode: str) -> pd.DataFrame:
+    """Archive old claims and apply validated corrections to future forecasts.
+
+    Cache mtime is the retrieval instant, preserved across cache reads; it is
+    explicitly not represented as the provider's model-run issue timestamp.
+    Ledger failures propagate: losing claim history must not be silently ignored.
+    """
+    from src.portwatch_os.clock import world_now
+    from src.portwatch_os.ledger.store import get_ledger
+    from src.portwatch_os.learning.weather_feedback import WeatherFeedback
+
+    ledger = get_ledger()
+    feedback = WeatherFeedback(ledger)
+    now = world_now()
+    # Daily archive backfill remains a feature-history source. Automatic claim
+    # verification belongs to weather_reconciliation, which retains first
+    # receipts and checks raw originals, units, locations and exact sample bins.
+    # This legacy daily cache must not bypass those checks or mix rain windows.
+    if FORECAST_CACHE.exists():
+        retrieved = datetime.fromtimestamp(FORECAST_CACHE.stat().st_mtime, timezone.utc)
+        frame = feedback.record_frame(frame, issued_at=retrieved, provider="Open-Meteo surface",
+            source_state="LIVE" if surface_mode == "live" else "CACHED_LIVE",
+            variables=("wind_speed", "wind_gust", "rainfall", "visibility"), now=now)
+    if marine_mode != "unavailable" and MARINE_CACHE.exists():
+        retrieved = datetime.fromtimestamp(MARINE_CACHE.stat().st_mtime, timezone.utc)
+        frame = feedback.record_frame(frame, issued_at=retrieved, provider="Open-Meteo marine",
+            source_state="LIVE" if marine_mode == "live" else "CACHED_LIVE",
+            variables=("wave_height",), now=now)
+    return frame
 
 
 def merge_storm_flags(weather: pd.DataFrame,

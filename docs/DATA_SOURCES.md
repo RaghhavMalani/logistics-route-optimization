@@ -27,6 +27,7 @@ than implied.
 | GDACS | `gdacs-alerts` | disaster | `CONFIGURABLE` | none | allowed | allowed | allowed | required | none | free | hourly |
 | GDELT | `gdelt-events` | events | `AVAILABLE` | GdeltAdapter | allowed | allowed | allowed | required | none | free | near_realtime |
 | Global Fishing Watch | `gfw-api` | vessel_registry | `PLANNED` | none | **prohibited** | *requires review* | *requires review* | required | api_key | free | daily |
+| God's Eye View | `gods-eye-view-code` | geography | `AVAILABLE` | none | allowed | allowed | allowed | required | none | free | static |
 | IMF PortWatch | `imf-portwatch-data` | port_stats | `AVAILABLE` | none | allowed | allowed | allowed | required | none | free | daily |
 | Kpler | `kpler-maritime` | ais, port_stats, vessel_registry | `PLANNED` | none | allowed | allowed | *requires review* | not required | contract | enterprise | near_realtime |
 | NASA FIRMS | `firms-active-fire` | fire | `PLANNED` | none | allowed | allowed | allowed | required | api_key | free | near_realtime |
@@ -35,7 +36,7 @@ than implied.
 | Open-Meteo | `open-meteo-customer` | weather, marine | `CONFIGURABLE` | OpenMeteoAdapter, OpenMeteoMarineAdapter | allowed | allowed | allowed | required | api_key | paid | hourly |
 | PortWatch | `ais-replay` | ais | `AVAILABLE` | none | allowed | allowed | allowed | not required | none | free | static |
 | Spire Maritime | `spire-ais` | ais, vessel_registry | `PLANNED` | none | allowed | allowed | *requires review* | not required | contract | enterprise | near_realtime |
-| USGS | `usgs-earthquakes` | seismic | `CONFIGURABLE` | none | allowed | allowed | allowed | required | none | free | near_realtime |
+| USGS | `usgs-earthquakes` | seismic | `AVAILABLE` | none | allowed | allowed | allowed | required | none | free | near_realtime |
 
 ## Licence evidence
 
@@ -126,6 +127,28 @@ Reviewed: 2026-09-12
 No adapter exists. Identity across 40+ registries.
 
 Coverage: global.
+
+### God's Eye View
+
+<https://github.com/bilawalsidhu/gods-eye-view>
+
+#### `gods-eye-view-code` — God's Eye View globe and layer code
+
+Commercial use allowed · government use allowed · redistribution allowed
+
+MIT source code only; preserve copyright and permission notice.
+
+Terms: <https://github.com/bilawalsidhu/gods-eye-view/blob/9542a5e58b19277d1f9b6698a46f69fdaa5fc5c1/LICENSE>
+
+Checked: <https://github.com/bilawalsidhu/gods-eye-view/blob/9542a5e58b19277d1f9b6698a46f69fdaa5fc5c1/LICENSE>
+
+Reviewed: 2026-10-06
+
+> Pinned source code is MIT, copyright 2026 Bilawal Sidhu. Bundled datasets and third-party media have separate terms and are not imported.
+
+React uses the upstream application lifecycle, Cesium viewer, earthquake layer and camera feed-type helpers. Software renderer, not a geographic observation source. Full notice served at /gods-eye-view-LICENSE.txt.
+
+Coverage: globe renderer; no data coverage implied.
 
 ### IMF PortWatch
 
@@ -301,9 +324,9 @@ Reviewed: 2026-09-12
 
 > US government work; public domain.
 
-No adapter wired yet.
+Fixed backend provider for the native intelligence globe. Five-minute cache; stale fallback keeps its original fetch timestamp. Live clock only.
 
-Coverage: global.
+Coverage: global. Endpoint: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson`.
 
 ## What this build reads
 
@@ -393,6 +416,17 @@ observation only once the replay clock has passed it.
 | [Boskalis press release: Suez Canal unblocked](https://boskalis.com/press/press-releases-and-company-news/suez-canal-unblocked-we-pulled-it-off) | salvor's statement | 2026-09-13T18:05:00Z |  |
 | [CNN: Ever Given ship freed in the Suez Canal, authority confirms](https://www.cnn.com/2021/03/29/africa/suez-canal-refloating-intl-hnk) | news report | 2026-09-13T18:05:00Z |  |
 | [Supply Chain Dive: container ships steer toward longer route around Cape of Good Hope](https://www.supplychaindive.com/news/suez-cape-good-hope-ever-given-evergreen-blocked-stuck/597402/) | news report | 2026-09-13T18:05:00Z | Reports Hapag-Lloyd's service alert naming vessels rerouted via the Cape. |
+
+### Biparjoy: the Gulf of Kutch ports, June 2023
+
+| Source | Kind | Retrieved | Note |
+|---|---|---|---|
+| [Wikipedia: Cyclone Biparjoy](https://en.wikipedia.org/wiki/Cyclone_Biparjoy) | encyclopaedic summary citing IMD, JTWC and press | 2026-09-15T04:10:00Z | Formation 6 June, peak 10 June (165 km/h 3-min sustained), IMD alerts to Gujarat 12 June, Kandla and Mundra halted, dissipation 19 June. |
+| [Business Today: Adani Ports shares in focus on suspension of vessel operations at Mundra and Tuna](https://www.businesstoday.in/markets/company-stock/story/adani-ports-shares-in-focus-on-suspension-of-mundra-tuna-port-vessel-operations-385314-2023-06-13) | news report of an exchange filing | 2026-09-15T04:10:00Z | Published 13 June 2023 07:42 IST. Adani Ports informed the exchanges post-market on Monday 12 June that vessel operations at Mundra and Tuna were suspended in view of the IMD advisory; the advisory expected the storm to cross between Mandvi and Karachi around 15 June noon with 125-135 km/h winds gusting to 150. |
+| [Maritime Gateway: Deendayal Port shuts operations as cyclone nears](https://www.maritimegateway.com/deendayal-port-shuts-operations-as-cyclone-nears/) | news report | 2026-09-15T04:10:00Z | Published 14 June 2023 11:02 IST. 'All cargo operations have been stopped at Deendayal Port'; ships told to stay in the high seas and away from the Gulf of Kutch entrance and outer harbour. |
+| [The Tribune: Cyclone Biparjoy starts making landfall near Jakhau port in Gujarat's Kutch](https://www.tribuneindia.com/news/nation/cyclone-biparjoy-starts-making-landfall-near-jakhau-port-in-gujarats-kutch-517382) | news report quoting IMD | 2026-09-15T04:10:00Z | Updated 16 June 2023 00:46 IST. IMD: the landfall process commenced around 18:30 IST on 15 June near Jakhau, 115-125 km/h gusting 140, to be completed over land by midnight. |
+| [Malay Mail: Coastal areas of India's Gujarat state return to normalcy after cyclone](https://www.malaymail.com/news/world/2023/06/17/coastal-areas-of-indias-gujarat-state-return-to-normalcy-after-cyclone/74906) | news report | 2026-09-15T04:10:00Z | Published 17 June 2023 20:13 MYT (12:13 UTC). Pipavav and Kandla said they had resumed operations; Mundra was due to restart from that evening. |
+| [Kuehne+Nagel: Update: port operations at Gujarat coast back to normal](https://mykn.kuehne-nagel.com/news/article/update-port-operations-at-gujarat-coast-back-20-Jun-2023) | forwarder advisory | 2026-09-15T04:10:00Z | Published 19 June 2023. Mundra fully suspended 13 June; Pipavav vessel operations suspended 10 June and landside 13 June; Hazira 14 June; all 'in full swing' by 19 June; weather improved 17 June. |
 
 ## Deployment mode
 

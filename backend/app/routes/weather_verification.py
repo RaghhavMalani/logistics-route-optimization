@@ -1,0 +1,90 @@
+"""Read-only public forecast inspection inside authenticated role workspaces."""
+from pathlib import Path
+import json
+import re
+from fastapi import APIRouter, HTTPException, Query
+
+from src.portwatch_os.clock import wall_now
+from src.portwatch_os.ledger.store import SqliteLedgerStore
+from src.portwatch_os.learning.weather_feedback import WeatherFeedback, instant
+from src.portwatch_os.learning.weather_reconciliation import WeatherEvidenceStore, outcome_key, sampling_window, original_response_retained
+
+router=APIRouter()
+
+
+def inspection(port="INNSA", variable="wind_gust"):
+    from src.portwatch_os.intelligence.current_environment import FEEDBACK_DB, ROOT
+    if not FEEDBACK_DB.exists(): raise HTTPException(503,"Public weather archive unavailable")
+    ledger=SqliteLedgerStore(FEEDBACK_DB); evidence=WeatherEvidenceStore(FEEDBACK_DB)
+    try:
+        feedback=WeatherFeedback(ledger)
+        report=feedback.report(port,variable=variable,limit=10000,public_only=True,now=wall_now())
+        forecasts=report["forecasts"]
+        cases=sorted((r for r in ledger.predictions(domain="weather",subject=port)
+                      if r.target==variable and r.model in ("Open-Meteo surface","Open-Meteo marine")
+                      and r.context.extra.get("horizonDays")==5 and instant(r.issued_at)<=wall_now()),
+                     key=lambda r:(r.issued_at,r.prediction_id))
+        def inspect_case(row):
+            if row is None: return None
+            original=feedback.report(port,variable=variable,limit=1,public_only=True,prediction_id=row.prediction_id)["forecasts"][0]
+            original={**original,"forecastEvidence":evidence.get("weather_forecast_annotations",row.prediction_id),
+                      "outcomeEvidence":evidence.get("weather_outcome_evidence",outcome_key(port,variable,original["validAt"]))}
+            # A derived interval annotation also explains older immutable claims.
+            if original["forecastEvidence"]:
+                original["forecastEvidence"]={**original["forecastEvidence"],"measurementWindow":sampling_window(original["targetDate"],variable)}
+            return original
+        original=inspect_case(cases[0] if cases else None)
+        retained=inspect_case(next((r for r in cases if (evidence.get("weather_forecast_annotations",r.prediction_id) or {}).get("complete") and original_response_retained(evidence.get("weather_forecast_annotations",r.prediction_id),ROOT)),None))
+        status=ROOT/"reconciliation.json"
+        next_rows=[f for f in forecasts if instant(f["validAt"])>wall_now()]
+        subsequent=next((f for f in next_rows if f["horizonDays"]==5),next_rows[0] if next_rows else None)
+        return {**report,"forecasts":forecasts[:100],"originalFiveDayCase":original,"retainedFiveDayCase":retained,
+            "currentCandidate":feedback.correction(port,variable,"Open-Meteo surface",5,wall_now()),
+            "subsequentRecommendation":daily_recommendation(subsequent),
+            "reconciliation":json.loads(status.read_text()) if status.exists() else {"status":"NOT_RUN"}}
+    finally: evidence.close();ledger.close()
+
+
+def daily_recommendation(forecast):
+    if not forecast: return {"status":"UNAVAILABLE","reason":"No subsequent archived daily forecast"}
+    threshold, direction = {"wind_gust":(15,"above"),"wind_speed":(15,"above"),
+        "rainfall":(20,"above"),"wave_height":(2,"above"),"visibility":(5,"below")}[forecast["variable"]]
+    exposed = (lambda v:v>threshold) if direction=="above" else (lambda v:v<threshold)
+    correction=forecast["correction"]
+    use=correction.get("decisionEligible",False) and correction.get("status")=="VALIDATED"
+    raw=forecast["original"]; value=forecast["corrected"] if use else raw
+    return {"kind":"DAILY_WEATHER_WATCH","forecastId":forecast["id"],"targetDate":forecast["targetDate"],
+        "variable":forecast["variable"],"unit":forecast["unit"],"statistic":forecast["statistic"],
+        "rawValue":raw,"consumedValue":value,"correctionConsumed":use,"correctionId":correction.get("modelId"),
+        "correctionStatus":correction["status"],"threshold":threshold,"thresholdDirection":direction,"thresholdBasis":"operator research assumption; not a port operating limit",
+        "rawRecommendation":"Review daily exposure" if exposed(raw) else "Retain daily watch",
+        "recommendation":"Review daily exposure" if exposed(value) else "Retain daily watch",
+        "decisionChanged":exposed(raw)!=exposed(value),
+        "reason":correction["reason"],"hourlyApproachEffect":"NONE: daily correction is not applied to hourly gust or visibility",
+        "operationalEffect":"Daily research watch only; no validated delay, berth, fuel or cost consequence"}
+
+
+@router.get("/weather/verification")
+def verification(portCode:str=Query("INNSA"),variable:str=Query("wind_gust")):
+    from src.utils import port_registry
+    from src.portwatch_os.learning.weather_feedback import VARIABLES
+    port=port_registry.resolve(portCode)
+    if not port or variable not in VARIABLES: raise HTTPException(422,"Registered port and supported weather variable required")
+    return inspection(port.locode,variable)
+
+
+@router.get("/weather/evidence/{digest}")
+def source_response(digest:str):
+    from src.portwatch_os.intelligence.current_environment import ROOT
+    if not re.fullmatch("[a-f0-9]{64}",digest): raise HTTPException(404,"Evidence unavailable")
+    for folder in ("archive","outcomes"):
+        path=ROOT/folder/(digest+".response")
+        if path.is_file():
+            raw=path.read_bytes()
+            import hashlib
+            if hashlib.sha256(raw).hexdigest()!=digest: raise HTTPException(503,"Evidence hash mismatch")
+            # Weather originals are JSON; unsupported XML is not returned here.
+            try: data=json.loads(raw)
+            except ValueError: raise HTTPException(422,"Not a weather response")
+            return {"sha256":digest,"response":data}
+    raise HTTPException(404,"Original response not available")

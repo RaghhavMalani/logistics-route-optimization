@@ -41,9 +41,16 @@ function run(command, args, env) {
   });
 }
 
-const skip = process.env.PW_SKIP_BUILD === "1" && currentPreset() === "node-server";
+const skip =
+  process.env.PW_SKIP_BUILD === "1" && currentPreset() === "node-server";
 if (!skip) {
-  await run("npm", ["run", "build"], { NITRO_PRESET: "node-server" });
+  await run("npm", ["run", "build"], {
+    NITRO_PRESET: "node-server",
+    VITE_PORTWATCH_AUTH_MODE: process.env.PW_REAL_API ? "production" : "demo",
+    ...(process.env.PW_REAL_API
+      ? { VITE_PORTWATCH_API_BASE: process.env.PW_REAL_API }
+      : {}),
+  });
 }
 
 const server = spawn(process.execPath, ["./server/index.mjs"], {

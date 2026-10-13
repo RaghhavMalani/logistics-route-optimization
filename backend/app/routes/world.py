@@ -125,6 +125,9 @@ def _mode(mode: Optional[str]) -> str:
     """The licence mode a request is asking the world to be viewed in."""
     from src.portwatch_os.fabric import MODES as FABRIC_MODES, deployment_mode
 
+    from src.portwatch_os.sandbox import current_sandbox
+    if current_sandbox.get() is not None:
+        return "DEMO"
     active = (mode or deployment_mode()).strip().upper()
     if active not in FABRIC_MODES:
         raise HTTPException(

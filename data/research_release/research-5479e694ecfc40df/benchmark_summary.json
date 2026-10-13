@@ -1,0 +1,229 @@
+{
+  "version": "chronological-holdout-v4",
+  "generatedAt": "2026-10-08T05:08:04.010859+00:00",
+  "target": "congestion_index",
+  "reproducibility": {
+    "codeRevision": "e906f6a6bd4388cd3c059b4d9a5de6759139528b",
+    "forecastCodeSha256": "e7f4c2bde6884997b2a8e9aa63c22b8af79aff1a6a2ff0475365e084bb64c6b3",
+    "datasetSha256": "e30f3dffefcc68bbe89b47476121e74bfd229505fa3c69b8d4cc79861ec23703",
+    "datasetRows": 4740,
+    "seed": {
+      "gbm": 42,
+      "tft": 42
+    },
+    "dependencies": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.3",
+      "scikit-learn": "1.9.0",
+      "pytorch-forecasting": "1.7.0"
+    },
+    "configuration": {
+      "horizonDays": 10,
+      "folds": 5,
+      "includeTft": false,
+      "tftEpochs": 12,
+      "includeAblations": true
+    }
+  },
+  "horizonDays": 10,
+  "summary": {
+    "folds": 5,
+    "testRows": 4260,
+    "models": [
+      "GBM quantile",
+      "Adaptive ensemble",
+      "GBM history + calendar",
+      "GBM history only",
+      "Naive persistence",
+      "Ridge quantile",
+      "Seasonal naive (7d)"
+    ],
+    "bestModel": "GBM quantile",
+    "bestMae": 5.9177,
+    "bestRmse": 8.0318,
+    "bestCoverage80": 0.7592,
+    "naiveMae": 6.6735,
+    "skillVsNaive": 0.1133,
+    "tftEvaluated": false,
+    "ensembleSecondModel": "Ridge quantile",
+    "ensembleMembers": [
+      "persistence",
+      "gbm",
+      "second"
+    ]
+  },
+  "ensembleWeights": {
+    "members": [
+      "persistence",
+      "gbm",
+      "second"
+    ],
+    "globalWeights": {
+      "persistence": 0.7,
+      "gbm": 0.3,
+      "second": 0.0
+    },
+    "byHorizon": {
+      "1": {
+        "persistence": 0.9,
+        "gbm": 0.1,
+        "second": 0.0
+      },
+      "2": {
+        "persistence": 0.8,
+        "gbm": 0.2,
+        "second": 0.0
+      },
+      "3": {
+        "persistence": 0.8,
+        "gbm": 0.2,
+        "second": 0.0
+      },
+      "4": {
+        "persistence": 0.7,
+        "gbm": 0.3,
+        "second": 0.0
+      },
+      "5": {
+        "persistence": 0.7,
+        "gbm": 0.3,
+        "second": 0.0
+      },
+      "6": {
+        "persistence": 0.6,
+        "gbm": 0.4,
+        "second": 0.0
+      },
+      "7": {
+        "persistence": 0.6,
+        "gbm": 0.4,
+        "second": 0.0
+      },
+      "8": {
+        "persistence": 0.6,
+        "gbm": 0.4,
+        "second": 0.0
+      },
+      "9": {
+        "persistence": 0.6,
+        "gbm": 0.4,
+        "second": 0.0
+      },
+      "10": {
+        "persistence": 0.7,
+        "gbm": 0.3,
+        "second": 0.0
+      }
+    },
+    "byRegime": {},
+    "byPort": {
+      "CHENNAI": {
+        "persistence": 0.0,
+        "gbm": 1.0,
+        "second": 0.0
+      },
+      "COCHIN": {
+        "persistence": 0.0,
+        "gbm": 1.0,
+        "second": 0.0
+      },
+      "DEENDAYAL": {
+        "persistence": 1.0,
+        "gbm": 0.0,
+        "second": 0.0
+      },
+      "JNPT": {
+        "persistence": 1.0,
+        "gbm": 0.0,
+        "second": 0.0
+      },
+      "KAMARAJAR": {
+        "persistence": 0.0,
+        "gbm": 0.7,
+        "second": 0.3
+      },
+      "KOLKATA": {
+        "persistence": 1.0,
+        "gbm": 0.0,
+        "second": 0.0
+      },
+      "MORMUGAO": {
+        "persistence": 0.1,
+        "gbm": 0.7,
+        "second": 0.2
+      },
+      "MUNDRA": {
+        "persistence": 0.8,
+        "gbm": 0.0,
+        "second": 0.2
+      },
+      "NEW_MANGALORE": {
+        "persistence": 0.2,
+        "gbm": 0.8,
+        "second": 0.0
+      },
+      "PARADIP": {
+        "persistence": 0.9,
+        "gbm": 0.1,
+        "second": 0.0
+      },
+      "TUTICORIN": {
+        "persistence": 0.4,
+        "gbm": 0.6,
+        "second": 0.0
+      },
+      "VIZAG": {
+        "persistence": 1.0,
+        "gbm": 0.0,
+        "second": 0.0
+      }
+    },
+    "conformalByHorizon": {
+      "1": 0.0,
+      "2": 0.0,
+      "3": 0.0,
+      "4": 0.0,
+      "5": 0.0,
+      "6": 0.0,
+      "7": 0.0,
+      "8": 0.139,
+      "9": 0.05,
+      "10": 0.0
+    },
+    "fitted": true,
+    "source": "stacked out-of-fold on 4 expanding walk-forward folds over persistence, gbm, second; pinball-optimal per horizon",
+    "folds": 4,
+    "generatedAt": "2026-10-08T05:08:03.351989+00:00",
+    "secondOpinionModel": "Ridge quantile",
+    "evaluationProtocol": "chronological-holdout-v4"
+  },
+  "trainOrigins": 394,
+  "evaluationSplit": {
+    "weightFitThrough": "2026-07-05T00:00:00",
+    "calibrationFrom": "2026-07-06T00:00:00",
+    "calibrationThrough": "2026-08-22T00:00:00",
+    "holdoutFrom": "2026-08-23T00:00:00",
+    "holdoutThrough": "2026-10-02T00:00:00",
+    "excludedFullHistoryFeatures": [
+      "regime_label",
+      "p_normal",
+      "p_congested",
+      "p_severe",
+      "days_in_state",
+      "expected_remaining_days",
+      "transition_risk",
+      "regime_confidence"
+    ],
+    "historicalFutureWeather": "excluded: no issue-time archive supplied"
+  },
+  "protocol": "expanding-window base-model fits; weights fitted on earlier out-of-fold predictions; calibration on a separate later block; all headline metrics on the untouched final fold; crossing labels purged at both boundaries; full-history regime features and unversioned future weather excluded",
+  "ablations": {
+    "enabled": true,
+    "reference": "GBM quantile",
+    "variants": [
+      "GBM history + calendar",
+      "GBM history only"
+    ],
+    "meaning": "Predeclared feature removals on the same chronological rows; no causal weather-effect or operational savings claim."
+  }
+}

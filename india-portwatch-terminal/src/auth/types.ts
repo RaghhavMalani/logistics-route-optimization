@@ -19,10 +19,7 @@
  */
 
 export type Role =
-  | "VESSEL_OPERATOR"
-  | "SHIPPING_COMPANY"
-  | "PORT_AUTHORITY"
-  | "NATIONAL_ADMIN";
+  "VESSEL_OPERATOR" | "SHIPPING_COMPANY" | "PORT_AUTHORITY" | "NATIONAL_ADMIN";
 
 export const ROLES: Role[] = [
   "VESSEL_OPERATOR",
@@ -132,6 +129,7 @@ export interface Session {
   mode: AuthMode;
   issuedAt: string;
   expiresAt: string;
+  accessToken?: string;
 }
 
 export interface Credentials {
@@ -192,24 +190,24 @@ export function asciiHeader(value: string): string {
 }
 
 /**
- * Identity headers for the advisory API.
- *
- * Built here rather than at each call site so there is one place that decides
- * what the backend is told about who is acting. The backend treats these as
- * asserted rather than verified and says so in `/advisories/policy`; replacing
- * them with a signed token is a change to this function and the API's
- * `principal_from_request`, and nothing else.
+ * Bearer credentials plus legacy UI scope hints. Verified APIs replace every
+ * X-PortWatch identity hint with server-owned values; they grant no authority.
  */
-export function advisoryHeaders(user: User | null): Record<string, string> {
+export function advisoryHeaders(
+  user: User | null,
+  token?: string,
+): Record<string, string> {
   if (!user) return {};
   const party = ROLE_PROFILE[user.role].advisoryParty;
   if (!party) return {};
   const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "X-PortWatch-Actor": asciiHeader(user.displayName),
     "X-PortWatch-Role": user.role,
   };
   if (user.portCode) headers["X-PortWatch-Port"] = asciiHeader(user.portCode);
-  if (user.organisation) headers["X-PortWatch-Org"] = asciiHeader(user.organisation);
+  if (user.organisation)
+    headers["X-PortWatch-Org"] = asciiHeader(user.organisation);
   if (user.vesselIds.length) {
     headers["X-PortWatch-Vessels"] = asciiHeader(user.vesselIds.join(","));
   }

@@ -1,5 +1,7 @@
 # PortWatch X
 
+The public application now opens at [PortWatch](https://india-portwatch.vercel.app/) with one-action Company, Vessel, Port and Admin demos. Follow one visitor's proposal → port review → advisory → vessel acknowledgment → demonstration outcome using the existing globe, voyage engine and digital twin. Operator authentication remains separate. [Milestone A scope, verification and the remaining full-product work](docs/MILESTONE_A_ROLE_DEMOS.md) distinguish usable features, source dependencies and experiments. The recovered [Global Intelligence workspace](https://india-portwatch.vercel.app/explore) and [research evidence](https://india-portwatch.vercel.app/research) remain public.
+
 **A maritime operations system for Indian ports and the ships bound for them. It computes consequence, answers "what should we do?" with options it simulated and criticised, keeps the current plan unless an intervention survives not knowing how long the disruption will last, and traces every number to the measurement it came from — with a written refusal wherever there is none.**
 
 ---
@@ -18,6 +20,8 @@ SENSE → UNDERSTAND → PREDICT → GENERATE OPTIONS → SIMULATE → OPTIMISE 
 Four roles share one world: **National Command** (every port, ranked by where intervention matters), a **Port Authority** (its own terminal as a 3D twin, its berth plan, its advisories to arriving ships), a **Shipping Company** (which of its hulls need intervention and by when the option closes) and a **Vessel** (its passage, its destination, the advisories it has been sent). Each sees the decisions it holds and no one else's; national command sees everything.
 
 ## What it answers
+
+The first [global intelligence integration](docs/INTELLIGENCE_WORKSPACE.md) is available from **Global Eye → Open global intelligence** across all 13 registered ports: native globe, news/exposure, economic context, earthquakes, a scoped camera registry and weather forecast-error inspection. Weather learning records original forecasts before matching later outcomes. Evaluation now uses disjoint weight-fitting, calibration and holdout periods; older accuracy claims are withheld until rebuilt. The remaining global adapters, neural fusion and sequential RL are documented in the integration guide.
 
 | Ask | PortWatch X answers with |
 |---|---|
@@ -92,7 +96,7 @@ PORTWATCH_LICENCE_MODE=DEMO docker compose up --build -d pipeline api terminal
 
 The `state` volume (`PORTWATCH_STATE_DIR`) holds what must persist — the decision ledger, the advisory register, the operator's cost assumptions — and is the one to back up. A corrupt store is refused at open, named on `/api/health`, and never replaced; a decision computed before a restart is served from the ledger read-only. Without a container runtime the same process runs under any supervisor with `uvicorn backend.app.main:app --workers 1`. The public deployment is split the same way: the terminal is the Vercel project `india-portwatch` (root directory `india-portwatch-terminal`, TanStack Start) at `https://india-portwatch.vercel.app`, and the API is one long-running container on Render or Railway from `render.yaml` / `railway.json`, its URL baked into the terminal as `VITE_PORTWATCH_API_BASE`.
 
-**Identity** is asserted from `X-PortWatch-*` headers and not verified; the API says so on `/api/advisories/policy` and on readiness. Behind an authenticating proxy set `PORTWATCH_IDENTITY_MODE=required` so a role-less request is refused at the door. In both modes administration surfaces need an explicit `NATIONAL_ADMIN` role and no flag grants it ([docs/SECURITY.md](docs/SECURITY.md)).
+**Identity** defaults to verified server-managed sessions. Roles and memberships come from the server; forged client headers cannot grant camera or workflow access. Provision accounts with `python -m scripts.provision_identity`; the terminal production adapter verifies sign-in, restoration and logout against the API. Explicit demo mode cannot access private cameras or write evidence ([setup and real-backend QA](docs/VERIFIED_WORKFLOWS.md)).
 
 ## Proof
 
@@ -118,7 +122,7 @@ The suites: 842 Python tests (`python -m pytest tests`), 320 browser specs at tw
 | [docs/ROBUST_DECISIONS.md](docs/ROBUST_DECISIONS.md) | The closure outcome model, the four stress horizons, minimax regret, the three answers, reversibility, break-even, and what the policy does not do |
 | [docs/DECISION_ENGINE.md](docs/DECISION_ENGINE.md) | The decision model, the action catalogue, hard constraints, the frontier, the Critic, the financial twin, actors, the approval workflow, the ledger, missions |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | The deployment shape, the state audit, concurrency, running it, what was tested, what was not |
-| [docs/SECURITY.md](docs/SECURITY.md) | The identity model and its two modes, the authorization matrix, the findings, the dependency audit |
+| [docs/SECURITY.md](docs/SECURITY.md) | Verified identity and explicit compatibility modes, the authorization matrix, the findings, the dependency audit |
 | [docs/FLAGSHIP_DEMO.md](docs/FLAGSHIP_DEMO.md) | The two-minute decision demo, its timings, and the failure demo |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The layers, where each one's authority ends, the pipeline, storage, and the seams to extend |
 | [docs/SIGNAL_FABRIC.md](docs/SIGNAL_FABRIC.md) | Licence at product granularity with evidence, the AIS socket and its state machines, entity fusion, observed hulls in the world graph, the sea |

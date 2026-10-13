@@ -38,6 +38,7 @@ GBM = "gbm"
 SECOND_OPINION = "second"
 
 DEFAULT_MEMBERS = (PERSISTENCE, GBM, SECOND_OPINION)
+EVALUATION_PROTOCOL = "chronological-holdout-v4"
 
 #: No single member may be silenced entirely by a small validation sample.
 MIN_WEIGHT, MAX_WEIGHT = 0.15, 0.85
@@ -63,6 +64,7 @@ class EnsemblePolicy:
     folds: int = 0
     generated_at: Optional[str] = None
     second_opinion_model: Optional[str] = None
+    evaluation_protocol: Optional[str] = None
 
     # -- resolution ---------------------------------------------------------
     def _equal(self) -> Dict[str, float]:
@@ -124,6 +126,7 @@ class EnsemblePolicy:
             "folds": self.folds,
             "generatedAt": self.generated_at,
             "secondOpinionModel": self.second_opinion_model,
+            "evaluationProtocol": self.evaluation_protocol,
         }
 
     @classmethod
@@ -145,6 +148,7 @@ class EnsemblePolicy:
             folds=int(payload.get("folds", 0)),
             generated_at=payload.get("generatedAt"),
             second_opinion_model=payload.get("secondOpinionModel"),
+            evaluation_protocol=payload.get("evaluationProtocol"),
         )
 
 
@@ -166,7 +170,10 @@ def load_ensemble_policy(path: str | Path | None) -> EnsemblePolicy:
         return EnsemblePolicy()
     try:
         with open(p, "r", encoding="utf-8") as fh:
-            return EnsemblePolicy.from_dict(json.load(fh))
+            policy = EnsemblePolicy.from_dict(json.load(fh))
+        if policy.fitted and policy.evaluation_protocol != EVALUATION_PROTOCOL:
+            return EnsemblePolicy(source="equal weighting: legacy fitted policy lacks disjoint chronological evaluation; rerun the benchmark")
+        return policy
     except (OSError, json.JSONDecodeError, ValueError, TypeError):
         return EnsemblePolicy()
 
@@ -214,6 +221,8 @@ def blend_members(frames: Dict[str, pd.DataFrame],
          for name in present]
         for row in out.itertuples()
     ], dtype=float)
+    missing_weight = weights.sum(axis=1) <= 1e-9
+    weights[missing_weight] = 1.0
     weights = weights / np.clip(weights.sum(axis=1, keepdims=True), 1e-9, None)
 
     names = list(present)
@@ -226,6 +235,8 @@ def blend_members(frames: Dict[str, pd.DataFrame],
         # over the members that actually produced a value.
         mask = ~np.isnan(stack)
         row_weights = np.where(mask, weights, 0.0)
+        missing_weight = row_weights.sum(axis=1) <= 1e-9
+        row_weights[missing_weight] = mask[missing_weight].astype(float)
         totals = np.clip(row_weights.sum(axis=1, keepdims=True), 1e-9, None)
         out[column] = np.nansum(np.nan_to_num(stack) * row_weights, axis=1) / totals[:, 0]
 

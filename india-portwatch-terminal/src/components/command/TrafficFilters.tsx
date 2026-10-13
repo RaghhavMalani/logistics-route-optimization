@@ -230,7 +230,11 @@ export function EnvironmentLegend({
         <span className="num min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-3)]">
           {composite ? "rain · wind · severe" : spec?.unit}
         </span>
-        {frame.derived ? (
+        {frame.forecast ? (
+          <Pill tone="info" title={workspace.timeline.note}>
+            forecast
+          </Pill>
+        ) : frame.derived ? (
           <Pill
             tone="unc"
             title="Scaled from the daily weather-impact forecast and interpolated between forecast days."
@@ -287,7 +291,9 @@ export function EnvironmentLegend({
         <span className="flex items-center gap-1">
           <span className="h-[2px] w-4 rounded-full bg-[#8fd0ef]" />
           Wind flow
-          <span className="text-[var(--unc)]">modelled dir.</span>
+          <span className="text-[var(--unc)]">
+            {frame.forecast ? "forecast dir." : "modelled dir."}
+          </span>
         </span>
         <span className="flex items-center gap-1">
           <span className="h-[7px] w-[7px] rounded-full border border-[#d05a4c]" />

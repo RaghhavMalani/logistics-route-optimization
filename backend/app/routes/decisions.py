@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from src.portwatch_os.decision.continuation import connected_basis
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from backend.app.identity import Identity, identity_from_headers, may_see_decision, resolve_role
@@ -54,6 +55,9 @@ router = APIRouter()
 
 def _actor(role: Optional[str], organisation: Optional[str], port_code: Optional[str],
            vessel_ids: Optional[str]) -> DecisionActor:
+    who = identity_from_headers(role, None, port_code, organisation, vessel_ids)
+    organisation, port_code = who.organisation, who.port_code
+    vessel_ids = ",".join(who.vessel_ids)
     scope = _scope(role)
     if scope not in ACTORS:
         raise HTTPException(status_code=403, detail=f"{scope} cannot hold a decision")
@@ -282,6 +286,21 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
     vessel_id = str(payload.get("vesselId") or "").strip()
     if not vessel_id:
         raise HTTPException(status_code=400, detail="vesselId is required for a vessel decision")
+    if payload.get("currentArrival") is not None:
+        from src.portwatch_os.sandbox import current_sandbox
+        from src.portwatch_os.clock import get_clock, LIVE
+        from backend.app.routes.company import resolve_company
+        from src.portwatch_os.decision.current_arrival import build_arrival_problem
+        if current_sandbox.get() is None:
+            raise HTTPException(403,"The current approach comparison is an isolated demo capability")
+        if get_clock().state.mode != LIVE or payload.get("at"):
+            raise HTTPException(409,"Current forecasts cannot be injected into a historical or projected decision clock")
+        profile = resolve_company(payload.get("companyId"))
+        vessel = next((v for v in profile.vessels if v.vessel_id == vessel_id),None)
+        if vessel is None:
+            raise HTTPException(404,"Voyage is not in this demo fleet")
+        _build, _events, state = _observed_state(payload.get("companyId"),mode,moment)
+        return engine.finish(build_arrival_problem(vessel,payload["currentArrival"],actor,state,moment))
     branch_id = payload.get("branchId")
     grid, marine = _marine_grid(mode)
     # Figures the hull does not declare, supplied for this scenario. Numbers
@@ -352,16 +371,35 @@ def _port_problem(engine, payload, actor, moment, basis, mode, header_port) -> D
             call.eta_hour = base + index * 0.5
         assumed = {"kind": "bunch_arrivals", "calls": [c.call_id for c in approaching], "atHour": base,
                    "source": "ASSUMPTION"}
+    camera_basis = None
+    if payload.get("cameraPlanning") is not None:
+        from backend.app.identity import require_verified
+        from backend.app.routes.intelligence import registry, may_write
+        from src.portwatch_os.intelligence.camera_planning import CameraPlanningAssumption, apply_camera_hold
+        camera_request = CameraPlanningAssumption.model_validate(payload["cameraPlanning"])
+        camera_operator = require_verified()
+        may_write(camera_operator, state.port_code)
+        state, camera_basis = apply_camera_hold(state, camera_request, registry(), camera_operator)
     build, _events, observed = _observed_state(payload.get("companyId"), mode, moment)
+    scenario_evidence = {"assumedBunching": assumed} if assumed else {}
+    scenario_notes = ["arrival bunching is a scenario assumption on a clone of the observed twin"] if assumed else []
+    scenario_id = observed.state_id
+    if camera_basis:
+        import json
+        import hashlib
+        scenario_evidence["cameraPlanning"] = camera_basis
+        scenario_id += "+camera:" + hashlib.sha256(json.dumps(camera_basis, sort_keys=True).encode()).hexdigest()[:16]
+        scenario_notes.append(
+            f"Reviewed camera {camera_basis['observation']['cameraId']} at {camera_basis['observation']['observedAt']}: "
+            f"mapping to {camera_request.berthId} and holding for {camera_request.holdHours:g}h are operator assumptions; "
+            "only this berth is affected and no vessel identity is inferred. Observed state is unchanged.")
     problem = engine.solve_port(
-        state, actor=actor, at=moment, world_state_id=observed.state_id,
+        state, actor=actor, at=moment, world_state_id=scenario_id,
         world_revision=observed.summary()["revision"],
         horizon_hours=float(payload.get("horizonHours") or 24.0),
         attention_item_id=payload.get("attentionId"), basis=basis,
+        evidence=scenario_evidence, notes=scenario_notes,
     )
-    if assumed:
-        problem.evidence["assumedBunching"] = assumed
-        problem.notes.append("arrival bunching is a scenario assumption on a clone of the observed twin")
     return problem
 
 
@@ -511,7 +549,21 @@ def transition_problem(
     held = _visible_or_403(_problem_or_404(engine, decision_id),
                            _identity(role, actor_name, header_port, organisation, vessel_ids))
     current_revision = None
-    if target == APPROVED and held.world_revision.get("mode") not in (None, "REPLAY"):
+    from src.portwatch_os.decision.continuation import connected_basis
+    environment = connected_basis(held)
+    if target == APPROVED and environment:
+        from src.portwatch_os.decision.continuation import require_current
+        require_current(held)
+        from src.portwatch_os.intelligence.current_environment import instant
+        from src.portwatch_os.clock import wall_now, get_clock, LIVE
+        from datetime import timedelta
+        if get_clock().state.mode != LIVE or instant(environment["plannedArrival"]) <= wall_now() or wall_now()-instant(environment["availableAt"]) > timedelta(hours=1):
+            raise HTTPException(409,"The frozen weather receipt or planned arrival has expired; recompute this comparison")
+        # This comparison consumes approach weather and explicit limits, not the
+        # unrelated Suez cascade/fleet revision. Preserve that boundary in audit.
+        held.evidence["approvalBasis"] = {"scope":"FROZEN_AUTHORITY_RESTRICTION" if environment.get('kind')=='NOTICE_RESTRICTION' else "FROZEN_INTELLIGENCE_SCENARIO" if held.evidence.get("intelligenceBasis") else "FROZEN_APPROACH_WEATHER", "environmentEvidenceId":environment["evidenceId"],
+            "availableAt":environment["availableAt"], "note":"Only frozen inputs and explicit assumptions drive this comparison; ambient cascade revisions are not consumed."}
+    elif target == APPROVED and held.world_revision.get("mode") not in (None, "REPLAY"):
         # The live world's revision now, so an approval on a world that has
         # moved on is refused unless acknowledged.
         try:
@@ -532,6 +584,33 @@ def transition_problem(
         )
     except DecisionError as exc:
         raise HTTPException(status_code=409 if "moved on" in str(exc) else 400, detail=str(exc))
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped and scoped.save_world and target == APPROVED and problem.domain == VESSEL_ROUTING and (
+        not connected_basis(problem) or problem.actor.role == "SHIPPING_COMPANY"):
+        chosen = next((o for o in problem.options if o.option_id == payload.get("optionId")), None)
+        if chosen and chosen.evaluation:
+            eta = chosen.evaluation.objectives.get("eta")
+            proposal = {"decisionId":decision_id,"optionId":chosen.option_id,"vesselId":problem.subject_id,
+                        "etaShiftHours":eta.value if eta else None,"state":"APPROVED_DEMO","source":"original constrained decision workflow"}
+            if connected_basis(problem):
+                proposal.update(etaShiftHours=chosen.evaluation.derived["arrivalShiftHours"],
+                    arrivalAt=chosen.evaluation.derived["arrivalAt"],portCode=chosen.evaluation.derived["destinationPort"],
+                    environmentEvidenceId=connected_basis(problem)["evidenceId"])
+            def update(world):
+                history = world.setdefault("weatherJourneys", {})
+                if connected_basis(problem):
+                    previous = world.get("terminalProposal") or {}
+                    if previous.get("environmentEvidenceId"):
+                        history.setdefault(previous["decisionId"], {"proposal":previous,
+                            "reviewDecisionId":world.get("currentArrivalReview")})
+                    history.setdefault(decision_id, {}).update(proposal=proposal)
+                if connected_basis(problem) and (world.get("terminalProposal") or {}).get("decisionId") != decision_id:
+                    world.pop("currentArrivalReview", None)
+                    world.pop("currentArrivalOutcome", None)
+                world["terminalProposal"] = proposal
+            scoped.save_world(update)
+            scoped.world["terminalProposal"] = proposal
     return problem.to_dict()
 
 
@@ -563,6 +642,14 @@ def handoff_problem(
     name = _require_actor_name(actor_name)
     problem = _visible_or_403(_problem_or_404(engine, decision_id),
                               _identity(role, actor_name, header_port, organisation, None))
+    if connected_basis(problem) and problem.evidence.get("advisories"):
+        acting = principal_from_request(name, role, header_port, organisation, None)
+        rows = [get_advisory_store().require(i) for i in problem.evidence["advisories"]]
+        for row in rows: acting.assert_may_issue(row)
+        return {"decision":problem.to_dict(include_options=False), "advisories":[r.to_dict() for r in rows]}
+    if connected_basis(problem):
+        from src.portwatch_os.decision.continuation import require_current
+        require_current(problem)
     if problem.workflow != APPROVED:
         raise HTTPException(status_code=400, detail=f"a decision is handed off once APPROVED; {decision_id} is {problem.workflow}")
     option = problem.option(problem.human_choice or "")
@@ -595,11 +682,19 @@ def handoff_problem(
     advisories: List[Dict[str, Any]] = []
 
     recipients = _recipients_for(problem, option, payload)
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped:
+        owned = {v["id"] for v in scoped.world["fleet"]}
+        for recipient in recipients:
+            if recipient["vesselId"] in owned:
+                recipient["organisation"] = scoped.world["organisation"]
     if not recipients:
         raise HTTPException(status_code=400, detail="the approved option names no vessel to advise")
     for recipient in recipients:
         advisory = Advisory(
-            advisory_id=Advisory.make_id(port_code, recipient["vesselId"], recipient["kind"], created),
+            advisory_id=Advisory.make_id(port_code, recipient["vesselId"], recipient["kind"],
+                decision_id if connected_basis(problem) else created),
             kind=recipient["kind"], port_code=(record.locode if record else port_code),
             issuer=acting.actor,
             issuer_organisation=str(payload.get("issuerOrganisation") or (record.authority if record else port_code)),
@@ -610,6 +705,7 @@ def handoff_problem(
                    f"Decision {decision_id}, option {option.option_id}, approved by {name}.",
             model_confidence=None if option.evaluation is None else option.evaluation.weakest_confidence,
             evidence={"decisionId": decision_id, "optionId": option.option_id,
+                      **({"intelligenceBasis" if problem.evidence.get("intelligenceBasis") else "currentEnvironment":connected_basis(problem)} if connected_basis(problem) else {}),
                       **{k: m.value for k, m in (option.evaluation.objectives.items() if option.evaluation else [])
                          if m.available}},
             critic_verdict=(option.critic or {}).get("verdict"),
@@ -648,6 +744,15 @@ def _recipients_for(problem: DecisionProblem, option, payload: Dict[str, Any]) -
     """Who the approved option is addressed to, and as which advisory kind."""
     if problem.domain == VESSEL_ROUTING:
         derived = option.evaluation.derived if option.evaluation else {}
+        if connected_basis(problem):
+            return [{"vesselId":problem.subject_id,"vesselName":problem.subject_label,"kind":"arrival_window",
+                "recommendation":{"recommendedArrival":derived["arrivalAt"],"approachClearAt":derived.get("approachClearAt"),
+                    "arrivalShiftHours":derived["arrivalShiftHours"],"holdHours":derived["holdHours"],
+                    "requestedPassageAt":derived.get('requestedPassageAt'),"earliestScheduledAccess":derived.get('earliestScheduledAccess'),
+                    "actualEarliestPermittedAccess":derived.get('actualEarliestPermittedAccess'),
+                    "totalScheduleShiftHours":derived.get('totalScheduleShiftHours'),
+                    "basis":"Authority-published lock closure and declared route; first published operational tide requires operator confirmation" if connected_basis(problem).get('kind')=='NOTICE_RESTRICTION' else "Reported intelligence with explicit operator-assumed review hold" if problem.evidence.get("intelligenceBasis") else "Current public forecast under frozen operator demo assumptions"},
+                "organisation":payload.get("recipientOrganisation")}]
         recommendation: Dict[str, Any] = {"approach": option.label, "action": option.action,
                                           "speedKn": derived.get("speedKn"), "holdHours": derived.get("holdHours")}
         if option.action in ("SLOW_STEAM", "SPEED_UP") and derived.get("speedKn"):
@@ -691,8 +796,11 @@ def record_outcome(
     """What actually happened. Resolves the ledger rows; nothing is rewritten."""
     engine = get_engine()
     name = _require_actor_name(actor_name)
-    _visible_or_403(_problem_or_404(engine, decision_id),
+    held = _problem_or_404(engine, decision_id)
+    _visible_or_403(held,
                     _identity(role, actor_name, header_port, organisation, vessel_ids))
+    if connected_basis(held):
+        raise HTTPException(409,"This fictional weather comparison accepts only the labelled demo-outcome after advisory acceptance; it cannot resolve an observed forecast outcome")
     observed = payload.get("observed") or {}
     if not isinstance(observed, dict):
         raise HTTPException(status_code=400, detail="observed must be an object of objective -> value")

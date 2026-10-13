@@ -6,33 +6,24 @@ is left. Findings are numbered; each names the fix or the reason it stands.
 
 ## 1. Identity
 
-Identity reaches the API as headers the terminal sets from its session:
-`X-PortWatch-Role`, `X-PortWatch-Actor`, `X-PortWatch-Port`, `X-PortWatch-Org`,
-`X-PortWatch-Vessels`. **Nothing verifies a token.** `backend/app/identity.py`
-is the seam a verifier replaces; `/api/advisories/policy` and
-`/api/admin/readiness` say so on every deployment. Two modes:
+The default is verified identity. The API verifies opaque bearer sessions against server-managed accounts, then supplies roles, actor IDs, port memberships, organisation and vessel membership from the identity database. Forged client headers cannot change a verified principal. See [VERIFIED_WORKFLOWS.md](VERIFIED_WORKFLOWS.md) for provisioning, session lifetimes and real API/browser validation.
 
-| mode | missing role | for |
+| Mode | Missing identity | Purpose |
 |---|---|---|
-| `asserted` (default) | national command, except on administration surfaces | a demo on a private network behind the terminal; a checkout; the in-process tests |
-| `required` (`PORTWATCH_IDENTITY_MODE=required`) | 401 at the door (middleware), on every `/api/*` route but health, provenance, the policy statement and the docs | a deployment behind an authenticating proxy that sets the headers from a verified session and strips what the client sent |
+| `verified` (default; also unknown mode names) | 401 on non-exempt API routes | Server-managed credentials and membership; no production accounts or passwords ship. |
+| `asserted` (explicit demo) | Legacy demo read defaults; administration requires an explicit role | Published demonstration roles; private cameras hidden and evidence writes require verified sessions. |
+| `required` (legacy proxy compatibility) | 401 without a proxy identity | Header-based compatibility; insufficient for private camera access or evidence writes. |
 
-Two rules hold in both modes:
+Health, provenance, policy, login and API documentation remain public. The legacy admin flag grants nothing. A commercial/government deployment using either header mode gets a readiness warning. Verified private camera access is enforced in every mode.
 
-- an administration surface needs `X-PortWatch-Role: NATIONAL_ADMIN` present;
-  a missing header is 401, never a promotion;
-- administrator standing follows the role alone. `X-PortWatch-Admin` is not
-  honoured (finding 3).
-
-Readiness carries `identity_mode`; a COMMERCIAL or GOVERNMENT licence mode in
-`asserted` identity mode is a WARN there.
+The October 9 visitor demos use a separate explicit `/api/demo/*` router and server-owned `demo/sessions.sqlite3`. They do not enable the legacy `asserted` mode. Opaque demo credentials have server-derived sandbox roles, visitor-row ownership, expiry and revocation; they never enter the operational identity store. Demo APIs run request-local engines and persist only their own demonstration world. All operational routes retain the verified gate, including for a demo administrator with forged role/port headers. See [the boundary and negative tests](MILESTONE_A_ROLE_DEMOS.md).
 
 ## 2. Authorization matrix
 
 `ALLOW`: the role gets the resource. `DENY`: 401 with no identity, 403 with
 the wrong one. `SCOPED`: filtered to what the identity holds; a probe of
 another tenant's record is 403. `NONE` is a request with no headers in the
-default mode. `tests/test_authorization_matrix.py` probes every cell and
+explicit asserted demo compatibility mode. In verified mode, all non-exempt routes below require a bearer session regardless of the legacy matrix. `tests/test_authorization_matrix.py` probes every cell and
 checks this table against the code.
 
 | resource | method | path | NONE | NATIONAL_ADMIN | PORT_AUTHORITY | SHIPPING_COMPANY | VESSEL_OPERATOR |

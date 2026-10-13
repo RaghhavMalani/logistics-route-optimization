@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { AUTH_MODE, DEMO_ROSTER } from "@/auth/adapters";
 import { useAuth } from "@/auth/AuthProvider";
 import { PublicOnly } from "@/auth/guards";
-import { ROLE_PROFILE, isRoleAllowed } from "@/auth/types";
+import { ROLE_PROFILE, ROLES, isRoleAllowed, type Role } from "@/auth/types";
 import { Button } from "@/components/kit/layout";
 import { Pill, formatUtc } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
@@ -101,7 +101,7 @@ function ChartPlate() {
 }
 
 function LoginScreen() {
-  const { signIn, mode, adapterDescription } = useAuth();
+  const { signIn, startDemo, mode, adapterDescription } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const health = useHealth();
@@ -124,6 +124,19 @@ function LoginScreen() {
       await navigate({ to: target });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Sign-in failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openDemo = async (role: Role) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const session = await startDemo(role);
+      await navigate({ to: ROLE_PROFILE[session.user.role].home });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Demo could not open.");
     } finally {
       setBusy(false);
     }
@@ -194,7 +207,16 @@ function LoginScreen() {
             Operations terminal · access is scoped to your role.
           </p>
 
-          <form className="mt-6 flex flex-col gap-3.5" onSubmit={submit}>
+          <div className="mt-4 border-y border-[var(--line)] py-3">
+            <div className="eyebrow mb-2">Explore a fictional demo</div>
+            <div className="grid grid-cols-2 gap-2">
+              {ROLES.map((role) => <Button key={role} disabled={busy} onClick={() => void openDemo(role)}>
+                {({ SHIPPING_COMPANY: "Company", VESSEL_OPERATOR: "Vessel", PORT_AUTHORITY: "Port", NATIONAL_ADMIN: "Admin" })[role]} demo
+              </Button>)}
+            </div>
+            <p className="mt-2 text-[10.5px] text-[var(--text-3)]">Your own sandbox, with the original maps and workflows.</p>
+          </div>
+          <form className="mt-4 flex flex-col gap-3.5" onSubmit={submit}>
             <label className="flex flex-col gap-1.5">
               <span className="eyebrow">Email</span>
               <input

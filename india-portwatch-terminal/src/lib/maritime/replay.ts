@@ -272,6 +272,8 @@ type Seat =
   | "service";
 
 interface Voyage {
+  oneWay?: boolean;
+  declaredEtaMs?: number | null;
   vessel: Vessel;
   route: SeaRoute;
   /** Waypoint the outbound leg starts from. */
@@ -533,7 +535,9 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
   const elapsedHours = (at - epoch) / HOUR_MS;
   const cyclePosition =
     (((voyage.phase + elapsedHours / voyage.cycleHours) % 1) + 1) % 1;
-  const s = cyclePosition * voyage.cycleHours;
+  const s = voyage.oneWay
+    ? Math.min(voyage.legHours + voyage.stayAtToHours * .5, Math.max(0, voyage.phase * voyage.cycleHours + elapsedHours))
+    : cyclePosition * voyage.cycleHours;
 
   const outboundEnd = voyage.legHours;
   const stayToEnd = outboundEnd + voyage.stayAtToHours;
@@ -593,7 +597,7 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
       progress: fraction,
       travelledKm,
       remainingKm,
-      etaMs: at + hoursOut * HOUR_MS,
+      etaMs: voyage.oneWay ? voyage.declaredEtaMs ?? at + hoursOut * HOUR_MS : at + hoursOut * HOUR_MS,
       etaMinutes: hoursOut * 60,
       etaKind: "arrival",
       routeKey: outbound
@@ -665,6 +669,7 @@ export interface ReplayOptions {
 }
 
 export interface OwnedVesselSeed {
+  oneWay?: boolean;
   id: string;
   name: string;
   /** Waypoint the vessel is bound for. */
@@ -823,6 +828,12 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
     // will: the map then agrees with the fleet board instead of contradicting it.
     if (own.etaMs != null) {
       const hoursToEta = (own.etaMs - options.epoch) / HOUR_MS;
+      if (own.oneWay) {
+        voyage.oneWay = true;
+        voyage.declaredEtaMs = own.etaMs;
+        voyage.legHours = Math.max(voyage.legHours, hoursToEta);
+        voyage.cycleHours = 2 * voyage.legHours + voyage.stayAtToHours + voyage.stayAtFromHours;
+      }
       const arrivalPhase = voyage.legHours / voyage.cycleHours;
       const phase = arrivalPhase - hoursToEta / voyage.cycleHours;
       voyage.phase = ((phase % 1) + 1) % 1;

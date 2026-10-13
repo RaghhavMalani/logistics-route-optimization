@@ -275,6 +275,10 @@ _CLOCK_LOCK = threading.Lock()
 
 
 def get_clock() -> WorldClock:
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("clock", WorldClock)
     global _CLOCK
     with _CLOCK_LOCK:
         if _CLOCK is None:

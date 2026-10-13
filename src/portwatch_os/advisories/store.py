@@ -530,6 +530,10 @@ def probe_advisory_store(path: Path | str | None = None) -> Dict[str, Any]:
 
 
 def get_advisory_store(path: Path | str | None = None) -> AdvisoryStore:
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("advisories", lambda: AdvisoryStore(scoped.root / "advisories.sqlite3"))
     global _DEFAULT
     if path is not None:
         return AdvisoryStore(path)

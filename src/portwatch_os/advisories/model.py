@@ -151,6 +151,8 @@ class AdvisoryKind:
 ADVISORY_KINDS: Dict[str, AdvisoryKind] = {
     k.key: k
     for k in [
+        AdvisoryKind("arrival_review", "Arrival evidence review", "review", None,
+                     "Review a specific arrival against its frozen evidence; no navigation command or savings claim."),
         AdvisoryKind("arrival_window", "Recommended arrival", "recommendedArrival", "UTC",
                      "A revised arrival time that reduces expected waiting."),
         AdvisoryKind("speed", "Recommended speed", "recommendedSpeedKn", "kn",

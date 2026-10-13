@@ -1,0 +1,8 @@
+Historical congestion-proxy research. No operational accuracy or savings claim.
+This reporting holdout was previously examined; no new untouched trial is claimed.
+Check out the base repository revision, then overlay evaluation_source.zip.
+The source archive preserves local evaluation changes identified by forecastCodeSha256.
+Install requirements_evaluation.txt in Python 3.12 (runtime used for this release).
+python -m scripts.build_public_research --panel dataset.csv --output data/research_release
+Issue-time weather archives are absent and future weather is excluded.
+Feature-removal ablations do not establish causal contributions.

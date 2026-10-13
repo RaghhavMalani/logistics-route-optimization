@@ -21,6 +21,8 @@ import {
 } from "react";
 
 import { AUTH_MODE, resolveAdapter } from "./adapters";
+import { setAccessToken, postJson } from "@/services/api";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ROLE_PROFILE,
   advisoryHeaders,
@@ -56,6 +58,9 @@ interface AuthContextValue {
   mode: typeof AUTH_MODE;
   adapterDescription: string;
   signIn(credentials: Credentials): Promise<Session>;
+  startDemo(role: Role): Promise<Session>;
+  switchDemo(role: Role): Promise<Session>;
+  resetDemo(): Promise<void>;
   signOut(): Promise<void>;
   setViewAs(role: Role): void;
   setPortCode(code: string): void;
@@ -66,7 +71,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function readStored<T>(key: string): T | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = (
+      AUTH_MODE === "production" ? window.sessionStorage : window.localStorage
+    ).getItem(key);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -76,8 +83,10 @@ function readStored<T>(key: string): T | null {
 function writeStored(key: string, value: unknown): void {
   if (typeof window === "undefined") return;
   try {
-    if (value == null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, JSON.stringify(value));
+    const storage =
+      AUTH_MODE === "production" ? window.sessionStorage : window.localStorage;
+    if (value == null) storage.removeItem(key);
+    else storage.setItem(key, JSON.stringify(value));
   } catch {
     /* Private browsing or a blocked store: the session simply will not
        survive a reload, which is an acceptable degradation. */
@@ -87,6 +96,7 @@ function writeStored(key: string, value: unknown): void {
 const DEFAULT_PORT = "INMAA";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queries = useQueryClient();
   const adapter = useMemo(() => resolveAdapter(AUTH_MODE), []);
   const [status, setStatus] = useState<AuthStatus>("restoring");
   const [session, setSession] = useState<Session | null>(null);
@@ -106,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    void adapter
+    void resolveAdapter(stored.mode)
       .restore(stored)
       .then((restored) => {
         if (cancelled) return;
@@ -116,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const storedView = normaliseRole(readStored<string>(VIEW_AS_KEY));
+        setAccessToken(restored.accessToken, restored.mode);
         setSession(restored);
         setViewAsState(
           restored.user.role === "NATIONAL_ADMIN" && storedView
@@ -139,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (credentials: Credentials) => {
       const next = await adapter.signIn(credentials);
+      queries.clear();
+      setAccessToken(next.accessToken, next.mode);
       writeStored(SESSION_KEY, next);
       writeStored(VIEW_AS_KEY, next.user.role);
       setSession(next);
@@ -150,17 +163,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("authenticated");
       return next;
     },
-    [adapter],
+    [adapter, queries],
   );
 
   const signOut = useCallback(async () => {
-    await adapter.signOut(session);
+    await resolveAdapter(session?.mode).signOut(session);
+    setAccessToken();
+    queries.clear();
     writeStored(SESSION_KEY, null);
     writeStored(VIEW_AS_KEY, null);
     setSession(null);
     setViewAsState(null);
     setStatus("anonymous");
-  }, [adapter, session]);
+  }, [session, queries]);
+
+  const adoptDemo = useCallback(
+    (next: Session) => {
+      queries.clear();
+      setAccessToken(next.accessToken, "demo");
+      writeStored(SESSION_KEY, next);
+      writeStored(VIEW_AS_KEY, next.user.role);
+      setSession(next);
+      setViewAsState(next.user.role);
+      setPortCodeState(next.user.portCode ?? "INNSA");
+      setStatus("authenticated");
+      return next;
+    },
+    [queries],
+  );
+  const startDemo = useCallback(
+    async (role: Role) =>
+      adoptDemo(await postJson<Session>("/demo/session", { role })),
+    [adoptDemo],
+  );
+  const switchDemo = useCallback(
+    async (role: Role) =>
+      adoptDemo(await postJson<Session>("/demo/role", { role })),
+    [adoptDemo],
+  );
+  const resetDemo = useCallback(async () => {
+    await postJson("/demo/reset", {});
+    await queries.resetQueries();
+    window.dispatchEvent(new Event("portwatch:demo-reset"));
+  }, [queries]);
+  useEffect(() => {
+    const expire = () => {
+      setAccessToken();
+      queries.clear();
+      writeStored(SESSION_KEY, null);
+      writeStored(VIEW_AS_KEY, null);
+      setSession(null);
+      setViewAsState(null);
+      setStatus("anonymous");
+    };
+    window.addEventListener("portwatch:demo-expired", expire);
+    return () => window.removeEventListener("portwatch:demo-expired", expire);
+  }, [queries]);
 
   const setViewAs = useCallback(
     (next: Role) => {
@@ -184,10 +242,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       viewAs: viewAs ?? session?.user.role ?? null,
       portCode: session?.user.portCode ?? portCode,
       companyId: session?.user.companyId ?? null,
-      identityHeaders: advisoryHeaders(session?.user ?? null),
-      mode: AUTH_MODE,
+      identityHeaders: advisoryHeaders(
+        session?.user ?? null,
+        session?.accessToken,
+      ),
+      mode: session?.mode ?? AUTH_MODE,
       adapterDescription: adapter.description,
       signIn,
+      startDemo,
+      switchDemo,
+      resetDemo,
       signOut,
       setViewAs,
       setPortCode,
@@ -199,6 +263,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPortCode,
       setViewAs,
       signIn,
+      startDemo,
+      switchDemo,
+      resetDemo,
       signOut,
       status,
       viewAs,
@@ -222,7 +289,9 @@ export function useWorkspace() {
     role: active,
     profile: ROLE_PROFILE[active],
     isImpersonating:
-      role === "NATIONAL_ADMIN" && viewAs !== null && viewAs !== "NATIONAL_ADMIN",
+      role === "NATIONAL_ADMIN" &&
+      viewAs !== null &&
+      viewAs !== "NATIONAL_ADMIN",
     user: session?.user ?? null,
     portCode,
     companyId,

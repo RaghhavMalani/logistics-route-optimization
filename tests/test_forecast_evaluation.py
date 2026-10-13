@@ -204,6 +204,58 @@ class CalibrationTests(unittest.TestCase):
 
 
 class StackingTests(unittest.TestCase):
+    def test_missing_weighted_member_does_not_create_zero_predictions(self):
+        block = pd.DataFrame({"q50__a": [np.nan], "q50__b": [30.0]})
+        result = model_benchmark._blend_column(block, ["a", "b"], {"a": 1.0, "b": 0.0}, "q50")
+        self.assertEqual(result[0], 30.0)
+
+    def test_legacy_fitted_policy_and_accuracy_are_withheld(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from backend.app.services import cache_service
+        from src.forecasting.ensemble import load_ensemble_policy
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "legacy.json"
+            file.write_text(json.dumps({"available": True, "version": "walk-forward-v3", "fitted": True,
+                                        "globalWeights": {"gbm": 1}, "summary": {"bestMae": 1}}))
+            self.assertFalse(load_ensemble_policy(file).fitted)
+            with patch.object(cache_service, "BENCHMARK_CACHE", file):
+                result = cache_service.get_benchmark()
+            self.assertFalse(result["available"])
+            self.assertNotIn("summary", result)
+
+    def test_manifest_tracks_data_changes_and_configuration(self):
+        panel = _panel()
+        before = model_benchmark.benchmark_manifest(panel, 5, 3, False, 12)
+        panel.loc[0, "congestion_index"] += 1
+        after = model_benchmark.benchmark_manifest(panel, 5, 3, False, 12)
+        self.assertNotEqual(before["datasetSha256"], after["datasetSha256"])
+        self.assertEqual(len(before["forecastCodeSha256"]), 64)
+        self.assertEqual(before["configuration"]["horizonDays"], 5)
+
+    def test_stacking_boundaries_purge_labels_and_holdout_cannot_change_weights(self):
+        origins = pd.date_range("2025-06-01", periods=80)
+        rows = []
+        for i, origin in enumerate(origins):
+            for model, offset in ((model_benchmark.NAIVE, 0), (model_benchmark.GBM, 5), (model_benchmark.RIDGE, 2)):
+                rows.append({"port_id": "JNPT", "forecast_origin_date": origin,
+                    "target_date": origin+pd.Timedelta(days=3), "horizon_day": 3,
+                    "y_congestion_index": 20, "fold": i//30, "regime": "UNKNOWN",
+                    "model": model, "q10": 15+offset, "q50": 20+offset, "q90": 25+offset})
+        predictions = pd.DataFrame(rows)
+        fit, calibration, holdout = model_benchmark.chronological_partitions(predictions)
+        self.assertLess(fit.target_date.max(), calibration.forecast_origin_date.min())
+        self.assertLess(calibration.target_date.max(), holdout.forecast_origin_date.min())
+        policy, _, _ = model_benchmark.fit_stacking_policy(fit, "y_congestion_index", 2, model_benchmark.RIDGE, calibration)
+        changed = predictions.copy()
+        changed.loc[changed.fold == changed.fold.max(), "y_congestion_index"] = 10000
+        next_fit, next_calibration, _ = model_benchmark.chronological_partitions(changed)
+        other, _, _ = model_benchmark.fit_stacking_policy(next_fit, "y_congestion_index", 2, model_benchmark.RIDGE, next_calibration)
+        self.assertEqual(policy.global_weights, other.global_weights)
+        self.assertEqual(policy.conformal_by_horizon, other.conformal_by_horizon)
+
     def test_simplex_weights_sum_to_one(self):
         grid = model_benchmark._simplex(["a", "b", "c"], step=0.25)
         self.assertTrue(all(abs(sum(w.values()) - 1.0) < 1e-9 for w in grid))
@@ -254,7 +306,7 @@ class StackingTests(unittest.TestCase):
             for row in weights["byHorizon"].values():
                 self.assertAlmostEqual(sum(row.values()), 1.0, places=6)
 
-    def test_benchmark_reports_ensemble_coverage_near_nominal(self):
+    def test_benchmark_reports_measured_untouched_holdout_coverage(self):
         import tempfile
         from pathlib import Path
 
@@ -264,8 +316,13 @@ class StackingTests(unittest.TestCase):
                                           include_tft=False, output_dir=out)
             table = pd.read_csv(out / "model_benchmark.csv")
             row = table[table["model"] == model_benchmark.ENSEMBLE].iloc[0]
-            self.assertGreater(float(row["coverage_80pct"]), 0.7)
-            self.assertLess(float(row["coverage_80pct"]), 0.9)
+            # Coverage can drift on a genuinely untouched period. Requiring it
+            # to look like the fitting sample would encourage tuning on test.
+            heldout = pd.read_csv(out / "holdout_predictions.csv")
+            ensemble = heldout[heldout["model"] == model_benchmark.ENSEMBLE]
+            measured = interval_coverage(ensemble["y_congestion_index"], ensemble["q10"], ensemble["q90"])
+            self.assertAlmostEqual(float(row["coverage_80pct"]), measured, places=4)
+            self.assertAlmostEqual(float(row["calibration_error"]), abs(measured-0.8), places=4)
 
 
 if __name__ == "__main__":

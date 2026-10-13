@@ -64,6 +64,8 @@ import { ActionRail } from "./ActionRail";
 import { SecurityLensReport, TradeExposureReport } from "./LensReports";
 import { EvidenceDrawer } from "./EvidenceDrawer";
 import { useCascadeReveal } from "./useCascadeReveal";
+import { GlobalIntelligenceControl } from "@/components/intelligence/GlobalIntelligenceControl";
+import { CurrentInputControl } from "@/components/intelligence/CurrentInputControl";
 
 export type GlobalEyeScope = "national" | "company" | "port";
 
@@ -361,6 +363,52 @@ export function GlobalEyeScreen({
   return (
     <div className="absolute inset-0">
       <h1 className="sr-only">{title}</h1>
+      <GlobalIntelligenceControl
+        onDecision={
+          scope === "company"
+            ? (problem) => {
+                world.selectVessel(problem.subject.id);
+                world.openDecision(
+                  problem.decisionId,
+                  problem.humanChoice ??
+                    problem.options.find(
+                      (option) =>
+                        !option.isBaseline && option.status === "FEASIBLE",
+                    )?.optionId ??
+                    problem.baselineOptionId,
+                  true,
+                );
+              }
+            : undefined
+        }
+        portCode={portCode ?? workspace.selectedPortCode}
+        onPort={(code) => {
+          workspace.setSelectedPortCode(code);
+          world.selectPort(code);
+        }}
+        onEvent={world.selectEvent}
+        onVessel={(id) => {
+          workspace.setSelectedVesselId(id);
+          world.selectVessel(id);
+        }}
+      />
+      {scope === "company" ? (
+        <CurrentInputControl
+          onDecision={(problem) => {
+            world.selectVessel(problem.subject.id);
+            world.openDecision(
+              problem.decisionId,
+              problem.humanChoice ??
+                problem.options.find(
+                  (option) =>
+                    !option.isBaseline && option.status === "FEASIBLE",
+                )?.optionId ??
+                problem.baselineOptionId,
+              true,
+            );
+          }}
+        />
+      ) : null}
 
       <MaritimeMap
         layers={lensedLayers}
@@ -478,7 +526,7 @@ export function GlobalEyeScreen({
 
             {/* ------------------------------------------------- decision -- */}
             {decisionOpen ? (
-              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] flex-col">
+              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] max-w-[calc(100%_-_20px)] flex-col">
                 <FloatPanel
                   title="Decision"
                   note={<span className="num">{world.decisionId}</span>}
@@ -514,7 +562,7 @@ export function GlobalEyeScreen({
 
             {/* ------------------------------------------------- evidence -- */}
             {evidenceOpen && selectedAttentionId && !decisionOpen ? (
-              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[330px] flex-col">
+              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[330px] max-w-[calc(100%_-_20px)] flex-col">
                 <FloatPanel
                   title="Why this"
                   className="pointer-events-auto min-h-0 flex-1"

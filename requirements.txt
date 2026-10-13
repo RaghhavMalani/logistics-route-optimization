@@ -12,6 +12,8 @@ hmmlearn>=0.3          # HSMM backend; falls back to a GaussianMixture if absent
 
 # --- live connectors --------------------------------------------------------
 requests>=2.31         # IMF PortWatch, Open-Meteo, GDELT, FRED
+pypdf>=6.0,<7          # Reviewed authority notice PDFs
+pdfplumber>=0.11,<0.12  # Versioned official public-port PDF adapters
 
 # --- API --------------------------------------------------------------------
 fastapi>=0.115

@@ -109,7 +109,9 @@ class MatrixTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         os.environ.setdefault("PORTWATCH_LICENCE_MODE", "DEMO")
         os.environ["PORTWATCH_FRESHNESS_SCHEDULER"] = "0"
-        os.environ.pop("PORTWATCH_IDENTITY_MODE", None)
+        cls.identity_patch = mock.patch.dict(os.environ, {"PORTWATCH_IDENTITY_MODE": "asserted"})
+        cls.identity_patch.start()
+        cls.addClassCleanup(cls.identity_patch.stop)
         from fastapi.testclient import TestClient
 
         from backend.app.main import app
@@ -180,6 +182,9 @@ class DecisionScopeTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        cls.identity_patch = mock.patch.dict(os.environ, {"PORTWATCH_IDENTITY_MODE": "asserted"})
+        cls.identity_patch.start()
+        cls.addClassCleanup(cls.identity_patch.stop)
         os.environ.setdefault("PORTWATCH_LICENCE_MODE", "DEMO")
         os.environ["PORTWATCH_FRESHNESS_SCHEDULER"] = "0"
         from fastapi.testclient import TestClient

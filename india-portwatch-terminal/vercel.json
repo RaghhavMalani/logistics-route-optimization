@@ -1,9 +1,24 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "tanstack-start",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "has": [{ "type": "host", "value": "india-portwatch.vercel.app" }],
+      "destination": "https://india-portwatch-api.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://api-restored-preview-restored-preview.up.railway.app/api/:path*"
+    }
+  ],
+  "headers": [
+    { "source": "/api/:path*", "headers": [{ "key": "Cache-Control", "value": "private, no-store" }] }
+  ],
   "build": {
     "env": {
-      "NITRO_PRESET": "vercel"
+      "NITRO_PRESET": "vercel",
+      "VITE_PORTWATCH_AUTH_MODE": "production"
     }
   }
 }

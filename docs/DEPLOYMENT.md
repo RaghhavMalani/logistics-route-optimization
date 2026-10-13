@@ -1,5 +1,7 @@
 # Deployment
 
+The public application is published at [PortWatch](https://india-portwatch.vercel.app/). The October 9 Milestone A entry exposes Company, Vessel, Port and Admin demonstrations backed by isolated server-owned visitor worlds. [Global Intelligence](https://india-portwatch.vercel.app/explore) preserves the recovered interactive globe, report selection, affected assets, dated forecasts and constrained shipping comparisons. `/research` retains the published results and reviewed case. See [the role-demo implementation](MILESTONE_A_ROLE_DEMOS.md), [verified release](PUBLIC_ROLE_DEMO_RELEASE.md) and [preceding globe release](PUBLIC_WORKSPACE_RELEASE.md). Anonymous APIs use explicit public projections; operational workflows retain verified identity. Railway uses its existing `/app/state` volume, one backend scheduler and the packaged public evidence. Demo SQLite state occupies its own `/app/state/demo` directory; no operator database is copied into the release.
+
 How PortWatch X runs in production, what state it holds, where that state
 lives, and what was tested. The short version: the backend is a long-running
 process with a world in memory, a freshness coordinator on a schedule and a
@@ -188,3 +190,13 @@ corrupt cache, database unavailable, frontend cut off from the API.
   is small; a migration would be a project of its own and nothing here needs
   it. The compose file's `infra` profile (PostgreSQL + Kafka) backs the
   research pipeline's optional path, not the ledger.
+
+## 7. Restored application releases, October 12, 2026
+
+The restored public application uses the same Vercel project, Railway production service and persistent `/app/state` volume. Backend uploads come from explicit, hash-verified public-source staging manifests; operator and visitor state is excluded. Preview work uses the separate `restored-preview` Railway environment and volume. After preview workflow, source-integrity, isolation and restart checks pass, the verified backend package is uploaded to the existing production service and the validated Vercel preview is promoted. With the current CLI, promotion rebuilds a production deployment from the preview's saved source, not subsequent local edits.
+
+The shared browser `/api` proxy selects production for the public domain and the isolated backend for preview domains, with private/no-store responses. Durable connected weather, intelligence and authority-restriction journeys restore frozen options, choices, approvals and advisory links; unlike the older legacy stress comparisons described above, they do not require recomputation merely because backend resources restarted. Changed or expired consumed evidence still blocks a new action and requires an explicit linked refresh.
+
+Keep the project-level **VITE_PORTWATCH_API_BASE=/api** configuration in both Production and Preview. Promotion rebuilds using the production environment; per-deployment preview overrides alone do not preserve that address. An older absolute Railway address caused public browser fetch failures even while same-origin API checks passed. The persistent project configuration was corrected without changing backend authentication or CORS permissions. Always verify the public browser after promotion.
+
+Weather reconciliation and reviewed authority notice collection each run independently at startup and every six hours. Weather remains collecting until real, complete later outcomes and adequate chronological evaluation support a correction. See [authority restriction release and validation](AUTHORITY_RESTRICTION_RELEASE.md) and [learning pipeline details](WEATHER_INTELLIGENCE_LEARNING_PREVIEW.md).

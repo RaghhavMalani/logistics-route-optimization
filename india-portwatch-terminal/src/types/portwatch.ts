@@ -37,6 +37,7 @@ export interface HealthSources {
 }
 
 export interface Health {
+  trafficEpoch?: string;
   status: string;
   service: string;
   serverTimeUtc: string;
@@ -424,6 +425,18 @@ export interface IntelligenceChain {
 /* ------------------------------------------------------------- weather ---- */
 
 export interface WeatherSignal {
+  sourceState?: "FORECAST";
+  forecastFrom?: string;
+  availableAt?: string;
+  hourly?: Array<{
+    validAt: string;
+    wind_speed_10m: number | null;
+    wind_gusts_10m: number | null;
+    wind_direction_10m?: number | null;
+    precipitation: number | null;
+    visibility: number | null;
+    wave_height: number | null;
+  }>;
   portCode: string;
   name: string;
   observedAt: string | null;
@@ -558,6 +571,8 @@ export interface FeedAdapter {
  * so rather than inventing either.
  */
 export interface FleetRow {
+  originPortCode?: string;
+  oneWay?: boolean;
   id: string;
   name: string;
   intendedPortCode: string | null;

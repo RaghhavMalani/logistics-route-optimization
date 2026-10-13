@@ -28,7 +28,7 @@ from src.portwatch_os.telemetry import get_telemetry
 router = APIRouter()
 
 #: Environment variables whose values must never appear in a payload.
-SECRET_ENV = ("AISSTREAM_API_KEY", "OPEN_METEO_API_KEY", "DATABASE_URL", "KAFKA_BOOTSTRAP_SERVERS")
+SECRET_ENV = ("AISSTREAM_API_KEY", "OPEN_METEO_API_KEY", "VESSELFINDER_API_KEY", "DATABASE_URL", "KAFKA_BOOTSTRAP_SERVERS")
 
 
 def _admin(role: Optional[str]) -> str:
@@ -83,6 +83,12 @@ def refresh_artifact(
 ) -> Dict[str, Any]:
     """Refresh now. A running job is joined, never duplicated."""
     _admin(role)
+    if artifact.startswith(("public_ports_", "vesselfinder_")):
+        from backend.app.identity import require_verified
+        from backend.app.routes.intelligence import may_write
+        principal = require_verified()
+        may_write(principal, artifact.rsplit("_", 1)[-1])
+        actor = principal.actor
     if not actor:
         raise HTTPException(status_code=401, detail="a refresh request must name its actor (X-PortWatch-Actor)")
     coordinator = _coordinator()

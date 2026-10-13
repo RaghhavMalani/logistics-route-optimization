@@ -1,9 +1,10 @@
 """Walk-forward model benchmark -- the evidence behind every accuracy claim.
 
-All candidate models are scored on **identical expanding-window folds** over the
-**same supervised frame**, so the comparison is apples-to-apples and time-series
-safe. Nothing is tuned on the test block, and the ensemble weighting policy this
-module fits is derived exclusively from out-of-fold predictions.
+Candidate models generate expanding-window out-of-fold predictions. Earlier
+origins fit the ensemble, a separate later block calibrates intervals, and only
+the final untouched fold supplies headline scores for every model. Purging at
+both boundaries removes labels that would not yet have been available.
+Full-history regime exports and unarchived current weather forecasts are excluded.
 
 Candidates
 ----------
@@ -17,7 +18,7 @@ Candidates
     TFT                   the deep model, scored on the same folds, when the
                           pytorch-forecasting stack is installed.
     Adaptive ensemble     the fitted stack over persistence + GBM + the second
-                          opinion, scored out-of-fold like every other entry.
+                          opinion, scored on the untouched final fold.
 
 Why a stack over horizon
 ------------------------
@@ -42,12 +43,17 @@ Artefacts written to ``outputs/forecasts/``
     regime_benchmark.csv    accuracy by HSMM regime
     calibration.json        nominal vs empirical coverage curve
     ensemble_weights.json   the fitted, leakage-safe stacking policy
-    benchmark_summary.json  headline numbers plus the protocol used
+    benchmark_summary.json  headline numbers, chronology and reproducibility manifest
+    holdout_predictions.csv untouched final-period predictions and outcomes
 """
 
 from __future__ import annotations
 
 import json
+import hashlib
+import importlib.metadata
+import subprocess
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List
@@ -68,7 +74,14 @@ from src.utils.logging_utils import get_logger
 
 log = get_logger(__name__)
 
-BENCHMARK_VERSION = "walk-forward-v3"
+BENCHMARK_VERSION = ensemble_module.EVALUATION_PROTOCOL
+
+# These exports were fitted on the full panel, including the evaluation period.
+# Until a causal, fold-local regime adapter exists they cannot be benchmark inputs.
+FULL_HISTORY_REGIME_COLUMNS = (
+    "regime_label", "p_normal", "p_congested", "p_severe", "days_in_state",
+    "expected_remaining_days", "transition_risk", "regime_confidence",
+)
 
 #: Nominal levels used for the calibration curve.
 CALIBRATION_LEVELS = (0.5, 0.8, 0.9)
@@ -207,6 +220,7 @@ def _score(truth: np.ndarray, preds: pd.DataFrame) -> Dict[str, float]:
         "mae": mae(truth, point),
         "rmse": rmse(truth, point),
         "mape_pct": mape(truth, point),
+        "signed_bias": float(np.nanmean(truth - point)),
     }
     q10 = preds["q10"].to_numpy(dtype=float)
     q50 = preds["q50"].to_numpy(dtype=float)
@@ -276,6 +290,8 @@ def _blend_column(block: pd.DataFrame, members: List[str],
     ])
     weight_row = np.array([weights[member] for member in members], dtype=float)
     weight_matrix = np.where(~np.isnan(stack), weight_row, 0.0)
+    missing_weight = weight_matrix.sum(axis=1) <= 1e-9
+    weight_matrix[missing_weight] = np.isfinite(stack[missing_weight]).astype(float)
     totals = np.clip(weight_matrix.sum(axis=1, keepdims=True), 1e-9, None)
     return (np.nansum(np.nan_to_num(stack) * weight_matrix, axis=1)
             / totals[:, 0])
@@ -318,7 +334,8 @@ def _wide_members(predictions: pd.DataFrame, ycol: str
 
 
 def fit_stacking_policy(predictions: pd.DataFrame, ycol: str, folds: int,
-                        second_opinion: str | None
+                        second_opinion: str | None,
+                        calibration_predictions: pd.DataFrame | None = None
                         ) -> tuple[EnsemblePolicy, pd.DataFrame, List[str]]:
     """Fit stacking weights on out-of-fold predictions only.
 
@@ -360,29 +377,55 @@ def fit_stacking_policy(predictions: pd.DataFrame, ycol: str, folds: int,
             by_port[str(port)] = best(block)
 
     from src.forecasting.calibration import conformal_offset
-    conformal: Dict[int, float] = {}
-    for horizon, block in wide.groupby("horizon_day"):
-        weights = by_horizon.get(int(horizon), global_weights)
-        lo = _blend_column(block, members, weights, "q10")
-        hi = _blend_column(block, members, weights, "q90")
-        offset = conformal_offset(block[ycol], lo, hi, alpha=0.2)
-        conformal[int(horizon)] = round(max(0.0, float(offset)), 3)
-
     policy = EnsemblePolicy(
         members=members,
         global_weights=global_weights,
         by_horizon=by_horizon,
         by_regime=by_regime,
         by_port=by_port,
-        conformal_by_horizon=conformal,
+        conformal_by_horizon={},
         fitted=True,
         source=(f"stacked out-of-fold on {folds} expanding walk-forward folds "
                 f"over {', '.join(members)}; pinball-optimal per horizon"),
         folds=folds,
         generated_at=datetime.now(timezone.utc).isoformat(),
         second_opinion_model=second_opinion,
+        evaluation_protocol=BENCHMARK_VERSION,
     )
+    # Calibration has its own later block. Use the actual contextual blend,
+    # including port adjustments, whose intervals will be scored in production.
+    if calibration_predictions is not None and not calibration_predictions.empty:
+        calibration_wide, calibration_members = _wide_members(calibration_predictions, ycol)
+        if calibration_members != members:
+            raise ValueError("calibration and weight-fitting members must match")
+        calibrated = _blend_predictions(calibration_wide, members, policy, ycol)
+        for horizon, block in calibrated.groupby("horizon_day"):
+            offset = conformal_offset(block[ycol], block["q10"], block["q90"], alpha=0.2)
+            policy.conformal_by_horizon[int(horizon)] = round(max(0.0, float(offset)), 3)
     return policy, wide, members
+
+
+def chronological_partitions(predictions: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Weight fit, interval calibration, untouched final-fold holdout.
+
+    Purge crossing labels at both boundaries: a target must have resolved before
+    the next block's first forecast origin. Splits operate on origins across all
+    ports and horizons together, never on randomly shuffled rows.
+    """
+    final_fold = predictions["fold"].max()
+    test = predictions[predictions["fold"] == final_fold].copy()
+    before = predictions[(predictions["fold"] < final_fold)
+                         & (predictions["target_date"] < test["forecast_origin_date"].min())]
+    origins = np.sort(before["forecast_origin_date"].unique())
+    if len(origins) < 4:
+        raise ValueError("insufficient earlier origins for independent weight fitting and calibration")
+    calibration_start = pd.Timestamp(origins[max(1, int(len(origins) * 0.7))])
+    fit = before[(before["forecast_origin_date"] < calibration_start)
+                 & (before["target_date"] < calibration_start)].copy()
+    calibration = before[before["forecast_origin_date"] >= calibration_start].copy()
+    if fit.empty or calibration.empty or test.empty:
+        raise ValueError("chronological partitions are empty after purging overlapping labels")
+    return fit, calibration, test
 
 
 def _blend_predictions(wide: pd.DataFrame, members: List[str],
@@ -408,6 +451,8 @@ def _blend_predictions(wide: pd.DataFrame, members: List[str],
             for m in members
         ])
         weight_matrix = np.where(~np.isnan(stack), base_weights, 0.0)
+        missing_weight = weight_matrix.sum(axis=1) <= 1e-9
+        weight_matrix[missing_weight] = np.isfinite(stack[missing_weight]).astype(float)
         totals = np.clip(weight_matrix.sum(axis=1, keepdims=True), 1e-9, None)
         out[quantile] = (np.nansum(np.nan_to_num(stack) * weight_matrix, axis=1)
                          / totals[:, 0])
@@ -487,18 +532,23 @@ def run_benchmark(panel: pd.DataFrame,
                   n_folds: int = 5,
                   include_tft: bool | None = None,
                   tft_epochs: int = 12,
-                  output_dir=None) -> dict:
+                  output_dir=None,
+                  include_ablations: bool = False) -> dict:
     """Run the full walk-forward benchmark and write every artefact."""
     output_dir = output_dir or FORECASTS_DIR
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    supervised = build_supervised(panel, weather_now, horizon)
+    excluded = [c for c in FULL_HISTORY_REGIME_COLUMNS if c in panel.columns]
+    benchmark_panel = panel.drop(columns=FULL_HISTORY_REGIME_COLUMNS, errors="ignore")
+    # A current forecast/reanalysis table has no historical issue time. Joining
+    # it by target date would give earlier origins information from the future.
+    supervised = build_supervised(benchmark_panel, None, horizon)
     frame = supervised.frame
     primary = (PRIMARY_TARGET if PRIMARY_TARGET in supervised.available_targets
                else supervised.available_targets[0])
     ycol = f"y_{primary}"
 
-    regime_lookup = _regime_lookup(panel)
+    regime_lookup = {}
     folds = expanding_folds(frame, n_folds=n_folds)
     if not folds:
         log.warning("Not enough history for a walk-forward benchmark.")
@@ -525,9 +575,18 @@ def run_benchmark(panel: pd.DataFrame,
             GBM: _gbm(fold, supervised.feature_cols, primary),
             RIDGE: _ridge(fold, supervised.feature_cols, primary),
         }
+        if include_ablations:
+            # Predeclared feature removals; no model/parameter selection on
+            # the reporting holdout. Origin-time target history is retained.
+            history = [c for c in supervised.feature_cols
+                       if any(c.startswith(t + "_") for t in supervised.available_targets)
+                       or c in supervised.static_cols or c == "horizon_day"]
+            calendar = [c for c in supervised.feature_cols if c.startswith("cal_")]
+            candidates["GBM history + calendar"] = _gbm(fold, history + calendar, primary)
+            candidates["GBM history only"] = _gbm(fold, history, primary)
         if include_tft:
             try:
-                deep = _tft(fold, panel, weather_now, horizon, primary, tft_epochs)
+                deep = _tft(fold, benchmark_panel, None, horizon, primary, tft_epochs)
                 if deep is not None:
                     candidates[TFT] = deep
             except Exception as exc:
@@ -546,19 +605,30 @@ def run_benchmark(panel: pd.DataFrame,
     predictions = pd.concat(records, ignore_index=True)
 
     # --- fit the stacking policy out-of-fold, then score the ensemble --------
-    available = set(predictions["model"])
-    secondary_name = TFT if TFT in available else RIDGE
+    try:
+        fit_rows, calibration_rows, holdout_rows = chronological_partitions(predictions)
+    except ValueError as exc:
+        return {"available": False, "reason": str(exc), "version": BENCHMARK_VERSION}
+    # The second opinion is chosen using the earlier fitting block only.
+    available = set(holdout_rows["model"])
+    secondary_name = TFT if TFT in set(fit_rows["model"]) else RIDGE
     dropped = {TFT, RIDGE} - {secondary_name}
-    stack_input = predictions[~predictions["model"].isin(dropped)]
-    policy, wide, members = fit_stacking_policy(stack_input, ycol, len(folds),
-                                                secondary_name)
+    policy, _, members = fit_stacking_policy(
+        fit_rows[~fit_rows["model"].isin(dropped)], ycol, len(folds) - 1,
+        secondary_name, calibration_rows[~calibration_rows["model"].isin(dropped)])
+    wide, _ = _wide_members(holdout_rows[~holdout_rows["model"].isin(dropped)], ycol)
+    for member in members:
+        for quantile in ("q10", "q50", "q90"):
+            if f"{quantile}__{member}" not in wide:
+                wide[f"{quantile}__{member}"] = np.nan
     ensemble = _blend_predictions(wide, members, policy, ycol)
+    scored_predictions = holdout_rows.copy()
     if not ensemble.empty:
-        ensemble["fold"] = np.nan
-        predictions = pd.concat([predictions, ensemble], ignore_index=True)
+        ensemble["fold"] = folds[-1].index
+        scored_predictions = pd.concat([scored_predictions, ensemble], ignore_index=True)
 
     # --- aggregate ----------------------------------------------------------
-    scored = predictions.dropna(subset=[ycol])
+    scored = scored_predictions.dropna(subset=[ycol])
     model_table = _round(_aggregate(scored, ycol, ["model"]))
     model_table = model_table.sort_values("mae").reset_index(drop=True)
     horizon_table = _round(_aggregate(scored, ycol, ["model", "horizon_day"]))
@@ -593,6 +663,7 @@ def run_benchmark(panel: pd.DataFrame,
         "version": BENCHMARK_VERSION,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "target": primary,
+        "reproducibility": benchmark_manifest(panel, horizon, n_folds, include_tft, tft_epochs),
         "horizonDays": horizon,
         "summary": {
             "folds": len(folds),
@@ -612,14 +683,30 @@ def run_benchmark(panel: pd.DataFrame,
         },
         "ensembleWeights": policy.to_dict(),
         "trainOrigins": int(frame["forecast_origin_date"].nunique()),
-        "protocol": ("expanding-window walk-forward; a training row is used only "
-                     "if its label was observable at the fold cutoff; stacking "
-                     "weights fitted on out-of-fold predictions only"),
+        "evaluationSplit": {
+            "weightFitThrough": fit_rows["target_date"].max().isoformat(),
+            "calibrationFrom": calibration_rows["forecast_origin_date"].min().isoformat(),
+            "calibrationThrough": calibration_rows["target_date"].max().isoformat(),
+            "holdoutFrom": holdout_rows["forecast_origin_date"].min().isoformat(),
+            "holdoutThrough": holdout_rows["target_date"].max().isoformat(),
+            "excludedFullHistoryFeatures": excluded,
+            "historicalFutureWeather": "excluded: no issue-time archive supplied",
+        },
+        "protocol": ("expanding-window base-model fits; weights fitted on earlier out-of-fold "
+                     "predictions; calibration on a separate later block; all headline metrics "
+                     "on the untouched final fold; crossing labels purged at both boundaries; "
+                     "full-history regime features and unversioned future weather excluded"),
+        "ablations": {"enabled": include_ablations,
+            "reference": GBM,
+            "variants": ["GBM history + calendar", "GBM history only"] if include_ablations else [],
+            "meaning": "Predeclared feature removals on the same chronological rows; no causal weather-effect or operational savings claim."},
     }
+    summary["reproducibility"]["configuration"]["includeAblations"] = include_ablations
     with open(output_dir / "benchmark_summary.json", "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2)
 
     predictions.to_csv(output_dir / "walk_forward_predictions.csv", index=False)
+    scored.to_csv(output_dir / "holdout_predictions.csv", index=False)
 
     log.info("Benchmark complete (%d folds). Leader: %s (MAE %.3f). Skill vs "
              "naive: %s", len(folds), best["model"], float(best["mae"]),
@@ -627,6 +714,36 @@ def run_benchmark(panel: pd.DataFrame,
     log.info("\n%s", model_table.to_string(index=False))
     log.info("Ensemble policy: %s", policy.describe())
     return summary
+
+
+def benchmark_manifest(panel: pd.DataFrame, horizon: int, folds: int,
+                       include_tft: bool, tft_epochs: int) -> dict:
+    root = Path(__file__).resolve().parents[2]
+    try:
+        revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
+                                  text=True, timeout=5, check=True).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        revision = None
+    versions = {}
+    for dependency in ("numpy", "pandas", "scikit-learn", "pytorch-forecasting"):
+        try:
+            versions[dependency] = importlib.metadata.version(dependency)
+        except importlib.metadata.PackageNotFoundError:
+            versions[dependency] = None
+    code_files = [Path(__file__), root / "src/forecasting/forecast_runner.py",
+                  root / "src/forecasting/tft_dataset.py", root / "src/forecasting/ensemble.py",
+                  root / "src/forecasting/calibration.py", root / "src/forecasting/linear_model.py",
+                  root / "src/forecasting/tft_model.py", root / "src/utils/config.py"]
+    digest = hashlib.sha256()
+    for file in code_files:
+        digest.update(str(file.relative_to(root)).encode())
+        digest.update(file.read_bytes())
+    snapshot = panel.sort_values([PORT_ID, "date"]).to_csv(index=False).encode()
+    return {"codeRevision": revision, "forecastCodeSha256": digest.hexdigest(),
+            "datasetSha256": hashlib.sha256(snapshot).hexdigest(), "datasetRows": len(panel),
+            "seed": {"gbm": 42, "tft": 42}, "dependencies": versions,
+            "configuration": {"horizonDays": horizon, "folds": folds,
+                              "includeTft": bool(include_tft), "tftEpochs": tft_epochs}}
 
 
 def _paired_skill(scored: pd.DataFrame, ycol: str, model: str,
@@ -672,7 +789,7 @@ def _regime_lookup(panel: pd.DataFrame) -> Dict[tuple, str]:
 
 def load_panel_with_regimes(panel_path, regimes_path=None) -> pd.DataFrame:
     """Read the merged panel and attach the HSMM regime columns."""
-    panel = pd.read_csv(panel_path)
+    panel = pd.read_csv(panel_path, float_precision="round_trip")
     panel["date"] = pd.to_datetime(panel["date"])
     regimes_path = regimes_path or (FORECASTS_DIR.parent / "regimes" / "regimes.csv")
     if regimes_path and pd.io.common.file_exists(str(regimes_path)):

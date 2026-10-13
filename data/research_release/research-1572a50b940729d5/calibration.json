@@ -1,0 +1,129 @@
+{
+  "levels": [
+    0.5,
+    0.8,
+    0.9
+  ],
+  "models": {
+    "Adaptive ensemble": [
+      {
+        "nominal": 0.5,
+        "empirical": 0.592,
+        "error": 0.092,
+        "meanWidth": 12.412
+      },
+      {
+        "nominal": 0.8,
+        "empirical": 0.8754,
+        "error": 0.0754,
+        "meanWidth": 23.583
+      },
+      {
+        "nominal": 0.9,
+        "empirical": 0.9413,
+        "error": 0.0413,
+        "meanWidth": 30.269
+      }
+    ],
+    "GBM history + calendar": [
+      {
+        "nominal": 0.5,
+        "empirical": 0.4218,
+        "error": 0.0782,
+        "meanWidth": 8.708
+      },
+      {
+        "nominal": 0.8,
+        "empirical": 0.7021,
+        "error": 0.0979,
+        "meanWidth": 16.546
+      },
+      {
+        "nominal": 0.9,
+        "empirical": 0.8063,
+        "error": 0.0937,
+        "meanWidth": 21.237
+      }
+    ],
+    "GBM history only": [
+      {
+        "nominal": 0.5,
+        "empirical": 0.5296,
+        "error": 0.0296,
+        "meanWidth": 11.247
+      },
+      {
+        "nominal": 0.8,
+        "empirical": 0.8319,
+        "error": 0.0319,
+        "meanWidth": 21.37
+      },
+      {
+        "nominal": 0.9,
+        "empirical": 0.9235,
+        "error": 0.0235,
+        "meanWidth": 27.429
+      }
+    ],
+    "GBM quantile": [
+      {
+        "nominal": 0.5,
+        "empirical": 0.4878,
+        "error": 0.0122,
+        "meanWidth": 9.717
+      },
+      {
+        "nominal": 0.8,
+        "empirical": 0.7592,
+        "error": 0.0408,
+        "meanWidth": 18.463
+      },
+      {
+        "nominal": 0.9,
+        "empirical": 0.8577,
+        "error": 0.0423,
+        "meanWidth": 23.697
+      }
+    ],
+    "Naive persistence": [
+      {
+        "nominal": 0.5,
+        "empirical": 0.6117,
+        "error": 0.1117,
+        "meanWidth": 13.752
+      },
+      {
+        "nominal": 0.8,
+        "empirical": 0.884,
+        "error": 0.084,
+        "meanWidth": 26.129
+      },
+      {
+        "nominal": 0.9,
+        "empirical": 0.9437,
+        "error": 0.0437,
+        "meanWidth": 33.536
+      }
+    ],
+    "Ridge quantile": [
+      {
+        "nominal": 0.5,
+        "empirical": 0.512,
+        "error": 0.012,
+        "meanWidth": 12.075
+      },
+      {
+        "nominal": 0.8,
+        "empirical": 0.7991,
+        "error": 0.0009,
+        "meanWidth": 22.944
+      },
+      {
+        "nominal": 0.9,
+        "empirical": 0.896,
+        "error": 0.004,
+        "meanWidth": 29.448
+      }
+    ]
+  }
+}

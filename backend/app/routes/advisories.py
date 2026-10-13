@@ -64,6 +64,11 @@ def principal_from_request(
     nobody else does, and the ``is_admin`` argument callers used to pass from
     the ``X-PortWatch-Admin`` header is ignored (``backend.app.identity``).
     """
+    from backend.app.identity import current_identity
+    verified = current_identity.get()
+    if verified:
+        actor, role, port_code = verified.actor, verified.role, verified.port_code
+        organisation, vessel_ids = verified.organisation, ",".join(verified.vessel_ids)
     is_admin = False
     if not actor:
         raise HTTPException(
@@ -128,12 +133,10 @@ def advisory_policy() -> Dict[str, Any]:
         ],
         "identity": {
             **__import__("backend.app.identity", fromlist=["describe"]).describe(),
-            "source": "request headers set by the terminal from its session",
-            "verified": False,
+            "source": "server-managed session in verified mode; explicit demo assertions otherwise",
             "note": (
-                "This deployment's identity is asserted by the client, not verified by "
-                "a token. Replace principal_from_request with a verifier before this "
-                "is used for anything real."
+                "Verified sessions supply server-owned roles and membership to the workflow. "
+                "Asserted and proxy-required modes must not protect real operations."
             ),
         },
     }
@@ -478,6 +481,18 @@ def transition_advisory(
 
     store = get_advisory_store()
     try:
+        saved = store.require(advisory_id)
+        if saved.evidence.get("currentEnvironment") or saved.evidence.get("intelligenceBasis"):
+            if acting.role == ISSUER: acting.assert_may_issue(saved)
+            else: acting.assert_may_respond(saved)
+            if saved.state == target:
+                return saved.to_dict(for_recipient=acting.role == RECIPIENT)
+            if target in ("issued", "accepted"):
+                from src.portwatch_os.decision.engine import get_engine
+                from src.portwatch_os.decision.continuation import require_current
+                problem = get_engine().get(saved.evidence["decisionId"])
+                if problem is None: raise HTTPException(409,"Saved comparison unavailable")
+                require_current(problem)
         advisory = store.act(
             advisory_id, target, principal=acting, reason=reason,
             changes=payload.get("changes"),
@@ -606,6 +621,11 @@ def _sync_decision(advisory: Advisory) -> None:
     if not advisory.decision_id:
         return
     ledger = get_ledger()
+    decision = ledger.get_decision(advisory.decision_id)
+    if decision and decision.kind == "arrival_wait_review":
+        # Receipt/acceptance is separate from actual action and measured waiting.
+        # Only the arrival outcome endpoint resolves this decision.
+        return
     mapping = {
         ACCEPTED: "taken",
         DECLINED: "not_taken",

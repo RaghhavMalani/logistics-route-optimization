@@ -50,6 +50,11 @@ def _load_events():
         raise HTTPException(status_code=503, detail=str(exc))
 
     events, report = from_news_bundle(bundle)
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        from backend.app.services.demo_terminal import event_for
+        events = [event_for(scoped.world)] + events
     calibrator = fit_calibrator(get_ledger().event_outcomes(), fitted_at=_now())
     stamped = apply_calibration(events, calibrator)
     return events, report, calibrator, stamped

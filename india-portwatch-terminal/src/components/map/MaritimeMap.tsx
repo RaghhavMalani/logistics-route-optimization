@@ -23,6 +23,7 @@ import {
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 
 import "maplibre-gl/dist/maplibre-gl.css";
+import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import { useTraffic } from "@/components/app/traffic-context";
 import type { VesselFix } from "@/lib/maritime/traffic-types";
@@ -206,6 +207,19 @@ export function MaritimeMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
+  const [suspended, setSuspended] = useState(false);
+  const suspendedRef = useRef(false);
+  useEffect(() => {
+    // Keep the original chart, camera and selections while the additional globe
+    // is active, without running two animated renderers behind one another.
+    const suspend = (event: Event) => {
+      suspendedRef.current = Boolean((event as CustomEvent<boolean>).detail);
+      setSuspended(suspendedRef.current);
+    };
+    window.addEventListener("portwatch:intelligence-globe", suspend);
+    return () =>
+      window.removeEventListener("portwatch:intelligence-globe", suspend);
+  }, []);
   const [failed, setFailed] = useState<string | null>(null);
   const [hovered, setHovered] = useState<{
     id: string;
@@ -264,8 +278,9 @@ export function MaritimeMap({
     let instance: MapLibreMap | null = null;
 
     void import("maplibre-gl")
-      .then(({ Map }) => {
+      .then(({ Map, setWorkerUrl }) => {
         if (!alive || !containerRef.current) return;
+        setWorkerUrl(mapWorkerUrl);
         instance = new Map({
           container: containerRef.current,
           style: buildStyle(),
@@ -663,6 +678,7 @@ export function MaritimeMap({
 
     const loop = (time: number) => {
       raf = requestAnimationFrame(loop);
+      if (suspendedRef.current) return;
       // Fifteen hertz for geometry: smooth at any replay rate, and an order of
       // magnitude cheaper than writing a GeoJSON source every frame.
       if (time - lastWrite >= 66) {
@@ -714,7 +730,7 @@ export function MaritimeMap({
       <WindLayer
         map={map}
         frame={windFrame ?? null}
-        enabled={showWind && ready}
+        enabled={showWind && ready && !suspended}
       />
 
       {/* Chart text: the product's typography, positioned from the projection. */}

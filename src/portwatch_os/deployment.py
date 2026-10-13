@@ -365,15 +365,14 @@ def validate(
     # on the demo default is a warning: the licence says one thing and the
     # identity says another.
     try:
-        from backend.app.identity import ASSERTED, describe as describe_identity
+        from backend.app.identity import VERIFIED, describe as describe_identity
 
         identity = describe_identity()
-        if identity["mode"] == ASSERTED and active in (COMMERCIAL, GOVERNMENT):
+        if identity["mode"] != VERIFIED and active in (COMMERCIAL, GOVERNMENT):
             report.checks.append(Check(
                 "identity_mode", WARN,
-                f"identity is asserted from request headers with no verifier and a missing role defaults to "
-                f"national command; a {active} deployment should run PORTWATCH_IDENTITY_MODE=required behind an "
-                "authenticating proxy that sets the headers", required=False, facts=identity,
+                f"identity mode {identity['mode']} accepts asserted headers; a {active} deployment must "
+                "use PORTWATCH_IDENTITY_MODE=verified with server-provisioned accounts", required=False, facts=identity,
             ))
         else:
             report.checks.append(Check("identity_mode", PASS, f"{identity['mode']}: {identity['statement']}",

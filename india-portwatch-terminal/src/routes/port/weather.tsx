@@ -13,6 +13,7 @@ import { TrafficFilters } from "@/components/command/TrafficFilters";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { useNews, useVessels, useWeather, useWeatherIntelligence } from "@/services/hooks";
 import type { WeatherSignal } from "@/types/portwatch";
+import { WeatherLearningPanel } from "@/components/intelligence/CapabilityPanels";
 
 export const Route = createFileRoute("/port/weather")({ component: PortWeather });
 
@@ -328,6 +329,7 @@ function PortWeather() {
               </KeyValue>
             </div>
           </Panel>
+          <WeatherLearningPanel portCode={port.code} />
         </aside>
       </PageBody>
 

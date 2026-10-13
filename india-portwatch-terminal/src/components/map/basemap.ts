@@ -45,7 +45,7 @@ export const INDIA_VIEW = {
 
 /** A transparent pixel, so the weather raster source exists before it has data. */
 export const BLANK_IMAGE =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=";
 
 function graticule(step = 10): GeoJSON.FeatureCollection {
   const lines: GeoJSON.Feature[] = [];

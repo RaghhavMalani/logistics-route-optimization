@@ -32,7 +32,8 @@ function NotFoundComponent() {
         <Pill tone="warn">Route not found</Pill>
       </div>
       <p className="text-[12.5px] leading-relaxed text-[var(--text-3)]">
-        No screen is registered at this address. Sign in to reach your workspace.
+        No screen is registered at this address. Sign in to reach your
+        workspace.
       </p>
       <a
         href="/login"
@@ -44,7 +45,13 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({
+  error,
+  reset,
+}: {
+  error: unknown;
+  reset: () => void;
+}) {
   const router = useRouter();
   useEffect(() => {
     console.error(error);
@@ -56,7 +63,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="mb-2 flex items-center gap-2">
         <Pill tone="crit">Interface fault</Pill>
       </div>
-      <p className="mb-3 text-[12.5px] leading-relaxed text-[var(--text-2)]">{error.message}</p>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-[var(--text-2)]">
+        {error instanceof Error ? error.message : "Unknown interface fault"}
+      </p>
       <Button
         variant="default"
         onClick={() => {
@@ -70,42 +79,49 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "India PortWatch — Maritime Operations Intelligence" },
-      {
-        name: "description",
-        content:
-          "Predictive maritime digital twin and operations intelligence for Indian ports: national command radar, port digital twin, vessel routing, forecasting and provenance.",
-      },
-      { name: "author", content: "India PortWatch" },
-      { property: "og:title", content: "India PortWatch" },
-      {
-        property: "og:description",
-        content: "Predictive maritime operations intelligence for Indian ports.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
-      },
-    ],
-  }),
-  shellComponent: RootShell,
-  component: RootComponent,
-  notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
-});
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
+  {
+    head: () => ({
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: "India PortWatch — Maritime Operations Intelligence" },
+        {
+          name: "description",
+          content:
+            "Predictive maritime digital twin and operations intelligence for Indian ports: national command radar, port digital twin, vessel routing, forecasting and provenance.",
+        },
+        { name: "author", content: "India PortWatch" },
+        { property: "og:title", content: "India PortWatch" },
+        {
+          property: "og:description",
+          content:
+            "Predictive maritime operations intelligence for Indian ports.",
+        },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        {
+          rel: "preconnect",
+          href: "https://fonts.gstatic.com",
+          crossOrigin: "anonymous",
+        },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+        },
+      ],
+    }),
+    shellComponent: RootShell,
+    component: RootComponent,
+    notFoundComponent: NotFoundComponent,
+    errorComponent: ErrorComponent,
+  },
+);
 
 function RootShell({ children }: { children: ReactNode }) {
   return (

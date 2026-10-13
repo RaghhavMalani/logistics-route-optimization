@@ -34,6 +34,9 @@ def _intelligence_state(age_seconds: int | None) -> str:
 
 
 def _licence_mode() -> dict:
+    from src.portwatch_os.sandbox import current_sandbox
+    if current_sandbox.get() is not None:
+        return {"mode": "DEMO", "source": "isolated session", "stated": True, "warning": None}
     from src.portwatch_os.deployment import resolve_mode
 
     mode, source, problem = resolve_mode(None)
@@ -63,7 +66,18 @@ def durable_stores(*, fresh: bool = False) -> dict:
     from src.portwatch_os.advisories.store import probe_advisory_store
     from src.portwatch_os.finance.basis import AssumptionJournal
     from src.portwatch_os.ledger.store import probe_ledger
+    from src.portwatch_os.intelligence.cameras import CameraRegistry
+    from backend.app.auth_store import get_auth_store
     from src.utils.config import STATE_DIR
+
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        # A demo health response never probes operational DBs or exposes paths.
+        from src.portwatch_os.ledger.store import get_ledger
+        from src.portwatch_os.advisories.store import get_advisory_store
+        return {"ok": True, "scope": "visitor-owned demo", "ledger": get_ledger().counts(),
+                "advisories": {"ok": True}, "ephemeral": ["resettable demo generation"]}
 
     now = time.monotonic()
     cached = _PROBE_CACHE["value"]
@@ -72,13 +86,17 @@ def durable_stores(*, fresh: bool = False) -> dict:
     ledger = probe_ledger()
     advisories = probe_advisory_store()
     assumptions = AssumptionJournal().probe()
+    cameras = CameraRegistry().probe()
+    identity = get_auth_store().probe()
     value = {
         "stateDir": str(STATE_DIR),
         "stateDirSource": "PORTWATCH_STATE_DIR" if os.environ.get("PORTWATCH_STATE_DIR") else "default (outputs/)",
-        "ok": ledger["ok"] and advisories["ok"] and assumptions["ok"],
+        "ok": ledger["ok"] and advisories["ok"] and assumptions["ok"] and cameras["ok"] and identity["ok"],
         "ledger": ledger,
         "advisories": advisories,
         "costAssumptions": assumptions,
+        "cameraRegistry": cameras,
+        "identity": identity,
         "ephemeral": ["decision engine memory (recomputable; the ledger holds every problem)",
                       "scenario branches", "mission replays", "agent runs", "telemetry", "world state and caches"],
         "probedAt": __import__("src.portwatch_os.clock", fromlist=["wall_now"]).wall_now().isoformat(timespec="seconds"),  # wall-clock: when the stores were last probed
@@ -136,6 +154,13 @@ def health_check() -> dict:
         "forecastOrigin": status.get("forecastOrigin"),
         "forecastOriginStatus": status.get("forecastOriginStatus"),
         "forecastOriginAgeHours": status.get("forecastOriginAgeHours"),
+        "generationAgeHours": status.get("generationAgeHours"),
+        "generationStatus": status.get("generationStatus"),
+        "targetFrom": status.get("targetFrom"),
+        "targetThrough": status.get("targetThrough"),
+        "targetStatus": status.get("targetStatus"),
+        "futureTargetDays": status.get("futureTargetDays"),
+        "sourceLagNote": status.get("sourceLagNote"),
         "horizonDays": status.get("horizonDays"),
         "ports": status.get("ports"),
         "availablePorts": available_ports,
@@ -157,4 +182,8 @@ def health_check() -> dict:
             "unavailable": provenance.get("unavailable", []),
         },
     }
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        payload["trafficEpoch"] = scoped.world["epoch"]
     return payload

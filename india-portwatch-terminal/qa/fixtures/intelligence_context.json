@@ -1,0 +1,3053 @@
+{
+  "asOf": "2026-10-06T16:11:38.837644+00:00",
+  "clockMode": "LIVE",
+  "selectedPort": null,
+  "ports": [
+    {
+      "modelId": "DEENDAYAL",
+      "code": "INIXY",
+      "name": "Deendayal (Kandla)",
+      "short": "KDL",
+      "authority": "Deendayal Port Authority",
+      "location": {
+        "lat": 23.02,
+        "lon": 70.22
+      },
+      "coast": "west",
+      "capacityIndex": 1.0,
+      "berthCount": 14,
+      "connectivityScore": 0.84
+    },
+    {
+      "modelId": "MUNDRA",
+      "code": "INMUN",
+      "name": "Mundra",
+      "short": "MUN",
+      "authority": "Adani Ports & SEZ",
+      "location": {
+        "lat": 22.74,
+        "lon": 69.7
+      },
+      "coast": "west",
+      "capacityIndex": 0.98,
+      "berthCount": 11,
+      "connectivityScore": 0.85
+    },
+    {
+      "modelId": "JNPT",
+      "code": "INNSA",
+      "name": "JNPA / Nhava Sheva",
+      "short": "JNP",
+      "authority": "Jawaharlal Nehru Port Authority",
+      "location": {
+        "lat": 18.95,
+        "lon": 72.95
+      },
+      "coast": "west",
+      "capacityIndex": 0.8,
+      "berthCount": 13,
+      "connectivityScore": 0.92
+    },
+    {
+      "modelId": "MUMBAI",
+      "code": "INBOM",
+      "name": "Mumbai",
+      "short": "BOM",
+      "authority": "Mumbai Port Authority",
+      "location": {
+        "lat": 18.96,
+        "lon": 72.84
+      },
+      "coast": "west",
+      "capacityIndex": 0.45,
+      "berthCount": 10,
+      "connectivityScore": 0.8
+    },
+    {
+      "modelId": "MORMUGAO",
+      "code": "INMRM",
+      "name": "Mormugao",
+      "short": "MRM",
+      "authority": "Mormugao Port Authority",
+      "location": {
+        "lat": 15.4,
+        "lon": 73.8
+      },
+      "coast": "west",
+      "capacityIndex": 0.3,
+      "berthCount": 6,
+      "connectivityScore": 0.62
+    },
+    {
+      "modelId": "NEW_MANGALORE",
+      "code": "INNML",
+      "name": "New Mangalore",
+      "short": "NML",
+      "authority": "New Mangalore Port Authority",
+      "location": {
+        "lat": 12.92,
+        "lon": 74.8
+      },
+      "coast": "west",
+      "capacityIndex": 0.42,
+      "berthCount": 7,
+      "connectivityScore": 0.66
+    },
+    {
+      "modelId": "COCHIN",
+      "code": "INCOK",
+      "name": "Cochin (Vallarpadam)",
+      "short": "COK",
+      "authority": "Cochin Port Authority",
+      "location": {
+        "lat": 9.97,
+        "lon": 76.27
+      },
+      "coast": "south",
+      "capacityIndex": 0.45,
+      "berthCount": 6,
+      "connectivityScore": 0.78
+    },
+    {
+      "modelId": "TUTICORIN",
+      "code": "INTUT",
+      "name": "V.O. Chidambaranar (Tuticorin)",
+      "short": "TUT",
+      "authority": "V.O. Chidambaranar Port Authority",
+      "location": {
+        "lat": 8.75,
+        "lon": 78.2
+      },
+      "coast": "south",
+      "capacityIndex": 0.4,
+      "berthCount": 8,
+      "connectivityScore": 0.7
+    },
+    {
+      "modelId": "CHENNAI",
+      "code": "INMAA",
+      "name": "Chennai",
+      "short": "MAA",
+      "authority": "Chennai Port Authority",
+      "location": {
+        "lat": 13.1,
+        "lon": 80.3
+      },
+      "coast": "east",
+      "capacityIndex": 0.55,
+      "berthCount": 8,
+      "connectivityScore": 0.8
+    },
+    {
+      "modelId": "KAMARAJAR",
+      "code": "INENR",
+      "name": "Kamarajar (Ennore)",
+      "short": "ENR",
+      "authority": "Kamarajar Port Limited",
+      "location": {
+        "lat": 13.25,
+        "lon": 80.33
+      },
+      "coast": "east",
+      "capacityIndex": 0.45,
+      "berthCount": 7,
+      "connectivityScore": 0.74
+    },
+    {
+      "modelId": "VIZAG",
+      "code": "INVTZ",
+      "name": "Visakhapatnam",
+      "short": "VTZ",
+      "authority": "Visakhapatnam Port Authority",
+      "location": {
+        "lat": 17.69,
+        "lon": 83.22
+      },
+      "coast": "east",
+      "capacityIndex": 0.72,
+      "berthCount": 9,
+      "connectivityScore": 0.72
+    },
+    {
+      "modelId": "PARADIP",
+      "code": "INPRT",
+      "name": "Paradip",
+      "short": "PRT",
+      "authority": "Paradip Port Authority",
+      "location": {
+        "lat": 20.26,
+        "lon": 86.67
+      },
+      "coast": "east",
+      "capacityIndex": 0.85,
+      "berthCount": 9,
+      "connectivityScore": 0.64
+    },
+    {
+      "modelId": "KOLKATA",
+      "code": "INCCU",
+      "name": "Kolkata / Haldia",
+      "short": "CCU",
+      "authority": "Syama Prasad Mookerjee Port",
+      "location": {
+        "lat": 22.55,
+        "lon": 88.31
+      },
+      "coast": "east",
+      "capacityIndex": 0.5,
+      "berthCount": 7,
+      "connectivityScore": 0.65
+    }
+  ],
+  "news": {
+    "status": "STALE",
+    "events": [
+      {
+        "eventId": "GE-CHOK-b327ef7119",
+        "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Bab-el-Mandeb / Red Sea",
+        "coordinates": {
+          "lat": 12.6,
+          "lon": 43.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:00:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "parisguardian.com",
+            "url": "http://www.parisguardian.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "kenyastar.com",
+            "url": "http://www.kenyastar.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "irishsun.com",
+            "url": "http://www.irishsun.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "shanghainews.net",
+            "url": "http://www.shanghainews.net/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "indiagazette.com",
+            "url": "http://www.indiagazette.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "newyorkstatesman.com",
+            "url": "http://www.newyorkstatesman.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "iranherald.com",
+            "url": "http://www.iranherald.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "israelherald.com",
+            "url": "http://www.israelherald.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "afghanistansun.com",
+            "url": "http://www.afghanistansun.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 9,
+        "reportCount": 9,
+        "confidence": 0.97,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "BAB_EL_MANDEB"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-ba3a8b5458",
+        "title": "An Iranian commercial ship was struck near the Strait of Hormuz , with 1 person killed , Iran state media say",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:00:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "clickorlando.com",
+            "url": "https://www.clickorlando.com/news/world/2026/09/13/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other-mideast-developments/",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "khqa.com",
+            "url": "https://www.khqa.com/news/nation-world/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_6d254710-4595-5bd7-b264-769ddba971f1.html",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "thegazette.com",
+            "url": "http://www.thegazette.com/news/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_884beb72-ddad-574e-b47d-b7b323b07af7.html",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "corsicanadailysun.com",
+            "url": "https://www.corsicanadailysun.com/national/an-iranian-commercial-ship-was-struck-near-the-strait-of-hormuz-with-1-person-killed/article_1b0a63da-6163-5b99-8f63-065bbeaed459.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "An Iranian commercial ship was struck near the Strait of Hormuz , with 1 person killed , Iran state media say",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/hv360/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "wsls.com",
+            "url": "https://www.wsls.com/news/world/2026/09/13/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other-mideast-developments/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/ade/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/leader_herald/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "stardem.com",
+            "url": "http://www.stardem.com/ap/world/an-iranian-commercial-ship-is-struck-near-strait-of-hormuz-with-1-dead-iranian-media/article_7b7994df-d263-5fa0-ba4d-eb8d6ea21f22.html",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "An Iranian commercial ship is struck near Strait of Hormuz with 1 dead , Iranian media say",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "ksat.com",
+            "url": "https://www.ksat.com/news/world/2026/09/13/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other-mideast-developments/",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/the_recorder/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 8,
+        "reportCount": 11,
+        "confidence": 0.97,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "An Iranian commercial ship was struck near the Strait of Hormuz , with 1 person killed , Iran state media say",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-fdfed510ae",
+        "title": "Iran authorities say one dead after ship struck in Hormuz",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:45:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "bssnews.net",
+            "url": "https://www.bssnews.net/international/423922",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Iran authorities say one dead after ship struck in Hormuz",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/iran-authorities-one-dead-ship-struck-hormuz",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Iran authorities say one dead after ship struck in Hormuz",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "rte.ie",
+            "url": "https://www.rte.ie/news/2026/0913/1591336-iran-war/",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iran authorities say one dead after ship struck in Hormuz",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 3,
+        "reportCount": 3,
+        "confidence": 0.762,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran authorities say one dead after ship struck in Hormuz",
+          "Iran authorities say one dead after ship struck in Hormuz",
+          "Iran authorities say one dead after ship struck in Hormuz"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-8163e0f40b",
+        "title": "Strait of Hormuz shipping attacks fuel oil supply fears",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "newcastleherald.com.au",
+            "url": "https://www.newcastleherald.com.au/story/9349038/strait-of-hormuz-shipping-attacks-fuel-oil-supply-fears/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Strait of Hormuz shipping attacks fuel oil supply fears",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "theadvocate.com.au",
+            "url": "https://www.theadvocate.com.au/story/9349038/strait-of-hormuz-shipping-attacks-fuel-oil-supply-fears/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Strait of Hormuz shipping attacks fuel oil supply fears",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 2,
+        "reportCount": 2,
+        "confidence": 0.616,
+        "severity": 0.85,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Strait of Hormuz shipping attacks fuel oil supply fears",
+          "Strait of Hormuz shipping attacks fuel oil supply fears"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-4c7dabd83f",
+        "title": "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "kenyastar.com",
+            "url": "http://www.kenyastar.com/news/279304105/fresh-strike-on-vessel-in-hormuz-houthi-takeover-of-bab-el-mandeb-strait-sees-west-asia-simmer-as-brics-calls-for-peace",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "iranherald.com",
+            "url": "http://www.iranherald.com/news/279304105/fresh-strike-on-vessel-in-hormuz-houthi-takeover-of-bab-el-mandeb-strait-sees-west-asia-simmer-as-brics-calls-for-peace",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 2,
+        "reportCount": 2,
+        "confidence": 0.616,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+          "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-605d665cc2",
+        "title": "Iran , Oman agree on new entry , exit routes for Strait of Hormuz : Report",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "africanews.com",
+            "url": "https://www.africanews.com/2026/09/13/iran-and-oman-agree-entry-and-exit-routes-for-strait-of-hormuz/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iran and Oman agree entry and exit routes for Strait of Hormuz",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "iranherald.com",
+            "url": "http://www.iranherald.com/news/279304065/iran-oman-agree-on-new-entry-exit-routes-for-strait-of-hormuz-report",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Iran , Oman agree on new entry , exit routes for Strait of Hormuz : Report",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 2,
+        "reportCount": 2,
+        "confidence": 0.616,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran and Oman agree entry and exit routes for Strait of Hormuz",
+          "Iran , Oman agree on new entry , exit routes for Strait of Hormuz : Report"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-0a1bfe96b8",
+        "title": "World braces for Big Jump in Oil Prices after Saudi Pipeline Shutdown due to Houthi Threats",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Bab-el-Mandeb / Red Sea",
+        "coordinates": {
+          "lat": 12.6,
+          "lon": 43.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T09:00:00+00:00",
+        "lastSeen": "2026-09-13T09:00:00+00:00",
+        "sources": [
+          {
+            "outlet": "en.dailypakistan.com.pk",
+            "url": "https://en.dailypakistan.com.pk/13-Sep-2026/world-braces-for-big-jump-in-oil-prices-after-saudi-pipeline-shutdown-due-to-houthi-threats",
+            "published_at": "2026-09-13T09:00:00+00:00",
+            "title": "World braces for Big Jump in Oil Prices after Saudi Pipeline Shutdown due to Houthi Threats",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.9,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "BAB_EL_MANDEB"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "World braces for Big Jump in Oil Prices after Saudi Pipeline Shutdown due to Houthi Threats"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CONF-77a5f7db18",
+        "title": "Iran says  US attack  on commercial vessel in Gulf kills 1 , injures 3 \u2013 The Frontier Post",
+        "category": "conflict",
+        "categoryLabel": "Conflict / war",
+        "categoryGroup": "security",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T09:15:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "thefrontierpost.com",
+            "url": "https://thefrontierpost.com/iran-says-us-attack-on-commercial-vessel-in-gulf-kills-1-injures-3/",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iran says  US attack  on commercial vessel in Gulf kills 1 , injures 3 \u2013 The Frontier Post",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.75,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran says  US attack  on commercial vessel in Gulf kills 1 , injures 3 \u2013 The Frontier Post"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-459dbe2cfe",
+        "title": "One dead after commercial ship is struck near Strait of Hormuz \u2013 NBC10 Philadelphia",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:45:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "nbcphiladelphia.com",
+            "url": "https://www.nbcphiladelphia.com/news/national-international/one-dead-iranian-commercial-ship-struck-near-strait-of-hormuz/4462220/",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "One dead after commercial ship is struck near Strait of Hormuz \u2013 NBC10 Philadelphia",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "One dead after commercial ship is struck near Strait of Hormuz \u2013 NBC10 Philadelphia"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-83d2f31859",
+        "title": "Yemen Houthis take over strait vital to global shipping - Middle East and Africa",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Bab-el-Mandeb / Red Sea",
+        "coordinates": {
+          "lat": 12.6,
+          "lon": 43.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "thejakartapost.com",
+            "url": "http://www.thejakartapost.com/world/2026/09/13/yemens-houthis-take-over-strait-vital-to-global-shipping",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Yemen Houthis take over strait vital to global shipping - Middle East and Africa",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "BAB_EL_MANDEB"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Yemen Houthis take over strait vital to global shipping - Middle East and Africa"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CHOK-e386d65a6b",
+        "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:45:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-08-19-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-08-55-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-09-55-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-09-15-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 4,
+        "confidence": 0.38,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CONF-3dd97553fe",
+        "title": "Iran Targets US Warships With New Precision Munitions As Shock Offensive Rocks The  Greater Israel  \u00ab nuclear - news",
+        "category": "conflict",
+        "categoryLabel": "Conflict / war",
+        "categoryGroup": "security",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "nuclear-news.net",
+            "url": "https://nuclear-news.net/2026/09/13/3-b1-iran-targets-us-warships-with-new-precision-munitions-as-shock-offensive-rocks-the-greater-israel/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iran Targets US Warships With New Precision Munitions As Shock Offensive Rocks The  Greater Israel  \u00ab nuclear - news",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.6,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran Targets US Warships With New Precision Munitions As Shock Offensive Rocks The  Greater Israel  \u00ab nuclear - news"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-CONF-8dbb14c595",
+        "title": "[ Blog ] The Iran War Shock : Higher Prices , Tighter Money and a Growing Fiscal Dilemma",
+        "category": "conflict",
+        "categoryLabel": "Conflict / war",
+        "categoryGroup": "security",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "defimedia.info",
+            "url": "https://defimedia.info/blog-iran-war-shock-higher-prices-tighter-money-and-growing-fiscal-dilemma",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "[ Blog ] The Iran War Shock : Higher Prices , Tighter Money and a Growing Fiscal Dilemma",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.6,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "[ Blog ] The Iran War Shock : Higher Prices , Tighter Money and a Growing Fiscal Dilemma"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      },
+      {
+        "eventId": "GE-SANC-6e4d2d2d8d",
+        "title": "Canada oil windfall may yet wipe out its losses from tariffs",
+        "category": "sanctions",
+        "categoryLabel": "Sanctions",
+        "categoryGroup": "policy",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T09:00:00+00:00",
+        "lastSeen": "2026-09-13T09:00:00+00:00",
+        "sources": [
+          {
+            "outlet": "cbc.ca",
+            "url": "https://www.cbc.ca/news/politics/canada-oil-prices-trump-iran-trade-war-tariffs-9.7341298",
+            "published_at": "2026-09-13T09:00:00+00:00",
+            "title": "Canada oil windfall may yet wipe out its losses from tariffs",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.5,
+        "probability": null,
+        "claim": "measurable operational impact in the named area",
+        "horizonHours": 720.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "Canada oil windfall may yet wipe out its losses from tariffs"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)"
+      }
+    ],
+    "impacts": [
+      {
+        "eventId": "GE-CHOK-b327ef7119",
+        "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Bab-el-Mandeb / Red Sea",
+        "coordinates": {
+          "lat": 12.6,
+          "lon": 43.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:00:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "parisguardian.com",
+            "url": "http://www.parisguardian.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "kenyastar.com",
+            "url": "http://www.kenyastar.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "irishsun.com",
+            "url": "http://www.irishsun.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "shanghainews.net",
+            "url": "http://www.shanghainews.net/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "indiagazette.com",
+            "url": "http://www.indiagazette.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "newyorkstatesman.com",
+            "url": "http://www.newyorkstatesman.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "iranherald.com",
+            "url": "http://www.iranherald.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "israelherald.com",
+            "url": "http://www.israelherald.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "afghanistansun.com",
+            "url": "http://www.afghanistansun.com/news/279304011/houthis-continue-strike-at-saudi-arabian-border-tighten-grip-on-oil-route",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 9,
+        "reportCount": 9,
+        "confidence": 0.97,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "BAB_EL_MANDEB"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route",
+          "Houthis continue strike at Saudi Arabian border , tighten grip on oil route"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.04,
+        "worstExposure": 0.027,
+        "lanes": [
+          {
+            "laneCode": "EUR_IND",
+            "laneName": "Europe \u2194 India (Suez)",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.027,
+            "detourNm": 3750,
+            "detourHours": 234.4,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INIXY",
+              "INMRM"
+            ],
+            "note": null
+          },
+          {
+            "laneCode": "MED_IND",
+            "laneName": "Mediterranean \u2194 India",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.027,
+            "detourNm": 4600,
+            "detourHours": 287.5,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INCOK"
+            ],
+            "note": null
+          },
+          {
+            "laneCode": "USEC_IND",
+            "laneName": "US East Coast \u2194 India",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.027,
+            "detourNm": 2200,
+            "detourHours": 137.5,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMAA"
+            ],
+            "note": null
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.035,
+            "lanes": [
+              "EUR_IND",
+              "MED_IND",
+              "USEC_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.031,
+            "lanes": [
+              "EUR_IND",
+              "MED_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.027,
+            "lanes": [
+              "EUR_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMRM",
+            "portName": "Mormugao",
+            "exposure": 0.027,
+            "lanes": [
+              "EUR_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INCOK",
+            "portName": "Cochin (Vallarpadam)",
+            "exposure": 0.027,
+            "lanes": [
+              "MED_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMAA",
+            "portName": "Chennai",
+            "exposure": 0.027,
+            "lanes": [
+              "USEC_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [
+          {
+            "action": "review_bunkers",
+            "label": "Review bunker plan for long diversions",
+            "count": 3,
+            "basis": "A diversion of more than 2,000 nm changes the bunker requirement for the leg."
+          }
+        ],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T09:15:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-ba3a8b5458",
+        "title": "An Iranian commercial ship was struck near the Strait of Hormuz , with 1 person killed , Iran state media say",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:00:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "clickorlando.com",
+            "url": "https://www.clickorlando.com/news/world/2026/09/13/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other-mideast-developments/",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "khqa.com",
+            "url": "https://www.khqa.com/news/nation-world/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_6d254710-4595-5bd7-b264-769ddba971f1.html",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "thegazette.com",
+            "url": "http://www.thegazette.com/news/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_884beb72-ddad-574e-b47d-b7b323b07af7.html",
+            "published_at": "2026-09-13T08:00:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "corsicanadailysun.com",
+            "url": "https://www.corsicanadailysun.com/national/an-iranian-commercial-ship-was-struck-near-the-strait-of-hormuz-with-1-person-killed/article_1b0a63da-6163-5b99-8f63-065bbeaed459.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "An Iranian commercial ship was struck near the Strait of Hormuz , with 1 person killed , Iran state media say",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/hv360/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "wsls.com",
+            "url": "https://www.wsls.com/news/world/2026/09/13/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other-mideast-developments/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/ade/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/leader_herald/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "stardem.com",
+            "url": "http://www.stardem.com/ap/world/an-iranian-commercial-ship-is-struck-near-strait-of-hormuz-with-1-dead-iranian-media/article_7b7994df-d263-5fa0-ba4d-eb8d6ea21f22.html",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "An Iranian commercial ship is struck near Strait of Hormuz with 1 dead , Iranian media say",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "ksat.com",
+            "url": "https://www.ksat.com/news/world/2026/09/13/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other-mideast-developments/",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "dailygazette.com",
+            "url": "https://www.dailygazette.com/the_recorder/ap/national/iranian-media-say-1-killed-in-ship-strike-on-the-strait-of-hormuz-and-other/article_9ce92b35-ac4f-5948-8935-e7261851539c.html",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 8,
+        "reportCount": 11,
+        "confidence": 0.97,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "An Iranian commercial ship was struck near the Strait of Hormuz , with 1 person killed , Iran state media say",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments",
+          "Iranian media say 1 killed in ship strike on the Strait of Hormuz , and other Mideast developments"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.04,
+        "worstExposure": 0.034,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.034,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.034,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.034,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.034,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.034,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T09:15:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-fdfed510ae",
+        "title": "Iran authorities say one dead after ship struck in Hormuz",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:45:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "bssnews.net",
+            "url": "https://www.bssnews.net/international/423922",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Iran authorities say one dead after ship struck in Hormuz",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/iran-authorities-one-dead-ship-struck-hormuz",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Iran authorities say one dead after ship struck in Hormuz",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "rte.ie",
+            "url": "https://www.rte.ie/news/2026/0913/1591336-iran-war/",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iran authorities say one dead after ship struck in Hormuz",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 3,
+        "reportCount": 3,
+        "confidence": 0.762,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran authorities say one dead after ship struck in Hormuz",
+          "Iran authorities say one dead after ship struck in Hormuz",
+          "Iran authorities say one dead after ship struck in Hormuz"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.04,
+        "worstExposure": 0.026,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.026,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T09:15:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-8163e0f40b",
+        "title": "Strait of Hormuz shipping attacks fuel oil supply fears",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "newcastleherald.com.au",
+            "url": "https://www.newcastleherald.com.au/story/9349038/strait-of-hormuz-shipping-attacks-fuel-oil-supply-fears/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Strait of Hormuz shipping attacks fuel oil supply fears",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "theadvocate.com.au",
+            "url": "https://www.theadvocate.com.au/story/9349038/strait-of-hormuz-shipping-attacks-fuel-oil-supply-fears/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Strait of Hormuz shipping attacks fuel oil supply fears",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 2,
+        "reportCount": 2,
+        "confidence": 0.616,
+        "severity": 0.85,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Strait of Hormuz shipping attacks fuel oil supply fears",
+          "Strait of Hormuz shipping attacks fuel oil supply fears"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.039,
+        "worstExposure": 0.026,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.026,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.026,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:15:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-4c7dabd83f",
+        "title": "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "kenyastar.com",
+            "url": "http://www.kenyastar.com/news/279304105/fresh-strike-on-vessel-in-hormuz-houthi-takeover-of-bab-el-mandeb-strait-sees-west-asia-simmer-as-brics-calls-for-peace",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "iranherald.com",
+            "url": "http://www.iranherald.com/news/279304105/fresh-strike-on-vessel-in-hormuz-houthi-takeover-of-bab-el-mandeb-strait-sees-west-asia-simmer-as-brics-calls-for-peace",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 2,
+        "reportCount": 2,
+        "confidence": 0.616,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace",
+          "Fresh strike on vessel in Hormuz , Houthi takeover of Bab el - Mandeb Strait sees West Asia simmer as BRICS calls for peace"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.039,
+        "worstExposure": 0.021,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.021,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:45:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-605d665cc2",
+        "title": "Iran , Oman agree on new entry , exit routes for Strait of Hormuz : Report",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "africanews.com",
+            "url": "https://www.africanews.com/2026/09/13/iran-and-oman-agree-entry-and-exit-routes-for-strait-of-hormuz/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iran and Oman agree entry and exit routes for Strait of Hormuz",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "iranherald.com",
+            "url": "http://www.iranherald.com/news/279304065/iran-oman-agree-on-new-entry-exit-routes-for-strait-of-hormuz-report",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "Iran , Oman agree on new entry , exit routes for Strait of Hormuz : Report",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 2,
+        "reportCount": 2,
+        "confidence": 0.616,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran and Oman agree entry and exit routes for Strait of Hormuz",
+          "Iran , Oman agree on new entry , exit routes for Strait of Hormuz : Report"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.039,
+        "worstExposure": 0.021,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.021,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.021,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:45:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-0a1bfe96b8",
+        "title": "World braces for Big Jump in Oil Prices after Saudi Pipeline Shutdown due to Houthi Threats",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Bab-el-Mandeb / Red Sea",
+        "coordinates": {
+          "lat": 12.6,
+          "lon": 43.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T09:00:00+00:00",
+        "lastSeen": "2026-09-13T09:00:00+00:00",
+        "sources": [
+          {
+            "outlet": "en.dailypakistan.com.pk",
+            "url": "https://en.dailypakistan.com.pk/13-Sep-2026/world-braces-for-big-jump-in-oil-prices-after-saudi-pipeline-shutdown-due-to-houthi-threats",
+            "published_at": "2026-09-13T09:00:00+00:00",
+            "title": "World braces for Big Jump in Oil Prices after Saudi Pipeline Shutdown due to Houthi Threats",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.9,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "BAB_EL_MANDEB"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "World braces for Big Jump in Oil Prices after Saudi Pipeline Shutdown due to Houthi Threats"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.04,
+        "worstExposure": 0.013,
+        "lanes": [
+          {
+            "laneCode": "EUR_IND",
+            "laneName": "Europe \u2194 India (Suez)",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.013,
+            "detourNm": 3750,
+            "detourHours": 234.4,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INIXY",
+              "INMRM"
+            ],
+            "note": null
+          },
+          {
+            "laneCode": "MED_IND",
+            "laneName": "Mediterranean \u2194 India",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.013,
+            "detourNm": 4600,
+            "detourHours": 287.5,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INCOK"
+            ],
+            "note": null
+          },
+          {
+            "laneCode": "USEC_IND",
+            "laneName": "US East Coast \u2194 India",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.013,
+            "detourNm": 2200,
+            "detourHours": 137.5,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMAA"
+            ],
+            "note": null
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.018,
+            "lanes": [
+              "EUR_IND",
+              "MED_IND",
+              "USEC_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.015,
+            "lanes": [
+              "EUR_IND",
+              "MED_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.013,
+            "lanes": [
+              "EUR_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMRM",
+            "portName": "Mormugao",
+            "exposure": 0.013,
+            "lanes": [
+              "EUR_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INCOK",
+            "portName": "Cochin (Vallarpadam)",
+            "exposure": 0.013,
+            "lanes": [
+              "MED_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMAA",
+            "portName": "Chennai",
+            "exposure": 0.013,
+            "lanes": [
+              "USEC_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [
+          {
+            "action": "review_bunkers",
+            "label": "Review bunker plan for long diversions",
+            "count": 3,
+            "basis": "A diversion of more than 2,000 nm changes the bunker requirement for the leg."
+          }
+        ],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T09:00:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CONF-77a5f7db18",
+        "title": "Iran says  US attack  on commercial vessel in Gulf kills 1 , injures 3 \u2013 The Frontier Post",
+        "category": "conflict",
+        "categoryLabel": "Conflict / war",
+        "categoryGroup": "security",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T09:15:00+00:00",
+        "lastSeen": "2026-09-13T09:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "thefrontierpost.com",
+            "url": "https://thefrontierpost.com/iran-says-us-attack-on-commercial-vessel-in-gulf-kills-1-injures-3/",
+            "published_at": "2026-09-13T09:15:00+00:00",
+            "title": "Iran says  US attack  on commercial vessel in Gulf kills 1 , injures 3 \u2013 The Frontier Post",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.75,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran says  US attack  on commercial vessel in Gulf kills 1 , injures 3 \u2013 The Frontier Post"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.1,
+        "worstExposure": 0.0,
+        "lanes": [],
+        "vessels": [],
+        "ports": [],
+        "actions": [],
+        "notes": [
+          "This event is not tied to a chokepoint in the catalogue, so no trade-lane exposure is computed. It is reported for awareness only.",
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T09:15:00+00:00. Recency weight is 0.10, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-459dbe2cfe",
+        "title": "One dead after commercial ship is struck near Strait of Hormuz \u2013 NBC10 Philadelphia",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:45:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "nbcphiladelphia.com",
+            "url": "https://www.nbcphiladelphia.com/news/national-international/one-dead-iranian-commercial-ship-struck-near-strait-of-hormuz/4462220/",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "One dead after commercial ship is struck near Strait of Hormuz \u2013 NBC10 Philadelphia",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "One dead after commercial ship is struck near Strait of Hormuz \u2013 NBC10 Philadelphia"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.039,
+        "worstExposure": 0.013,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.013,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:45:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-83d2f31859",
+        "title": "Yemen Houthis take over strait vital to global shipping - Middle East and Africa",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Bab-el-Mandeb / Red Sea",
+        "coordinates": {
+          "lat": 12.6,
+          "lon": 43.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "thejakartapost.com",
+            "url": "http://www.thejakartapost.com/world/2026/09/13/yemens-houthis-take-over-strait-vital-to-global-shipping",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Yemen Houthis take over strait vital to global shipping - Middle East and Africa",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "BAB_EL_MANDEB"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "Yemen Houthis take over strait vital to global shipping - Middle East and Africa"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.039,
+        "worstExposure": 0.011,
+        "lanes": [
+          {
+            "laneCode": "EUR_IND",
+            "laneName": "Europe \u2194 India (Suez)",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.011,
+            "detourNm": 3750,
+            "detourHours": 234.4,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INIXY",
+              "INMRM"
+            ],
+            "note": null
+          },
+          {
+            "laneCode": "MED_IND",
+            "laneName": "Mediterranean \u2194 India",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.011,
+            "detourNm": 4600,
+            "detourHours": 287.5,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INCOK"
+            ],
+            "note": null
+          },
+          {
+            "laneCode": "USEC_IND",
+            "laneName": "US East Coast \u2194 India",
+            "chokepoint": "BAB_EL_MANDEB",
+            "exposure": 0.011,
+            "detourNm": 2200,
+            "detourHours": 137.5,
+            "alternative": "Cape of Good Hope",
+            "indiaPorts": [
+              "INNSA",
+              "INMAA"
+            ],
+            "note": null
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.014,
+            "lanes": [
+              "EUR_IND",
+              "MED_IND",
+              "USEC_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.012,
+            "lanes": [
+              "EUR_IND",
+              "MED_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.011,
+            "lanes": [
+              "EUR_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMRM",
+            "portName": "Mormugao",
+            "exposure": 0.011,
+            "lanes": [
+              "EUR_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INCOK",
+            "portName": "Cochin (Vallarpadam)",
+            "exposure": 0.011,
+            "lanes": [
+              "MED_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMAA",
+            "portName": "Chennai",
+            "exposure": 0.011,
+            "lanes": [
+              "USEC_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [
+          {
+            "action": "review_bunkers",
+            "label": "Review bunker plan for long diversions",
+            "count": 3,
+            "basis": "A diversion of more than 2,000 nm changes the bunker requirement for the leg."
+          }
+        ],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:15:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CHOK-e386d65a6b",
+        "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+        "category": "chokepoint_disruption",
+        "categoryLabel": "Chokepoint disruption",
+        "categoryGroup": "chokepoint",
+        "region": "Strait of Hormuz",
+        "coordinates": {
+          "lat": 26.6,
+          "lon": 56.3
+        },
+        "geolocationBasis": "chokepoint_centroid",
+        "firstSeen": "2026-09-13T08:45:00+00:00",
+        "lastSeen": "2026-09-13T08:45:00+00:00",
+        "sources": [
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-08-19-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-08-55-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-09-55-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          },
+          {
+            "outlet": "arynews.tv",
+            "url": "https://arynews.tv/news/liveblog/iran-war-2026-live-updates-trump-us-israel?update=13-Sep-2026-09-15-00",
+            "published_at": "2026-09-13T08:45:00+00:00",
+            "title": "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 4,
+        "confidence": 0.38,
+        "severity": 0.7,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [
+          "HORMUZ"
+        ],
+        "forecastTrack": [],
+        "excerpts": [
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says",
+          "No signed Hormuz deal expected yet from Oman meeting on Monday , Iranian official says"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.039,
+        "worstExposure": 0.013,
+        "lanes": [
+          {
+            "laneCode": "GULF_IND",
+            "laneName": "Persian Gulf \u2194 India",
+            "chokepoint": "HORMUZ",
+            "exposure": 0.013,
+            "detourNm": null,
+            "detourHours": null,
+            "alternative": null,
+            "indiaPorts": [
+              "INNSA",
+              "INMUN",
+              "INVTZ",
+              "INIXY"
+            ],
+            "note": "No alternative routing exists for this lane. Disruption here cannot be absorbed by diverting."
+          }
+        ],
+        "vessels": [],
+        "ports": [
+          {
+            "portCode": "INNSA",
+            "portName": "JNPA / Nhava Sheva",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INMUN",
+            "portName": "Mundra",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INVTZ",
+            "portName": "Visakhapatnam",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          },
+          {
+            "portCode": "INIXY",
+            "portName": "Deendayal (Kandla)",
+            "exposure": 0.013,
+            "lanes": [
+              "GULF_IND"
+            ],
+            "affectedVessels": 0,
+            "meanArrivalShiftHours": null,
+            "note": "No vessel-level arrival shift is computable without a fleet in scope."
+          }
+        ],
+        "actions": [],
+        "notes": [
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:45:00+00:00. Recency weight is 0.04, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CONF-3dd97553fe",
+        "title": "Iran Targets US Warships With New Precision Munitions As Shock Offensive Rocks The  Greater Israel  \u00ab nuclear - news",
+        "category": "conflict",
+        "categoryLabel": "Conflict / war",
+        "categoryGroup": "security",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "nuclear-news.net",
+            "url": "https://nuclear-news.net/2026/09/13/3-b1-iran-targets-us-warships-with-new-precision-munitions-as-shock-offensive-rocks-the-greater-israel/",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "Iran Targets US Warships With New Precision Munitions As Shock Offensive Rocks The  Greater Israel  \u00ab nuclear - news",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.6,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "Iran Targets US Warships With New Precision Munitions As Shock Offensive Rocks The  Greater Israel  \u00ab nuclear - news"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.099,
+        "worstExposure": 0.0,
+        "lanes": [],
+        "vessels": [],
+        "ports": [],
+        "actions": [],
+        "notes": [
+          "This event is not tied to a chokepoint in the catalogue, so no trade-lane exposure is computed. It is reported for awareness only.",
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:15:00+00:00. Recency weight is 0.10, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-CONF-8dbb14c595",
+        "title": "[ Blog ] The Iran War Shock : Higher Prices , Tighter Money and a Growing Fiscal Dilemma",
+        "category": "conflict",
+        "categoryLabel": "Conflict / war",
+        "categoryGroup": "security",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T08:15:00+00:00",
+        "lastSeen": "2026-09-13T08:15:00+00:00",
+        "sources": [
+          {
+            "outlet": "defimedia.info",
+            "url": "https://defimedia.info/blog-iran-war-shock-higher-prices-tighter-money-and-growing-fiscal-dilemma",
+            "published_at": "2026-09-13T08:15:00+00:00",
+            "title": "[ Blog ] The Iran War Shock : Higher Prices , Tighter Money and a Growing Fiscal Dilemma",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.6,
+        "probability": null,
+        "claim": "material transit disruption at the named chokepoint",
+        "horizonHours": 72.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "[ Blog ] The Iran War Shock : Higher Prices , Tighter Money and a Growing Fiscal Dilemma"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.099,
+        "worstExposure": 0.0,
+        "lanes": [],
+        "vessels": [],
+        "ports": [],
+        "actions": [],
+        "notes": [
+          "This event is not tied to a chokepoint in the catalogue, so no trade-lane exposure is computed. It is reported for awareness only.",
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T08:15:00+00:00. Recency weight is 0.10, so this event's influence on the live picture is reduced."
+        ]
+      },
+      {
+        "eventId": "GE-SANC-6e4d2d2d8d",
+        "title": "Canada oil windfall may yet wipe out its losses from tariffs",
+        "category": "sanctions",
+        "categoryLabel": "Sanctions",
+        "categoryGroup": "policy",
+        "region": "MARITIME",
+        "coordinates": {
+          "lat": 23.02,
+          "lon": 70.22
+        },
+        "geolocationBasis": "port_location",
+        "firstSeen": "2026-09-13T09:00:00+00:00",
+        "lastSeen": "2026-09-13T09:00:00+00:00",
+        "sources": [
+          {
+            "outlet": "cbc.ca",
+            "url": "https://www.cbc.ca/news/politics/canada-oil-prices-trump-iran-trade-war-tariffs-9.7341298",
+            "published_at": "2026-09-13T09:00:00+00:00",
+            "title": "Canada oil windfall may yet wipe out its losses from tariffs",
+            "feed": "GDELT/GDACS"
+          }
+        ],
+        "sourceCount": 1,
+        "reportCount": 1,
+        "confidence": 0.38,
+        "severity": 0.5,
+        "probability": null,
+        "claim": "measurable operational impact in the named area",
+        "horizonHours": 720.0,
+        "chokepoints": [],
+        "forecastTrack": [],
+        "excerpts": [
+          "Canada oil windfall may yet wipe out its losses from tariffs"
+        ],
+        "reportedPorts": [
+          "INBOM",
+          "INIXY",
+          "INMRM",
+          "INMUN",
+          "INNML",
+          "INNSA"
+        ],
+        "threatenedPorts": [],
+        "calibrationNote": "Only 0 event claims have been resolved; 20 are required before Global Eye states a calibrated probability. Severity and confidence are shown instead.",
+        "dataSource": "GDELT DOC 2.0 + GDACS (events); decision engine (alerts)",
+        "decay": 0.341,
+        "worstExposure": 0.0,
+        "lanes": [],
+        "vessels": [],
+        "ports": [],
+        "actions": [],
+        "notes": [
+          "This event is not tied to a chokepoint in the catalogue, so no trade-lane exposure is computed. It is reported for awareness only.",
+          "No fleet is in scope, so vessel-level exposure is not computed. Port exposure below is lane-level only.",
+          "No calibrated probability is available for this event category yet; severity and confidence are shown instead.",
+          "Last corroborated 2026-09-13T09:00:00+00:00. Recency weight is 0.34, so this event's influence on the live picture is reduced."
+        ]
+      }
+    ],
+    "reason": null
+  },
+  "economics": [
+    {
+      "id": "brent",
+      "label": "Brent crude",
+      "series": "DCOILBRENTEU",
+      "unit": "USD/bbl",
+      "source": "https://fred.stlouisfed.org/series/DCOILBRENTEU",
+      "shippingConnection": "Fuel and energy cost exposure",
+      "status": "STALE",
+      "value": 109.51,
+      "changePct": 3.194496796079904,
+      "observedAt": "2026-09-09T00:00:00+00:00",
+      "ageHours": 664.2
+    },
+    {
+      "id": "usd_inr",
+      "label": "USD / INR",
+      "series": "DEXINUS",
+      "unit": "INR/USD",
+      "source": "https://fred.stlouisfed.org/series/DEXINUS",
+      "shippingConnection": "Import cost and settlement exposure",
+      "status": "STALE",
+      "value": 95.55,
+      "changePct": 0.11525565800503124,
+      "observedAt": "2026-09-11T00:00:00+00:00",
+      "ageHours": 616.2
+    },
+    {
+      "id": "india_cpi",
+      "label": "India CPI",
+      "series": "INDCPIALLMINMEI",
+      "unit": "index",
+      "source": "https://fred.stlouisfed.org/series/INDCPIALLMINMEI",
+      "shippingConnection": "Inflation context for operating costs",
+      "status": "STALE",
+      "value": 157.5517,
+      "changePct": 0.14008655620338928,
+      "observedAt": "2025-03-01T00:00:00+00:00",
+      "ageHours": 14032.2
+    }
+  ],
+  "cameras": [],
+  "cameraEvidence": [],
+  "weatherFeedback": {
+    "asOf": "2026-10-06T16:11:38.871799+00:00",
+    "total": 1,
+    "resolved": 1,
+    "pending": 0,
+    "scores": [
+      {
+        "portCode": "INNSA",
+        "variable": "wind_speed",
+        "provider": "QA fixture",
+        "horizonDays": 5,
+        "unit": "kn",
+        "samples": 1,
+        "rawMae": 5.0,
+        "correctedMae": 5.0
+      }
+    ],
+    "forecasts": [
+      {
+        "id": "wx-d2767e2e49b4c6a4",
+        "portCode": "INNSA",
+        "variable": "wind_speed",
+        "provider": "QA fixture",
+        "issuedAt": "2026-09-26T16:11:38.830338+00:00",
+        "validAt": "2026-10-02T00:00:00+00:00",
+        "targetDate": "2026-10-01",
+        "horizonDays": 5,
+        "unit": "kn",
+        "original": 10.0,
+        "corrected": 10.0,
+        "low": null,
+        "high": null,
+        "observed": 15.0,
+        "observedAt": "2026-10-04T16:11:38.830338+00:00",
+        "observationSource": "station: QA station fixture",
+        "status": "resolved",
+        "correction": {
+          "bias": 0.0,
+          "lowerResidual": null,
+          "reason": "Need 24 independent resolved targets in this port, variable, provider, horizon and season.",
+          "sampleCount": 0,
+          "status": "COLLECTING",
+          "upperResidual": null,
+          "validationCorrectedMae": null,
+          "validationRawMae": null,
+          "version": "weather-residual-v1"
+        },
+        "provenance": {
+          "issueTimeBasis": "response_retrieved_at",
+          "provider": "QA fixture",
+          "providerRunTime": null,
+          "state": "QA_FIXTURE"
+        }
+      }
+    ],
+    "method": "supervised residual correction with chronological validation",
+    "note": "API backfill is not ground truth. ERA5 is labelled reanalysis; port station and operator measurements are accepted separately. No correction is learned from a newer forecast."
+  },
+  "integration": {
+    "name": "God's Eye View",
+    "repository": "https://github.com/bilawalsidhu/gods-eye-view",
+    "revision": "9542a5e58b19277d1f9b6698a46f69fdaa5fc5c1",
+    "codeLicence": "MIT",
+    "implemented": [
+      "native globe",
+      "global earthquakes",
+      "PortWatch events",
+      "economic context",
+      "port camera registry",
+      "weather feedback"
+    ],
+    "pending": [
+      "flights",
+      "satellites",
+      "transit",
+      "roads",
+      "infrastructure",
+      "fires",
+      "radio",
+      "camera projection",
+      "Indian Ocean cyclone adapter"
+    ]
+  }
+}

@@ -226,6 +226,10 @@ _LIVE_LOCK = threading.Lock()
 
 
 def get_live_world() -> LiveWorld:
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("live-world", LiveWorld)
     global _LIVE
     with _LIVE_LOCK:
         if _LIVE is None:

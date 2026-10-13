@@ -12,11 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as CompanyRouteRouteImport } from './routes/company/route'
+import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ModelRouteImport } from './routes/model'
 import { Route as NlpRouteImport } from './routes/nlp'
 import { Route as PortRouteRouteImport } from './routes/port/route'
+import { Route as ResearchRouteImport } from './routes/research'
 import { Route as SarRouteImport } from './routes/sar'
 import { Route as SimRouteImport } from './routes/sim'
 import { Route as VesselRouteRouteImport } from './routes/vessel/route'
@@ -83,6 +85,11 @@ const CompanyRouteRoute = CompanyRouteRouteImport.update({
   path: '/company',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExploreRoute = ExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FleetRoute = FleetRouteImport.update({
   id: '/fleet',
   path: '/fleet',
@@ -106,6 +113,11 @@ const NlpRoute = NlpRouteImport.update({
 const PortRouteRoute = PortRouteRouteImport.update({
   id: '/port',
   path: '/port',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchRoute = ResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SarRoute = SarRouteImport.update({
@@ -365,10 +377,12 @@ export interface FileRoutesByFullPath {
   '/company': typeof CompanyRouteRouteWithChildren
   '/port': typeof PortRouteRouteWithChildren
   '/vessel': typeof VesselRouteRouteWithChildren
+  '/explore': typeof ExploreRoute
   '/fleet': typeof FleetRoute
   '/login': typeof LoginRoute
   '/model': typeof ModelRoute
   '/nlp': typeof NlpRoute
+  '/research': typeof ResearchRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
   '/wx': typeof WxRoute
@@ -421,10 +435,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/explore': typeof ExploreRoute
   '/fleet': typeof FleetRoute
   '/login': typeof LoginRoute
   '/model': typeof ModelRoute
   '/nlp': typeof NlpRoute
+  '/research': typeof ResearchRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
   '/wx': typeof WxRoute
@@ -482,10 +498,12 @@ export interface FileRoutesById {
   '/company': typeof CompanyRouteRouteWithChildren
   '/port': typeof PortRouteRouteWithChildren
   '/vessel': typeof VesselRouteRouteWithChildren
+  '/explore': typeof ExploreRoute
   '/fleet': typeof FleetRoute
   '/login': typeof LoginRoute
   '/model': typeof ModelRoute
   '/nlp': typeof NlpRoute
+  '/research': typeof ResearchRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
   '/wx': typeof WxRoute
@@ -544,10 +562,12 @@ export interface FileRouteTypes {
     | '/company'
     | '/port'
     | '/vessel'
+    | '/explore'
     | '/fleet'
     | '/login'
     | '/model'
     | '/nlp'
+    | '/research'
     | '/sar'
     | '/sim'
     | '/wx'
@@ -600,10 +620,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/explore'
     | '/fleet'
     | '/login'
     | '/model'
     | '/nlp'
+    | '/research'
     | '/sar'
     | '/sim'
     | '/wx'
@@ -660,10 +682,12 @@ export interface FileRouteTypes {
     | '/company'
     | '/port'
     | '/vessel'
+    | '/explore'
     | '/fleet'
     | '/login'
     | '/model'
     | '/nlp'
+    | '/research'
     | '/sar'
     | '/sim'
     | '/wx'
@@ -721,10 +745,12 @@ export interface RootRouteChildren {
   CompanyRouteRoute: typeof CompanyRouteRouteWithChildren
   PortRouteRoute: typeof PortRouteRouteWithChildren
   VesselRouteRoute: typeof VesselRouteRouteWithChildren
+  ExploreRoute: typeof ExploreRoute
   FleetRoute: typeof FleetRoute
   LoginRoute: typeof LoginRoute
   ModelRoute: typeof ModelRoute
   NlpRoute: typeof NlpRoute
+  ResearchRoute: typeof ResearchRoute
   SarRoute: typeof SarRoute
   SimRoute: typeof SimRoute
   WxRoute: typeof WxRoute
@@ -751,6 +777,13 @@ declare module '@tanstack/react-router' {
       path: '/company'
       fullPath: '/company'
       preLoaderRoute: typeof CompanyRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/explore': {
+      id: '/explore'
+      path: '/explore'
+      fullPath: '/explore'
+      preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fleet': {
@@ -786,6 +819,13 @@ declare module '@tanstack/react-router' {
       path: '/port'
       fullPath: '/port'
       preLoaderRoute: typeof PortRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research': {
+      id: '/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof ResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sar': {
@@ -1279,10 +1319,12 @@ const rootRouteChildren: RootRouteChildren = {
   CompanyRouteRoute: CompanyRouteRouteWithChildren,
   PortRouteRoute: PortRouteRouteWithChildren,
   VesselRouteRoute: VesselRouteRouteWithChildren,
+  ExploreRoute: ExploreRoute,
   FleetRoute: FleetRoute,
   LoginRoute: LoginRoute,
   ModelRoute: ModelRoute,
   NlpRoute: NlpRoute,
+  ResearchRoute: ResearchRoute,
   SarRoute: SarRoute,
   SimRoute: SimRoute,
   WxRoute: WxRoute,

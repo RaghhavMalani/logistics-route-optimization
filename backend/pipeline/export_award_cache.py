@@ -24,6 +24,7 @@ from __future__ import annotations
 import ast
 
 import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,8 +67,17 @@ def _read_optional(path: Path) -> pd.DataFrame:
 def _write(name: str, payload) -> Path:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / name
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2, default=str)
+    if path.exists() and name in ("forecast_by_port.json", "live_status.json", "decision_by_port.json"):
+        previous = path.read_bytes()
+        digest = hashlib.sha256(previous).hexdigest()
+        archive = CACHE_DIR / "forecast_archive" / name.removesuffix(".json")
+        archive.mkdir(parents=True, exist_ok=True)
+        target = archive / (digest + ".json")
+        if not target.exists():
+            target.write_bytes(previous)
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    temporary.replace(path)
     print(f"Wrote {path}")
     return path
 
@@ -712,6 +722,10 @@ def main() -> None:
         "horizonDays": int(pd.to_numeric(forecast["horizon_day"], errors="coerce").max()),
         "benchmarkAvailable": bool(benchmark.get("available")),
         "benchmarkVersion": benchmark.get("version"),
+        "sourceObservationDate": _iso(origin),
+        "targetFrom": _iso(pd.to_datetime(forecast["target_date"], errors="coerce").min()),
+        "targetThrough": _iso(pd.to_datetime(forecast["target_date"], errors="coerce").max()),
+        "sourceLagNote": "Generation time is separate from the latest activity observation; upstream publication lag is not repaired by changing observation dates.",
         "exportedAt": datetime.now(timezone.utc).isoformat(),
     })
 

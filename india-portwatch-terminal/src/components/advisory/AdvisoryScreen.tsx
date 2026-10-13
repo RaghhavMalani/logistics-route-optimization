@@ -12,26 +12,70 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
-import { AdvisoryCard, advisoryLabel, advisoryTone } from "@/components/advisory/AdvisoryPanels";
-import { Button, Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import {
+  AdvisoryCard,
+  advisoryLabel,
+  advisoryTone,
+} from "@/components/advisory/AdvisoryPanels";
+import {
+  Button,
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
 import { generateAdvisories } from "@/services/portwatch-os";
 import { useAdvisories, useAdvisoryPolicy } from "@/services/os-hooks";
 import type { AdvisoryState } from "@/types/portwatch-os";
+import { PortCurrentProposalPanel } from "@/components/intelligence/PortCurrentProposalPanel";
 
 /** Which states a given side of the workflow actually cares about seeing. */
-const ISSUER_FILTERS: Array<{ key: string; label: string; states: AdvisoryState[] }> = [
-  { key: "open", label: "Needs action", states: ["draft", "under_review", "queried"] },
-  { key: "live", label: "Issued", states: ["issued", "acknowledged", "accepted"] },
-  { key: "closed", label: "Closed", states: ["declined", "rejected", "withdrawn", "expired", "completed"] },
+const ISSUER_FILTERS: Array<{
+  key: string;
+  label: string;
+  states: AdvisoryState[];
+}> = [
+  {
+    key: "open",
+    label: "Needs action",
+    states: ["draft", "under_review", "queried"],
+  },
+  {
+    key: "live",
+    label: "Issued",
+    states: ["issued", "acknowledged", "accepted"],
+  },
+  {
+    key: "closed",
+    label: "Closed",
+    states: ["declined", "rejected", "withdrawn", "expired", "completed"],
+  },
 ];
 
-const RECIPIENT_FILTERS: Array<{ key: string; label: string; states: AdvisoryState[] }> = [
-  { key: "open", label: "Awaiting response", states: ["issued", "acknowledged"] },
-  { key: "answered", label: "Answered", states: ["accepted", "queried", "declined"] },
-  { key: "closed", label: "Closed", states: ["withdrawn", "expired", "completed"] },
+const RECIPIENT_FILTERS: Array<{
+  key: string;
+  label: string;
+  states: AdvisoryState[];
+}> = [
+  {
+    key: "open",
+    label: "Awaiting response",
+    states: ["issued", "acknowledged"],
+  },
+  {
+    key: "answered",
+    label: "Answered",
+    states: ["accepted", "queried", "declined"],
+  },
+  {
+    key: "closed",
+    label: "Closed",
+    states: ["withdrawn", "expired", "completed"],
+  },
 ];
 
 export function AdvisoryScreen({
@@ -111,7 +155,9 @@ export function AdvisoryScreen({
             <Pill tone="neutral">
               as {query.data?.principal.actor} ({query.data?.principal.role})
             </Pill>
-            {query.data?.principal.isAdmin ? <Pill tone="unc">admin scope</Pill> : null}
+            {query.data?.principal.isAdmin ? (
+              <Pill tone="unc">admin scope</Pill>
+            ) : null}
           </span>
         }
         actions={
@@ -122,30 +168,36 @@ export function AdvisoryScreen({
                 disabled={generate.isPending}
                 onClick={() => generate.mutate()}
               >
-                {generate.isPending ? "Running the twin…" : "Draft from the engine"}
+                {generate.isPending
+                  ? "Running the twin…"
+                  : "Draft from the engine"}
               </Button>
             ) : null}
             <div className="flex overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
-            {filters.map((option) => {
-              const count = all.filter((a) => option.states.includes(a.state)).length;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  aria-pressed={filter === option.key}
-                  onClick={() => setFilter(option.key)}
-                  className={cn(
-                    "px-2 py-[3px] text-[11px] transition-colors",
-                    filter === option.key
-                      ? "bg-[var(--panel-4)] text-[var(--text)]"
-                      : "text-[var(--text-3)] hover:bg-[var(--panel-3)] hover:text-[var(--text-2)]",
-                  )}
-                >
-                  {option.label}
-                  <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">{count}</span>
-                </button>
-              );
-            })}
+              {filters.map((option) => {
+                const count = all.filter((a) =>
+                  option.states.includes(a.state),
+                ).length;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    aria-pressed={filter === option.key}
+                    onClick={() => setFilter(option.key)}
+                    className={cn(
+                      "px-2 py-[3px] text-[11px] transition-colors",
+                      filter === option.key
+                        ? "bg-[var(--panel-4)] text-[var(--text)]"
+                        : "text-[var(--text-3)] hover:bg-[var(--panel-3)] hover:text-[var(--text-2)]",
+                    )}
+                  >
+                    {option.label}
+                    <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </>
         }
@@ -154,8 +206,8 @@ export function AdvisoryScreen({
       {generate.data ? (
         <div className="shrink-0 border-b border-[var(--line)] bg-[var(--panel-2)]/50 px-4 py-1.5">
           <p className="text-[10.5px] leading-snug text-[var(--text-2)]">
-            The engine considered {generate.data.callsThatWaited} calls that waited and
-            drafted {generate.data.created.length}
+            The engine considered {generate.data.callsThatWaited} calls that
+            waited and drafted {generate.data.created.length}
             {generate.data.refused.length
               ? `; the Critic refused ${generate.data.refused.length}: ${generate.data.refused[0].reasons[0]}`
               : ""}
@@ -165,6 +217,7 @@ export function AdvisoryScreen({
       ) : null}
 
       <PageBody>
+        {side === "issuer" ? <PortCurrentProposalPanel /> : null}
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Panel
             title={active.label}
@@ -190,7 +243,9 @@ export function AdvisoryScreen({
                     expanded={expanded === advisory.advisoryId}
                     onToggle={() =>
                       setExpanded(
-                        expanded === advisory.advisoryId ? null : advisory.advisoryId,
+                        expanded === advisory.advisoryId
+                          ? null
+                          : advisory.advisoryId,
                       )
                     }
                   />
@@ -209,13 +264,18 @@ export function AdvisoryScreen({
                     </p>
                   ) : (
                     Object.entries(counts).map(([state, count]) => (
-                      <div key={state} className="flex items-baseline justify-between gap-2">
+                      <div
+                        key={state}
+                        className="flex items-baseline justify-between gap-2"
+                      >
                         <dt>
                           <Pill tone={advisoryTone(state as AdvisoryState)}>
                             {advisoryLabel(state as AdvisoryState)}
                           </Pill>
                         </dt>
-                        <dd className="num text-[11.5px] text-[var(--text)]">{count}</dd>
+                        <dd className="num text-[11.5px] text-[var(--text)]">
+                          {count}
+                        </dd>
                       </div>
                     ))
                   )}
@@ -243,7 +303,9 @@ export function AdvisoryScreen({
                   </p>
                   <div className="mt-1.5">
                     <Pill tone={policy.data.identity.verified ? "ok" : "unc"}>
-                      {policy.data.identity.verified ? "verified" : "asserted, not verified"}
+                      {policy.data.identity.verified
+                        ? "verified"
+                        : "asserted, not verified"}
                     </Pill>
                   </div>
                 </Section>

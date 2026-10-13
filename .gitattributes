@@ -1,0 +1,7 @@
+# Immutable public evidence is verified by exact SHA-256 bytes.
+# Preserve it across Windows and Linux checkouts.
+data/research_release/** -text whitespace=cr-at-eol
+data/public_port_cases/** -text whitespace=cr-at-eol
+data/jnpa/public_reports/** -text whitespace=cr-at-eol
+tests/fixtures/public_ports/** -text whitespace=cr-at-eol
+tests/fixtures/operational_notices/** -text whitespace=cr-at-eol

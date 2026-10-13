@@ -19,6 +19,7 @@ export interface TrafficConfig {
   epoch: number;
   owned?: OwnedVesselSeed[];
   oceanFleet?: number;
+  demo?: boolean;
 }
 
 /** No provider configured, and nothing to draw. */
@@ -58,7 +59,7 @@ export function configuredProvider(): string | null {
 export function createTrafficSource(config: TrafficConfig): TrafficSource {
   const provider = configuredProvider();
 
-  if (provider) {
+  if (provider && !config.demo) {
     // No adapter ships with this build. Rather than quietly serving simulated
     // positions under a live provider's name, the source reports unavailable --
     // an operator who configured a feed must be able to tell it is not working.

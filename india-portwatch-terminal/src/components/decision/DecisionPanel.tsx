@@ -38,6 +38,12 @@ import { DecisionTimeline } from "./DecisionTimeline";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
+import { FrozenWeatherBasis } from "@/components/intelligence/FrozenWeatherBasis";
+import {
+  FrozenIntelligenceBasis,
+  type IntelligenceBasis,
+} from "@/components/intelligence/FrozenIntelligenceBasis";
+import type { FrozenEnvironment } from "@/services/current-inputs";
 
 type Tab =
   "options" | "robust" | "frontier" | "timeline" | "money" | "why" | "workflow";
@@ -196,7 +202,25 @@ export function DecisionPanel({
     (a) => a.availability.status !== "AVAILABLE",
   );
   const recommendation = problem.recommendation;
-  const columns = COLUMNS[problem.domain] ?? COLUMNS.VESSEL_ROUTING;
+  const currentWeather = problem.evidence?.currentEnvironment as
+    FrozenEnvironment | undefined;
+  const intelligence = problem.evidence?.intelligenceBasis as
+    IntelligenceBasis | undefined;
+  const columns = currentWeather
+    ? [
+        { key: "eta", label: "Clear approach shift" },
+        { key: "port_wait", label: "Assumed wait" },
+        { key: "weather", label: "Wave" },
+        { key: "cost", label: "Cost" },
+      ]
+    : intelligence?.kind === "NOTICE_RESTRICTION"
+      ? [
+          { key: "eta", label: "Total schedule shift" },
+          { key: "port_wait", label: "Planned lock wait" },
+          { key: "fuel", label: "Fuel" },
+          { key: "cost", label: "Cost" },
+        ]
+      : (COLUMNS[problem.domain] ?? COLUMNS.VESSEL_ROUTING);
   const isReplay = Boolean(problem.evidence?.replay);
   const [rootRef, width] = usePanelWidth();
   const stacked = width < STACK_BELOW;
@@ -273,7 +297,29 @@ export function DecisionPanel({
         </p>
       </div>
 
-      <RobustHeadline problem={problem} />
+      {problem.evidence.currentEnvironment ? (
+        <p className="px-2 py-2 text-xs">
+          Forecast approach comparison: both options reach the same clear
+          approach time. Later arrival reduces assumed anchorage waiting. The
+          closure-duration stress model does not apply; calibrated uncertainty
+          is unavailable.
+        </p>
+      ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
+        <p className="p-2 text-xs">
+          Published lock restriction and declared voyage timing. Both options
+          use the same first operational tide and conditional destination
+          arrival. Revising the request relocates planned waiting; actual access
+          and operational benefits remain unavailable.
+        </p>
+      ) : intelligence ? (
+        <p className="p-2 text-xs">
+          Reported evidence and an explicit review-hold assumption. Only the
+          assumed schedule shift is quantified; operational benefit is
+          unavailable.
+        </p>
+      ) : (
+        <RobustHeadline problem={problem} />
+      )}
 
       <PanelTabs
         value={tab}
@@ -299,6 +345,12 @@ export function DecisionPanel({
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {currentWeather ? (
+          <FrozenWeatherBasis evidence={currentWeather} />
+        ) : null}
+        {intelligence ? (
+          <FrozenIntelligenceBasis evidence={intelligence} />
+        ) : null}
         {tab === "options" ? (
           <div className="flex flex-col">
             <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
@@ -416,11 +468,35 @@ export function DecisionPanel({
         ) : null}
 
         {tab === "robust" ? (
-          <RobustView
-            problem={problem}
-            selectedOptionId={selectedOptionId}
-            onSelect={onSelectOption}
-          />
+          problem.evidence.currentEnvironment ? (
+            <p className="p-2 text-xs">
+              This comparison uses hourly gust and visibility with explicit
+              operator limits. Both options reach the same forecast-clear
+              approach. Closure-duration stress horizons are not used. Fuel,
+              cost, berth availability and calibrated uncertainty are
+              unavailable.
+            </p>
+          ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
+            <p className="p-2 text-xs">
+              This calculation uses the authority's published lock schedule,
+              declared passage and fixed onward travel assumption. Both options
+              have the same total schedule shift. Actual reopening, slot,
+              clearance, berth, fuel, cost and safety effects are unavailable;
+              no closure-duration stress model is applied.
+            </p>
+          ) : intelligence ? (
+            <p className="p-2 text-xs">
+              The closure-duration stress model does not apply to this
+              review-hold scenario. Event-caused delay, cost, fuel, berth and
+              calibrated safety effects remain unavailable.
+            </p>
+          ) : (
+            <RobustView
+              problem={problem}
+              selectedOptionId={selectedOptionId}
+              onSelect={onSelectOption}
+            />
+          )
         ) : null}
 
         {tab === "frontier" ? (
@@ -1000,7 +1076,19 @@ function WorkflowView({
           ))}
         </ul>
       ) : null}
-      {["APPROVED", "ACCEPTED", "DECLINED"].includes(problem.workflow) ? (
+      {(problem.evidence?.currentEnvironment ||
+        problem.evidence?.intelligenceBasis) &&
+      problem.workflow === "APPROVED" &&
+      problem.actor.role === "SHIPPING_COMPANY" ? (
+        <p className="text-[11px] text-[var(--text-2)]">
+          Company proposal submitted to your demo Port desk. Switch to Port
+          Authority → Advisories to review the same frozen evidence, issue the
+          advisory and await Vessel response.
+        </p>
+      ) : null}
+      {!problem.evidence?.currentEnvironment &&
+      !problem.evidence?.intelligenceBasis &&
+      ["APPROVED", "ACCEPTED", "DECLINED"].includes(problem.workflow) ? (
         <form
           className="flex flex-col gap-1 rounded border border-[var(--line)] px-1.5 py-1"
           onSubmit={(event) => {

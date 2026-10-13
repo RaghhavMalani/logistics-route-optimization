@@ -19,6 +19,7 @@ import os
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -349,6 +350,10 @@ class AdminRoutesTests(unittest.TestCase):
     ADMIN = {"X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "qa"}
 
     def setUp(self):
+        # These legacy-header routes are exercised only in explicit demo mode.
+        identity_env = patch.dict(os.environ, {"PORTWATCH_IDENTITY_MODE": "asserted"})
+        identity_env.start()
+        self.addCleanup(identity_env.stop)
         os.environ["PORTWATCH_LICENCE_MODE"] = "DEMO"
         os.environ["PORTWATCH_FRESHNESS_SCHEDULER"] = "0"
         from fastapi.testclient import TestClient

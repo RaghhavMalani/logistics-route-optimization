@@ -189,6 +189,10 @@ class LedgerStore(ABC):
 # --------------------------------------------------------------------------
 
 _SCHEMA = """
+CREATE TABLE IF NOT EXISTS decision_continuations (
+    problem_id TEXT PRIMARY KEY,
+    state TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS predictions (
     prediction_id       TEXT PRIMARY KEY,
     domain              TEXT NOT NULL,
@@ -352,6 +356,20 @@ CREATE TABLE IF NOT EXISTS ledger_audit (
     detail      TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_audit_entity ON ledger_audit(entity, entity_id);
+
+-- Arrival evidence and workflow events share the prediction/decision ledger.
+CREATE TABLE IF NOT EXISTS arrival_tracks (
+    id TEXT PRIMARY KEY, port_code TEXT NOT NULL, mmsi TEXT NOT NULL,
+    observed_at TEXT NOT NULL, available_at TEXT NOT NULL, recorded_at TEXT NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_arrival_tracks ON arrival_tracks(port_code, mmsi, observed_at);
+CREATE TABLE IF NOT EXISTS arrival_events (
+    operation_id TEXT NOT NULL, kind TEXT NOT NULL, port_code TEXT NOT NULL,
+    recorded_at TEXT NOT NULL, actor TEXT NOT NULL, body TEXT NOT NULL,
+    PRIMARY KEY(operation_id, kind)
+);
+CREATE INDEX IF NOT EXISTS ix_arrival_events ON arrival_events(port_code, recorded_at);
 """
 
 
@@ -403,12 +421,62 @@ class SqliteLedgerStore(LedgerStore):
     @contextmanager
     def _tx(self) -> Iterator[sqlite3.Connection]:
         with self._lock:
+            # Savepoints allow an operation event and its prediction/decision
+            # resolution to commit together, including nested ledger methods.
+            self._conn.execute("SAVEPOINT ledger_write")
             try:
                 yield self._conn
-                self._conn.commit()
+                self._conn.execute("RELEASE SAVEPOINT ledger_write")
             except Exception:
-                self._conn.rollback()
+                self._conn.execute("ROLLBACK TO SAVEPOINT ledger_write")
+                self._conn.execute("RELEASE SAVEPOINT ledger_write")
                 raise
+
+    def atomic(self):
+        """One durable workflow change, with nested ledger writes rolled back together."""
+        return self._tx()
+
+    def record_arrival_track(self, row: Dict[str, Any]) -> None:
+        with self._tx() as conn:
+            conn.execute("INSERT OR IGNORE INTO arrival_tracks VALUES (?, ?, ?, ?, ?, ?, ?)",
+                         (row["id"], row["portCode"], row["mmsi"], row["observedAt"],
+                          row["availableAt"], row["recordedAt"], json.dumps(row, sort_keys=True)))
+
+    def arrival_tracks(self, port: str, *, before: str, mmsi: Optional[str] = None,
+                       after: Optional[str] = None, limit: int = 500) -> List[Dict[str, Any]]:
+        clauses = ["port_code = ?", "observed_at <= ?", "available_at <= ?", "recorded_at <= ?"]
+        args: List[Any] = [port, before, before, before]
+        if mmsi:
+            clauses.append("mmsi = ?")
+            args.append(mmsi)
+        if after:
+            clauses.append("observed_at >= ?")
+            args.append(after)
+        with self._lock:
+            rows = self._conn.execute("SELECT body FROM arrival_tracks WHERE " + " AND ".join(clauses)
+                                      + " ORDER BY observed_at DESC, id LIMIT ?", (*args, limit)).fetchall()
+        return [json.loads(row[0]) for row in reversed(rows)]
+
+    def append_arrival_event(self, operation_id: str, kind: str, port: str, actor: str,
+                             body: Dict[str, Any], *, at: str) -> None:
+        with self._tx() as conn:
+            try:
+                conn.execute("INSERT INTO arrival_events VALUES (?, ?, ?, ?, ?, ?)",
+                             (operation_id, kind, port, at, actor, json.dumps(body, sort_keys=True)))
+            except sqlite3.IntegrityError as exc:
+                raise LedgerError(f"{kind} is already recorded for this operation; it is immutable") from exc
+            self._audit(conn, "arrival", operation_id, kind, actor)
+
+    def arrival_events(self, port: str, *, before: str, operation_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        clause, args = "port_code = ? AND recorded_at <= ?", [port, before]
+        if operation_id:
+            clause += " AND operation_id = ?"
+            args.append(operation_id)
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM arrival_events WHERE " + clause
+                                      + " ORDER BY recorded_at, rowid", args).fetchall()
+        return [{"operationId": row["operation_id"], "kind": row["kind"], "recordedAt": row["recorded_at"],
+                 "actor": row["actor"], "body": json.loads(row["body"])} for row in rows]
 
     def close(self) -> None:
         with self._lock:
@@ -653,6 +721,18 @@ class SqliteLedgerStore(LedgerStore):
         return [DecisionRecord.from_row(dict(row)) for row in rows]
 
     # -- decision problems -------------------------------------------------
+    def save_continuation(self, problem_id: str, state: Dict[str, Any]) -> None:
+        # Separate from the immutable computed problem: subsequent approvals,
+        # history and advisory links must survive without rewriting forecasts.
+        with self._tx() as conn:
+            conn.execute("INSERT INTO decision_continuations VALUES (?, ?) ON CONFLICT(problem_id) DO UPDATE SET state=excluded.state",
+                         (problem_id, json.dumps(state, sort_keys=True, allow_nan=False)))
+
+    def get_continuation(self, problem_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            row = self._conn.execute("SELECT state FROM decision_continuations WHERE problem_id=?", (problem_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
     def record_decision_problem(self, record: DecisionProblemRecord) -> str:
         """Write or update a problem. The computed payload is immutable.
 
@@ -1084,6 +1164,10 @@ def get_ledger(path: Path | str | None = None) -> SqliteLedgerStore:
     second connection to the same file from three places is how a demo ends up
     reading its own half-written state.
     """
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("ledger", lambda: SqliteLedgerStore(scoped.root / "ledger.sqlite3"))
     global _DEFAULT
     if path is not None:
         return SqliteLedgerStore(path)

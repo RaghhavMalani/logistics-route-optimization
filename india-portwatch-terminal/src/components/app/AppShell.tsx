@@ -171,9 +171,9 @@ function ContextCrumb() {
 }
 
 function RoleSwitcher() {
-  const { role, viewAs, setViewAs } = useAuth();
+  const { role, viewAs, setViewAs, mode, switchDemo } = useAuth();
   const navigate = useNavigate();
-  if (role !== "NATIONAL_ADMIN") return null;
+  if (role !== "NATIONAL_ADMIN" && mode !== "demo") return null;
 
   return (
     <Menu
@@ -181,7 +181,9 @@ function RoleSwitcher() {
       width={252}
       label={
         <span className="flex items-center gap-1.5">
-          <span className="eyebrow text-[10px]">View as</span>
+          <span className="eyebrow text-[10px]">
+            {mode === "demo" ? "Demo role" : "View as"}
+          </span>
           <span className="font-medium">
             {ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}
           </span>
@@ -198,8 +200,9 @@ function RoleSwitcher() {
                 key={option}
                 type="button"
                 role="menuitem"
-                onClick={() => {
-                  setViewAs(option);
+                onClick={async () => {
+                  if (mode === "demo") await switchDemo(option);
+                  else setViewAs(option);
                   close();
                   void navigate({ to: profile.home });
                 }}
@@ -223,8 +226,9 @@ function RoleSwitcher() {
             );
           })}
           <p className="border-t border-[var(--line)] px-2 pb-1 pt-1.5 text-[10px] leading-snug text-[var(--text-3)]">
-            Switching context changes the workspace only. Command-level access
-            is retained.
+            {mode === "demo"
+              ? "All four roles share only your isolated demo world."
+              : "Switching context changes the workspace only. Command-level access is retained."}
           </p>
         </div>
       )}
@@ -233,7 +237,7 @@ function RoleSwitcher() {
 }
 
 function ProfileMenu() {
-  const { session, signOut, mode } = useAuth();
+  const { session, signOut, mode, resetDemo } = useAuth();
   const navigate = useNavigate();
   const user = session?.user;
   if (!user) return null;
@@ -275,6 +279,19 @@ function ProfileMenu() {
               <Pill tone={mode === "demo" ? "unc" : "ok"}>{mode} auth</Pill>
             </div>
           </div>
+          {mode === "demo" ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                void resetDemo();
+              }}
+              className="block w-full px-3 py-2 text-left text-[12px] text-[var(--text-2)] hover:bg-[var(--panel-2)]"
+            >
+              Reset this demo
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"
@@ -475,7 +492,7 @@ function StatusLine() {
       <span className="h-3 w-px bg-[var(--line)]" />
 
       <span className="flex items-center gap-1.5">
-        <span className="eyebrow text-[10px]">Twin</span>
+        <span className="eyebrow text-[10px]">Activity</span>
         {health.isError ? (
           <Pill tone="crit">API down</Pill>
         ) : (
@@ -494,6 +511,7 @@ function StatusLine() {
 
       <span className="h-3 w-px bg-[var(--line)]" />
 
+      <CurrentWeatherStatus />
       <WorldClockChip />
 
       <span className="h-3 w-px bg-[var(--line)]" />
@@ -611,3 +629,4 @@ export function AppShell({ children }: { children: ReactNode }) {
     </TrafficProvider>
   );
 }
+import { CurrentWeatherStatus } from "@/components/intelligence/CurrentWeatherStatus";

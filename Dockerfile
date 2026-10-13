@@ -62,7 +62,16 @@ RUN mkdir -p outputs/expert_features outputs/regimes outputs/forecasts \
 # an image that declares its own).
 
 ENV PORT=8000 \
-    PORTWATCH_STATE_DIR=/app/state
+    PORTWATCH_STATE_DIR=/app/state \
+    PORTWATCH_IDENTITY_MODE=verified \
+    PORTWATCH_FRESHNESS_SCHEDULER=1 \
+    PORTWATCH_PUBLIC_PORT_AUTOREFRESH=1 \
+    PORTWATCH_VESSELFINDER_ENABLED=0 \
+    PORTWATCH_PUBLIC_RESEARCH_DIR=/app/data/research_release
+ENV PORTWATCH_CURRENT_ENVIRONMENT_DIR=/app/state/current_environment \
+    PORTWATCH_WEATHER_FEEDBACK_DB=/app/state/public_weather_forecasts.sqlite3 \
+    PORTWATCH_WEATHER_FEEDBACK_REPORT=/app/state/public_weather_feedback.json \
+    PORTWATCH_EXPERIMENT_DIR=/app/data/research_release/capabilities
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

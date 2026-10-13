@@ -1,0 +1,4 @@
+model,n,mae,rmse,mape_pct,signed_bias,pinball_q10,pinball_q50,pinball_q90,coverage_80pct,interval_width,calibration_error,mae_change_vs_full_gbm
+GBM quantile,4260,5.9177,8.0318,10.668,0.6786,1.4246,2.9587,1.4264,0.7592,18.4628,0.0408,0.0
+GBM history + calendar,4260,6.2691,8.5112,11.2802,0.3358,1.5725,3.1332,1.4579,0.7021,16.546,0.0979,0.35139999999999993
+GBM history only,4260,6.4001,8.6338,11.3991,0.8095,1.5114,3.2001,1.3326,0.8319,21.3705,0.0319,0.48240000000000016

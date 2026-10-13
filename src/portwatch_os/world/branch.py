@@ -505,6 +505,10 @@ _REGISTRY_LOCK = threading.Lock()
 
 
 def get_registry() -> BranchRegistry:
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("branches", BranchRegistry)
     global _REGISTRY
     with _REGISTRY_LOCK:
         if _REGISTRY is None:

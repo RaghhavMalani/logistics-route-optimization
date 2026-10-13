@@ -51,6 +51,16 @@ services:
         value: DEMO
       - key: PORTWATCH_STATE_DIR
         value: /app/state
+      - key: PORTWATCH_IDENTITY_MODE
+        value: verified
+      - key: PORTWATCH_FRESHNESS_SCHEDULER
+        value: "1"
+      - key: PORTWATCH_PUBLIC_PORT_AUTOREFRESH
+        value: "1"
+      - key: PORTWATCH_VESSELFINDER_ENABLED
+        value: "0"
+      - key: PORTWATCH_PUBLIC_RESEARCH_DIR
+        value: /app/data/research_release
       - key: PORTWATCH_CORS_REGEX
         value: ^https://india-portwatch(-([a-z0-9-]+-)?flash2404s-projects)?\.vercel\.app$
       - key: PYTHONUNBUFFERED

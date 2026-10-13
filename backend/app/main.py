@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 
 from contextlib import asynccontextmanager
@@ -11,13 +12,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.routes import (
     admin,
     advisories,
+    arrivals,
+    public_arrivals,
+    public_research,
+    public_workspace,
     agents,
+    auth,
     company,
     decisions,
+    demo,
+    demo_terminal,
     finance,
     fleet,
     global_eye,
     health,
+    intelligence,
     learning,
     lenses,
     missions,
@@ -29,6 +38,9 @@ from backend.app.routes import (
     sar,
     scenarios,
     weather,
+    weather_verification,
+    shipping_intelligence,
+    operational_notices,
     world,
 )
 
@@ -71,10 +83,16 @@ async def lifespan(_: FastAPI):
     scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
     if scheduler:
         coordinator.start()
+    from src.portwatch_os.learning import weather_reconciliation
+    weather_reconciliation.start()
+    from src.portwatch_os.intelligence import operational_notices as authority_notices
+    authority_notices.start()
     try:
         yield
     finally:
         coordinator.stop()
+        weather_reconciliation.stop()
+        authority_notices.stop()
         stop_client()
 
 
@@ -96,15 +114,6 @@ cors_regex = os.getenv(
     "PORTWATCH_CORS_REGEX",
     r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
 )
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=cors_regex,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 @app.exception_handler(Exception)
 async def _storage_failures(request: Request, exc: Exception):
@@ -140,28 +149,71 @@ async def _storage_failures(request: Request, exc: Exception):
 #: Routes a request may reach with no identity even when identity is required:
 #: liveness, the policy statements that say what this deployment verifies, and
 #: the API's own description.
-IDENTITY_EXEMPT = ("/api/health", "/api/provenance", "/api/advisories/policy", "/", "/docs", "/openapi.json", "/redoc")
+IDENTITY_EXEMPT = ("/api/health", "/api/provenance", "/api/advisories/policy", "/api/auth/login", "/", "/docs", "/openapi.json", "/redoc")
 
 
 @app.middleware("http")
 async def _identity_gate(request: Request, call_next):
-    """In ``required`` identity mode, no role means no API.
-
-    Route-level checks scope what a role may do; this is the door. It keeps a
-    deployment behind an authenticating proxy from serving anything to a
-    request the proxy did not stamp, whichever route it asked for.
-    """
-    from backend.app.identity import REQUIRED, identity_mode
+    """Verify the session, derive server-owned scope, and gate protected API routes."""
+    if request.url.path.startswith("/api/demo/"):
+        # Demo routes authenticate against their separate store. Never create an
+        # operational Identity or forward demo requests into protected routers.
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+    from starlette.concurrency import run_in_threadpool
+    from backend.app.auth_store import get_auth_store
+    from src.portwatch_os.ledger.store import LedgerError
+    from backend.app.identity import Identity, REQUIRED, VERIFIED, current_identity, identity_mode
 
     path = request.url.path
-    if identity_mode() == REQUIRED and path.startswith("/api/") and path not in IDENTITY_EXEMPT             and request.method != "OPTIONS" and not (request.headers.get("x-portwatch-role") or "").strip():
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(status_code=401, content={
-            "detail": "this deployment requires an identity on every request: send X-PortWatch-Role "
-                      "(set by the authenticating proxy from the signed-in session)",
-        })
-    return await call_next(request)
+    context_token = current_identity.set(None)
+    try:
+        public_read = request.method == "GET" and (path in ("/api/public/explore", "/api/public/research", "/api/public/workspace", "/api/public/scenario", "/api/public/weather-feedback")
+            or path.startswith("/api/public/research/download/")
+            or path == "/api/public/port-calls"
+            or re.fullmatch(r"/api/public/port-calls/(?:evidence/[a-f0-9]{64}\.pdf|[a-f0-9]{64}/audit)", path) is not None)
+        if path.startswith("/api/") and request.method != "OPTIONS" and path not in IDENTITY_EXEMPT and not public_read:
+            authorization = request.headers.get("authorization", "")
+            if authorization:
+                scheme, _, token = authorization.partition(" ")
+                if scheme.lower() != "bearer" or not token:
+                    raise HTTPException(401, "A bearer session token is required")
+                verified = await run_in_threadpool(get_auth_store().session, token)
+                user = verified["user"]
+                who = Identity(role=user["role"], actor=user["id"], port_code=user["portCode"],
+                               port_codes=tuple(user["portCodes"]), organisation=user["organisation"],
+                               vessel_ids=tuple(user["vesselIds"]), verified=True)
+                current_identity.set(who)
+                request.state.verified_session = verified
+                request.state.session_token = token
+                # Existing workflow routes consume these headers. Replace every caller assertion
+                # with server-owned values before FastAPI resolves their Header dependencies.
+                headers = [(k,v) for k,v in request.scope["headers"] if not k.lower().startswith(b"x-portwatch-")]
+                values = {"role": who.role, "actor": who.actor, "port": who.port_code,
+                          "org": who.organisation, "vessels": ",".join(who.vessel_ids)}
+                for key, value in values.items():
+                    if value:
+                        headers.append((f"x-portwatch-{key}".encode(), value.encode("ascii", "ignore")))
+                request.scope["headers"] = headers
+                if hasattr(request, "_headers"):
+                    del request._headers
+            elif identity_mode() == VERIFIED or path.startswith("/api/auth/"):
+                raise HTTPException(401, "A verified session is required", headers={"WWW-Authenticate": "Bearer"})
+            elif identity_mode() == REQUIRED and not (request.headers.get("x-portwatch-role") or "").strip():
+                raise HTTPException(401, "This deployment requires an identity from the authenticating proxy")
+        response = await call_next(request)
+        if current_identity.get():
+            response.headers["Cache-Control"] = "no-store"
+        return response
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
+    except LedgerError:
+        return JSONResponse(status_code=503, content={"detail": "A durable identity or evidence store is unavailable"})
+    finally:
+        current_identity.reset(context_token)
 
 
 @app.middleware("http")
@@ -191,10 +243,28 @@ async def _telemetry(request: Request, call_next):
         telemetry.incr("api.refusals", route=template, status=response.status_code)
     return response
 
+# CORS must also wrap authentication refusals, so cross-origin terminals can
+# read a 401 and return to sign-in instead of reporting an opaque network error.
+app.add_middleware(CORSMiddleware, allow_origin_regex=cors_regex,
+                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
 app.include_router(health.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
 app.include_router(provenance.router, prefix="/api")
 app.include_router(model.router, prefix="/api")
 app.include_router(ports.router, prefix="/api")
+app.include_router(intelligence.router, prefix="/api")
+from backend.app.routes import current_inputs
+app.include_router(current_inputs.router, prefix="/api")
+app.include_router(arrivals.router, prefix="/api")
+app.include_router(public_arrivals.router, prefix="/api")
+app.include_router(public_research.router, prefix="/api")
+app.include_router(public_workspace.router, prefix="/api")
+app.include_router(demo.router, prefix="/api")
+app.include_router(demo_terminal.router, prefix="/api")
+app.include_router(weather_verification.router, prefix="/api")
+app.include_router(shipping_intelligence.router, prefix="/api")
+app.include_router(operational_notices.router, prefix="/api")
 app.include_router(weather.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
 app.include_router(sar.router, prefix="/api")
@@ -209,6 +279,8 @@ app.include_router(port_twin.router, prefix="/api")
 app.include_router(advisories.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(learning.router, prefix="/api")
+from backend.app.routes import capabilities
+app.include_router(capabilities.router, prefix="/api")
 app.include_router(world.router, prefix="/api")
 
 # The decision intelligence engine, its financial twin and the historical

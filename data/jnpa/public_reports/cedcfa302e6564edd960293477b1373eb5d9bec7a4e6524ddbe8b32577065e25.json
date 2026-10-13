@@ -1,0 +1,208 @@
+{
+  "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+  "retrievedAt": "2026-10-07T07:49:16.017177+00:00",
+  "reportDate": "07-10-2026",
+  "snapshotId": "cedcfa302e6564edd960293477b1373eb5d9bec7a4e6524ddbe8b32577065e25",
+  "sourceContentHash": "fe08b390f6a4f4a4a183b1c587b82f6b22dcfa1bf93f245e41d34f0d047b6924",
+  "records": [
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1709",
+      "vesselName": "CMA CGM VELA",
+      "terminal": "NSFT",
+      "berthRef": "CB-01",
+      "reportedBerthedOn": "05-10-2026 10:50:00",
+      "reportedExpectedCompletion": "07-10-2026 02:12:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1723",
+      "vesselName": "BAMSI BEYREK",
+      "terminal": "NSFT",
+      "berthRef": "CB-02",
+      "reportedBerthedOn": "05-10-2026 20:15:00",
+      "reportedExpectedCompletion": "07-10-2026 10:00:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1502",
+      "vesselName": "CELCIUS EDINBURGH",
+      "terminal": "NSICT",
+      "berthRef": "CB-04",
+      "reportedBerthedOn": "06-10-2026 09:00:00",
+      "reportedExpectedCompletion": "07-10-2026 12:00:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1609",
+      "vesselName": "XPRESS KABRU",
+      "terminal": "NSICT",
+      "berthRef": "CB-05",
+      "reportedBerthedOn": "07-10-2026 07:36:00",
+      "reportedExpectedCompletion": "08-10-2026 02:00:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1760",
+      "vesselName": "WAN HAI 623",
+      "terminal": "NSIGT",
+      "berthRef": "CB-06",
+      "reportedBerthedOn": "06-10-2026 13:36:00",
+      "reportedExpectedCompletion": "07-10-2026 20:00:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1696",
+      "vesselName": "RDO GRACE",
+      "terminal": "BMCT",
+      "berthRef": "BMCT-01",
+      "reportedBerthedOn": "06-10-2026 20:12:00",
+      "reportedExpectedCompletion": "07-10-2026 11:00:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S6981",
+      "vesselName": "GREEN BHAVISHYA",
+      "terminal": "BPCL",
+      "berthRef": "LB-01",
+      "reportedBerthedOn": "06-10-2026 16:12:00",
+      "reportedExpectedCompletion": "08-10-2026 15:00:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S7073",
+      "vesselName": "APINYA NAREE",
+      "terminal": "NSDT",
+      "berthRef": "CCB-S",
+      "reportedBerthedOn": "06-10-2026 16:12:00",
+      "reportedExpectedCompletion": "09-10-2026 07:27:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    },
+    {
+      "portCode": "INNSA",
+      "operationRef": "S1725",
+      "vesselName": "ALTUS VARUNA",
+      "terminal": "NSDT",
+      "berthRef": "NSD-03",
+      "reportedBerthedOn": "06-10-2026 20:54:00",
+      "reportedExpectedCompletion": "07-10-2026 18:30:00",
+      "firstSeenAt": "2026-10-07T07:49:16.017177+00:00",
+      "source": "https://www.jnport.gov.in/page/berthing-report/M2VlS0pwUXZ3akhSV0E0RDFUVlhxQT09",
+      "reportDate": "07-10-2026",
+      "status": "NEEDS_VERIFICATION",
+      "qualifying": false,
+      "missing": [
+        "MMSI and verified call match",
+        "Confirmed anchorage arrival",
+        "All-fast definition and timestamp",
+        "Timestamp timezone",
+        "Individual pre-arrival scheduler estimate and reference",
+        "Original publication availability"
+      ]
+    }
+  ],
+  "note": "Reported berth times retain source text. First seen now is an availability bound, not historical publication time. No prospective labels or baselines are created."
+}

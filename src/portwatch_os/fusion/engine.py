@@ -630,6 +630,10 @@ _ENGINE_LOCK = threading.Lock()
 
 
 def get_engine() -> FusionEngine:
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        return scoped.resource("fusion", FusionEngine)
     global _ENGINE
     with _ENGINE_LOCK:
         if _ENGINE is None:

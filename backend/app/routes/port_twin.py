@@ -58,6 +58,17 @@ def _snapshot(port_code: str) -> Dict[str, Any]:
 
 def build_state_for(port_code: str) -> PortState:
     """The twin for a port, seeded from its observed snapshot."""
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None and port_code.upper() == scoped.world["portCode"]:
+        from backend.app.routes.demo import twin_state
+        state = twin_state(scoped.world)
+        owned = {v["id"] for v in scoped.world["fleet"]}
+        for call in state.calls:
+            if call.vessel_id in owned:
+                call.call_id = call.vessel_id
+        state.calls.sort(key=lambda call: call.vessel_id not in owned)
+        return state
     snapshot = _snapshot(port_code)
     record = port_registry.resolve(port_code)
     from src.portwatch_os.twin.state import state_from_snapshot as build
@@ -167,9 +178,10 @@ def port_twin_optimize(
         "baselinePolicyId": "fcfs",
         "geometryBasis": base.geometry_basis,
         "note": (
-            "Every policy ran against the same observed port state. Reward is the "
+            "Every policy ran against the same twin state with its stated source basis. Reward is the "
             "operational cost function in src.portwatch_os.twin.simulation; higher is "
-            "better. No learned policy is used unless one has been promoted."
+            "better. Labelled learned candidates can be previewed explicitly. "
+            "Operational defaults and advisory approvals remain unchanged."
         ),
     }
 

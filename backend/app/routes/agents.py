@@ -37,10 +37,21 @@ def command_agent() -> CommandAgent:
     validates every declared tool against the registry -- work worth doing at
     startup and not on every request.
     """
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        from backend.app.services.demo_terminal import company_for
+        return scoped.resource("agents", lambda: CommandAgent(build_registry(company=company_for(scoped.world))))
     global _COMMAND
     if _COMMAND is None:
         _COMMAND = CommandAgent(build_registry())
     return _COMMAND
+
+
+def _runs():
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    return scoped.resource("agent-runs", OrderedDict) if scoped is not None else _RUNS
 
 
 @router.get("/agents")
@@ -155,9 +166,10 @@ def run_agent(
     )
 
     with _LOCK:
-        _RUNS[run.run_id] = run
-        while len(_RUNS) > MAX_RUNS:
-            _RUNS.popitem(last=False)
+        runs = _runs()
+        runs[run.run_id] = run
+        while len(runs) > MAX_RUNS:
+            runs.popitem(last=False)
 
     return run.to_dict(include_results=bool(payload.get("includeResults")))
 
@@ -165,7 +177,7 @@ def run_agent(
 @router.get("/agents/runs")
 def list_runs(limit: int = Query(20, ge=1, le=64)) -> Dict[str, Any]:
     with _LOCK:
-        runs = list(_RUNS.values())[-limit:]
+        runs = list(_runs().values())[-limit:]
     return {
         "runs": [
             {
@@ -178,14 +190,14 @@ def list_runs(limit: int = Query(20, ge=1, le=64)) -> Dict[str, Any]:
             }
             for r in reversed(runs)
         ],
-        "total": len(_RUNS),
+        "total": len(_runs()),
     }
 
 
 @router.get("/agents/runs/{run_id}")
 def get_run(run_id: str, include_results: bool = False) -> Dict[str, Any]:
     with _LOCK:
-        run = _RUNS.get(run_id)
+        run = _runs().get(run_id)
     if run is None:
         raise HTTPException(
             status_code=404,

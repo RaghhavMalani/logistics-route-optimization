@@ -44,6 +44,7 @@ import type {
   TwinMetrics,
   TwinOptimizeRow,
   TwinCall,
+  PortTwinState,
 } from "@/types/portwatch-os";
 import {
   OVERLAYS,
@@ -98,11 +99,14 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   // state with a label on it. With a decision option selected it is the
   // observed twin with that option's plan written onto its berths.
   const state = useMemo(() => {
-    if (decisionOption && twin.data)
-      return applyPortPlan(twin.data, decisionOption);
+    if (decisionOption && twin.data) {
+      const camera = decision.data?.evidence.cameraPlanning as
+        { scenarioState?: PortTwinState } | undefined;
+      return applyPortPlan(camera?.scenarioState ?? twin.data, decisionOption);
+    }
     if (horizon === 0 || !simulation.data) return twin.data ?? null;
     return simulation.data.finalState;
-  }, [decisionOption, horizon, simulation.data, twin.data]);
+  }, [decision.data, decisionOption, horizon, simulation.data, twin.data]);
 
   const metrics: TwinMetrics | null = useMemo(() => {
     if (decisionOption?.evaluation) {

@@ -35,6 +35,7 @@ import { Num, Pill } from "@/components/kit/primitives";
 import { DataTable, type Column } from "@/components/kit/table";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
+import { WeatherLearningPanel, ModelExperimentsPanel } from "@/components/intelligence/CapabilityPanels";
 import { runOutcomePass } from "@/services/portwatch-os";
 import {
   useLearningSummary,
@@ -119,6 +120,7 @@ function LearningDashboard() {
       />
 
       <PageBody>
+        <div className="mb-3 grid gap-3 xl:grid-cols-2"><WeatherLearningPanel /><ModelExperimentsPanel /></div>
         {resolved === 0 ? (
           <div className="mb-3">
             <EmptyState
@@ -386,7 +388,8 @@ function LearningDashboard() {
               {!policies.data || policies.data.policies.length === 0 ? (
                 <Section title="No candidate">
                   <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                    No learned policy has been trained and submitted.
+                    No learned policy is submitted in this demo's ledger. Experimental
+                    runs and rejected candidates are shown above.
                     Operational recommendations use the hand-written optimiser.
                   </p>
                 </Section>

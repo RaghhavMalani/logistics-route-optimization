@@ -1,27 +1,13 @@
 /**
- * Authentication adapters.
- *
- * There are exactly two, and they are not interchangeable:
- *
- *   demoAdapter        Local role selection with published credentials. It
- *                      performs NO security function whatsoever -- the account
- *                      list and its passwords are in this file and shipped to
- *                      the browser. It exists so the four workspaces can be
- *                      demonstrated, and it says so on the sign-in screen.
- *
- *   productionAdapter  The seam for a real identity provider (OIDC, the port
- *                      authority's directory, whatever the deployment uses).
- *                      It is deliberately inert until wired: it refuses every
- *                      sign-in with `not_configured` rather than falling back
- *                      to the demo path, because an auth layer that silently
- *                      degrades to "everyone is an admin" is worse than none.
- *
- * `VITE_PORTWATCH_AUTH_MODE=production` selects the second one.
+ * Production (default): verify server-managed credentials and revocable sessions.
+ * Demonstration: opaque server sessions own isolated visitor worlds. Their
+ * roles are demonstration permissions and never authenticate operational APIs.
+ * Direct role entry is available in production; the demo adapter also keeps
+ * compatibility with the published fictional roster.
  */
 
 import {
   AuthError,
-  normaliseRole,
   type AuthAdapter,
   type AuthMode,
   type Credentials,
@@ -29,8 +15,7 @@ import {
   type Session,
   type User,
 } from "./types";
-
-const SESSION_HOURS = 12;
+import { ApiError, getJson, postJson } from "@/services/api";
 
 interface DemoAccount {
   password: string;
@@ -114,16 +99,6 @@ export const DEMO_ROSTER: Array<{ email: string; role: Role; label: string }> =
     label: account.user.organisation,
   }));
 
-function issue(user: User, mode: AuthMode): Session {
-  const now = Date.now();
-  return {
-    user,
-    mode,
-    issuedAt: new Date(now).toISOString(),
-    expiresAt: new Date(now + SESSION_HOURS * 3_600_000).toISOString(),
-  };
-}
-
 function expired(session: Session): boolean {
   const at = Date.parse(session.expiresAt);
   return Number.isFinite(at) ? at <= Date.now() : true;
@@ -132,7 +107,7 @@ function expired(session: Session): boolean {
 export const demoAdapter: AuthAdapter = {
   mode: "demo",
   description:
-    "Demo access — credentials are published in the client bundle and verify nothing.",
+    "Server-issued session scoped to a visitor-owned demonstration world.",
 
   async signIn({ email, password }: Credentials): Promise<Session> {
     const account = DEMO_ACCOUNTS[email.trim().toLowerCase()];
@@ -142,53 +117,93 @@ export const demoAdapter: AuthAdapter = {
         "Unrecognised account or password for this demo environment.",
       );
     }
-    return issue(account.user, "demo");
+    return postJson<Session>("/demo/session", { role: account.user.role });
   },
 
-  async signOut(): Promise<void> {
-    /* Nothing to revoke: the session never left the browser. */
+  async signOut(session): Promise<void> {
+    if (!session?.accessToken) return;
+    try {
+      await postJson(
+        "/demo/logout",
+        {},
+        { Authorization: `Bearer ${session.accessToken}` },
+      );
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error;
+    }
   },
 
   async restore(session: Session): Promise<Session | null> {
-    if (session.mode !== "demo" || expired(session)) return null;
-    const account = DEMO_ACCOUNTS[session.user.email];
-    // The account record is the authority, not the stored copy: a session
-    // written before the role model changed restores with today's shape rather
-    // than carrying a stale role into the guards.
-    if (account) return { ...session, user: account.user };
-
-    // No matching account, but the role may still be a recognisable legacy one.
-    const role = normaliseRole(session.user.role as unknown as string);
-    return role ? { ...session, user: { ...session.user, role } } : null;
+    if (session.mode !== "demo" || !session.accessToken || expired(session))
+      return null;
+    try {
+      return {
+        ...(await getJson<Session>("/demo/session", {
+          Authorization: `Bearer ${session.accessToken}`,
+        })),
+        accessToken: session.accessToken,
+      };
+    } catch {
+      return null;
+    }
   },
 };
 
 export const productionAdapter: AuthAdapter = {
   mode: "production",
   description:
-    "Production identity provider — not configured in this deployment.",
+    "Server-managed accounts with verified sessions and server-assigned membership.",
 
-  async signIn(): Promise<Session> {
-    throw new AuthError(
-      "not_configured",
-      "This build runs in production auth mode but no identity provider is wired. " +
-        "Implement AuthAdapter against your OIDC/SSO endpoint, or start the terminal " +
-        "with VITE_PORTWATCH_AUTH_MODE=demo.",
-    );
+  async signIn(credentials: Credentials): Promise<Session> {
+    try {
+      return await postJson<Session>("/auth/login", credentials);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401)
+        throw new AuthError(
+          "invalid_credentials",
+          "Invalid email or password.",
+        );
+      throw error;
+    }
   },
 
-  async signOut(): Promise<void> {},
+  async signOut(session: Session | null): Promise<void> {
+    if (session?.accessToken) {
+      try {
+        await postJson(
+          "/auth/logout",
+          {},
+          { Authorization: `Bearer ${session.accessToken}` },
+        );
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 401) throw error;
+      }
+    }
+  },
 
-  async restore(): Promise<Session | null> {
-    return null;
+  async restore(session: Session): Promise<Session | null> {
+    if (
+      session.mode !== "production" ||
+      !session.accessToken ||
+      expired(session)
+    )
+      return null;
+    try {
+      const verified = await getJson<Session>("/auth/session", {
+        Authorization: `Bearer ${session.accessToken}`,
+      });
+      return { ...verified, accessToken: session.accessToken };
+    } catch {
+      return null;
+    }
   },
 };
 
 export function resolveAdapter(mode?: string): AuthAdapter {
-  return mode === "production" ? productionAdapter : demoAdapter;
+  return mode === "demo" ? demoAdapter : productionAdapter;
 }
 
 export const AUTH_MODE: AuthMode =
-  (import.meta.env.VITE_PORTWATCH_AUTH_MODE as AuthMode | undefined) === "production"
-    ? "production"
-    : "demo";
+  (import.meta.env.VITE_PORTWATCH_AUTH_MODE as AuthMode | undefined) === "demo"
+    ? "demo"
+    : "production";

@@ -100,8 +100,8 @@ export function TimeTransport({
         </button>
         <button
           type="button"
-          aria-label="Reset both clocks to the forecast origin"
-          title="Reset both clocks to the forecast origin"
+          aria-label="Reset both clocks to their data origins"
+          title="Reset both clocks to their data origins"
           onClick={() => clock.reset()}
           className="grid h-[22px] w-[22px] place-items-center rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] text-[var(--text-3)] hover:text-[var(--text)]"
         >
@@ -167,7 +167,9 @@ export function TimeTransport({
       </button>
 
       <div className="shrink-0 leading-none">
-        <div className="eyebrow text-[10px]">Weather</div>
+        <div className="eyebrow text-[10px]">
+          Weather{timeline.stripLabel ? " forecast" : ""}
+        </div>
         <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
           <span data-testid="weather-offset">
             {offsetLabel(state.offsetHours)}
@@ -180,7 +182,11 @@ export function TimeTransport({
 
       <div className="relative min-w-[190px] flex-1">
         {/* The forecast's own shape, so the scrubber is worth dragging. */}
-        <div className="flex h-[16px] items-end gap-[1px]" aria-hidden>
+        <div
+          className="flex h-[16px] items-end gap-[1px]"
+          title={timeline.stripLabel ?? "Mean model weather impact"}
+          aria-hidden
+        >
           {timeline.meanImpact.map((value, index) => (
             <span
               key={index}

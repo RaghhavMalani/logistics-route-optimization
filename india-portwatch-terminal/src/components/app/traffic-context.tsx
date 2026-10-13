@@ -28,6 +28,7 @@ import {
 import { createTrafficSource, type OwnedVesselSeed } from "@/lib/maritime/traffic-source";
 import type { TrafficSource, VesselFix } from "@/lib/maritime/traffic-types";
 import { useEnrichedPorts, useFleet, useHealth } from "@/services/hooks";
+import { useAuth } from "@/auth/AuthProvider";
 
 /* ----------------------------------------------------------------- clock -- */
 
@@ -168,20 +169,21 @@ function resolveEpoch(origin: string | null | undefined): number {
 }
 
 export function TrafficProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   const { ports, query: portsQuery } = useEnrichedPorts();
   const health = useHealth();
   const fleet = useFleet();
 
-  const epoch = resolveEpoch(health.data?.forecastOrigin ?? ports[0]?.observedAt);
+  const epoch = resolveEpoch(health.data?.trafficEpoch ?? health.data?.forecastOrigin ?? ports[0]?.observedAt);
 
   const clockRef = useRef<{ clock: TrafficClock; store: ClockStore } | null>(null);
   if (!clockRef.current) clockRef.current = createClock(epoch);
 
-  // The epoch only becomes known once /health answers; re-anchor once.
+  // Re-anchor after health resolves, including a new visitor demo generation.
   const anchored = useRef(false);
   useEffect(() => {
     const state = clockRef.current;
-    if (!state || anchored.current || !health.data) return;
+    if (!state || !health.data || (anchored.current && state.store.epoch === epoch)) return;
     anchored.current = true;
     state.store.epoch = epoch;
     state.store.at = epoch;
@@ -197,6 +199,8 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
         const day = row.intendedArrivalDay ?? row.bestArrivalDay;
         return {
           id: row.id,
+          originId: row.originPortCode,
+          oneWay: row.oneWay,
           name: row.name,
           destinationId: row.intendedPortCode as string,
           etaMs:
@@ -210,6 +214,7 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
   const source = useMemo(
     () =>
       createTrafficSource({
+        demo: session?.mode === "demo",
         ports,
         epoch,
         owned,
@@ -217,8 +222,13 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
         // starving the software renderer the browser suite runs on.
         oceanFleet: 250,
       }),
-    [epoch, owned, ports],
+    [epoch, owned, ports, session?.mode],
   );
+  useEffect(() => {
+    const reset = () => { anchored.current = false; clockRef.current?.clock.reset(); };
+    window.addEventListener("portwatch:demo-reset", reset);
+    return () => window.removeEventListener("portwatch:demo-reset", reset);
+  }, []);
 
   /* The animation loop. One rAF for the whole application. */
   useEffect(() => {

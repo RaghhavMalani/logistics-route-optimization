@@ -270,6 +270,9 @@ class DecisionCritic:
         if not weather.available:
             return Check("weather_confidence", False, WARNING, weather.unknown_because or "weather unknown",
                          basis="objectives.weather", remedy="state that the passage was not weather-checked")
+        if weather.confidence is None:
+            return Check("weather_confidence", False, WARNING, "weather confidence unavailable; a provider value does not establish calibrated route safety",
+                         basis="objectives.weather", remedy="retain the coverage and calibration limitation")
         if (weather.confidence or 0.0) < MIN_WEATHER_CONFIDENCE:
             return Check("weather_confidence", False, WARNING,
                          f"weather confidence {weather.confidence:.2f} below {MIN_WEATHER_CONFIDENCE:.2f} "
