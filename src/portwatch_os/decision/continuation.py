@@ -60,17 +60,38 @@ def require_current(problem):
         vessel = next((v for v in scoped.world["fleet"] if v["id"] == problem.subject_id), None)
         from backend.app.services.demo_terminal import company_for
         current = company_for(scoped.world).vessel(problem.subject_id)
-        if not vessel or vessel["portCode"] != env["portCode"] or not current or instant(current.eta) != instant(env["earliestVoyageArrival"]):
+        episode = env.get('operationalEpisode')
+        if episode and (vessel or {}).get('operationalEpisode', {}).get('id') != episode['id']:
+            reason = 'This comparison belongs to another operational call; start a comparison for the current call.'
+        elif not vessel or vessel["portCode"] != env["portCode"] or not current or instant(current.eta) != instant(env["earliestVoyageArrival"]):
             reason = "The consumed voyage destination or declared ETA has changed."
+            if vessel and current:
+                reason += (f" Frozen {env['portCode']} arrival {env['earliestVoyageArrival']};"
+                           f" current {vessel['portCode']} arrival {current.eta}.")
         if not reason and env.get('kind') == 'NOTICE_RESTRICTION':
             if (vessel.get('declaredPassage') or {}).get('id') != env['restriction']['plan']['id']:
                 reason = 'The consumed route, characteristics or passage declaration has changed.'
             elif instant(env['restriction']['plan']['passageAt']) <= wall_now():
                 reason = 'The declared lock passage is no longer future.'
             else:
-                from src.portwatch_os.intelligence.operational_notices import require_revision
+                if env['restriction'].get('sourceFamily')=='NAVCEN_MSI':
+                    from src.portwatch_os.intelligence.navigation_restrictions import require_revision
+                else:
+                    from src.portwatch_os.intelligence.operational_notices import require_revision
                 try: require_revision(env)
                 except ValueError as exc: reason = str(exc)
+    if not reason and env.get('feedbackConsumption'):
+        from src.portwatch_os.learning import intelligence_reconciliation as collector
+        from src.portwatch_os.learning.shared_feedback import require_consumption
+        public = collector.open_public()
+        try:
+            from backend.app.routes.shared_feedback import require_originals
+            require_originals(env['feedbackConsumption'])
+            require_consumption(public, env['feedbackConsumption'])
+        except ValueError as exc:
+            reason = str(exc)
+        finally:
+            public.close()
     if reason:
         raise HTTPException(409, reason + " Company can explicitly refresh to a linked successor; this comparison and its approvals remain saved.")
 
@@ -93,6 +114,14 @@ def intelligence_explanation(problem):
     if rec is None: return
     if problem.evidence['intelligenceBasis'].get('kind') == 'NOTICE_RESTRICTION':
         rec.policy='authority-scheduled-access-v1'
+        if problem.evidence['intelligenceBasis']['restriction'].get('sourceFamily')=='NAVCEN_MSI':
+            rec.why=('The declared passage requires a bridge opening during the published closed-position interval. '
+                'Both options reach the same conditional bridge access and destination arrival. '
+                'Revising requested passage relocates planned bridge waiting, without faster delivery. '
+                'The local zone is an explicitly confirmed geographic assumption; actual opening, water level, clearance, '
+                'route suitability and berth timing are unavailable. Fuel, cost, safety and capacity benefits are unavailable.')
+            rec.statement=rec.why;rec.robustness=None
+            return
         rec.why=('The declared Eastham passage overlaps the authority’s explicit lock closure. '
             'Both options use the same first published operational tide and conditional destination arrival. '
             'Revising the request reduces planned waiting at the lock; it does not shorten total delivery time. '

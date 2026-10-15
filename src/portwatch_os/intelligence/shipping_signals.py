@@ -130,6 +130,8 @@ def signals_for(world):
         s["exposure"]={"basis":"inferred destination/lane membership in fictional visitor fleet", "ports":sorted(set(codes)),
             "routes":sorted({v["laneCode"] for v in vessels}),"vessels":[{"id":v["id"],"name":v["name"]} for v in vessels],
             "cargo":[{"vesselId":v["id"],"description":v["cargo"]} for v in vessels],"cargoBasis":"Visitor manifest; no independent cargo tracking or measured loss"}
-        s["comparisonAvailable"]=bool(s.get("id") and vessels and s["status"] in ("CURRENT","CACHED","STALE","REFERENCE_ONLY"))
+        s["comparisonAvailable"]=bool(s['category']!='economic' and s.get("id") and vessels and s["status"] in ("CURRENT","CACHED","STALE","REFERENCE_ONLY"))
+        if s['category']=='economic':
+            s['decisionLimitation']='Reference quotes need declared currency amounts and settlement dates for valuation; they do not justify a vessel hold'
     return {"asOf":wall_now().isoformat(),"signals":signals,
         "note":"Reported facts, inferred exposure and scenario assumptions stay separate. Missing causal inputs produce unavailable delay/cost, not zero."}

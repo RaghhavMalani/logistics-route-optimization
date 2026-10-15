@@ -51,6 +51,8 @@ def declare(payload:dict=Body(...)):
     scoped,who=company()
     row=next((v for v in scoped.world['fleet'] if v['id']==payload.get('vesselId')),None)
     if not row: raise HTTPException(404,'Voyage not owned by this visitor')
+    from src.portwatch_os.decision.episodes import ensure_episode
+    episode = ensure_episode(scoped, row)
     if row['laneCode']!='EUR_IND': raise HTTPException(409,'This declaration needs the Europe–India voyage; Gulf membership does not establish Eastham exposure')
     try:
         passage=instant(payload['passageAt'])
@@ -66,6 +68,7 @@ def declare(payload:dict=Body(...)):
         if payload.get('declarationConfirmed') is not True: raise ValueError('Confirm these are operator-declared fictional voyage inputs')
     except (KeyError,TypeError,ValueError) as exc: raise HTTPException(422,str(exc))
     plan={'areaId':'EASTHAM_80_LOCK','direction':'OUTBOUND','origin':'Manchester Ship Canal upstream of Eastham 80-foot Lock',
+        'operationalEpisode':episode,
         'route':['EASTHAM_80_LOCK','SUEZ',row['portCode']],'passageAt':passage.isoformat(),
         'postPassageHours':hours,'characteristics':{k:chars[k] for k in ('loaM','beamM','draughtM','airDraughtM')},
         'alternativeAccess':'NOT_VERIFIED','source':'OPERATOR_DECLARED_FICTIONAL_VOYAGE',
@@ -91,6 +94,8 @@ def comparison(payload:dict=Body(...)):
     if not row: raise HTTPException(404,'Voyage not owned by this visitor')
     plan=row.get('declaredPassage')
     if not plan: raise HTTPException(409,'Declare the route, characteristics and future passage first')
+    from src.portwatch_os.decision.episodes import ensure_episode
+    episode = ensure_episode(scoped, row)
     notice=notices.refresh(force=payload.get('refreshSource') is True)
     if notice.get('revisionId')!=payload.get('revisionId'): raise HTTPException(409,'Notice revision changed; inspect the current original before comparing')
     try:
@@ -103,6 +108,7 @@ def comparison(payload:dict=Body(...)):
     if eta!=expected: raise HTTPException(409,'Declared arrival has changed; save a fresh passage plan before comparison')
     at=wall_now();wait=result['calculatedWaitHours'];earliest=eta+timedelta(hours=wait)
     frozen={'kind':'NOTICE_RESTRICTION','portCode':row['portCode'],'voyageId':row['id'],
+        'operationalEpisode':episode,
         'availableAt':at.isoformat(),'earliestVoyageArrival':eta.isoformat(),'plannedArrival':eta.isoformat(),
         'firstClearApproach':earliest.isoformat(),'forecastGateWaitHours':wait,
         'reportedFact':{**notice,'title':'Peel Ports MNTM 2026-18 · Eastham lock restriction',
@@ -116,6 +122,15 @@ def comparison(payload:dict=Body(...)):
         'meaning':'Conditional schedule calculation from the authority’s first published operational tide and declared lock route. Both options have the same scheduled access and destination shift; revising the request relocates planned waiting. Alternative lock, actual slot and reopening are unavailable. Simulated, not measured.'}
     try: notices.require_revision(frozen)
     except ValueError as exc: raise HTTPException(409,str(exc))
+    from src.portwatch_os.learning import intelligence_reconciliation as collector
+    from backend.app.routes.shared_feedback import consumption
+    public = collector.open_public()
+    try:
+        claims = collector.collect_notice(public, notice)
+        ids = [c['id'] for c in claims if c['target']['from'] == result['window']['start']]
+    finally:
+        public.close()
+    frozen['feedbackConsumption'] = consumption(ids)
     frozen['evidenceId']=hashlib.sha256(json.dumps(frozen,sort_keys=True).encode()).hexdigest()
     did='dec-notice-'+frozen['evidenceId'][:20];options=[]
     for baseline,action,label in ((True,KEEP_PLAN,'Keep requested passage; wait for first operational tide'),(False,DELAY_ARRIVAL,'Request passage at first published operational tide')):

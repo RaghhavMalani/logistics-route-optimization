@@ -25,16 +25,22 @@ const MARK_GLYPH: Record<TimelineMark["kind"], string> = {
   weather: "≋",
   ready: "●",
   sailing: "▲",
+  restriction_start: "▮",
+  restriction_end: "┃",
+  passage_request: "◆",
 };
 
 const MARK_LABEL: Record<TimelineMark["kind"], string> = {
   arrival: "arrival",
-  chokepoint: "reaches strait",
+  chokepoint: "passage request",
   deadline: "option closes",
   claim_lapses: "claim lapses",
   weather: "rough seas",
   ready: "cargo ready",
   sailing: "sails",
+  restriction_start: "restriction starts",
+  restriction_end: "published restriction ends; access unconfirmed",
+  passage_request: "declared passage request",
 };
 
 export function DecisionTimeline({
@@ -131,9 +137,9 @@ export function DecisionTimeline({
         );
       })}
       <p className="text-[10px] leading-snug text-[var(--text-3)]">
-        ▲ arrival · ◆ reaches the strait · ▮ option closes · ┃ claim lapses · ≋
-        rough seas. Same scale for every row; each mark is the engine's own
-        figure for that option.
+        ▲ arrival · ◆ passage request · ▮ option closes / restriction starts · ┃
+        claim lapses / restriction ends · ≋ rough seas. Same scale for every
+        row; each mark is the engine's own figure for that option.
       </p>
     </div>
   );

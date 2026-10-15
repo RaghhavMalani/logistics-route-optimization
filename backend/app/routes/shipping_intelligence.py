@@ -47,10 +47,14 @@ def comparison(payload:dict=Body(...)):
     path=ROOT/"shipping_intelligence"/(identifier+".json")
     if not path.is_file(): raise HTTPException(404,"Signal evidence unavailable")
     signal=json.loads(path.read_text())
+    if signal['category']=='economic':
+        raise HTTPException(422,'FX context alone cannot create a vessel hold; declared currency exposure and settlement dates are required for valuation')
     # Exposure is recomputed from this visitor's declared fleet, not accepted from the caller.
     from backend.app.services.demo_terminal import company_for
     vessel=company_for(scoped.world).vessel(payload.get("vesselId"))
     if not vessel: raise HTTPException(404,"Vessel not owned by this visitor")
+    from src.portwatch_os.decision.episodes import ensure_episode
+    episode = ensure_episode(scoped, next(v for v in scoped.world['fleet'] if v['id']==vessel.vessel_id))
     codes=signal.get("portCodes") or ([v["portCode"] for v in scoped.world["fleet"]] if signal["category"]=="economic" else [])
     if vessel.destination_port not in codes or (signal.get("laneCodes") and vessel.lane_code not in signal["laneCodes"]): raise HTTPException(409,"Selected signal has no declared exposure to this voyage")
     hold=payload.get("assumedHoldHours")
@@ -58,6 +62,7 @@ def comparison(payload:dict=Body(...)):
     at=wall_now();eta=instant(vessel.eta)
     if eta<=at: raise HTTPException(409,"Voyage arrival must remain future")
     basis={"kind":"INTELLIGENCE_SCENARIO","portCode":vessel.destination_port,"voyageId":vessel.vessel_id,
+        "operationalEpisode":episode,
         "availableAt":at.isoformat(),"availabilityBasis":"Scenario freeze time; source first receipt and validity remain in reportedFact",
         "plannedArrival":eta.isoformat(),"earliestVoyageArrival":eta.isoformat(),
         "reportedFact":signal,"inferredExposure":{"route":vessel.lane_code,"port":vessel.destination_port,"vessel":vessel.name,
@@ -66,6 +71,9 @@ def comparison(payload:dict=Body(...)):
         "assumptions":{"kind":"OPERATOR_REVIEW_HOLD","assumedHoldHours":hold,"purpose":"Allow additional source/port verification before arrival",
             "source":"OPERATOR_DEMO_ASSUMPTION","doesNotAssert":"No current port closure, hazard-caused delay, safer passage or measured saving"},
         "meaning":"Reported evidence → inferred shipping exposure → explicit scheduling scenario. Delay/cost caused by the event are unavailable."}
+    if payload.get("feedbackClaimIds"):
+        from backend.app.routes.shared_feedback import consumption
+        basis["feedbackConsumption"] = consumption(payload["feedbackClaimIds"])
     basis["evidenceId"]=hashlib.sha256(json.dumps(basis,sort_keys=True).encode()).hexdigest()
     did="dec-intelligence-"+basis["evidenceId"][:20]; options=[]
     for action,hours,baseline,label in ((KEEP_PLAN,0,True,"Continue current arrival plan"),(DELAY_ARRIVAL,hold,False,"Propose an assumed review hold before arrival")):

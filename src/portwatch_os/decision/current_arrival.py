@@ -54,6 +54,12 @@ def build_arrival_problem(vessel, request, actor, state, at):
         "hazardRelationship": "Regional context only; no hazard-to-delay formula used.",
         "activityObservation": "2026-10-02; not refreshed or used as current approach weather",
         "meaning": "Current public forecast applied to a fictional voyage under explicit operating assumptions. Forecast-driven simulated wait, not observed delay."}
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is not None:
+        from src.portwatch_os.decision.episodes import ensure_episode
+        owned = next(v for v in scoped.world["fleet"] if v["id"] == vessel.vessel_id)
+        frozen["operationalEpisode"] = ensure_episode(scoped, owned)
     frozen["evidenceId"] = hashlib.sha256(json.dumps(frozen,sort_keys=True).encode()).hexdigest()
     decision_id = "dec-arrival-" + hashlib.sha256((frozen["evidenceId"]+actor.role+at.isoformat()).encode()).hexdigest()[:20]
     options = []

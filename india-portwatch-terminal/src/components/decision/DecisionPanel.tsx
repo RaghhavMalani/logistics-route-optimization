@@ -216,7 +216,7 @@ export function DecisionPanel({
     : intelligence?.kind === "NOTICE_RESTRICTION"
       ? [
           { key: "eta", label: "Total schedule shift" },
-          { key: "port_wait", label: "Planned lock wait" },
+          { key: "port_wait", label: "Planned access wait" },
           { key: "fuel", label: "Fuel" },
           { key: "cost", label: "Cost" },
         ]
@@ -306,10 +306,10 @@ export function DecisionPanel({
         </p>
       ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
         <p className="p-2 text-xs">
-          Published lock restriction and declared voyage timing. Both options
-          use the same first operational tide and conditional destination
-          arrival. Revising the request relocates planned waiting; actual access
-          and operational benefits remain unavailable.
+          Published authority restriction and declared voyage timing. Both
+          options use the same published access boundary and conditional
+          destination arrival. Revising the request relocates planned waiting;
+          actual access and operational benefits remain unavailable.
         </p>
       ) : intelligence ? (
         <p className="p-2 text-xs">
@@ -478,7 +478,7 @@ export function DecisionPanel({
             </p>
           ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
             <p className="p-2 text-xs">
-              This calculation uses the authority's published lock schedule,
+              This calculation uses the authority's published access schedule,
               declared passage and fixed onward travel assumption. Both options
               have the same total schedule shift. Actual reopening, slot,
               clearance, berth, fuel, cost and safety effects are unavailable;

@@ -597,6 +597,9 @@ def transition_problem(
                 proposal.update(etaShiftHours=chosen.evaluation.derived["arrivalShiftHours"],
                     arrivalAt=chosen.evaluation.derived["arrivalAt"],portCode=chosen.evaluation.derived["destinationPort"],
                     environmentEvidenceId=connected_basis(problem)["evidenceId"])
+                action = _approved_operational_action(problem, chosen)
+                if action:
+                    proposal.update(operationalEpisode=action["operationalEpisode"], approvedAction=action)
             def update(world):
                 history = world.setdefault("weatherJourneys", {})
                 if connected_basis(problem):
@@ -691,6 +694,7 @@ def handoff_problem(
                 recipient["organisation"] = scoped.world["organisation"]
     if not recipients:
         raise HTTPException(status_code=400, detail="the approved option names no vessel to advise")
+    approved_action = _approved_operational_action(problem, option)
     for recipient in recipients:
         advisory = Advisory(
             advisory_id=Advisory.make_id(port_code, recipient["vesselId"], recipient["kind"],
@@ -705,6 +709,7 @@ def handoff_problem(
                    f"Decision {decision_id}, option {option.option_id}, approved by {name}.",
             model_confidence=None if option.evaluation is None else option.evaluation.weakest_confidence,
             evidence={"decisionId": decision_id, "optionId": option.option_id,
+                      **({"approvedAction": approved_action} if approved_action else {}),
                       **({"intelligenceBasis" if problem.evidence.get("intelligenceBasis") else "currentEnvironment":connected_basis(problem)} if connected_basis(problem) else {}),
                       **{k: m.value for k, m in (option.evaluation.objectives.items() if option.evaluation else [])
                          if m.available}},
@@ -738,6 +743,31 @@ def handoff_problem(
     problem.evidence["advisories"] = [a["advisoryId"] for a in advisories]
     engine._record(problem)  # noqa: SLF001 - keep the ledger row's evidence current
     return {"decision": problem.to_dict(include_options=False), "advisories": advisories}
+
+
+def _approved_operational_action(problem: DecisionProblem, option) -> Optional[Dict[str, Any]]:
+    """Identify the chosen plan while keeping approval separate from execution."""
+    basis = connected_basis(problem) or {}
+    episode = basis.get("operationalEpisode")
+    if not episode:
+        return None
+    from src.portwatch_os.learning.shared_feedback import (
+        identifier, operational_action_basis, operational_action_id, operational_metric_basis)
+    action_id = operational_action_id(basis, option)
+    targets = {}
+    for metric in ("SCHEDULE_SHIFT", "WAITING", "ACCESS_TIME"):
+        metric_basis = operational_metric_basis(basis, option, metric)
+        targets[metric] = {"metricBasis": metric_basis, "metricBasisSha256": identifier(metric_basis),
+                           "independentTargetKey": identifier([episode["namespace"], episode["id"], metric])}
+    return {"contractVersion": "operational-action-v1", "kind": "APPROVED_CONDITIONAL_PLAN",
+            "operationalEpisode": episode,
+            "operationalActionId": action_id, "actionBasisSha256": action_id,
+            "actionBasis": operational_action_basis(basis, option),
+            "measurementTargets": targets,
+            "action": option.action, "parameters": option.params, "decisionId": problem.decision_id,
+            "optionId": option.option_id, "evidenceId": basis["evidenceId"],
+            "approvedAt": next((h["at"] for h in problem.workflow_history if h["state"] == "APPROVED"), None),
+            "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None}
 
 
 def _recipients_for(problem: DecisionProblem, option, payload: Dict[str, Any]) -> List[Dict[str, Any]]:

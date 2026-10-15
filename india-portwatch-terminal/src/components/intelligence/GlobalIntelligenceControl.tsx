@@ -35,6 +35,12 @@ export function GlobalIntelligenceControl({
   onDecision?: (problem: DecisionProblem) => void;
 }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const closeForAsset = () => setOpen(false);
+    window.addEventListener("portwatch:focus-constraint", closeForAsset);
+    return () =>
+      window.removeEventListener("portwatch:focus-constraint", closeForAsset);
+  }, []);
   return (
     <div className="absolute bottom-[164px] right-3 z-30 pointer-events-auto">
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>

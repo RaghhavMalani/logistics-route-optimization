@@ -1,12 +1,16 @@
 import { formatUtc } from "@/components/kit/primitives";
+import { FrozenFeedback } from "./SharedFeedbackPanel";
+import type { FeedbackConsumption } from "@/services/sharedFeedback";
 
 export interface IntelligenceBasis {
+  feedbackConsumption?: FeedbackConsumption;
   kind: "INTELLIGENCE_SCENARIO" | "NOTICE_RESTRICTION";
   portCode: string;
   evidenceId: string;
   plannedArrival: string;
   firstClearApproach?: string;
   restriction?: {
+    sourceFamily?: string;
     requestedPassage: string;
     earliestScheduledAccess: string;
     calculatedWaitHours: number;
@@ -40,6 +44,9 @@ export interface IntelligenceBasis {
     pdfSha256?: string;
     pdfSource?: string;
     publishedDate?: string;
+    providerCreatedAt?: string;
+    providerModifiedAt?: string;
+    publicationPrecision?: string;
     withdrawsAt?: string;
     unaffectedAlternative?: string;
     applicability?: { characteristicRule: string };
@@ -65,6 +72,7 @@ export function FrozenIntelligenceBasis({
 }) {
   const fact = evidence.reportedFact;
   const restriction = evidence.restriction;
+  const bridge = restriction?.sourceFamily === "NAVCEN_MSI";
   if (evidence.kind === "NOTICE_RESTRICTION" && restriction)
     return (
       <section
@@ -72,10 +80,13 @@ export function FrozenIntelligenceBasis({
         data-testid="frozen-restriction-basis"
       >
         <strong>Frozen authority restriction · {fact.title}</strong>
+        <FrozenFeedback consumed={evidence.feedbackConsumption} />
         <p>Published fact: {fact.fact}</p>
         <p>
-          Published {fact.publishedDate} (date precision) · first receipt{" "}
-          {formatUtc(fact.availableAt)} · scheduled withdrawal{" "}
+          {bridge
+            ? `Publication instant unverified; provider metadata ${fact.providerModifiedAt ?? "unavailable"}`
+            : `Published ${fact.publishedDate} (date precision)`}{" "}
+          · first receipt {formatUtc(fact.availableAt)} · scheduled withdrawal{" "}
           {formatUtc(fact.withdrawsAt ?? null)}.
         </p>
         <a
@@ -84,11 +95,11 @@ export function FrozenIntelligenceBasis({
           target="_blank"
           rel="noreferrer"
         >
-          Authority notice PDF
+          Authority original
         </a>
         <p>
           Affected declared voyage: {evidence.inferredExposure.vessel} ·{" "}
-          {evidence.inferredExposure.route} → {evidence.portCode}. Cargo:{" "}
+          {evidence.inferredExposure.route}. Cargo:{" "}
           {evidence.inferredExposure.cargo}. {evidence.inferredExposure.basis}
         </p>
         <p>
@@ -115,8 +126,12 @@ export function FrozenIntelligenceBasis({
                 <th>Option</th>
                 <th>Requested passage</th>
                 <th>Requested destination arrival</th>
-                <th>First published operational tide</th>
-                <th>Planned lock wait</th>
+                <th>
+                  {bridge
+                    ? "Published restriction ends"
+                    : "First published operational tide"}
+                </th>
+                <th>{bridge ? "Planned bridge wait" : "Planned lock wait"}</th>
                 <th>Total schedule shift</th>
               </tr>
             </thead>
@@ -152,12 +167,13 @@ export function FrozenIntelligenceBasis({
         </p>
         <p>
           {restriction.condition} Actual earliest permitted access is
-          unavailable. Alternate lock, berth, fuel, cost, clearance and safety
+          unavailable. Alternate access, berth, fuel, cost, clearance and safety
           benefits are unavailable.
         </p>
         <p className="break-all text-[var(--text-3)]">
           Evidence {evidence.evidenceId} · notice revision{" "}
-          {restriction.revisionId} · original PDF {fact.pdfSha256}
+          {restriction.revisionId} · original{" "}
+          {fact.pdfSha256 ?? fact.responseSha256}
         </p>
       </section>
     );
@@ -167,6 +183,7 @@ export function FrozenIntelligenceBasis({
       data-testid="frozen-intelligence-basis"
     >
       <strong>Frozen intelligence comparison · {evidence.portCode}</strong>
+      <FrozenFeedback consumed={evidence.feedbackConsumption} />
       <p>
         Reported evidence · {fact.status}: {fact.fact}
       </p>

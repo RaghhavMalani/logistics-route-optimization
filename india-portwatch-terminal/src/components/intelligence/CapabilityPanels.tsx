@@ -8,6 +8,7 @@ import { getJson } from "@/services/api";
 import type { WeatherInspection, PortCamera } from "@/services/intelligence";
 import { useRegisterCamera } from "@/services/intelligence";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
+import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
 
 interface Feedback {
   forecasts: WeatherInspection[];
@@ -190,6 +191,7 @@ export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
           </>
         ) : null}
       </Section>
+      <SharedFeedbackPanel />
     </Panel>
   );
 }

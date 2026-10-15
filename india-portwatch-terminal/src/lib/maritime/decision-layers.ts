@@ -185,6 +185,24 @@ export function decisionLayers(
   }
 
   // The threatened water, from the evidence rather than a client lookup.
+  const asset = problem.evidence.restrictionAsset;
+  if (asset && Number.isFinite(asset.lon) && Number.isFinite(asset.lat)) {
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [asset.lon, asset.lat] },
+      properties: {
+        part: "ring",
+        radius: 15,
+        color: "#e0533d",
+        width: 2,
+        opacity: 0.95,
+        kind: "authority_constraint",
+        id: asset.id,
+        label: asset.name,
+        basis: asset.basis,
+      },
+    });
+  }
   const chokepoint = problem.evidence?.exposure?.attrs?.chokepoint as
     string | undefined;
   const record = chokepoint ? CHOKEPOINT_BY_CODE.get(chokepoint) : null;

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { formatUtc } from "@/components/kit/primitives";
 import type { DecisionProblem } from "@/types/decisions";
 import { OperationalNoticePanel } from "./OperationalNoticePanel";
+import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
+import { NavigationRestrictionPanel } from "./NavigationRestrictionPanel";
 
 interface Signal {
   id?: string;
@@ -101,6 +103,8 @@ export function ShippingIntelligencePanel({
       className="mt-3 border border-[var(--line)] p-3 text-[11px]"
       data-testid="shipping-intelligence"
     >
+      <SharedFeedbackPanel onDecision={onDecision} />
+      <NavigationRestrictionPanel onDecision={onDecision} />
       <OperationalNoticePanel onDecision={onDecision} />
       <h3 className="text-xs">
         Reported intelligence → shipping exposure → action comparison

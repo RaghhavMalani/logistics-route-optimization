@@ -7,7 +7,7 @@ def test_connected_intelligence_recovery_isolation_and_idempotence(tmp_path,monk
     store,client=setup(tmp_path,monkeypatch);session=store.create("SHIPPING_COMPANY");token=session["accessToken"];h={"Authorization":"Bearer "+token}
     root=tmp_path/"sources";(root/"shipping_intelligence").mkdir(parents=True)
     identifier="a"*64
-    signal={"id":identifier,"category":"economic","title":"Fixture Brent quote","fact":"Fixture quote: 80 USD/bbl","source":"https://fred.stlouisfed.org/series/DCOILBRENTEU","status":"CACHED","availableAt":store.read(token)["epoch"],"mechanism":"Crude cost exposure; bunker quote unavailable","relationship":"Inferred contract exposure","responseSha256":"b"*64}
+    signal={"id":identifier,"category":"news","title":"Synthetic operator announcement","fact":"Synthetic news fixture; event outcome unavailable","source":"https://fixture.example/announcement","status":"CACHED","portCodes":["INNSA"],"availableAt":store.read(token)["epoch"],"mechanism":"Explicit operator verification scenario; event-caused delay unavailable","relationship":"Inferred destination exposure","responseSha256":"b"*64}
     (root/"shipping_intelligence"/(identifier+".json")).write_text(json.dumps(signal))
     monkeypatch.setattr("backend.app.routes.shipping_intelligence.ROOT",root)
     response=client.post(BASE+"/intelligence/shipping-comparison",headers=h,json={"signalId":identifier,"vesselId":"PWD-001","assumedHoldHours":6})
@@ -41,6 +41,18 @@ def test_connected_intelligence_recovery_isolation_and_idempotence(tmp_path,monk
     other=store.create("PORT_AUTHORITY");oh={"Authorization":"Bearer "+other["accessToken"]}
     assert client.get(pp,headers=oh).status_code==404
     assert client.post(pp+"/handoff",headers=oh,json={}).status_code==404
+    client.close()
+
+
+def test_reference_quotes_cannot_create_an_operational_hold(tmp_path,monkeypatch):
+    store,client=setup(tmp_path,monkeypatch);session=store.create('SHIPPING_COMPANY')
+    root=tmp_path/'sources';folder=root/'shipping_intelligence';folder.mkdir(parents=True)
+    identifier='a'*64
+    (folder/(identifier+'.json')).write_text(json.dumps({'id':identifier,'category':'economic','title':'Synthetic reference quote'}))
+    monkeypatch.setattr('backend.app.routes.shipping_intelligence.ROOT',root)
+    r=client.post(BASE+'/intelligence/shipping-comparison',headers={'Authorization':'Bearer '+session['accessToken']},
+        json={'signalId':identifier,'vesselId':'PWD-001','assumedHoldHours':6})
+    assert r.status_code==422 and 'cannot create a vessel hold' in r.text
     client.close()
 
 def test_current_hazard_receipt_does_not_redate_expired_event(tmp_path,monkeypatch):

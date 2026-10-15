@@ -15,9 +15,11 @@ def resources(root: str, demo_id: str, generation: str) -> Sandbox:
 
 def bind(session, world, store):
     generation = hashlib.sha256(world["epoch"].encode()).hexdigest()[:16]
-    scoped = resources(str(store.path.parent), session["demoId"], generation)
-    scoped.world = world
-    return scoped
+    owned = resources(str(store.path.parent), session["demoId"], generation)
+    # Cache durable domain resources, while each request holds its own world
+    # snapshot and save callback. Concurrent map polls must not replace inputs
+    # under a comparison or approval that is already running.
+    return Sandbox(owned.root, world, resources=owned.resources, lock=owned.lock)
 
 
 def company_for(world):

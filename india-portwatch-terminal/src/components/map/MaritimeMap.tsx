@@ -516,6 +516,59 @@ export function MaritimeMap({
       return;
     }
     if (!focus.center) return;
+    const [lon, lat] = focus.center;
+    const outside =
+      lon < REGION_BOUNDS[0][0] ||
+      lon > REGION_BOUNDS[1][0] ||
+      lat < REGION_BOUNDS[0][1] ||
+      lat > REGION_BOUNDS[1][1];
+    // Explicit global asset selection may leave the original clipped theatre.
+    // Reuse its chart and bundled Natural Earth context, not a generated route.
+    instance.setMaxBounds(
+      outside
+        ? [
+            [
+              Math.max(-179, Math.min(REGION_BOUNDS[0][0], lon - 5)),
+              Math.max(-80, Math.min(REGION_BOUNDS[0][1], lat - 5)),
+            ],
+            [
+              Math.min(179, Math.max(REGION_BOUNDS[1][0], lon + 5)),
+              Math.min(80, Math.max(REGION_BOUNDS[1][1], lat + 5)),
+            ],
+          ]
+        : REGION_BOUNDS,
+    );
+    if (outside && !instance.getSource("global-land-context")) {
+      instance.addSource("global-land-context", {
+        type: "geojson",
+        data: "/maps/world-countries.json",
+      });
+      instance.addLayer(
+        {
+          id: "global-land-context",
+          type: "fill",
+          source: "global-land-context",
+          paint: { "fill-color": "#182937", "fill-opacity": 0.8 },
+        },
+        "land-fill",
+      );
+      instance.addLayer(
+        {
+          id: "global-coast-context",
+          type: "line",
+          source: "global-land-context",
+          paint: { "line-color": "#516272", "line-width": 1 },
+        },
+        "land-fill",
+      );
+    }
+    for (const id of ["global-land-context", "global-coast-context"])
+      if (instance.getLayer(id))
+        instance.setLayoutProperty(
+          id,
+          "visibility",
+          outside ? "visible" : "none",
+        );
     instance.flyTo({
       center: focus.center,
       zoom: focus.zoom ?? Math.max(instance.getZoom(), 7),

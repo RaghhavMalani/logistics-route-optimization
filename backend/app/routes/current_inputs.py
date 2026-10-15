@@ -95,6 +95,9 @@ def review_proposal(payload: dict = Body(...)):
     problem.created_at = wall_now().isoformat()
     problem.evidence["companyProposal"] = {"decisionId":source.decision_id,"optionId":proposal["optionId"],
         "environmentEvidenceId":env["evidenceId"],"meaning":"Port review of the identical frozen Company input/assumptions"}
+    if env.get("operationalEpisode"):
+        problem.evidence["companyProposal"].update(operationalEpisode=env["operationalEpisode"],
+            approvedAction=proposal.get("approvedAction"))
     for option in problem.options: option.actor = who.role
     problem = engine.finish(problem)
     def save(world):
@@ -131,6 +134,9 @@ def demo_outcome(decision_id: str):
         def recover(world):
             if (world.get("terminalProposal") or {}).get("environmentEvidenceId") == saved["environmentEvidenceId"]:
                 world["currentArrivalOutcome"] = saved
+            if saved.get("simulatedAction"):
+                action = saved["simulatedAction"]
+                world.setdefault("operationalActions", {})[action["id"]] = action
         scoped.save_world(recover)
         return {"outcome":saved,"advisories":[r.to_dict() for r in rows]}
     if not env or not rows or any(r is None or r.state not in ("accepted", "completed") for r in rows):
@@ -140,12 +146,25 @@ def demo_outcome(decision_id: str):
     if any((connected_basis(r) or {}).get("evidenceId") != env["evidenceId"] for r in rows):
         raise HTTPException(409,"Frozen input evidence no longer matches the advisory")
     choice = problem.option(problem.human_choice)
-    outcome = {"kind":"SIMULATED_DEMO_OUTCOME","environmentEvidenceId":env["evidenceId"],
+    outcome = {"kind":"SIMULATED_DEMO_OUTCOME","recordKind":"SIMULATED_DEMO_OUTCOME","environmentEvidenceId":env["evidenceId"],
         "requestedArrival":choice.evaluation.derived["arrivalAt"],"clearApproachAt":env.get("firstClearApproach"),
         "baselineAssumedWaitHours":env.get("forecastGateWaitHours",0),
         "selectedAssumedWaitHours":choice.evaluation.objectives["eta"].value if problem.evidence.get("intelligenceBasis") else choice.evaluation.objectives["port_wait"].value,
         "evidenceKind":"intelligence" if problem.evidence.get("intelligenceBasis") else "weather",
         "note":env["meaning"] if problem.evidence.get("intelligenceBasis") else "Reproduced from the frozen forecast/approach assumptions; not an independent observed outcome, forecast verification, berth guarantee or measured saving."}
+    from backend.app.routes.decisions import _approved_operational_action
+    approved = _approved_operational_action(problem, choice)
+    if approved:
+        from src.portwatch_os.learning.shared_feedback import identifier
+        action = {**approved, "kind": "SIMULATED_DEMO_ACTION", "recordKind": "SIMULATED_OPERATIONAL_RECORD",
+            "id": "sim-action-" + identifier([decision_id, approved["operationalActionId"]]),
+            "recordedAt": wall_now().isoformat(), "simulatedTargetAt": choice.evaluation.derived.get("requestedPassageAt") or choice.evaluation.derived["arrivalAt"],
+            "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None,
+            "eligibleForRealTarget": False,
+            "meaning": "Reproduces the accepted conditional plan in this fictional visitor world; no real vessel action or actual operational record is asserted."}
+        outcome.update(operationalEpisode=env["operationalEpisode"],
+            operationalActionId=approved["operationalActionId"], simulatedAction=action,
+            realOutcomeStatus="PENDING_ACTUAL_RECORDS", eligibleForRealTarget=False)
     if env.get('kind')=='NOTICE_RESTRICTION':
         outcome.update(evidenceKind='restriction',selectedAssumedWaitHours=choice.evaluation.objectives['port_wait'].value,
             requestedPassage=choice.evaluation.derived['requestedPassageAt'],earliestScheduledAccess=env['restriction']['earliestScheduledAccess'],
@@ -164,6 +183,9 @@ def demo_outcome(decision_id: str):
     problem.evidence["demoOutcome"] = outcome
     engine._record(problem)
     def save_outcome(world):
+        if outcome.get("simulatedAction"):
+            action = outcome["simulatedAction"]
+            world.setdefault("operationalActions", {})[action["id"]] = action
         source = (problem.evidence.get("companyProposal") or {}).get("decisionId")
         if source: world.setdefault("weatherJourneys", {}).setdefault(source, {})["outcome"] = outcome
         if (world.get("terminalProposal") or {}).get("environmentEvidenceId") == env["evidenceId"]:
@@ -188,14 +210,19 @@ def refresh_comparison(decision_id: str):
         return engine.get(previous).to_dict()
     env = connected_basis(source)
     if env.get('kind')=='NOTICE_RESTRICTION':
-        from backend.app.routes.operational_notices import comparison
-        from src.portwatch_os.intelligence.operational_notices import refresh
+        if env['restriction'].get('sourceFamily') == 'NAVCEN_MSI':
+            from backend.app.routes.navigation_restrictions import comparison
+            from src.portwatch_os.intelligence.navigation_restrictions import refresh
+        else:
+            from backend.app.routes.operational_notices import comparison
+            from src.portwatch_os.intelligence.operational_notices import refresh
         latest=refresh(force=True)
         result=comparison({'vesselId':source.subject_id,'revisionId':latest.get('revisionId')})
     elif source.evidence.get("intelligenceBasis"):
         from backend.app.routes.shipping_intelligence import comparison
         result=comparison({"signalId":env["reportedFact"]["id"],"vesselId":source.subject_id,
-                           "assumedHoldHours":env["assumptions"]["assumedHoldHours"]})
+                           "assumedHoldHours":env["assumptions"]["assumedHoldHours"],
+                           "feedbackClaimIds":[i["claim"]["id"] for i in env.get("feedbackConsumption",{}).get("inputs",[])]})
     else:
         result = create_problem({"domain":"vessel", "vesselId":source.subject_id,
             "currentArrival":{"plannedArrival":env["plannedArrival"], **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")}}},
