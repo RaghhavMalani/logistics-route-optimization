@@ -127,10 +127,12 @@ def signals_for(world):
             if wall_now()-instant(s["observedAt"])>=timedelta(days=budget): s["status"]="STALE"
         codes=s.get("portCodes") or ([v["portCode"] for v in world["fleet"]] if s["category"]=="economic" else [])
         vessels=[v for v in world["fleet"] if v["portCode"] in codes and (not s.get("laneCodes") or v["laneCode"] in s["laneCodes"])]
-        s["exposure"]={"basis":"inferred destination/lane membership in fictional visitor fleet", "ports":sorted(set(codes)),
+        s["exposure"]={"basis":"Contextual destination/lane association only; it does not demonstrate passage through an affected asset", "status":"NO_DEMONSTRATED_EXPOSURE", "ports":sorted(set(codes)),
             "routes":sorted({v["laneCode"] for v in vessels}),"vessels":[{"id":v["id"],"name":v["name"]} for v in vessels],
             "cargo":[{"vesselId":v["id"],"description":v["cargo"]} for v in vessels],"cargoBasis":"Visitor manifest; no independent cargo tracking or measured loss"}
-        s["comparisonAvailable"]=bool(s['category']!='economic' and s.get("id") and vessels and s["status"] in ("CURRENT","CACHED","STALE","REFERENCE_ONLY"))
+        s["comparisonAvailable"]=False
+        s["reviewTaskAvailable"]=bool(s['category'] in ('news','hazard') and s.get('id') and s['status'] not in ('UNAVAILABLE','FUTURE_DATED','REFERENCE_ONLY'))
+        s["reviewTaskReason"]='Verify the attributed report, precise asset and passage timing; no numerical event-to-delay inputs are available'
         if s['category']=='economic':
             s['decisionLimitation']='Reference quotes need declared currency amounts and settlement dates for valuation; they do not justify a vessel hold'
     return {"asOf":wall_now().isoformat(),"signals":signals,

@@ -11,6 +11,7 @@ import math
 from src.portwatch_os.ledger.schema import PredictionRecord, PredictionContext, CONTINUOUS
 from src.portwatch_os.learning.outcome_agent import OutcomeAgent
 from src.portwatch_os.learning.reliability import fit_reliability, MIN_SAMPLES_TO_APPLY
+from src.portwatch_os.learning import news_vintages
 
 FX_UNIT = "INR/USD"
 FX_AGGREGATION = "NEW_YORK_NOON_BUYING_RATE"
@@ -49,13 +50,15 @@ def claim(store, body):
 
 
 def news_report(store, *, wording, source, source_version, independence_key, event_key,
-                entity, geography, target, first_available_at, published_at, response_sha256, value=True, unit="boolean"):
+                entity, geography, target, first_available_at, published_at, response_sha256, value=True, unit="boolean",
+                event_reference=None, source_lineage_id=None, source_report_id=None, source_revision_id=None,
+                supersedes_claim_id=None, supersedes_claim_ids=None):
     """Explicit reviewed event identity joins syndicated reports, not their truth.
 
     Callers must supply an event/reference key and exact extracted wording.
     Headline similarity alone is deliberately not an event identity.
     """
-    if target.get("kind") not in ("ANNOUNCEMENT", "ACTUAL_EVENT") or not event_key or not wording:
+    if target.get("kind") not in news_vintages.NEWS_KINDS or not event_key or not wording:
         raise ValueError("A specific reviewed news target and event reference are required")
     if not response_sha256 or len(response_sha256) != 64:
         raise ValueError("Retained original news response required")
@@ -64,7 +67,11 @@ def news_report(store, *, wording, source, source_version, independence_key, eve
         "target": target, "firstAvailableAt": first_available_at, "publishedAt": published_at,
         "source": source, "sourceVersion": source_version, "responseSha256": response_sha256,
         "eventKey": event_key, "independenceKey": independence_key, "inputs": [],
-        "unit": unit, "aggregation": "EXPLICIT_NEWS_TARGET"})
+        "unit": unit, "aggregation": "EXPLICIT_NEWS_TARGET",
+        **{key:value for key,value in {'eventReference':event_reference, 'sourceLineageId':source_lineage_id,
+            'sourceReportId':source_report_id, 'sourceRevisionId':source_revision_id,
+            'supersedesClaimId':supersedes_claim_id, 'supersedesClaimIds':supersedes_claim_ids}.items()
+           if value is not None}})
 
 
 def evidence(store, body):
@@ -83,20 +90,22 @@ def evidence(store, body):
     return store.append_feedback("evidence", value)
 
 
-def verify_news(store, report, now):
+def news_assessment(store, report, now):
     """Independent operator/authority evidence must address the exact target.
 
     ANNOUNCEMENT and ACTUAL_EVENT deliberately cannot settle each other.
     Cancellation changes applicability, not the truth of a past announcement.
     """
-    candidates = [e for e in store.feedback("evidence") if e["eventKey"] == report["eventKey"]
+    report_identity = news_vintages.identity(report)
+    candidates = [e for e in store.feedback("evidence") if news_vintages.identity(e)['eventFamilyId'] == report_identity['eventFamilyId']
                   and e["entity"] == report["entity"] and e["geography"] == report["geography"]
                   and instant(e["firstAvailableAt"]) <= instant(now)]
-    matching = [e for e in candidates if e["target"] == report["target"]
+    matching = [e for e in candidates if report_identity['targetId']
+                and news_vintages.identity(e)['targetId'] == report_identity['targetId']
                 and e["unit"] == report.get("unit") and e["aggregation"] == report.get("aggregation")
                 and e["recordKind"] in ("AUTHORITY_RECORD", "OPERATOR_RECORD")
-                and e["independenceKey"] != report["independenceKey"]
-                and e.get("derivedFrom") != report["independenceKey"]]
+                and news_vintages.lineage(e) != news_vintages.lineage(report)
+                and e.get("derivedFrom") not in (report["independenceKey"], news_vintages.lineage(report))]
     latest = sorted(matching, key=lambda e: (instant(e["firstAvailableAt"]), e["id"]))
     # Contradictory independent records remain unresolved until explicitly revised.
     live = [e for e in latest if not any(x.get("supersedes") == e["id"] for x in latest)]
@@ -104,11 +113,16 @@ def verify_news(store, report, now):
     verdict = verdicts.pop() if len(verdicts) == 1 else "UNRESOLVED"
     cancelled = [e for e in candidates if e["recordKind"] == "CANCELLATION"
                  and e.get("cancelsSourceVersion") == report["sourceVersion"]]
-    body = {"claimId": report["id"], "eventKey": report["eventKey"], "verdict": verdict,
+    return {"claimId": report["id"], "eventKey": report["eventKey"], "verdict": verdict,
             "applicability": "SUPERSEDED" if cancelled else "AS_REPORTED",
             "evidenceIds": sorted(e["id"] for e in live + cancelled),
-            "reason": "Independent evidence addresses the same target" if live else
+            "reason": "Reporting period ambiguous; matching cannot be established" if not report_identity['targetId'] else
+                      "Independent evidence addresses the same target" if live else
                       "Independent authority/operator evidence unavailable; absence is not contradiction"}
+
+
+def verify_news(store, report, now):
+    body = news_assessment(store, report, now)
     old = store.feedback("assessment", identifier(body))
     if old:
         return old[0]
@@ -323,22 +337,8 @@ def reliability_version(store, now):
                        "fittedWeight": global_weight.weight if global_weight else 1,
                        "consumedWeight": 1, "status": "COLLECTING",
                        "reason": "Chronological held-out improvement and calibration required before applying learning"})
-    news_groups = {}
-    for item in store.feedback("claim"):
-        if item["kind"] != "REPORTED_FACT" or item["target"]["kind"] not in ("ANNOUNCEMENT", "ACTUAL_EVENT"):
-            continue
-        assessment = current_assessment(store, item, as_of=now)
-        if assessment and instant(assessment["assessedAt"]) <= instant(now):
-            key = (item["independenceKey"], item["entity"], item["target"]["kind"])
-            target_key = (item["eventKey"], json.dumps(item["target"], sort_keys=True))
-            news_groups.setdefault(key, {})[target_key] = assessment
-    news_slices = []
-    for context, targets in sorted(news_groups.items()):
-        resolved = [a for a in targets.values() if a["verdict"] in ("CORROBORATED", "CONTRADICTED")]
-        news_slices.append({"context": list(context), "independentTargets": len(resolved),
-            "pendingTargets": len(targets)-len(resolved), "corroborated": sum(a["verdict"] == "CORROBORATED" for a in resolved),
-            "contradicted": sum(a["verdict"] == "CONTRADICTED" for a in resolved), "status": "COLLECTING",
-            "meaning": "Descriptive target agreement; not probability calibration or a shipping-delay score"})
+    aggregation = news_vintages.aggregate(store, now, assessment_for=lambda item: news_assessment(store, item, now))
+    news_slices = news_vintages.slices(aggregation)
     body = {"contractVersion": "shared-feedback-v1", "status": "COLLECTING", "consumedWeight": 1,
             "correction": None, "minimumSamplesForReliability": MIN_SAMPLES_TO_APPLY,
             "slices": slices, "newsSlices": news_slices, "sampleIds": sorted(r.prediction_id for r in independent.values()),
@@ -354,26 +354,49 @@ def reliability_version(store, now):
 def inspect(store, now):
     items = []
     for item in store.feedback("claim"):
+        if instant(item['firstAvailableAt']) > instant(now): continue
         row = store.get_prediction(item["id"])
-        assessment = current_assessment(store, item)
-        match = store.feedback("match", item["id"])
-        outcomes = [e for e in store.feedback("evidence") if e["eventKey"] == item["eventKey"] and e["target"] == item["target"]]
-        items.append({**item, "verification": assessment, "outcomes": outcomes, "match": match[0] if match else None,
+        assessment = current_assessment(store, item, as_of=now)
+        retained_match = next(iter(store.feedback("match", item["id"])), None)
+        matching_id = retained_match.get('evidenceId') if retained_match else None
+        outcomes = [e for e in store.feedback("evidence") if
+            (e["eventKey"] == item["eventKey"] and e["target"] == item["target"]) or e['id'] == matching_id]
+        visible = [e for e in outcomes if instant(e['firstAvailableAt']) <= instant(now)
+                   and instant(e['observedAt']) <= instant(now)]
+        match = (retained_match if retained_match and instant(retained_match['availableAt']) <= instant(now)
+            and matching_id in {e['id'] for e in visible} else None)
+        resolution_visible = bool(row and row.status == 'resolved' and row.observed_at
+            and instant(row.observed_at) <= instant(now))
+        exclusions = [{'kind':'OUTCOME','reason':'Observation or first availability is after the requested as-of time'}
+                      for e in outcomes if e not in visible]
+        if row and row.status == 'resolved' and not resolution_visible:
+            exclusions.append({'kind':'SCORE','reason':'Resolution was unavailable at the requested as-of time'})
+        items.append({**item, "verification": assessment, "outcomes": visible, "match": match,
+                      'inspectionExclusions':exclusions,
                       "sourceQuality": next(iter(store.feedback("news-source-quality", item["id"])), None),
-                      "score": {"status": row.status, "observed": row.observed_value, "error": row.error,
-                                "absoluteError": row.absolute_error, "availableAt": row.observed_at} if row else None})
-    news = [i for i in items if i["target"]["kind"] in ("ANNOUNCEMENT", "ACTUAL_EVENT")]
+                      "score": {"status": row.status if resolution_visible else 'open',
+                                "observed": row.observed_value if resolution_visible else None,
+                                "error": row.error if resolution_visible else None,
+                                "absoluteError": row.absolute_error if resolution_visible else None,
+                                "availableAt": row.observed_at if resolution_visible else None} if row else None})
+    aggregation = news_vintages.aggregate(store, now, assessment_for=lambda item: news_assessment(store, item, now))
+    identities = {row['claimId']:row for row in aggregation['claims']}
+    for item in items:
+        if item['id'] in identities: item['newsIdentity'] = identities[item['id']]
     events = []
-    for key in sorted({i["eventKey"] for i in news}):
-        reports = [i for i in news if i["eventKey"] == key]
-        events.append({"id": key, "reportIds": [r["id"] for r in reports],
-                       "sourceIds": sorted({r["independenceKey"] for r in reports}),
-                       "targets": [r["target"] for r in reports]})
+    for event_id in sorted({row['eventId'] for row in identities.values() if row['eventId']}):
+        reports = [item for item in items if identities.get(item['id'],{}).get('eventId') == event_id]
+        events.append({'id':event_id, 'reportIds':sorted(r['id'] for r in reports),
+            'sourceIds':sorted({identities[r['id']]['lineageId'] for r in reports if identities[r['id']]['lineageId']}),
+            'targets':[r['target'] for r in sorted(reports,key=lambda r:r['id'])]})
     return {"contractVersion": "shared-feedback-v1", "claims": sorted(items, key=lambda i: i["originAt"], reverse=True)[:100],
             "events": events,
+            "newsAggregation": aggregation,
             "reliability": reliability_version(store, now),
-            "newsIndependentEvents": len({i["eventKey"] for i in news}),
-            "newsSourceReports": len(news), "note": "Unresolved reports and absent outcomes remain pending. Simulation never verifies a real claim."}
+            "newsIndependentEvents": aggregation['summary']['eventCount'],
+            "newsSourceReports": aggregation['summary']['reportCount'],
+            "newsRevisionCount": aggregation['summary']['revisionCount'],
+            "note": "Unresolved reports, ambiguous periods and absent outcomes remain pending. Simulation never verifies a real claim."}
 
 
 def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculation_consumers=None):
@@ -385,6 +408,8 @@ def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculati
     """
     calculation_consumers = calculation_consumers or {}
     version = reliability_version(public_store, now)
+    news_state = news_vintages.aggregate(public_store, now,
+        assessment_for=lambda item: news_assessment(public_store, item, now))
     inputs = []
     for cid in sorted(set(claim_ids)):
         found = public_store.feedback("claim", cid)
@@ -393,7 +418,8 @@ def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculati
         item = found[0]; assessment = current_assessment(public_store, item, as_of=now)
         if instant(item["firstAvailableAt"]) > instant(now):
             raise ValueError("Claim unavailable at comparison origin")
-        inputs.append({"claim": {**item, "sourceQuality": next(iter(public_store.feedback("news-source-quality", item["id"])), None)}, "assessment": assessment})
+        inputs.append({"claim": {**item, "sourceQuality": next(iter(public_store.feedback("news-source-quality", item["id"])), None)},
+            "assessment": assessment, 'newsTargetDependency':news_vintages.dependency(news_state,item)})
     body = {"contractVersion": "shared-feedback-v1", "inputs": inputs, "reliabilityVersion": version,
             "appliedDependencies": [applied_dependency(public_store, row['claim'], now,
                 calculation_consumers.get(row['claim']['id'])) for row in inputs],
@@ -407,11 +433,15 @@ def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculati
 def require_consumption(public_store, consumed, now=None):
     from src.portwatch_os.clock import wall_now
     now = now or wall_now().isoformat()
+    news_state = news_vintages.aggregate(public_store, now,
+        assessment_for=lambda item: news_assessment(public_store, item, now))
     for entry in consumed["inputs"]:
         latest = current_assessment(public_store, entry["claim"], as_of=now)
         if assessment_dependency(latest) != assessment_dependency(entry['assessment']):
             raise ValueError("Consumed verification changed; refresh a linked successor for fresh review")
-        revisions = [c for c in public_store.feedback('claim') if c.get('supersedesClaimId') == entry['claim']['id']
+        if entry.get('newsTargetDependency') is not None and news_vintages.dependency(news_state,entry['claim']) != entry['newsTargetDependency']:
+            raise ValueError('Consumed news target vintage/conflict changed; refresh a linked successor for fresh review')
+        revisions = [c for c in public_store.feedback('claim') if news_vintages.relevant_supersession(c,entry['claim'])
                      and instant(c['firstAvailableAt']) <= instant(now)]
         if revisions:
             raise ValueError('Consumed claim revised; refresh a linked successor for fresh review')

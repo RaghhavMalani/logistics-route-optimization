@@ -36,6 +36,7 @@ import {
 } from "@/services/os-hooks";
 import { NAVIGATION, activeNavItem } from "./navigation";
 import { TrafficProvider, useClockState, useTraffic } from "./traffic-context";
+import { CompanyIntelligenceQueue } from "@/components/intelligence/CompanyIntelligenceQueue";
 
 /* ----------------------------------------------------------------- clock -- */
 
@@ -614,6 +615,7 @@ function Chrome({ children }: { children: ReactNode }) {
         />
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           {children}
+          <CompanyIntelligenceQueue />
         </main>
       </div>
 

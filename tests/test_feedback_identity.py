@@ -231,7 +231,7 @@ def test_actual_revisions_exclude_fit_but_wrong_entity_or_measurement_do_not(tmp
 def report(store,entity,at=ORIGIN):
     item=f.news_report(store,wording='Specific announcement '+entity,source='Authority '+entity,
         source_version='v1',independence_key='Authority '+entity,event_key=entity+':window',entity=entity,
-        geography='Geography '+entity,target={'kind':'ANNOUNCEMENT','from':'2026-10-15'},
+        geography='Geography '+entity,target={'kind':'ANNOUNCEMENT','from':'2026-10-15','through':'2026-10-15'},
         first_available_at=at,published_at=at,response_sha256='a'*64)
     f.verify_news(store,item,at)
     return item

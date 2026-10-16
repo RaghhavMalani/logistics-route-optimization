@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { getBlob, getJson, postJson } from "@/services/api";
 import type {
@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { formatUtc } from "@/components/kit/primitives";
 
 function ClaimInspection({ claim }: { claim: FeedbackClaim }) {
+  const period = claim.target.reportedPeriod;
+  const periodText =
+    typeof period === "string"
+      ? period
+      : period
+        ? `${period.from ?? "unknown start"} to ${period.through ?? "unknown end"} (${period.precision ?? "precision unavailable"})`
+        : "Target period unavailable";
   const observed =
     typeof claim.inputs[0]?.observedAt === "string"
       ? claim.inputs[0].observedAt
@@ -77,7 +84,7 @@ function ClaimInspection({ claim }: { claim: FeedbackClaim }) {
           claim.target.at ??
           (claim.target.from
             ? `${claim.target.from} to ${claim.target.through}`
-            : (claim.target.reportedPeriod ?? "Target period unavailable"))}
+            : periodText)}
       </p>
       <p>
         Later outcome:{" "}
@@ -169,8 +176,9 @@ export function SharedFeedbackPanel({
   onDecision?: (problem: DecisionProblem) => void;
 }) {
   const { identityHeaders, session } = useAuth();
+  const client = useQueryClient();
   const [vesselId, setVesselId] = useState("PWD-001");
-  const [hold, setHold] = useState(6);
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const canPropose = !!onDecision && session?.user.role === "SHIPPING_COMPANY";
   const query = useQuery({
     queryKey: ["shared-feedback", identityHeaders],
@@ -195,12 +203,17 @@ export function SharedFeedbackPanel({
   });
   const create = useMutation({
     mutationFn: (claimId: string) =>
-      postJson<DecisionProblem>(
-        "/intelligence/feedback/comparison",
-        { claimId, vesselId, assumedHoldHours: hold },
+      postJson<{ id: string; status: string }>(
+        "/intelligence/review-tasks",
+        { claimId, vesselId, requestId },
         identityHeaders,
       ),
-    onSuccess: (problem) => onDecision?.(problem),
+    onSuccess: () => {
+      void client.invalidateQueries({
+        queryKey: ["intelligence-review-tasks"],
+      });
+      setRequestId(crypto.randomUUID());
+    },
   });
   if (session?.mode !== "demo") return null;
   return (
@@ -226,6 +239,46 @@ export function SharedFeedbackPanel({
             changes applicability; it does not automatically falsify a past
             report.
           </p>
+          {query.data.newsAggregation ? (
+            <details className="border border-[var(--line)] p-2 my-2">
+              <summary>News vintages · deterministic as-of inspection</summary>
+              <p>
+                As of {formatUtc(query.data.newsAggregation.asOf)} · policy{" "}
+                {query.data.newsAggregation.policy}.
+              </p>
+              <p>
+                {query.data.newsAggregation.summary.resolvedIndependentTargets}{" "}
+                resolved independent targets ·{" "}
+                {query.data.newsAggregation.summary.pendingIndependentTargets}{" "}
+                pending · {query.data.newsAggregation.summary.reportCount}{" "}
+                reports · {query.data.newsAggregation.summary.revisionCount}{" "}
+                revisions ·{" "}
+                {query.data.newsAggregation.summary.ambiguousClaimCount} claims
+                with ambiguous periods ·{" "}
+                {query.data.newsAggregation.summary.excludedTargetCount}{" "}
+                excluded targets.
+              </p>
+              <p>
+                Unknown reporting periods and unresolved same-target conflicts
+                are excluded. Syndicated copies and corrections do not add
+                independent outcomes.
+              </p>
+              {query.data.newsAggregation.exclusions.map((item, i) => (
+                <p key={`${item.targetId ?? "ambiguous"}-${i}`}>
+                  Excluded: {item.reason} · {item.claimIds.length} retained
+                  claims
+                </p>
+              ))}
+              <details>
+                <summary>
+                  Inspect target, lineage and supersession decisions
+                </summary>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all">
+                  {JSON.stringify(query.data.newsAggregation.targets, null, 2)}
+                </pre>
+              </details>
+            </details>
+          ) : null}
           <p>
             DEXINUS is INR per USD, a New York noon buying rate. Daily values
             are released weekly with possible holiday delays and revisions.
@@ -257,7 +310,7 @@ export function SharedFeedbackPanel({
                   disabled={create.isPending}
                   onClick={() => create.mutate(claim.id)}
                 >
-                  Use news as Company review context
+                  Request verification of this report
                 </Button>
               )}
             </div>
@@ -270,19 +323,10 @@ export function SharedFeedbackPanel({
                   aria-label="Feedback vessel ID"
                   className="bg-[var(--surface)] border border-[var(--line)] w-24"
                   value={vesselId}
-                  onChange={(e) => setVesselId(e.target.value)}
-                />
-              </label>
-              <label>
-                Assumed review hold (h){" "}
-                <input
-                  aria-label="Feedback review hold hours"
-                  className="bg-[var(--surface)] border border-[var(--line)] w-16"
-                  type="number"
-                  min={1}
-                  max={24}
-                  value={hold}
-                  onChange={(e) => setHold(Number(e.target.value))}
+                  onChange={(e) => {
+                    setVesselId(e.target.value);
+                    setRequestId(crypto.randomUUID());
+                  }}
                 />
               </label>
             </div>
@@ -307,6 +351,13 @@ export function SharedFeedbackPanel({
         </>
       )}
       {create.isError && <p role="alert">{create.error.message}</p>}
+      {create.isSuccess && (
+        <p role="status">
+          Verification requested · {create.data.status}. No delay, arrival
+          change or real execution is inferred. The frozen task is retained in
+          this visitor's review queue.
+        </p>
+      )}
       <details>
         <summary>
           Visitor operational hypotheses · separate from source accuracy

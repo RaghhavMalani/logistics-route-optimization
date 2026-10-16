@@ -36,6 +36,7 @@ export function GlobalIntelligenceControl({
 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
+    if (window.location.hash.startsWith("#intelligence-review")) setOpen(true);
     const closeForAsset = () => setOpen(false);
     window.addEventListener("portwatch:focus-constraint", closeForAsset);
     return () =>

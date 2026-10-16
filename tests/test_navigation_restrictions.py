@@ -35,6 +35,8 @@ def retained(tmp_path,monkeypatch):
     source={**facts,'source':n.SOURCE,'revisionId':f.identifier(facts),'responseSha256':digest,
         'availableAt':NOW.isoformat(),'checkedAt':NOW.isoformat(),'sourceStatus':'CURRENT'}
     monkeypatch.setattr(n,'ROOT',root);monkeypatch.setattr(n,'refresh',lambda *a,**k:copy.deepcopy(source))
+    monkeypatch.setattr(n,'refresh_all',lambda *a,**k:{'notices':[copy.deepcopy(source)],
+        'sourceStatus':'CURRENT','checkedAt':NOW.isoformat(),'sourceRegistry':n.registry()})
     return source
 
 

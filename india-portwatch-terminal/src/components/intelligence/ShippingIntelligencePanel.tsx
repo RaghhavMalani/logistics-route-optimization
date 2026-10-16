@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import type { DecisionProblem } from "@/types/decisions";
 import { OperationalNoticePanel } from "./OperationalNoticePanel";
 import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
 import { NavigationRestrictionPanel } from "./NavigationRestrictionPanel";
+import { IntelligenceReviewTasks } from "./IntelligenceReviewTasks";
 
 interface Signal {
   id?: string;
@@ -33,15 +34,25 @@ interface Signal {
     cargo: { vesselId: string; description: string }[];
   };
 }
+function hasRestrictionBasis(problem: DecisionProblem) {
+  const basis = problem.evidence.intelligenceBasis;
+  return (
+    typeof basis === "object" &&
+    basis !== null &&
+    "kind" in basis &&
+    basis.kind === "NOTICE_RESTRICTION"
+  );
+}
 export function ShippingIntelligencePanel({
   onDecision,
 }: {
   onDecision?: (problem: DecisionProblem) => void;
 }) {
   const { identityHeaders, session } = useAuth();
+  const client = useQueryClient();
   const [selected, setSelected] = useState("");
   const [vesselId, setVesselId] = useState("");
-  const [hold, setHold] = useState(6);
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [digest, setDigest] = useState<string | null>(null);
   const raw = useQuery({
     queryKey: ["shipping-evidence", digest, identityHeaders],
@@ -90,12 +101,17 @@ export function ShippingIntelligencePanel({
   });
   const create = useMutation({
     mutationFn: () =>
-      postJson<DecisionProblem>(
-        "/intelligence/shipping-comparison",
-        { signalId: selected, vesselId, assumedHoldHours: hold },
+      postJson<{ id: string; status: string }>(
+        "/intelligence/review-tasks",
+        { signalId: selected, vesselId, requestId },
         identityHeaders,
       ),
-    onSuccess: (problem) => onDecision?.(problem),
+    onSuccess: () => {
+      void client.invalidateQueries({
+        queryKey: ["intelligence-review-tasks"],
+      });
+      setRequestId(crypto.randomUUID());
+    },
   });
   if (session?.mode !== "demo") return null;
   return (
@@ -107,7 +123,7 @@ export function ShippingIntelligencePanel({
       <NavigationRestrictionPanel onDecision={onDecision} />
       <OperationalNoticePanel onDecision={onDecision} />
       <h3 className="text-xs">
-        Reported intelligence → shipping exposure → action comparison
+        Reported intelligence → possible exposure → verification
       </h3>
       {(saved.data?.problems ?? [])
         .filter(
@@ -131,14 +147,16 @@ export function ShippingIntelligencePanel({
             >
               Resume saved intelligence comparison
             </Button>{" "}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={refresh.isPending}
-              onClick={() => refresh.mutate(p.decisionId)}
-            >
-              Refresh to linked intelligence comparison
-            </Button>
+            {hasRestrictionBasis(p) ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={refresh.isPending}
+                onClick={() => refresh.mutate(p.decisionId)}
+              >
+                Refresh to linked intelligence comparison
+              </Button>
+            ) : null}
           </div>
         ))}
       {resume.isError || refresh.isError ? (
@@ -209,7 +227,9 @@ export function ShippingIntelligencePanel({
                   "unavailable"}
                 .
               </p>
-              {s.comparisonAvailable &&
+              {s.category === "news" &&
+              s.id &&
+              s.exposure.vessels.length > 0 &&
               onDecision &&
               session.user.role === "SHIPPING_COMPANY" ? (
                 <Button
@@ -218,9 +238,10 @@ export function ShippingIntelligencePanel({
                   onClick={() => {
                     setSelected(s.id!);
                     setVesselId(s.exposure.vessels[0].id);
+                    setRequestId(crypto.randomUUID());
                   }}
                 >
-                  Select for shipping comparison
+                  Select report for verification
                 </Button>
               ) : null}
             </details>
@@ -241,13 +262,16 @@ export function ShippingIntelligencePanel({
       ) : null}
       {chosen ? (
         <fieldset className="border border-[var(--line)] p-2 space-y-2">
-          <legend>Explicit operator scenario · {chosen.title}</legend>
+          <legend>Request source/exposure verification · {chosen.title}</legend>
           <label className="block">
             Affected voyage{" "}
             <select
               aria-label="Intelligence voyage"
               value={vesselId}
-              onChange={(e) => setVesselId(e.target.value)}
+              onChange={(e) => {
+                setVesselId(e.target.value);
+                setRequestId(crypto.randomUUID());
+              }}
               className="bg-[var(--panel-2)]"
             >
               {chosen.exposure.vessels.map((v) => (
@@ -257,36 +281,30 @@ export function ShippingIntelligencePanel({
               ))}
             </select>
           </label>
-          <label className="block">
-            Assumed review hold (h){" "}
-            <input
-              aria-label="Assumed intelligence review hold"
-              type="number"
-              min={1}
-              max={24}
-              value={hold}
-              onChange={(e) => setHold(Number(e.target.value))}
-              className="w-16 bg-[var(--panel-2)]"
-            />
-          </label>
           <p>
-            This bounded hold is an operator demo assumption for further
-            verification. The source does not establish event-caused delay, a
-            closure, safer passage or savings. Compare continuing the plan with
-            requesting a later arrival.
+            Ask for independent source and passage confirmation. Broad lane or
+            destination membership is a review lead. No delay, closure, arrival
+            change or savings is calculated from this report.
           </p>
           <Button
             size="sm"
-            disabled={create.isPending || !vesselId || hold < 1 || hold > 24}
+            disabled={create.isPending || !vesselId}
             onClick={() => create.mutate()}
           >
             {create.isPending
-              ? "Freezing comparison…"
-              : "Compare shipping actions"}
+              ? "Recording review request…"
+              : "Request source and exposure verification"}
           </Button>
         </fieldset>
       ) : null}
       {create.isError ? <p role="alert">{create.error.message}</p> : null}
+      {create.isSuccess ? (
+        <p role="status">
+          Verification requested · {create.data.status}. No operational target
+          or vessel hold was created.
+        </p>
+      ) : null}
+      <IntelligenceReviewTasks />
     </section>
   );
 }

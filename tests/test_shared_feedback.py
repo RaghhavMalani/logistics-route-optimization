@@ -147,7 +147,7 @@ def test_future_input_and_backdated_forecast_rejected(tmp_path):
 
 
 @pytest.mark.parametrize("family", ["economic", "news"])
-def test_context_runs_original_roles_recovery_and_simulation_is_not_measurement(tmp_path, monkeypatch, family):
+def test_context_stays_nonnumerical_and_review_task_recovers_across_roles(tmp_path, monkeypatch, family):
     from tests.test_demo_terminal import setup, resources
     from tests.test_current_recovery import BASE, step
     from src.portwatch_os.clock import wall_now
@@ -170,43 +170,39 @@ def test_context_runs_original_roles_recovery_and_simulation_is_not_measurement(
         assert not client.get(BASE+'/intelligence/feedback/impacts',headers=headers).json()['claims']
         client.close()
         return
-    assert response.status_code == 200, response.text
-    problem = response.json(); consumed = problem["evidence"]["intelligenceBasis"]["feedbackConsumption"]
-    assert consumed["inputs"][0]["claim"]["value"] == (96.31 if family == "economic" else 133)
-    if family == "news": assert "not consumed" in consumed["inputs"][0]["claim"]["sourceQuality"]["closureInference"]
-    assert consumed["reliabilityVersion"]["consumedWeight"] == 1
-    choice = next(o["optionId"] for o in problem["options"] if not o["isBaseline"])
-    cp = BASE+"/decisions/problems/"+problem["decisionId"]
-    step(client, cp, headers, "REVIEWED")
-    source_digest = item["inputs"][0]["responseSha256"] if family == "economic" else item["responseSha256"]
-    original_path = tmp_path/"sources"/"shared_feedback"/(source_digest+".response")
-    original_bytes = original_path.read_bytes(); original_path.write_bytes(b"corrupted source")
-    blocked = client.post(cp+"/transition", headers=headers, json={"target":"APPROVED","optionId":choice})
-    assert blocked.status_code == 409 and "corrupt" in blocked.text
-    assert client.get(cp, headers=headers).json()["workflow"] == "REVIEWED"
+    assert response.status_code == 422 and 'review-tasks' in response.text
+    task_path=BASE+'/intelligence/review-tasks'
+    request={'claimId':item['id'],'vesselId':'PWD-001','requestId':'news-review-task-001'}
+    original_path=tmp_path/'sources'/'shared_feedback'/(item['responseSha256']+'.response')
+    original_bytes=original_path.read_bytes(); original_path.write_bytes(b'corrupted source')
+    rejected=client.post(task_path,headers=headers,json=request)
+    assert rejected.status_code==409 and 'corrupt' in rejected.text
+    assert client.get(task_path,headers=headers).json()['tasks']==[]
     original_path.write_bytes(original_bytes)
-    step(client, cp, headers, "APPROVED", choice)
+    created=client.post(task_path,headers=headers,json=request)
+    assert created.status_code==200,created.text
+    task=created.json()
+    assert task['kind']=='SOURCE_EXPOSURE_VERIFICATION_TASK'
+    assert task['status']=='PENDING_VERIFICATION'
+    assert task['source']['claim']==item
+    assert task['calculatedDelayHours'] is None and task['calculatedCost'] is None
+    assert task['actualExecutionStatus']=='NOT_OBSERVED' and task['createsOperationalTarget'] is False
+    assert not store.read(token).get('terminalProposal')
     resources.cache_clear()
-    assert client.get(cp, headers=headers).json()["evidence"]["intelligenceBasis"]["feedbackConsumption"] == consumed
-    store.switch(token, "PORT_AUTHORITY")
-    port = client.post(BASE+"/decisions/current-proposals/review", headers=headers, json={"decisionId": problem["decisionId"]}).json()
-    pp = BASE+"/decisions/problems/"+port["decisionId"]
-    step(client, pp, headers, "REVIEWED"); step(client, pp, headers, "APPROVED", choice)
-    handoff = client.post(pp+"/handoff", headers=headers, json={})
-    assert handoff.status_code == 200, handoff.text
-    ap = BASE+"/advisories/"+handoff.json()["advisories"][0]["advisoryId"]
-    step(client, ap, headers, "under_review"); step(client, ap, headers, "issued")
-    store.switch(token, "VESSEL_OPERATOR"); step(client, ap, headers, "acknowledged"); step(client, ap, headers, "accepted")
-    store.switch(token, "PORT_AUTHORITY")
-    outcome = client.post(pp+"/demo-outcome", headers=headers, json={})
-    assert outcome.status_code == 200, outcome.text
-    resources.cache_clear()
-    assert client.post(pp+"/demo-outcome", headers=headers, json={}).json() == outcome.json()
-    impacts = client.get(BASE+"/intelligence/feedback/impacts", headers=headers).json()
-    assert impacts["claims"] and all(c["score"]["status"] == "open" for c in impacts["claims"])
-    other = store.create("SHIPPING_COMPANY"); oh = {"Authorization": "Bearer " + other["accessToken"]}
-    assert client.get(cp, headers=oh).status_code == 404
-    assert not client.get(BASE+"/intelligence/feedback/impacts", headers=oh).json()["claims"]
+    # A retained task retries from durable state even if its original later fails.
+    original_path.write_bytes(b'corrupted source')
+    assert client.post(task_path,headers=headers,json=request).json()==task
+    original_path.write_bytes(original_bytes)
+    assert client.post(task_path,headers=headers,json={**request,'claimId':'another-claim'}).status_code==409
+    for role in ('PORT_AUTHORITY','VESSEL_OPERATOR','NATIONAL_ADMIN'):
+        store.switch(token,role)
+        assert client.get(task_path,headers=headers).json()['tasks']==[task]
+        assert client.post(task_path,headers=headers,json=request).status_code==403
+    assert not client.get(BASE+'/intelligence/feedback/impacts',headers=headers).json()['claims']
+    other=store.create('SHIPPING_COMPANY');other_headers={'Authorization':'Bearer '+other['accessToken']}
+    assert client.get(task_path,headers=other_headers).json()['tasks']==[]
+    assert not client.get(BASE+'/intelligence/feedback/impacts',headers=other_headers).json()['claims']
+    assert client.get(BASE+'/intelligence/feedback',headers=headers).json()['newsAggregation']['summary']['resolvedIndependentTargets']==0
     client.close()
 
 

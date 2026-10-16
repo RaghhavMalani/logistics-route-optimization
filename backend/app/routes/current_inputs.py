@@ -213,11 +213,14 @@ def refresh_comparison(decision_id: str):
         if env['restriction'].get('sourceFamily') == 'NAVCEN_MSI':
             from backend.app.routes.navigation_restrictions import comparison
             from src.portwatch_os.intelligence.navigation_restrictions import refresh
+            notice_id=env['reportedFact'].get('noticeId') or env['reportedFact'].get('providerNoticeId')
+            latest=refresh(force=True,**({'notice_id':notice_id} if notice_id else {}))
         else:
             from backend.app.routes.operational_notices import comparison
             from src.portwatch_os.intelligence.operational_notices import refresh
-        latest=refresh(force=True)
-        result=comparison({'vesselId':source.subject_id,'revisionId':latest.get('revisionId')})
+            latest=refresh(force=True)
+        result=comparison({'vesselId':source.subject_id,'revisionId':latest.get('revisionId'),
+            **({'noticeId':latest.get('noticeId')} if latest.get('noticeId') else {})})
     elif source.evidence.get("intelligenceBasis"):
         from backend.app.routes.shipping_intelligence import comparison
         result=comparison({"signalId":env["reportedFact"]["id"],"vesselId":source.subject_id,

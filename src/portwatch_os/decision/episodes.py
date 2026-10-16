@@ -48,6 +48,8 @@ def begin_call(scoped, vessel, requested_arrival, request_id):
         row["operationalEpisode"] = episode
         row["etaHours"] = (at-instant(world["epoch"])).total_seconds()/3600
         row.pop("declaredPassage", None)
+        row.pop("declaredPassages", None)
+        row.pop("possibleAssetIds", None)
         world.setdefault("operationalEpisodes", {})[episode["id"]] = episode
         if (world.get("terminalProposal") or {}).get("vesselId") == vessel["id"]:
             for key in ("terminalProposal", "currentArrivalReview", "currentArrivalOutcome"):

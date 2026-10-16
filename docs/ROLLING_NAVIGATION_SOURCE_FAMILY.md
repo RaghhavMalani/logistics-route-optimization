@@ -1,0 +1,52 @@
+# Rolling navigation discovery and reviewed extraction
+
+Source review: October 16, 2026. This extends [the preceding NAVCEN source review](NAVCEN_SOURCE_REVIEW.md); it does not establish worldwide operational coverage or actual navigational clearance.
+
+## Family selection and coverage
+
+The implemented family remains the public USCG NAVCEN Bridges GeoJSON linked from its [official MSI catalogue](https://www.navcen.uscg.gov/msi). Discovery considers the complete received product. A source feature ID identifies a notice; a separate stable asset mapping identifies the bridge. Selection no longer filters the product to MSI 53842. A new notice ID with the same reviewed asset and supported semantics can be discovered without changing a feature-ID constant.
+
+The retained October 14 original contains **358 distinct feature identities**. Three asset mappings have reviewed closed-position extraction templates:
+
+| Stable asset | Retained notice | Extracted scheduled interval | Exceptions and limits |
+| --- | --- | --- | --- |
+| `WRIGHTSVILLE_SR74` | MSI 53842 | October 17, 04:30–10:15 local | Able-to-pass vessels excepted; emergency opening with at least 15 minutes' notice |
+| `PAMLICO_CAROLINA_COASTAL_RAILROAD` | MSI 53860 | October 13, 14, 20, 21, 27 and 28, 09:00–17:00 local | Able-to-pass vessels excepted; no emergency opening; listed alternative dates remain conditional and are not activated |
+| `MARE_ISLAND_DRAWBRIDGE` | MSI 54726 | October 17, 09:00–15:45 local | Able-to-pass vessels excepted; emergency opening availability unknown |
+
+The point mappings come from the official features. They are neither route geometry nor closure polygons. Published closed clearances are context at mean high water, not predictions of water level or certification that a vessel can pass. The operator must declare the passage, opening requirement and geographic timezone assumption. All other discovered features remain inspectable, unreviewed records without computed waiting. Construction alone never becomes a closure.
+
+Clock values, explicit calendar dates, source envelope dates and notice-number tokens are variable fields within these bounded templates. A fingerprint of the remaining reviewed wording prevents an old matching sentence from retaining a calculation after an unreviewed qualification is added. Missing exceptions, changed geometry, contradictory cancellation prose, duplicate provider IDs and unsupported date/clock forms remove calculation eligibility. Further assets or changed prose require a reviewed registry/template addition.
+
+## India and international-lane source investigation
+
+Geographic relevance was investigated before choosing this bounded family. Public accessibility alone does not establish reuse permission or numerical consequence semantics. The additive `source_registry` records these candidates as **INVESTIGATED_NOT_ENABLED**:
+
+| Authority/product | Findings and current integration limit |
+| --- | --- |
+| JNPA marine-safety and trade-notice catalogues | The official [marine-safety catalogue](https://www.jnport.gov.in/page/marine-safety-circular/aDV4Tk9FRkZsckVDeUxkTlEzMjFadz09) exposes legacy local notices and trade circulars. The [trade catalogue](https://www.jnport.gov.in/page/circular-and-trade-notices/ejdHU1h3aTRCMHJCeFN6Q0dEUmljdz09) includes tariffs and conditional charge waivers. A catalogue expiry date is not a passage closure. This review did not establish a current timed passage restriction plus public republication terms, so it adds no JNPA closure or monetary calculation. |
+| Indian Naval Hydrographic Department, NAVAREA VIII | The official [NHO site](https://www.hydrobharat.gov.in/web/guest) identifies NAVAREA VIII warnings as its maritime-safety function. The [warning catalogue](https://www.hydrobharat.gov.in/hi/web/guest/navarea-warnings) is geographically relevant. An indexed older in-force list is not proof that a warning remains in force today. Current-product extraction, cancellation reconciliation and public redistribution terms remain unverified; no warning is ingested as a present restriction. |
+| Singapore MPA marine notices | Its official media catalogue exposes notices with publication dates and statuses, relevant to Indian Ocean–East Asia lanes. The [MPA website terms](https://www.mpa.gov.sg/footer/terms-of-use) require prior written permission for republication and allow personal noncommercial viewing/downloads. No permission is assumed and no public mirror or collector is enabled. |
+| Suez Canal Authority circulars | The official [circular catalogue](https://www.suezcanal.gov.eg/English/Navigation/NavigationCirculars/Pages/default.aspx) contains dated navigation and tariff amendments. Its [Rules of Navigation publication](https://www.suezcanal.gov.eg/FlipPDFDocuments/Rules%20of%20Navigation.pdf) expressly reserves reproduction/storage rights. This review establishes no public archival licence for an integration product and implements no tariff or transit calculation. |
+
+Consequently, this milestone's calculable official-notice coverage is **three US bridge assets**, not Indian-port or global-lane restrictions. Its continuing discovery/inspection machinery is reusable; India-relevant adapters remain a specific coverage gap. No operator email, private feed, Windows scheduler or new collection platform is introduced. Existing backend collection and durable storage remain the integration platform. NAVCEN use retains the preceding noncommercial research/demo, attribution and no-endorsement limits; NAIS data are not collected.
+
+## Availability, revisions and lifecycle
+
+`refresh_all` returns the rolling notice list, product status, check time and registry metadata. `refresh(notice_id=...)` selects a provider identity; its default remains MSI 53842 for backward compatibility. `parse` is the strict single-record entry point and `discover` exposes both supported and unreviewed records. Applicability and operational calculation remain later stages.
+
+Each successfully received full response is retained by SHA-256 in the existing `operational_notices` archive. Each selected feature preserves its complete original properties, extraction version, provider ID, asset mapping, publication precision, provider creation/modification metadata, broad validity envelope and actual first application receipt. Provider metadata is not relabelled as publication or observation. Immutable revision records preserve first availability; rechecks update check time without changing it. New semantic versions and reversions retain previous-revision links. Unrelated notices changing elsewhere in a product do not create a new selected-record revision.
+
+Scheduled windows expire separately from source fetch age. Explicit provider cancellation remains cancellation evidence, not proof of actual occurrence. A record missing from the latest product is **MISSING**, retains its history and cannot support another action. Missing is not cancellation. Failed collection returns **UNAVAILABLE**; unreviewed changed prose returns **UNREVIEWED/UNSUPPORTED**, without reusing old windows. Duplicate identities return **AMBIGUOUS** instead of selecting by insertion order. A clock window outside the provider envelope is not calculable.
+
+An updated effective period may define a different verifiable target even when it is the same provider notice. Provider revision lineage must remain separate from a claim's explicit same-target correction/supersession. The source does not independently corroborate its own announcement, verify extraction accuracy, prove exposure or resolve operational error. Those evaluations need their own suitable evidence.
+
+## Retained replay and current availability
+
+A direct collection attempt on **October 16 at 05:08 UTC** returned **HTTP 403**. No error response was relabelled as a current source product. Hosting networks may have different access; only an actual successful backend receipt can establish freshness there. A prior successful receipt remains subject to its normal age and validity checks. Do not load the retained test fixture into a preview and label it CURRENT to hide a provider failure.
+
+A subsequent bounded check found the official MSI page, the exact linked GeoJSON product and the modernized FAQ all returning 403. A clearly identified PortWatch research User-Agent on the same product also returned 403. No documented replacement endpoint or required-client-header policy was established. This is an unavailable source, not permission to guess alternate private paths, bypass access controls or claim a cached page is a fresh source receipt.
+
+When upgrading an existing backend that only has the legacy single-notice pointer, a failed first collection can still expose the retained complete original for inspection. The migration verifies the recorded response hash, discovers its features and writes new immutable **HISTORICAL_EXTRACTION_REPLAY** revisions. `sourceFirstReceivedAt` retains the existing source receipt; `availableAt` and `extractedAt` identify when the new rolling extraction became available. Every such record has `sourceStatus: UNAVAILABLE` and `calculationSupported: false`, including in its immutable historical revision. The separate `historicalCalculationSupported` field describes parser coverage only. Existing source bytes, earlier revisions, approvals and advisories are not rewritten. Restart/retry preserves both clocks. A missing or corrupt complete original produces only a blocked history reference and no inherited windows. This is archive inspection, not live backfill or prospective evidence.
+
+The existing full October 14 original remains byte-for-byte unchanged at SHA-256 `9ee303695c67f57dc69d3c5089e94bc72f3ab6a1342184f82e43e9e3c65128d7`. Its new adjacent manifest explicitly labels **HISTORICAL_EXTRACTION_REPLAY** and leaves the fixture's precise first receipt unknown; runtime revision records separately retain actual receipt times. Parser tests demonstrate multiple notice identities, new provider IDs at a mapped asset, reviewed updates, expiry, cancellation, missing features, unsupported prose, failures and restart-safe first availability. Synthetic mutations are software regression inputs. Neither replay nor a completed conditional demo demonstrates forecast accuracy, actual bridge operation, delivery improvement or measured savings. Real operational targets remain pending until suitable actual records arrive.

@@ -2,6 +2,8 @@
 
 Reviewed October 14, 2026 for the noncommercial PortWatch research and demonstration preview. This review covers one authority notice, not a general bridge-description parser.
 
+The subsequent [October 16 rolling-family review](ROLLING_NAVIGATION_SOURCE_FAMILY.md) documents additive asset/template coverage, discovery, source-candidate investigation and current collection limits. The specific October 14 findings below remain historical provenance.
+
 ## Source access and use
 
 The official [NAVCEN MSI Products page](https://www.navcen.uscg.gov/msi) links directly to the public [Bridges GeoJSON product](https://www.navcen.uscg.gov/sites/default/files/msi/bridge_1.geojson). Both returned public content without authentication. The [modernized LNM application FAQ](https://www.navcen.uscg.gov/LNM-and-LL-app-frequently-asked-questions) explicitly describes public GeoJSON access, fifteen-minute LNM refreshes and geospatial presentation. That refresh interval is a provider description, not a guarantee that a particular notice changes or that PortWatch has received every intermediate revision.

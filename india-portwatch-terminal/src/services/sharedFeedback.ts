@@ -21,7 +21,8 @@ export interface FeedbackClaim {
     from?: string;
     through?: string;
     series?: string;
-    reportedPeriod?: string;
+    reportedPeriod?:
+      string | { from?: string; through?: string; precision?: string };
   };
   inputs: Record<string, unknown>[];
   sourceQuality?: {
@@ -73,6 +74,42 @@ export interface FeedbackInspection {
   newsIndependentEvents: number;
   newsSourceReports: number;
   note: string;
+  newsAggregation?: {
+    contractVersion: string;
+    policy: string;
+    asOf: string;
+    summary: {
+      eventCount: number;
+      independentTargets: number;
+      eligibleIndependentTargets: number;
+      resolvedIndependentTargets: number;
+      pendingIndependentTargets: number;
+      reportCount: number;
+      revisionCount: number;
+      excludedTargetCount: number;
+      ambiguousClaimCount: number;
+    };
+    targets: {
+      eventId: string;
+      targetId: string;
+      lineageId: string;
+      entity: string;
+      kind: string;
+      status: string;
+      verdict: string;
+      applicability: string;
+      reportCount: number;
+      revisionCount: number;
+      activeClaimIds: string[];
+      supersededClaimIds: string[];
+      exclusionReasons: string[];
+    }[];
+    exclusions: {
+      claimIds: string[];
+      targetId: string | null;
+      reason: string;
+    }[];
+  };
   collector?: {
     status: string;
     ranAt?: string;

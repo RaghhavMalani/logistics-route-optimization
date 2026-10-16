@@ -171,46 +171,86 @@ def collect_news_product(store, bundle, received, root=ROOT):
 
 
 def collect_navigation(store, notice):
-    """Reviewed authority announcement and contingent occurrence stay separate."""
+    """Retain source state; only reviewed intervals create precise claim targets.
+
+    Each provider notice/asset has its own lineage. Disappearance is not a
+    cancellation, and an authority revision is not independent confirmation.
+    """
     if not notice.get('revisionId') or not notice.get('responseSha256'):
         return []
     from src.portwatch_os.intelligence import navigation_restrictions
+    uid=str(notice.get('providerNoticeId') or str(notice.get('noticeId') or notice.get('noticeRef','')).split(':')[-1].replace('USCG MSI #',''))
+    if not uid:
+        raise ValueError('Stable provider notice identity required')
     path=navigation_restrictions.ROOT/'operational_notices'/(notice['responseSha256']+'.response')
     if not path.is_file() or feedback.hashlib.sha256(path.read_bytes()).hexdigest()!=notice['responseSha256']:
         raise ValueError('NAVCEN original unavailable or corrupt')
-    prior=[c for c in store.feedback('claim') if c.get('reviewedSourceFamily')=='NAVCEN_MSI_53842']
+    received=notice.get('checkedAt') or notice['availableAt']
+    state={'providerNoticeId':uid,'noticeId':'NAVCEN_MSI:'+uid,'areaId':notice.get('areaId'),
+        'revisionId':notice['revisionId'],'sourcePreviousRevisionId':notice.get('previousRevisionId'),
+        'sourceStatus':notice.get('sourceStatus'),'status':notice.get('status'),
+        'extractionStatus':notice.get('extractionStatus'),'calculationSupported':notice.get('calculationSupported'),
+        'firstAvailableAt':notice['availableAt'],'checkedAt':received,'responseSha256':notice['responseSha256'],
+        'source':notice['source'],'meaning':'Source/extraction state only; neither event occurrence nor shipping impact evidence'}
+    store.append_feedback('navigation-source-version',{**state,'id':feedback.identifier(state)})
+    if notice.get('sourceStatus') in ('MISSING','UNAVAILABLE','STALE'):
+        return []
+    prior=[c for c in store.feedback('claim') if c.get('providerNoticeId')==uid
+        or (uid=='53842' and c.get('reviewedSourceFamily')=='NAVCEN_MSI_53842')]
     if notice.get('status')=='CANCELLED':
         for item in prior:
-            feedback.evidence(store, {'eventKey':item['eventKey'],'entity':item['entity'],'geography':item['geography'],
-                'target':item['target'],'source':notice['source'],'sourceVersion':notice['revisionId'],
+            if feedback.instant(item['firstAvailableAt'])>feedback.instant(notice['availableAt']):
+                continue
+            feedback.evidence(store, {'eventKey':item['eventKey'],'eventReference':item.get('eventReference') or 'NAVCEN_MSI:'+uid+':'+item['entity'],
+                'entity':item['entity'],'geography':item['geography'],'target':item['target'],
+                'source':notice['source'],'sourceVersion':notice['revisionId'], 'sourceLineageId':'USCG NAVCEN',
+                'sourceReportId':'NAVCEN_MSI:'+uid,'sourceRevisionId':notice['revisionId'],
                 'independenceKey':'USCG NAVCEN','firstAvailableAt':notice['availableAt'],'observedAt':notice['availableAt'],
                 'unit':'boolean','aggregation':'EXPLICIT_NOTICE_WINDOW','value':None,'recordKind':'CANCELLATION',
+                'cancellationTarget':{'kind':'CANCELLATION','noticeId':'NAVCEN_MSI:'+uid,'effectiveAt':None,
+                    'meaning':'Explicit cancellation received; effective instant is not inferred from receipt'},
                 'responseSha256':notice['responseSha256'],'cancelsSourceVersion':item['sourceVersion']})
             feedback.verify_news(store,item,notice['availableAt'])
         return []
+    if notice.get('extractionStatus','SUPPORTED')!='SUPPORTED' or not notice.get('areaId'):
+        return []
+    def same_period(item,window):
+        try:
+            target=item['target']
+            return feedback.instant(target['from'])==feedback.instant(window['start']) and feedback.instant(target['through'])==feedback.instant(window['end'])
+        except (ValueError,KeyError,TypeError):
+            return False
     made=[]
     for window in notice.get('windows',[]):
-        event_key=notice['noticeRef']+':'+window['localDate']+':'+notice['areaId']
+        event_key='NAVCEN_MSI:'+uid+':'+notice['areaId']
         for kind in ('ANNOUNCEMENT','ACTUAL_EVENT'):
-            predecessor=next((c for c in prior if c['sourceVersion']==notice.get('previousRevisionId') and c['target']['kind']==kind),None)
+            existing=[c for c in prior if c['sourceVersion']==notice['revisionId'] and c['target']['kind']==kind and same_period(c,window)]
+            if existing:
+                for item in sorted(existing,key=lambda c:c['id']):
+                    feedback.verify_news(store,item,notice['availableAt']);made.append(item)
+                continue
+            predecessors=[c for c in prior if c['sourceVersion']==notice.get('previousRevisionId') and c['target']['kind']==kind and same_period(c,window)]
             body={'kind':'REPORTED_FACT' if kind=='ANNOUNCEMENT' else 'INFERRED_EXPOSURE',
                 'wording':notice['originalWording'] if kind=='ANNOUNCEMENT' else 'Scheduled bridge opening restriction may occur; actual operation requires independent records',
                 'value':True,'entity':notice['areaId'],'geography':notice['area'],
                 'originAt':notice['availableAt'],'firstAvailableAt':notice['availableAt'],
-                'target':{'kind':kind,'from':window['start'],'through':window['end'],
+                'target':{'kind':kind,'from':window['start'],'through':window['end'],'precision':'MINUTE',
                     'timeZoneBasis':window['timeZoneBasis']},
                 'source':notice['source'],'sourceVersion':notice['revisionId'],'responseSha256':notice['responseSha256'],
-                'eventKey':event_key,'independenceKey':'USCG NAVCEN','inputs':[],
-                'unit':'boolean','aggregation':'EXPLICIT_NOTICE_WINDOW','reviewedSourceFamily':'NAVCEN_MSI_53842',
-                'providerCreatedAt':notice['providerCreatedAt'],'providerModifiedAt':notice['providerModifiedAt'],
-                'publicationPrecision':notice['publicationPrecision'],'coordinates':notice['coordinates'],
-                'extractionState':'REVIEWED_ADAPTER; parser tests are not independent accuracy evidence',
-                **({'supersedesClaimId':predecessor['id']} if predecessor else {})}
-            # Repeated receipts of the same revision must retain exactly its
-            # original claim, regardless of which newer revisions are present.
-            existing=next((c for c in prior if c['sourceVersion']==notice['revisionId'] and c['target']['kind']==kind),None)
-            item=existing or feedback.claim(store,body)
-            feedback.verify_news(store,item,wall_now().isoformat()); made.append(item)
+                'eventKey':event_key,'eventReference':event_key,'independenceKey':'USCG NAVCEN','sourceLineageId':'USCG NAVCEN',
+                'sourceReportId':'NAVCEN_MSI:'+uid,'sourceRevisionId':notice['revisionId'],
+                'sourcePreviousRevisionId':notice.get('previousRevisionId'),'providerNoticeId':uid,'inputs':[],
+                'unit':'boolean','aggregation':'EXPLICIT_NOTICE_WINDOW','reviewedSourceFamily':'NAVCEN_MSI_REVIEWED_BRIDGE_INTERVALS',
+                'providerCreatedAt':notice.get('providerCreatedAt'),'providerModifiedAt':notice.get('providerModifiedAt'),
+                'publicationPrecision':notice.get('publicationPrecision'),'coordinates':notice.get('coordinates'),
+                'extractionVersion':notice.get('extractionVersion'),
+                'recordTiming':('PROSPECTIVE_SOURCE_RECEIPT' if feedback.instant(notice['availableAt'])<feedback.instant(window['start']) else
+                    'HISTORICAL_AUTHORITY_REPORT_REPLAY' if feedback.instant(notice['availableAt'])>=feedback.instant(window['end']) else 'RECEIVED_DURING_TARGET_INTERVAL'),
+                'extractionState':'REVIEWED_ADAPTER; parser tests are not independent accuracy evidence'}
+            if len(predecessors)==1: body['supersedesClaimId']=predecessors[0]['id']
+            elif predecessors: body['supersedesClaimIds']=sorted(c['id'] for c in predecessors)
+            item=feedback.claim(store,body)
+            feedback.verify_news(store,item,notice['availableAt']);made.append(item)
     return made
 
 
@@ -234,9 +274,23 @@ def run_once():
         except (ValueError, KeyError, OSError) as exc:
             status["failures"].append({"source": "Peel Ports", "reason": str(exc)[:180]})
         try:
-            from src.portwatch_os.intelligence.navigation_restrictions import refresh as navigation_refresh
-            collect_navigation(store,navigation_refresh())
+            from src.portwatch_os.intelligence.navigation_restrictions import refresh_all
+            catalogue=refresh_all()
+            status['navigation']={'sourceStatus':catalogue.get('sourceStatus','UNKNOWN'),
+                'checkedAt':catalogue.get('checkedAt'),'discovered':len(catalogue.get('notices',[])),
+                'claimsCollected':0,'missing':0,'unavailable':0,'unsupported':0}
+            if catalogue.get('sourceStatus')!='CURRENT':
+                status['failures'].append({'source':'USCG NAVCEN','reason':catalogue.get('reason') or 'Source product unavailable'})
+            for notice in catalogue.get('notices',[]):
+                for label,condition in (('missing',notice.get('sourceStatus')=='MISSING'),
+                    ('unavailable',notice.get('sourceStatus')=='UNAVAILABLE'),('unsupported',notice.get('extractionStatus')!='SUPPORTED')):
+                    status['navigation'][label]+=int(condition)
+                try:
+                    status['navigation']['claimsCollected']+=len(collect_navigation(store,notice))
+                except (ValueError,KeyError,OSError) as exc:
+                    status['failures'].append({'source':'USCG NAVCEN','noticeId':notice.get('noticeId'),'reason':str(exc)[:180]})
         except (ValueError,KeyError,OSError) as exc:
+            status['navigation']={'sourceStatus':'UNAVAILABLE','reason':str(exc)[:180]}
             status['failures'].append({'source':'USCG NAVCEN','reason':str(exc)[:180]})
         try:
             from backend.app.services.cache_service import get_news_bundle

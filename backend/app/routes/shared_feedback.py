@@ -83,17 +83,8 @@ def comparison(payload: dict = Body(...)):
         quality = store.feedback("news-source-quality", item["id"])
         if not quality:
             raise HTTPException(422, "Authority notice exposure uses the declared-route comparison")
-        signal = {"category":"news","title":item['wording'],'fact':item['wording'],
-            'source':item['source'],'status':'UNRESOLVED','availableAt':item['firstAvailableAt'],
-            'publishedAt':None,'responseSha256':item['responseSha256'],'portCodes':quality[0]['inferredPortCodes'],
-            'mechanism':'Reported Iranian-port blockade activity may warrant verification for a declared regional route; route proximity and actual applicability need operator confirmation',
-            'relationship':'Inferred source-product port exposure, not a blanket Hormuz closure or quantified event-caused delay'}
-        signal["id"] = feedback.identifier(signal)
-        from backend.app.routes import shipping_intelligence
-        directory = shipping_intelligence.ROOT/"shipping_intelligence"; directory.mkdir(parents=True, exist_ok=True)
-        path = directory/(signal["id"]+".json")
-        if not path.exists(): path.write_text(json.dumps(signal))
-        return shipping_intelligence.comparison({**payload, "signalId": signal["id"], "feedbackClaimIds": [item["id"]]})
+        raise HTTPException(422, {"reason": "This report requires source and voyage verification; no numerical consequence or generic vessel hold is supported.",
+            "reviewTaskEndpoint": "/intelligence/review-tasks", "claimId": item["id"]})
     finally:
         store.close()
 

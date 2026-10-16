@@ -69,7 +69,9 @@ def require_current(problem):
                 reason += (f" Frozen {env['portCode']} arrival {env['earliestVoyageArrival']};"
                            f" current {vessel['portCode']} arrival {current.eta}.")
         if not reason and env.get('kind') == 'NOTICE_RESTRICTION':
-            if (vessel.get('declaredPassage') or {}).get('id') != env['restriction']['plan']['id']:
+            from src.portwatch_os.intelligence.voyage_exposure import passage_for
+            declared=passage_for(vessel,env['restriction']['plan'].get('areaId')) or {}
+            if declared.get('id') != env['restriction']['plan']['id']:
                 reason = 'The consumed route, characteristics or passage declaration has changed.'
             elif instant(env['restriction']['plan']['passageAt']) <= wall_now():
                 reason = 'The declared lock passage is no longer future.'
