@@ -70,10 +70,22 @@ function DataSources() {
     {
       key: "source",
       header: "Source",
+      width: 220,
       render: (row) => (
-        <span className="text-[var(--text)]" title={row.detail}>
-          {row.source}
-        </span>
+        <div className="w-[200px] whitespace-normal" title={row.detail}>
+          <span className="text-[var(--text)]">{row.source}</span>
+          <span
+            className="mt-0.5 block text-[10px] leading-snug text-[var(--text-3)]"
+            style={{
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
+              overflow: "hidden",
+            }}
+          >
+            {row.detail}
+          </span>
+        </div>
       ),
       sort: (row) => row.source,
     },
@@ -90,9 +102,25 @@ function DataSources() {
       key: "status",
       header: "Status",
       width: 128,
-      render: (row) => (
-        <Pill tone={statusTone(row.status)}>{STATUS_LABEL[row.status]}</Pill>
-      ),
+      render: (row) => {
+        const historicalArchive =
+          row.sourceQuality?.temporalRole === "HISTORICAL" ||
+          (row.sourceQuality == null &&
+            /\b(history|archive)\b/i.test(row.source));
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <Pill tone={statusTone(row.status)}>{STATUS_LABEL[row.status]}</Pill>
+            {historicalArchive ? (
+              <span
+                className="text-[9px] uppercase tracking-wide text-[var(--text-3)]"
+                title="Historical archive role; status above describes fetch freshness."
+              >
+                Archive
+              </span>
+            ) : null}
+          </div>
+        );
+      },
       sort: (row) => ORDER[row.status],
     },
     {

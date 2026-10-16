@@ -61,14 +61,19 @@ interface Verification {
 export function WeatherVerificationPanel({
   portCode = "INNSA",
   variable = "wind_gust",
+  selectedLocation,
+  onLocationChange,
 }: {
   portCode?: string;
   variable?: string;
+  selectedLocation?: string;
+  onLocationChange?: (location: string) => void;
 }) {
   const { identityHeaders } = useAuth();
   const [source, setSource] = useState<string | null>(null);
   const [showRetained, setShowRetained] = useState(false);
-  const [location, setLocation] = useState(portCode);
+  const [localLocation, setLocalLocation] = useState(portCode);
+  const location = selectedLocation ?? localLocation;
   const q = useQuery({
     queryKey: ["weather-verification", location, variable, identityHeaders],
     queryFn: ({ signal }) =>
@@ -112,7 +117,8 @@ export function WeatherVerificationPanel({
           className="bg-[var(--panel-2)]"
           value={location}
           onChange={(e) => {
-            setLocation(e.target.value);
+            if (onLocationChange) onLocationChange(e.target.value);
+            else setLocalLocation(e.target.value);
             setSource(null);
             setShowRetained(false);
           }}

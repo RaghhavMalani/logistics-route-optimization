@@ -27,11 +27,31 @@ import type {
   WeatherIntelligence,
   WeatherSignal,
 } from "@/types/portwatch";
+import { parseSourceQuality } from "@/types/source-quality";
 
 /* --------------------------------------------------------------- system --- */
 
 export const fetchHealth = () => getJson<Health>("/health");
-export const fetchProvenance = () => getJson<Provenance>("/provenance");
+export async function fetchProvenance(): Promise<Provenance> {
+  const provenance = await getJson<Provenance>("/provenance");
+  const sources = Object.fromEntries(
+    Object.entries(provenance.sources ?? {}).map(([key, source]) => {
+      if (source.sourceQuality == null) return [key, source];
+      const parsed = parseSourceQuality(source.sourceQuality);
+      return [
+        key,
+        parsed.ok
+          ? { ...source, sourceQuality: parsed.value, sourceQualityError: null }
+          : {
+              ...source,
+              sourceQuality: null,
+              sourceQualityError: parsed.reason,
+            },
+      ];
+    }),
+  );
+  return { ...provenance, sources };
+}
 
 /* ---------------------------------------------------------------- ports --- */
 
