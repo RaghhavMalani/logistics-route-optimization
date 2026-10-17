@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "geospatial-layer/1",
+  "layerId": "innsa-osm-20261017",
+  "portCode": "INNSA",
+  "kind": "vector",
+  "bounds": [72.925, 18.9, 72.995, 18.985],
+  "horizontalCrs": "EPSG:4326",
+  "verticalDatum": null,
+  "acquisitionFrom": null,
+  "acquisitionThrough": null,
+  "firstAvailableAt": "2026-10-17",
+  "nativeResolutionM": null,
+  "resamplingMethod": null,
+  "noDataDefinition": "Unmapped features are absent; absence is not a negative observation.",
+  "sourceProduct": "OpenStreetMap API 0.6 map",
+  "processingVersion": "osm-way-import/1",
+  "sourceHashes": ["7325ea85c8214158d09302fe76c1bebad428b2cdc64ea1f03d8326ee30600a20"],
+  "attribution": "© OpenStreetMap contributors, ODbL 1.0",
+  "quality": "Unknown",
+  "displayResource": {"url": "/port-geometry/INNSA/osm-20261017-v1.geojson", "valueKind": "display", "expiresAt": null},
+  "analyticalResource": null,
+  "assetIds": []
+}

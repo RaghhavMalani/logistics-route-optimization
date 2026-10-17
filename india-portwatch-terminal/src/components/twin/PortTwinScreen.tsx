@@ -60,6 +60,9 @@ const PortTwinScene = lazy(() =>
 );
 
 const HORIZONS = [0, 2, 6, 12, 24] as const;
+const GeoreferencedPortScene = lazy(
+  () => import("./georeferenced/GeoreferencedPortScene"),
+);
 
 function SceneFallback({ label }: { label: string }) {
   return (
@@ -77,6 +80,11 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   const [overlay, setOverlay] = useState<TwinOverlay>("utilisation");
   const [horizon, setHorizon] = useState<number>(0);
   const [selection, setSelection] = useState<TwinSelection | null>(null);
+  const [geographic, setGeographic] = useState(false);
+  const geographicPort = ["INNSA", "JNPT"].includes(portCode.toUpperCase())
+    ? "INNSA"
+    : null;
+  const showGeographic = geographic && geographicPort !== null;
   const [policy, setPolicy] = useState("greedy");
 
   const simulation = useTwinSimulation(portCode, policy, 24);
@@ -145,7 +153,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
         context={
           <span className="flex items-center gap-2">
             <span className="num">{twin.data.portCode}</span>
-            <Pill tone="unc">Schematic</Pill>
+            <Pill tone="unc">
+              {showGeographic ? "Simulated operations" : "Schematic"}
+            </Pill>
           </span>
         }
         meta={
@@ -189,10 +199,28 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
         />
         <p className="text-[10.5px] leading-snug text-[var(--text-2)]">
           <span className="font-semibold uppercase tracking-[0.06em] text-[var(--unc)]">
-            Schematic digital twin — not a surveyed port plan.
+            {showGeographic
+              ? "Geographic preview — positional accuracy unverified."
+              : "Schematic digital twin — not a surveyed port plan."}
           </span>{" "}
-          {twin.data.geometryDisclaimer}
+          {showGeographic
+            ? "Real static OSM footprints; acquisition dates and heights unknown. Operational overlays remain available in the schematic reference; no reviewed real-asset mappings exist."
+            : twin.data.geometryDisclaimer}
         </p>
+        {geographicPort && (
+          <button
+            type="button"
+            className="ml-auto shrink-0 text-[10px] underline"
+            data-testid="twin-geography-toggle"
+            aria-pressed={showGeographic}
+            onClick={() => {
+              setGeographic((v) => !v);
+              setSelection(null);
+            }}
+          >
+            {showGeographic ? "Schematic reference" : "Geographic preview"}
+          </button>
+        )}
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(280px,1fr)_auto] gap-0 xl:grid-cols-[minmax(0,1fr)_330px] xl:grid-rows-1">
@@ -201,18 +229,33 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
           <Suspense
             fallback={<SceneFallback label="Loading the 3D renderer" />}
           >
-            <PortTwinScene
-              state={state}
-              overlay={overlay}
-              metrics={metrics}
-              selectedId={selection?.id ?? null}
-              onSelect={setSelection}
-              className="h-full w-full"
-            />
+            {showGeographic ? (
+              <GeoreferencedPortScene
+                portCode={geographicPort!}
+                selectedId={selection?.id ?? null}
+                onSelect={setSelection}
+                onFallback={() => {
+                  setGeographic(false);
+                  setSelection(null);
+                }}
+              />
+            ) : (
+              <PortTwinScene
+                state={state}
+                overlay={overlay}
+                metrics={metrics}
+                selectedId={selection?.id ?? null}
+                onSelect={setSelection}
+                className="h-full w-full"
+              />
+            )}
           </Suspense>
 
           {/* Overlay picker, bottom-left over the scene. */}
-          <div className="pointer-events-auto absolute bottom-2.5 left-2.5 z-10 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1.5 backdrop-blur-[3px]">
+          <div
+            hidden={showGeographic}
+            className="pointer-events-auto absolute bottom-2.5 left-2.5 z-10 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1.5 backdrop-blur-[3px]"
+          >
             <div className="eyebrow mb-1 text-[10px]">Colour by</div>
             <div className="flex flex-wrap gap-1">
               {OVERLAYS.map((option) => (
@@ -356,8 +399,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             ) : (
               <Section title="Nothing selected">
                 <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                  Click a berth, yard block, shed, crane or waiting vessel in
-                  the scene to inspect its operating state.
+                  {showGeographic
+                    ? "Click a geographic footprint to inspect its source, quality and mapping status."
+                    : "Click a berth, yard block, shed, crane or waiting vessel in the scene to inspect its operating state."}
                 </p>
               </Section>
             )}

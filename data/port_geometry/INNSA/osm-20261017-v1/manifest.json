@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "port-geometry-manifest/1",
+  "portCode": "INNSA",
+  "geometryVersion": "osm-20261017-v1",
+  "original": "originals/7325ea85c8214158d09302fe76c1bebad428b2cdc64ea1f03d8326ee30600a20.osm",
+  "originalSha256": "7325ea85c8214158d09302fe76c1bebad428b2cdc64ea1f03d8326ee30600a20",
+  "catalogueSha256": "bffdc9859ad70aa0d6f00a8616346a8e4d3ab92d2dcd2da57a4957b56e649b74",
+  "featureCount": 3226,
+  "transform": "WGS84 ECEF -> ENU -> Three(east, up, -north)",
+  "accuracyStatus": "unverified",
+  "registrationStatus": "independent reference required"
+}

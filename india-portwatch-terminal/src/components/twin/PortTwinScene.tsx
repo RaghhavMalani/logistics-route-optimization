@@ -42,7 +42,7 @@ export const OVERLAYS: Array<{ key: TwinOverlay; label: string; hint: string }> 
 ];
 
 export interface TwinSelection {
-  kind: "berth" | "yard" | "shed" | "crane" | "vessel" | "gate";
+  kind: "berth" | "yard" | "shed" | "crane" | "vessel" | "gate" | "geometry";
   id: string;
   label: string;
   fields: Array<[string, string]>;
