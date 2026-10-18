@@ -20,7 +20,7 @@ from html.parser import HTMLParser
 
 from src.portwatch_os.learning.weather_feedback import instant
 
-VERSION = "public-port-report-v1.2"
+VERSION = "public-port-report-v1.3"
 COHORT_PROTOCOL = "public-port-cohort-v2"
 PORTS = ("INPRT", "INMAA")
 PARADIP_INDEX = "https://paradipport.gov.in/traffic/"
@@ -179,6 +179,20 @@ def record(kind, name, loa, beam, draft, berth, raw, report, page):
     return row
 
 
+def chennai_expected_columns(page):
+    """Read cell borders from the exact reviewed header, never clipped fixed x bands."""
+    expected = ["Vessel Name", "Time", "Vessel Type", "Agent", "Cargo", "M.Q/B.Q",
+                "Berth\nPreferred", "Last Port", "Next Port", "LOA", "Draft", "Beam", "Remarks"]
+    for table in page.find_tables():
+        for index, values in enumerate(table.extract()):
+            if values == expected:
+                cells = table.rows[index].cells
+                if len(cells) != len(expected) or any(cell is None for cell in cells):
+                    break
+                return {name: (cell[0]+.5, cell[2]-.5) for name, cell in zip(expected, cells)}
+    raise ValueError("LAYOUT_CHANGED: Chennai expected-arrival header/cell borders")
+
+
 def parse_pdf(payload: bytes, port: str, kind: str) -> dict:
     import pdfplumber
     records, issues = [], []
@@ -247,7 +261,11 @@ def parse_pdf(payload: bytes, port: str, kind: str) -> dict:
                 if not all(h in page_text for h in ("Vessel Name", "Time", "LOA", "Draft", "Beam")):
                     raise ValueError("LAYOUT_CHANGED: Chennai expected columns")
                 current_date, heading_evidence = None, None
-                for line in lines(p, 26, 121):
+                columns = chennai_expected_columns(p)
+                def eta_cell(name, top):
+                    left, right = columns[name]
+                    return text_at(p, left, right, top-1, top+10)
+                for line in lines(p, *columns["Vessel Name"]):
                     name = line["text"].strip()
                     y = line["top"]
                     if name.startswith("Print"):
@@ -265,12 +283,12 @@ def parse_pdf(payload: bytes, port: str, kind: str) -> dict:
                         continue
                     if y < 90 or name in ("Vessel Name", "CHENNAI PORT"):
                         continue
-                    clock = text_at(p, 122, 148, y-1, y+9)
+                    clock = eta_cell("Time", y)
                     if not clock:
                         continue
-                    row = record("expected", name, text_at(p, 566, 596, y-1, y+10),
-                        text_at(p, 627, 653, y-1, y+10), text_at(p, 597, 625, y-1, y+10),
-                        text_at(p, 403, 465, y-1, y+10), {"etaAt": (current_date or "INVALID")+" "+clock}, report, n)
+                    row = record("expected", name, eta_cell("LOA", y),
+                        eta_cell("Beam", y), eta_cell("Draft", y),
+                        eta_cell("Berth\nPreferred", y), {"etaAt": (current_date or "INVALID")+" "+clock}, report, n)
                     if heading_evidence:
                         row["dateHeadingEvidence"] = heading_evidence
                         if not current_date:

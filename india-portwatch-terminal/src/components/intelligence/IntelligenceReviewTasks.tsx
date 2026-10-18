@@ -1,46 +1,10 @@
-import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
-import { getJson } from "@/services/api";
 import { formatUtc } from "@/components/kit/primitives";
-
-const tasksSchema = z.object({
-  tasks: z.array(
-    z
-      .object({
-        id: z.string(),
-        kind: z.literal("SOURCE_EXPOSURE_VERIFICATION_TASK"),
-        status: z.string(),
-        createdAt: z.string(),
-        reason: z.string(),
-        missingOperationalInputs: z.array(z.string()),
-        calculatedDelayHours: z.null(),
-        createsOperationalTarget: z.literal(false),
-      })
-      .passthrough(),
-  ),
-});
+import { useIntelligenceReviewTasks } from "@/services/intelligence-review-tasks";
 
 export function IntelligenceReviewTasks() {
-  const { session, identityHeaders } = useAuth();
-  const q = useQuery({
-    queryKey: ["intelligence-review-tasks", identityHeaders],
-    queryFn: async ({ signal }) => {
-      const raw = await getJson<unknown>(
-        "/intelligence/review-tasks",
-        identityHeaders,
-        { signal },
-      );
-      const parsed = tasksSchema.safeParse(raw);
-      if (!parsed.success)
-        throw new Error(
-          "Review-task response is malformed; retained records are unavailable.",
-        );
-      return parsed.data;
-    },
-    enabled: session?.mode === "demo",
-    staleTime: 15000,
-  });
+  const { session } = useAuth();
+  const q = useIntelligenceReviewTasks();
   if (session?.mode !== "demo") return null;
   return (
     <details
@@ -64,6 +28,29 @@ export function IntelligenceReviewTasks() {
             {task.status} · {formatUtc(task.createdAt)}
           </summary>
           <p>{task.reason}</p>
+          {task.dispositions?.map((review) => (
+            <div
+              className="border border-[var(--line)] p-2 my-2"
+              key={review.id}
+            >
+              <p>
+                Context inspected by {review.actor} ({review.role}) ·{" "}
+                {formatUtc(review.reviewedAt)}
+              </p>
+              <p>
+                Physical port {review.evidence.portCode}; source first available{" "}
+                {formatUtc(review.evidence.firstAvailableAt)}.
+              </p>
+              <p className="break-all">
+                Retained original: {review.evidence.sha256}
+              </p>
+              <p>
+                Source claim: {review.sourceClaimStatus}. Actual execution:{" "}
+                {review.actualExecutionStatus}. Real resolved targets added:{" "}
+                {review.realResolvedTargetsAdded}.
+              </p>
+            </div>
+          ))}
           <p>
             Missing inputs:{" "}
             {task.missingOperationalInputs.join(", ") ||

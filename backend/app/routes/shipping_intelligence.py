@@ -67,9 +67,28 @@ def comparison(payload: dict = Body(...)):
         "reviewTaskEndpoint": "/intelligence/review-tasks", "signalId": signal["id"]})
 
 
-def _task_source(payload):
-    if bool(payload.get("signalId")) == bool(payload.get("claimId")):
-        raise HTTPException(422, "Choose exactly one retained signalId or claimId")
+def _operational_evidence(selector):
+    from src.portwatch_os.intelligence.operational_feed import resolve_evidence
+    try:
+        # wall-clock: retained live evidence must exist before this request's audit time.
+        return resolve_evidence(selector, wall_now())
+    except (ValueError, OSError, KeyError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+def _task_source(payload, *, destination_port=None):
+    if sum(bool(payload.get(k)) for k in ("signalId", "claimId", "operationalEvidence")) != 1:
+        raise HTTPException(422, "Choose exactly one retained signalId, claimId or operationalEvidence selector")
+    if payload.get("operationalEvidence"):
+        from src.portwatch_os.intelligence.evidence_dispositions import task_source
+        try:
+            # wall-clock: a context task records the real receipt and operator review time.
+            at = wall_now()
+            return task_source(_operational_evidence(payload["operationalEvidence"]),
+                context_confirmed=payload.get("portContextConfirmed"), destination_port=destination_port,
+                now=at)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(409, str(exc)) from exc
     if payload.get("signalId"):
         signal = _retained_signal(payload["signalId"])
         digest = signal.get("responseSha256", "")
@@ -96,10 +115,12 @@ def _task_source(payload):
             require_originals({"inputs": [{"claim": item}]})
         except ValueError as exc:
             raise HTTPException(409, str(exc))
+        # wall-clock: source assessment is bounded by real information availability.
+        assessed_at = wall_now().isoformat()
         return {"id": item["id"], "claimId": item["id"], "category": "news", "title": item["wording"],
             "fact": item["wording"], "source": item["source"], "responseSha256": item["responseSha256"],
             "availableAt": item["firstAvailableAt"], "status": "UNRESOLVED", "claim": item,
-            "verification": feedback.current_assessment(public, item, as_of=wall_now().isoformat()),
+            "verification": feedback.current_assessment(public, item, as_of=assessed_at),
             "relationship": "Reported evidence requiring source and voyage confirmation; no quantified operational delay"}
     finally:
         public.close()
@@ -114,6 +135,10 @@ def review_tasks():
         rows = [row for row in rows if row["vesselId"] in who.vessel_ids]
     if who.role == "PORT_AUTHORITY":
         rows = [row for row in rows if row["portCode"] == who.port_code]
+    from src.portwatch_os.ledger.store import get_ledger
+    from src.portwatch_os.intelligence.evidence_dispositions import project_task
+    dispositions = get_ledger().feedback("review-task-disposition")
+    rows = [project_task(row, [d for d in dispositions if d["taskId"] == row["id"]]) for row in rows]
     return {"tasks": sorted(rows, key=lambda row: (row["createdAt"], row["id"]), reverse=True),
         "meaning": "Durable requests to verify evidence and exposure, not voyage approvals, measured effects or executed actions"}
 
@@ -129,17 +154,22 @@ def create_review_task(payload: dict = Body(...)):
     if not isinstance(request_id, str) or not 8 <= len(request_id) <= 100:
         raise HTTPException(422, "A stable requestId is required for safe verification-task retries")
     signature = {k: payload.get(k) for k in ("signalId", "claimId", "vesselId")}
+    if payload.get("operationalEvidence"):
+        signature.update({k: payload.get(k) for k in ("operationalEvidence", "portContextConfirmed")})
     old = (scoped.world.get("intelligenceReviewTaskIntents") or {}).get(request_id)
     if old:
         if old["input"] != signature:
             raise HTTPException(409, "Review-task requestId already used with different inputs")
-        saved = scoped.world["intelligenceReviewTasks"][old["taskId"]]
         from src.portwatch_os.ledger.store import get_ledger
+        original = get_ledger().feedback("review-task", old["taskId"])
+        saved = original[0] if original else {k: v for k, v in scoped.world["intelligenceReviewTasks"][old["taskId"]].items()
+            if k != "dispositionIds"}
         get_ledger().append_feedback("review-task", saved)
         return saved
-    source = _task_source(payload)
+    source = _task_source(payload, destination_port=vessel["portCode"])
     if source.get("category") == "economic":
         raise HTTPException(422, "FX context alone cannot create a vessel hold or operational-delay task; declare currency exposure for a separate valuation")
+    # wall-clock: task creation is an operator audit event on the live receipt stream.
     at = wall_now()
     if not source.get("availableAt") or instant(source["availableAt"]) > at:
         raise HTTPException(409, "The retained source was unavailable at this review request")
@@ -156,6 +186,12 @@ def create_review_task(payload: dict = Body(...)):
         "missingOperationalInputs": ["reviewed effective restriction", "confirmed asset/route membership", "applicable target period", "supporting consequence inputs"],
         "calculatedDelayHours": None, "calculatedCost": None, "createsOperationalTarget": False,
         "actualExecutionStatus": "NOT_OBSERVED", "meaning": "Task creation does not confirm the report, approve a voyage change or demonstrate actual execution."}
+    if source.get("operationalEvidence"):
+        from src.portwatch_os.intelligence.evidence_dispositions import TASK_QUESTION
+        task.update(taskQuestion=TASK_QUESTION, requestedAction="INSPECT_AVAILABLE_PORT_CONTEXT",
+            reason="Inspect the exact publisher record and its relationship to the selected voyage. Context review does not establish vessel identity, an actual arrival or a restriction.",
+            missingOperationalInputs=["confirmed real-vessel association", "comparable individual event definition", "supported operational consequence inputs"],
+            sourceClaimStatus="UNRESOLVED")
     def save(world):
         world.setdefault("intelligenceReviewTasks", {})[task["id"]] = task
         world.setdefault("intelligenceReviewTaskIntents", {})[request_id] = {"input": signature, "taskId": task["id"]}
@@ -164,3 +200,57 @@ def create_review_task(payload: dict = Body(...)):
     from src.portwatch_os.ledger.store import get_ledger
     get_ledger().append_feedback("review-task", task)
     return task
+
+
+@router.post("/intelligence/review-tasks/{task_id}/dispositions")
+def review_task_disposition(task_id: str, payload: dict = Body(...)):
+    """Add an attributed context inspection; never ingest caller-supplied outcomes."""
+    scoped, who = scoped_world(), current_identity.get()
+    task = (scoped.world.get("intelligenceReviewTasks") or {}).get(task_id)
+    if not task:
+        raise HTTPException(404, "Review task unavailable in this visitor's workspace")
+    _owned_vessel(scoped, task["vesselId"])
+    if who.role not in ("SHIPPING_COMPANY", "PORT_AUTHORITY") or (
+            who.role == "PORT_AUTHORITY" and task["portCode"] != who.port_code):
+        raise HTTPException(403, "Company or the task's port authority reviews its own evidence context")
+    permitted = {"requestId", "operationalEvidence", "dispositionType", "contextConfirmed", "note"}
+    if set(payload) - permitted:
+        raise HTTPException(422, "Only retained evidence selectors and an attributed context review are accepted")
+    request_id = payload.get("requestId")
+    if not isinstance(request_id, str) or not 8 <= len(request_id) <= 100:
+        raise HTTPException(422, "A stable requestId is required for safe disposition retries")
+    if payload.get("dispositionType") != "CONTEXT_REVIEWED" or payload.get("contextConfirmed") is not True:
+        raise HTTPException(422, "Explicit CONTEXT_REVIEWED confirmation is required; this is not source or outcome verification")
+    note = payload.get("note", "")
+    if not isinstance(note, str) or len(note) > 1000:
+        raise HTTPException(422, "The optional review note must be text of at most 1000 characters")
+    from src.portwatch_os.ledger.store import get_ledger
+    from src.portwatch_os.learning.shared_feedback import identifier
+    from src.portwatch_os.intelligence.evidence_dispositions import build_disposition
+    ledger = get_ledger()
+    disposition_id = "review-disposition-" + identifier([str(scoped.root), task_id, request_id])
+    signature = {k: payload.get(k) for k in sorted(permitted) if k != "requestId"}
+    old = ledger.feedback("review-task-disposition", disposition_id)
+    if old:
+        if old[0]["request"] != signature:
+            raise HTTPException(409, "Disposition requestId already identifies a different review")
+        return old[0]
+    original = ledger.feedback("review-task", task_id)
+    if not original:
+        raise HTTPException(409, "The frozen original task is unavailable")
+    try:
+        # wall-clock: an attributed context inspection records when the operator reviewed it.
+        reviewed_at = wall_now()
+        disposition = build_disposition(original[0], _operational_evidence(payload.get("operationalEvidence")),
+            namespace=str(scoped.root), request_id=request_id, who=who, now=reviewed_at, note=note)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    disposition["request"] = signature
+    ledger.append_feedback("review-task-disposition", disposition)
+    def save(world):
+        stored = world["intelligenceReviewTasks"][task_id]
+        pointers = stored.setdefault("dispositionIds", [])
+        if disposition["id"] not in pointers:
+            pointers.append(disposition["id"])
+        return disposition
+    return scoped.save_world(save)

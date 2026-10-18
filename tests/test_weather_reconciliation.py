@@ -130,3 +130,53 @@ def test_legacy_daily_ingestion_cannot_bypass_verification(tmp_path,monkeypatch)
     weather_live._weather_feedback(pd.DataFrame(),"unavailable","unavailable")
     assert fetch.call_count==0 and all(r.status=="open" for r in ledger.predictions(domain="weather"))
     ledger.close()
+
+
+def test_latest_matched_inspection_exposes_both_retained_sources_and_independent_counts(tmp_path,monkeypatch):
+    from backend.app.routes import weather_verification
+    from src.portwatch_os.intelligence import current_environment
+    db,root=archive(tmp_path,duplicates=True)
+    response=provider()
+    reconcile(db=db,root=root,now=NOW,fetch=Mock(return_value=response))
+    monkeypatch.setattr(current_environment,"FEEDBACK_DB",db)
+    monkeypatch.setattr(current_environment,"ROOT",root)
+    monkeypatch.setattr(weather_verification,"wall_now",lambda:NOW)
+    result=weather_verification.inspection("INNSA","wind_gust")
+    case=result["latestMatchedCase"]
+    assert case["portCode"]=="INNSA" and case["variable"]=="wind_gust"
+    assert case["targetDate"]==DAY and case["statistic"]=="maximum" and case["unit"]=="kn"
+    assert case["original"]==10 and case["observed"]==18 and case["rawError"]==-8
+    assert case["observationSource"]=="reanalysis: Open-Meteo ERA5 archive"
+    assert case["outcomeEvidence"]["availableAt"]==NOW.isoformat()
+    assert result["matchedContextCounts"]["forecastSnapshots"]==2
+    assert result["matchedContextCounts"]["independentTargets"]==1
+    assert result["currentCandidate"]["status"]=="COLLECTING"
+    assert result["currentCandidate"]["decisionEligible"] is False
+    for metadata,folder in ((case["forecastEvidence"],"archive"),(case["outcomeEvidence"],"outcomes")):
+        digest=metadata["responseSha256"]
+        raw=(root/folder/(digest+".response")).read_bytes()
+        served=weather_verification.source_response(digest)
+        assert served["sha256"]==hashlib.sha256(raw).hexdigest()==digest
+        assert served["response"]==json.loads(raw)
+    # An outcome cannot become inspectable before its first receipt.
+    monkeypatch.setattr(weather_verification,"wall_now",lambda:NOW-timedelta(seconds=1))
+    hidden=weather_verification.inspection("INNSA","wind_gust")
+    assert hidden["latestMatchedCase"] is None
+    assert hidden["matchedContextCounts"]["independentTargets"]==0
+
+
+@pytest.mark.parametrize("corrupt",[False,True])
+def test_latest_matched_inspection_requires_intact_original_and_outcome(tmp_path,monkeypatch,corrupt):
+    from backend.app.routes import weather_verification
+    from src.portwatch_os.intelligence import current_environment
+    db,root=archive(tmp_path)
+    reconcile(db=db,root=root,now=NOW,fetch=Mock(return_value=provider()))
+    monkeypatch.setattr(current_environment,"FEEDBACK_DB",db)
+    monkeypatch.setattr(current_environment,"ROOT",root)
+    monkeypatch.setattr(weather_verification,"wall_now",lambda:NOW)
+    case=weather_verification.inspection("INNSA","wind_gust")["latestMatchedCase"]
+    assert case is not None
+    raw=root/"outcomes"/(case["outcomeEvidence"]["responseSha256"]+".response")
+    if corrupt: raw.write_bytes(b"corrupt outcome fixture")
+    else: raw.unlink()
+    assert weather_verification.inspection("INNSA","wind_gust")["latestMatchedCase"] is None

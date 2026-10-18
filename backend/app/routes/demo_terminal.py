@@ -63,10 +63,10 @@ router = APIRouter(prefix="/demo/terminal", dependencies=[Depends(sandbox)])
 
 def install():
     from backend.app.routes import (advisories, company, decisions, finance, fleet,
-        global_eye, health, learning, lenses, missions, model, news, port_twin, navigation_restrictions,
+        global_eye, health, learning, lenses, missions, model, news, port_twin, navigation_restrictions, operational_evidence,
         ports, provenance, sar, scenarios, weather, weather_verification, shipping_intelligence, shared_feedback, operational_notices, world, agents, admin, intelligence, capabilities, current_inputs)
     # Static /weather/feedback must precede the original /weather/{port_code}.
-    read_modules = (current_inputs, shipping_intelligence, shared_feedback, operational_notices, navigation_restrictions, weather_verification, intelligence, capabilities, company, fleet, global_eye, learning, lenses, model, news,
+    read_modules = (current_inputs, shipping_intelligence, shared_feedback, operational_notices, operational_evidence, navigation_restrictions, weather_verification, intelligence, capabilities, company, fleet, global_eye, learning, lenses, model, news,
                     port_twin, ports, sar, weather, health, provenance)
     workflow_modules = (advisories, decisions, missions, scenarios, agents)
     extras = {"/finance/basis", "/finance/tariffs", "/finance/assumptions",

@@ -1,5 +1,6 @@
 """Read-only public forecast inspection inside authenticated role workspaces."""
 from pathlib import Path
+import hashlib
 import json
 import re
 from fastapi import APIRouter, HTTPException, Query
@@ -26,7 +27,7 @@ def inspection(port="INNSA", variable="wind_gust"):
                      key=lambda r:(r.issued_at,r.prediction_id))
         def inspect_case(row):
             if row is None: return None
-            original=feedback.report(port,variable=variable,limit=1,public_only=True,prediction_id=row.prediction_id)["forecasts"][0]
+            original=feedback.report(port,variable=variable,limit=1,public_only=True,prediction_id=row.prediction_id,now=wall_now())["forecasts"][0]
             original={**original,"forecastEvidence":evidence.get("weather_forecast_annotations",row.prediction_id),
                       "outcomeEvidence":evidence.get("weather_outcome_evidence",outcome_key(port,variable,original["validAt"]))}
             # A derived interval annotation also explains older immutable claims.
@@ -35,10 +36,30 @@ def inspection(port="INNSA", variable="wind_gust"):
             return original
         original=inspect_case(cases[0] if cases else None)
         retained=inspect_case(next((r for r in cases if (evidence.get("weather_forecast_annotations",r.prediction_id) or {}).get("complete") and original_response_retained(evidence.get("weather_forecast_annotations",r.prediction_id),ROOT)),None))
+        matched=[r for r in ledger.predictions(domain="weather",subject=port,status="resolved")
+            if r.target==variable and r.model=="Open-Meteo surface"
+            and r.observation_source=="reanalysis: Open-Meteo ERA5 archive"
+            and r.observed_at and instant(r.observed_at)<=wall_now() and instant(r.issued_at)<=wall_now()]
+        latest_matched=None
+        for row in sorted(matched,key=lambda r:(instant(r.observed_at),instant(r.issued_at),r.prediction_id),reverse=True):
+            candidate=inspect_case(row)
+            annotation=candidate["forecastEvidence"] or {}
+            outcome=candidate["outcomeEvidence"] or {}
+            digest=outcome.get("responseSha256","")
+            raw=ROOT/"outcomes"/(digest+".response")
+            if (annotation.get("complete") and original_response_retained(annotation,ROOT)
+                    and re.fullmatch("[a-f0-9]{64}",digest) and raw.is_file()
+                    and hashlib.sha256(raw.read_bytes()).hexdigest()==digest):
+                latest_matched=candidate
+                break
         status=ROOT/"reconciliation.json"
         next_rows=[f for f in forecasts if instant(f["validAt"])>wall_now()]
         subsequent=next((f for f in next_rows if f["horizonDays"]==5),next_rows[0] if next_rows else None)
         return {**report,"forecasts":forecasts[:100],"originalFiveDayCase":original,"retainedFiveDayCase":retained,
+            "latestMatchedCase":latest_matched,
+            "matchedContextCounts":{"portCode":port,"variable":variable,"forecastSnapshots":len(matched),
+                "independentTargets":len({(r.model,r.valid_at,r.observation_source) for r in matched}),
+                "targetMeaning":"One port, variable, daily UTC aggregate, provider and reanalysis outcome; repeated forecast snapshots share a target"},
             "currentCandidate":feedback.correction(port,variable,"Open-Meteo surface",5,wall_now()),
             "subsequentRecommendation":daily_recommendation(subsequent),
             "reconciliation":json.loads(status.read_text()) if status.exists() else {"status":"NOT_RUN"}}
@@ -81,7 +102,6 @@ def source_response(digest:str):
         path=ROOT/folder/(digest+".response")
         if path.is_file():
             raw=path.read_bytes()
-            import hashlib
             if hashlib.sha256(raw).hexdigest()!=digest: raise HTTPException(503,"Evidence hash mismatch")
             # Weather originals are JSON; unsupported XML is not returned here.
             try: data=json.loads(raw)

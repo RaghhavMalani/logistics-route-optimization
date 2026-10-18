@@ -458,9 +458,11 @@ def invalidate_world(changed_by: str) -> None:
 
 def product_jobs() -> list[RefreshJob]:
     from src.portwatch_os.freshness.public_ports import public_port_jobs
+    from src.portwatch_os.intelligence.operational_feed import operational_feed_jobs
     from src.portwatch_os.intelligence.vesselfinder import vessel_jobs
     return [
         *public_port_jobs(),
+        *operational_feed_jobs(),
         *vessel_jobs(),
         RefreshJob(policy=EVENTS_POLICY, probe=probe_events, run=refresh_events),
         RefreshJob(policy=MARINE_POLICY, probe=probe_marine, run=refresh_marine, eligibility=marine_eligibility),

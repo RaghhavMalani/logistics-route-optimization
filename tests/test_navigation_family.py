@@ -129,7 +129,14 @@ def test_family_collection_update_missing_cancellation_expiry_and_failure(tmp_pa
 def test_registry_is_additive_and_investigated_sources_are_not_enabled():
     rows = registry(); nav = next(r for r in rows if r['sourceFamily'] == 'NAVCEN_MSI')
     assert set(nav['assetIds']) == set(n.ASSETS)
-    assert all(r['status'] == 'INVESTIGATED_NOT_ENABLED' for r in rows if r is not nav)
+    investigated = {'NHO_NAVAREA_VIII', 'JNPA_MARINE_CIRCULAR', 'MPA_PORT_MARINE', 'SCA_NAVIGATION_CIRCULAR'}
+    assert all(r['status'] == 'INVESTIGATED_NOT_ENABLED' for r in rows if r['sourceFamily'] in investigated)
+    contexts = {r['sourceFamily']: r for r in rows if r['sourceFamily'] in ('PUBLIC_PORT_PDF', 'IMF_PORTWATCH_DAILY')}
+    assert set(contexts) == {'PUBLIC_PORT_PDF', 'IMF_PORTWATCH_DAILY'}
+    assert all('context' in r['calculationCapability'].lower() for r in contexts.values())
+    candidate = next(r for r in rows if r['sourceFamily'] == 'MPA_OCEANS_X')
+    assert candidate['status'] == 'DOCS_REVIEWED_AUTHENTICATED_RESPONSE_UNVERIFIED'
+    assert candidate['calculationCapability'].startswith('NONE')
     rows.clear(); assert registry()
 
 

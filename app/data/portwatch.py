@@ -85,7 +85,7 @@ def _requests():
         return None
 
 
-def _query(svc, where, order=None, fields="*", page=1000, max_records=200000):
+def _query(svc, where, order=None, fields="*", page=1000, max_records=200000, receipt_sink=None):
     """Paged ArcGIS query -> DataFrame (network required).
 
     NOTE: ArcGIS servers cap each response at their own maxRecordCount (1000
@@ -109,12 +109,20 @@ def _query(svc, where, order=None, fields="*", page=1000, max_records=200000):
         elif svc.startswith("Daily_"):
             params["orderByFields"] = "date"
         r = req.get(url, params=params, timeout=60)
+        if receipt_sink is not None:
+            receipt_sink(r, dict(params))
         r.raise_for_status()
         body = r.json()
-        feats = body.get("features", [])
+        if body.get("error"):
+            raise RuntimeError("PortWatch ArcGIS source error: " + str(body["error"]))
+        if not isinstance(body.get("features"), list):
+            raise ValueError("PortWatch response lacks a features array")
+        feats = body["features"]
         rows += [f.get("attributes", {}) for f in feats]
         more = body.get("exceededTransferLimit", False) and feats
-        if not more or len(rows) >= max_records:
+        if len(rows) > max_records or (len(rows) >= max_records and more):
+            raise ValueError("PortWatch response exceeds the bounded collection limit; truncated data was not accepted")
+        if not more:
             break
         offset += len(feats)
     return pd.DataFrame(rows)

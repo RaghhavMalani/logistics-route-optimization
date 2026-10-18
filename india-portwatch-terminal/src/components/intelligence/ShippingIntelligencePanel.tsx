@@ -9,6 +9,7 @@ import { OperationalNoticePanel } from "./OperationalNoticePanel";
 import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
 import { NavigationRestrictionPanel } from "./NavigationRestrictionPanel";
 import { IntelligenceReviewTasks } from "./IntelligenceReviewTasks";
+import { OperationalEvidencePanel } from "./OperationalEvidencePanel";
 
 interface Signal {
   id?: string;
@@ -120,6 +121,7 @@ export function ShippingIntelligencePanel({
       data-testid="shipping-intelligence"
     >
       <SharedFeedbackPanel onDecision={onDecision} />
+      <OperationalEvidencePanel />
       <NavigationRestrictionPanel onDecision={onDecision} />
       <OperationalNoticePanel onDecision={onDecision} />
       <h3 className="text-xs">

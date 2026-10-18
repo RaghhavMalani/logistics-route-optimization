@@ -41,6 +41,7 @@ from backend.app.routes import (
     weather_verification,
     shipping_intelligence,
     operational_notices,
+    operational_evidence,
     world,
 )
 
@@ -267,6 +268,7 @@ app.include_router(demo.router, prefix="/api")
 app.include_router(demo_terminal.router, prefix="/api")
 app.include_router(weather_verification.router, prefix="/api")
 app.include_router(shipping_intelligence.router, prefix="/api")
+app.include_router(operational_evidence.router, prefix="/api")
 from backend.app.routes import shared_feedback
 app.include_router(shared_feedback.router, prefix="/api")
 from backend.app.routes import navigation_restrictions
