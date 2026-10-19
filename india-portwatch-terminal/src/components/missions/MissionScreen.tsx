@@ -301,9 +301,14 @@ export function MissionScreen({ title }: { title: string }) {
                   type="button"
                   data-testid="mission-comparison-open"
                   onClick={() => setShowComparison(true)}
-                  className="pointer-events-auto rounded border border-[var(--line)] bg-[var(--surface)]/92 px-2.5 py-1 text-[10px] text-[var(--text-2)] backdrop-blur hover:text-[var(--text)]"
+                  className="pointer-events-auto inline-flex max-w-[calc(100%-1rem)] items-center justify-center gap-3 rounded border border-[var(--info)] bg-[var(--panel)]/95 px-3 py-2 text-[11px] shadow-md backdrop-blur transition-colors hover:bg-[var(--panel-2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--info)]"
                 >
-                  Compare missions · one table, both incidents
+                  <span className="font-semibold text-[var(--info)]">
+                    Compare missions
+                  </span>
+                  <span className="border-l border-[var(--line)] pl-3 text-[10px] text-[var(--text-2)]">
+                    One table · both incidents
+                  </span>
                 </button>
               )}
             </div>
