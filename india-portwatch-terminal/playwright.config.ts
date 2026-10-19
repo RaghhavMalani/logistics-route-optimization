@@ -42,7 +42,9 @@ export default defineConfig({
   // animation loop; too many at once starves the software renderer and turns
   // real assertions into timeouts.
   workers: 2,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
+  reporter: process.env.CI
+    ? [["list"], ["html", { open: "never" }]]
+    : [["list"]],
 
   use: {
     baseURL: BASE_URL,
@@ -54,15 +56,32 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-1920",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1920, height: 1080 },
+      },
     },
     {
       name: "laptop-1440",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+      },
     },
     {
       name: "laptop-1366",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1366, height: 768 },
+      },
+    },
+    {
+      name: "source-quality-mobile-390",
+      testMatch: /source-quality\.spec\.ts$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+      },
     },
   ],
 

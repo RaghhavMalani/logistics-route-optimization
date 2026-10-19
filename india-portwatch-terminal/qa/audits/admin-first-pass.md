@@ -15,6 +15,14 @@ Scope: milestone 1 role audit and the first reviewable Admin Data / Learning cha
 
 All four roles were opened from the shared Demo Role menu. The menu identifies them as roles in one isolated fictional demo world. The walkthrough reviewed read-only screens and did not issue advisories or commit operational actions. Code review of `/login` confirmed one-click demo buttons for all four roles; the auth provider stores the returned demo session and restores it on reload, and the route guard preserves a requested deep link through login. I did not manually launch a fresh demo session, reload, or use browser Back during this pass. The browser reported new user activity while I was checking it, so I left the live window untouched.
 
+## Ranked interaction issues from the walkthrough
+
+1. **Admin reads historical weather as current feed health.** Action: decide whether weather supports a current operational review. Evidence: ERA5 history was shown as `LIVE` even though its own description says training history only. Fix: keep fetch state and temporal role as separate labels; show the source period and operational use in a targeted inspector. The archive label and source inspector now address this without changing the existing status vocabulary.
+2. **Admin cannot inspect source evidence without relying on hover text.** Action: investigate why a feed is stale or incomplete. Evidence: source detail was truncated in the table and port/variable coverage, date precision, and retained-original availability were not in the visible row. Fix: retain a compact table and offer a keyboard-accessible source inspector with explicit unknown reasons. Implemented in the current source-quality pass.
+3. **Learning changes can lose the selected archive location.** Action: compare weather-error records across variables for the same port. Evidence: changing variable reset the archive location to INNSA. Fix: keep location selection in the parent panel. Implemented in the first pass.
+4. **Role switching and return navigation need a real-session check.** Action: move between National Command and a scoped workspace, then return to a selected screen. Evidence: the walkthrough opened all four roles from the demo menu, but did not test a new session, reload or browser Back. Fix: run the acceptance journey against the development backend and record that result. Not yet manually verified.
+5. **Map/globe exploration and action workflows remain outside this screenshot pass.** Action: select a layer/asset, inspect a restriction, compare a response, issue/acknowledge an advisory, and observe an outcome. These were not exercised in the first-pass audit, so no visual fix is claimed for them.
+
 ## Selected screens and evidence
 
 Selected the Admin Data source register and Admin Learning forecast inspection. They connect the source's receipt, age and historical/live role to the forecast claim, target date, pending outcome and correction eligibility.
@@ -46,13 +54,14 @@ The screenshots were captured by the operator during the walkthrough. The Admin 
 - Enrich the provenance fixture with stale observed-history, archived reanalysis, and mixed historical/forecast examples. Unknown port/variable coverage, original hashes and forecast bounds remain `null` with reasons; the fixture does not invent them.
 - Keep old provenance responses working: the new DTO is optional; malformed optional quality metadata is surfaced as a parse reason while the legacy source row remains usable.
 
-## Remaining work from the teammate plan
+## Follow-up status (2026-10-18)
 
-- Extend the inspectors beyond this first pass so receipt, observation/acquisition time, forecast origin/target, coverage/completeness, provenance and operational use can be compared together.
-- Add and review more fixture cases for missing/malformed quality metadata and other provider states.
-- Capture a same-viewport Learning before/after pair if pixel-level comparison is required.
-- Review back/refresh and the one-click demo entry path separately; these were not part of the read-only role switching walkthrough.
-- Prepare the next connected inspector/polish pass after this first reviewable change is reviewed.
+- The Admin Data source inspector now puts fetch receipt, source observation window, temporal role, date precision, forecast target when known, coverage, completeness, provenance and operational use together. Missing values remain explicitly unknown.
+- The additive quality contract now validates date-only values and ISO timestamps, separates receipt, observation, forecast, event, decision and outcome records, and rejects malformed optional metadata without discarding the legacy provenance row. Focused fixture-based browser checks cover valid, malformed, unknown and keyboard selection/close cases.
+- A local isolated demo-backend walkthrough confirmed Admin Data uses real API provenance, the same demo visitor can switch among all four roles, and the selected role survives reload. Browser Back returned from Learning to Data Sources. The local backend health endpoint was healthy; the PortWatch/AIS sources correctly remained stale at 15 days.
+- At 390px, Admin Data now places the source register above the cost panel. The document stays within the viewport, and the source inspector is reachable. The focused source-quality browser checks pass at desktop and mobile widths.
+- A separate coverage audit ranks follow-ups that need integration or geometry ownership. It does not claim that upstream ingestion changed or that a candidate feed passed freshness checks.
+- Still open: same-viewport Learning evidence if pixel-level comparison is required; mobile review of workflows beyond Admin Data; and source collector, comparison, event-validity or advisory changes that need their respective owners.
 
 ## Verification record
 
@@ -60,4 +69,4 @@ The screenshots were captured by the operator during the walkthrough. The Admin 
 - Manually confirmed the Admin Data column stays readable and ERA5 shows `LIVE` plus `Archive`.
 - Manually confirmed `INBOM` remains selected after changing Learning to wind gust.
 - Code review confirmed the one-click demo entry points and session restoration behavior; live Back/refresh interaction remains unverified.
-- Automated test suites were not run. Type checking is recorded separately after this audit note was prepared.
+- The 2026-10-16 walkthrough did not run automated tests. In the 2026-10-18 follow-up, typecheck, changed-file ESLint, production build, and three focused Playwright checks at each of 1920px and 390px passed. Live local checks covered role switching, reload, Back navigation and the Admin Data source inspector. Full browser suites and comparison/advisory journeys remain unverified.

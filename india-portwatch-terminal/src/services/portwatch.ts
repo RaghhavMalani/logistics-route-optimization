@@ -27,7 +27,10 @@ import type {
   WeatherIntelligence,
   WeatherSignal,
 } from "@/types/portwatch";
-import { parseSourceQuality } from "@/types/source-quality";
+import {
+  PortRegistryQualityResponseSchema,
+  parseSourceQuality,
+} from "@/types/source-quality";
 
 /* --------------------------------------------------------------- system --- */
 
@@ -58,8 +61,17 @@ export async function fetchProvenance(): Promise<Provenance> {
 export const fetchPorts = () => getJson<PortSnapshot[]>("/ports");
 export const fetchPort = (code: string) =>
   getJson<PortSnapshot>(`/ports/${encodeURIComponent(code)}`);
-export const fetchPortRegistry = () =>
-  getJson<PortRegistryEntry[]>("/ports/registry");
+export async function fetchPortRegistry(): Promise<PortRegistryEntry[]> {
+  const response = await getJson<unknown>("/ports/registry");
+  const parsed = PortRegistryQualityResponseSchema.safeParse(response);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Error(
+      `Port registry response rejected: ${issue?.path.join(".") || "response"}: ${issue?.message ?? "invalid response"}`,
+    );
+  }
+  return parsed.data;
+}
 
 /* ---------------------------------------------------------------- model --- */
 
@@ -100,8 +112,7 @@ export const fetchFleet = () => getJson<FleetRow[]>("/fleet");
 
 /* ------------------------------------------------------------ scenarios --- */
 
-export const fetchScenarios = () =>
-  getJson<ScenarioDefinition[]>("/scenarios");
+export const fetchScenarios = () => getJson<ScenarioDefinition[]>("/scenarios");
 
 export const runScenario = (
   scenarioKey: string,
