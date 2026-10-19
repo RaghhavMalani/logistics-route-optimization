@@ -2,11 +2,13 @@ from datetime import datetime, timedelta, timezone
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
 from src.portwatch_os.ledger.store import SqliteLedgerStore
-from src.portwatch_os.learning.weather_feedback import WeatherFeedback, WeatherObservation
+from src.portwatch_os.learning.weather_feedback import WeatherFeedback, WeatherObservation, consumed_value
+from src.portwatch_os.ledger.schema import PredictionContext, PredictionRecord, _stable_id
 
 UTC = timezone.utc
 T0 = datetime(2025, 6, 1, 10, tzinfo=UTC)
@@ -116,11 +118,56 @@ class WeatherFeedbackTests(unittest.TestCase):
         self.assertEqual(correction["partitions"]["calibration"], 13)
         self.assertEqual(correction["partitions"]["evaluation"], 20)
         self.assertGreater(correction["partitions"]["purged"], 0)
-        corrected = self.snapshot(issued=issue)
-        self.assertEqual(corrected.iloc[0]["wind_speed"], 15)
+        consumed = self.snapshot(issued=issue)
+        self.assertEqual(consumed.iloc[0]["wind_speed"], 10)
         latest = max(self.ledger.predictions(domain="weather"), key=lambda row: row.issued_at)
         self.assertEqual(latest.predicted_value, 10)
-        self.assertEqual(latest.context.extra["correctedValue"], 15)
+        self.assertEqual(latest.context.extra["correctedValue"], 10)
+        shadow = latest.context.extra["shadowCorrection"]
+        self.assertEqual(shadow["candidateValue"], 15)
+        self.assertEqual(shadow["bias"], 5)
+        self.assertTrue(shadow["candidateEligible"])
+        self.assertFalse(shadow["decisionEligible"])
+        self.assertEqual(shadow["mode"], "SHADOW_ONLY")
+        self.assertEqual(shadow["adoptionStatus"], "NOT_ADOPTED")
+        self.assertEqual(shadow["modelId"], correction["modelId"])
+        self.assertFalse(latest.context.extra["correction"]["decisionEligible"])
+        self.assertEqual(latest.context.extra["correction"]["bias"], 0)
+        self.assertIsNone(latest.context.extra["correction"]["modelId"])
+        self.assertIsNone(latest.context.extra["correctedLow"])
+        self.assertIsNone(latest.context.extra["correctedHigh"])
+
+    def test_legacy_replay_flags_do_not_authorize_new_consumption_or_rewrite_evidence(self):
+        from src.portwatch_os.intelligence.arrivals import ArrivalWorkflow
+        target = T0.replace(hour=0) + timedelta(days=5)
+        valid_at = (target + timedelta(days=1)).isoformat()
+        correction = {"status": "VALIDATED", "decisionEligible": True, "bias": 5,
+                      "modelId": "legacy-candidate", "reason": "Historical replay passed"}
+        original = PredictionRecord(
+            prediction_id=_stable_id("wx", "INNSA", "wind_speed", "test-weather", T0.isoformat(), valid_at),
+            domain="weather", kind="continuous", target="wind_speed", subject="INNSA", model="test-weather",
+            model_version="weather-residual-v3", issued_at=T0.isoformat(), valid_at=valid_at, predicted_value=10,
+            context=PredictionContext(port_code="INNSA", extra={"unit": "kn", "horizonDays": 5,
+                "targetDate": target.date().isoformat(), "aggregation": "daily", "correctedValue": 15,
+                "correctedLow": 12, "correctedHigh": 18, "correction": correction}))
+        with patch("src.portwatch_os.ledger.store.utc_now", return_value=T0.isoformat()):
+            self.ledger.record_prediction(original)
+        before = self.ledger.get_prediction(original.prediction_id).to_row()
+        self.assertEqual(self.snapshot(value=999).iloc[0]["wind_speed"], 10)
+        self.assertEqual(self.ledger.get_prediction(original.prediction_id).to_row(), before)
+        evidence, features = ArrivalWorkflow(self.ledger).signals("419000168", target, now=T0+timedelta(seconds=2))
+        self.assertEqual(features["wind_speed"], 10)
+        self.assertEqual(evidence["weather"][0]["consumed"], 10)
+        self.assertFalse(evidence["weather"][0]["correctionConsumed"])
+        self.assertEqual(evidence["weather"][0]["adoptionStatus"], "NOT_ADOPTED")
+        self.assertEqual(self.ledger.get_prediction(original.prediction_id).to_row(), before)
+
+    def test_consumption_guard_does_not_accept_unaudited_adoption_flags(self):
+        correction = {"status": "VALIDATED", "decisionEligible": True, "adoptionStatus": "ADOPTED", "bias": 5}
+        self.assertEqual(consumed_value(10, correction), 10)
+        for invalid in (float("inf"), float("nan")):
+            with self.assertRaises(ValueError):
+                consumed_value(invalid, correction)
 
     def test_future_labels_and_other_horizons_cannot_train_the_correction(self):
         self.build_history()

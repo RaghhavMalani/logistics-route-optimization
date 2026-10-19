@@ -55,12 +55,16 @@ def inspection(port="INNSA", variable="wind_gust"):
         status=ROOT/"reconciliation.json"
         next_rows=[f for f in forecasts if instant(f["validAt"])>wall_now()]
         subsequent=next((f for f in next_rows if f["horizonDays"]==5),next_rows[0] if next_rows else None)
+        candidate=feedback.correction(port,variable,"Open-Meteo surface",5,wall_now())
+        candidate={**candidate,"candidateEligible":candidate.get("decisionEligible",False),
+            "decisionEligible":False,"mode":"SHADOW_ONLY","adoptionStatus":"NOT_ADOPTED",
+            "status":"SHADOW_VALIDATED" if candidate["status"]=="VALIDATED" else candidate["status"]}
         return {**report,"forecasts":forecasts[:100],"originalFiveDayCase":original,"retainedFiveDayCase":retained,
             "latestMatchedCase":latest_matched,
             "matchedContextCounts":{"portCode":port,"variable":variable,"forecastSnapshots":len(matched),
                 "independentTargets":len({(r.model,r.valid_at,r.observation_source) for r in matched}),
                 "targetMeaning":"One port, variable, daily UTC aggregate, provider and reanalysis outcome; repeated forecast snapshots share a target"},
-            "currentCandidate":feedback.correction(port,variable,"Open-Meteo surface",5,wall_now()),
+            "currentCandidate":candidate,
             "subsequentRecommendation":daily_recommendation(subsequent),
             "reconciliation":json.loads(status.read_text()) if status.exists() else {"status":"NOT_RUN"}}
     finally: evidence.close();ledger.close()
@@ -72,11 +76,14 @@ def daily_recommendation(forecast):
         "rainfall":(20,"above"),"wave_height":(2,"above"),"visibility":(5,"below")}[forecast["variable"]]
     exposed = (lambda v:v>threshold) if direction=="above" else (lambda v:v<threshold)
     correction=forecast["correction"]
-    use=correction.get("decisionEligible",False) and correction.get("status")=="VALIDATED"
-    raw=forecast["original"]; value=forecast["corrected"] if use else raw
+    from src.portwatch_os.learning.weather_feedback import consumed_value
+    raw=forecast["original"]; value=consumed_value(raw, correction)
+    use=False  # Shadow evaluation has no adoption contract or operational effect.
     return {"kind":"DAILY_WEATHER_WATCH","forecastId":forecast["id"],"targetDate":forecast["targetDate"],
         "variable":forecast["variable"],"unit":forecast["unit"],"statistic":forecast["statistic"],
-        "rawValue":raw,"consumedValue":value,"correctionConsumed":use,"correctionId":correction.get("modelId"),
+        "rawValue":raw,"consumedValue":value,"correctionConsumed":use,"correctionId":None,
+        "shadowCandidateId":(forecast.get("shadowCorrection") or {}).get("modelId") or correction.get("candidateModelId") or correction.get("modelId"),
+        "consumptionMode":"SHADOW_ONLY","adoptionStatus":"NOT_ADOPTED",
         "correctionStatus":correction["status"],"threshold":threshold,"thresholdDirection":direction,"thresholdBasis":"operator research assumption; not a port operating limit",
         "rawRecommendation":"Review daily exposure" if exposed(raw) else "Retain daily watch",
         "recommendation":"Review daily exposure" if exposed(value) else "Retain daily watch",
@@ -92,6 +99,41 @@ def verification(portCode:str=Query("INNSA"),variable:str=Query("wind_gust")):
     port=port_registry.resolve(portCode)
     if not port or variable not in VARIABLES: raise HTTPException(422,"Registered port and supported weather variable required")
     return inspection(port.locode,variable)
+
+
+@router.get("/weather/shadow")
+def shadow_analysis(portCode: str | None = Query(None), variable: str | None = Query(None),
+                    provider: str | None = Query(None, max_length=100),
+                    horizon: int | None = Query(None, ge=0, le=366),
+                    asOf: str | None = Query(None, max_length=50)):
+    """Evidence-qualified daily error analysis; no collection or adoption writes."""
+    from src.utils import port_registry
+    from src.portwatch_os.intelligence.current_environment import FEEDBACK_DB, ROOT
+    from src.portwatch_os.learning.weather_feedback import VARIABLES
+    from src.portwatch_os.learning.weather_shadow import WeatherShadowAnalysis
+    if not FEEDBACK_DB.exists():
+        raise HTTPException(503, "Public weather archive unavailable")
+    port = port_registry.resolve(portCode) if portCode else None
+    if (portCode and not port) or (variable and variable not in VARIABLES):
+        raise HTTPException(422, "Registered port and supported weather variable required")
+    if provider and provider not in ("Open-Meteo surface", "Open-Meteo marine"):
+        raise HTTPException(422, "Provider must identify a retained public forecast product")
+    at = wall_now()
+    if asOf:
+        try:
+            at = instant(asOf)
+        except (ValueError, TypeError, OverflowError):
+            raise HTTPException(422, "asOf must be an aware ISO timestamp") from None
+        if at > wall_now():
+            raise HTTPException(422, "An analysis cannot use future evidence")
+    ledger, evidence = SqliteLedgerStore(FEEDBACK_DB), WeatherEvidenceStore(FEEDBACK_DB)
+    try:
+        return WeatherShadowAnalysis(ledger, evidence, ROOT).report(
+            now=at, port_code=port.locode if port else None, variable=variable,
+            provider=provider, horizon=horizon)
+    finally:
+        evidence.close()
+        ledger.close()
 
 
 @router.get("/weather/evidence/{digest}")

@@ -69,13 +69,15 @@ def test_ineligible_or_bad_outcomes_never_verify(tmp_path,kind):
     elif kind in ("wrong_units","wrong_location"): assert result["status"]=="PROVIDER_UNAVAILABLE"
     ledger.close()
 
-def test_daily_watch_consumes_frozen_validated_version_only():
+def test_daily_watch_keeps_frozen_validated_candidate_in_shadow():
     from backend.app.routes.weather_verification import daily_recommendation
     f={"id":"forecast","targetDate":DAY,"variable":"wind_gust","statistic":"maximum","unit":"kn","original":14.,"corrected":18.,"correction":{"status":"COLLECTING","decisionEligible":False,"reason":"Insufficient","modelId":None}}
     assert daily_recommendation(f)["consumedValue"]==14
     f["correction"].update(status="VALIDATED",decisionEligible=True,modelId="version-1")
     result=daily_recommendation(f)
-    assert result["decisionChanged"] and result["correctionId"]=="version-1"
+    assert not result["decisionChanged"] and result["correctionId"] is None
+    assert result["consumedValue"] == 14 and result["shadowCandidateId"] == "version-1"
+    assert result["adoptionStatus"] == "NOT_ADOPTED" and not result["correctionConsumed"]
     assert result["hourlyApproachEffect"].startswith("NONE") and f["original"]==14
 
 def test_precipitation_interval_preserves_preceding_hour_bins():

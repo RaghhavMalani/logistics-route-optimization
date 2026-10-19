@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.intelligence import arrival_model
 from src.portwatch_os.intelligence.arrival_collection import PROTOCOL, quality
-from src.portwatch_os.learning.weather_feedback import instant, VARIABLES
+from src.portwatch_os.learning.weather_feedback import instant, VARIABLES, consumed_value, CONSUMPTION_MODE, ADOPTION_STATUS
 from src.portwatch_os.ledger.schema import CONTINUOUS, DOMAIN_PORT_OPS, DOMAIN_WEATHER, DecisionRecord, PredictionContext, PredictionRecord, _stable_id
 from src.portwatch_os.ledger.store import LedgerError, SqliteLedgerStore
 from src.utils import port_registry
@@ -219,7 +219,8 @@ class ArrivalWorkflow:
             if row.target in weather and instant(weather[row.target]["issuedAt"]) >= instant(row.issued_at):
                 continue
             weather[row.target] = {"id": row.prediction_id, "variable": row.target, "original": row.predicted_value,
-                "consumed": row.context.extra.get("correctedValue", row.predicted_value), "unit": VARIABLES[row.target],
+                "consumed": consumed_value(row.predicted_value, row.context.extra.get("correction")), "unit": VARIABLES[row.target],
+                "correctionConsumed": False, "consumptionMode": CONSUMPTION_MODE, "adoptionStatus": ADOPTION_STATUS,
                 "issuedAt": row.issued_at, "validAt": row.valid_at, "recordedAt": recorded,
                 "availableAt": stamp(max(instant(row.issued_at), available)),
                 "source": row.provenance.get("provider", row.model), "statistic": "daily aggregate covering planned arrival"}

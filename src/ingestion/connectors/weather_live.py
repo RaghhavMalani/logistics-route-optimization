@@ -303,11 +303,13 @@ def fetch_port_weather(past_days: int = 92,
 
 
 def _weather_feedback(frame: pd.DataFrame, surface_mode: str, marine_mode: str) -> pd.DataFrame:
-    """Archive old claims and apply validated corrections to future forecasts.
+    """Archive raw claims and retain daily residual candidates in shadow mode.
 
     Cache mtime is the retrieval instant, preserved across cache reads; it is
     explicitly not represented as the provider's model-run issue timestamp.
     Ledger failures propagate: losing claim history must not be silently ignored.
+    Candidate replay eligibility does not authorize adoption; returned daily
+    values remain raw and hourly approach calculations use their own inputs.
     """
     from src.portwatch_os.clock import world_now
     from src.portwatch_os.ledger.store import get_ledger

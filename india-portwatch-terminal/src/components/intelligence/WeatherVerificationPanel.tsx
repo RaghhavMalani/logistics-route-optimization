@@ -4,6 +4,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { getJson } from "@/services/api";
 import { formatUtc } from "@/components/kit/primitives";
 import type { WeatherInspection } from "@/services/intelligence";
+import { WeatherShadowPanel } from "./WeatherShadowPanel";
 
 interface Evidence {
   responseSha256: string;
@@ -348,6 +349,11 @@ export function WeatherVerificationPanel({
         {next.hourlyApproachEffect ??
           "Daily results never modify the hourly approach gate."}
       </p>
+      <WeatherShadowPanel
+        key={`${location}-${variable}`}
+        portCode={location}
+        variable={variable}
+      />
       {source ? (
         <details open className="max-h-48 overflow-auto">
           <summary>Preserved source response · {source}</summary>
