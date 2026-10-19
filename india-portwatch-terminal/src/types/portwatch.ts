@@ -7,6 +7,8 @@
  * number, which is the whole point of the provenance model.
  */
 
+import type { SourceQualityDTO } from "./source-quality";
+
 export type RiskLevel = "normal" | "congested" | "severe";
 export type OperationalRiskLevel = "normal" | "medium" | "high" | "severe";
 export type Coast = "west" | "east" | "south";
@@ -91,6 +93,10 @@ export interface ProvenanceSource {
   fallback: string | null;
   rows: number | null;
   isReal: boolean;
+  /** Optional versioned quality metadata; legacy provenance remains supported. */
+  sourceQuality?: SourceQualityDTO | null;
+  /** Set when an optional source-quality payload fails runtime validation. */
+  sourceQualityError?: string | null;
 }
 
 export interface Provenance {

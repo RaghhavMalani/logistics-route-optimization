@@ -51,6 +51,7 @@ interface Experiment {
 export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
   const { identityHeaders } = useAuth();
   const [variable, setVariable] = useState("wind_speed");
+  const [archiveLocation, setArchiveLocation] = useState(portCode ?? "INNSA");
   const result = useQuery({
     queryKey: ["weather-feedback", portCode, variable],
     queryFn: ({ signal }) =>
@@ -99,7 +100,12 @@ export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
         ) : null}
         {result.data ? (
           <>
-            <WeatherVerificationPanel portCode={portCode} variable={variable} />
+            <WeatherVerificationPanel
+              portCode={portCode}
+              variable={variable}
+              selectedLocation={archiveLocation}
+              onLocationChange={setArchiveLocation}
+            />
             <p className="my-2 text-[11px] text-[var(--text-3)]">
               {result.data.total} retained forecasts · {result.data.resolved}{" "}
               matched forecast snapshots. Independent target counts appear
