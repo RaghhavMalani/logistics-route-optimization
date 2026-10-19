@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "port-source-inventory/1",
+  "portCode": "INNSA",
+  "sources": [
+    {
+      "sourceId": "osm-extract",
+      "sourceProductId": "OpenStreetMap API 0.6 map",
+      "sourceReceiptId": "7325ea85c8214158d09302fe76c1bebad428b2cdc64ea1f03d8326ee30600a20",
+      "url": "https://api.openstreetmap.org/api/0.6/map?bbox=72.925,18.90,72.995,18.985",
+      "publisher": "OpenStreetMap contributors",
+      "acquisitionFrom": null,
+      "acquisitionThrough": null,
+      "publicationDate": null,
+      "firstAvailableAt": "2026-10-17",
+      "originalSha256": "7325ea85c8214158d09302fe76c1bebad428b2cdc64ea1f03d8326ee30600a20",
+      "horizontalCrs": "EPSG:4326",
+      "groundResolutionM": null,
+      "verticalDatum": null,
+      "permittedUse": "ODbL 1.0",
+      "attribution": "\u00a9 OpenStreetMap contributors",
+      "licenceUrl": "https://www.openstreetmap.org/copyright"
+    },
+    {
+      "sourceId": "jnpa-gis-6",
+      "sourceProductId": "JNPA Port GIS layer 6",
+      "sourceReceiptId": "f8a0487c9ee259ed81cbd20c485a3d0d834df4ca959a08dc13e69832ea182f18",
+      "originalSha256": "f8a0487c9ee259ed81cbd20c485a3d0d834df4ca959a08dc13e69832ea182f18",
+      "publisher": "Jawaharlal Nehru Port Authority",
+      "url": "https://gis.jnpa.in/server/rest/services/JNPA/Port/MapServer/6/query?where=1%3D1&outFields=*&outSR=4326&f=geojson",
+      "firstAvailableAt": "2026-10-19",
+      "acquisitionFrom": null,
+      "acquisitionThrough": null,
+      "publicationDate": null,
+      "horizontalCrs": "EPSG:4326",
+      "originalServiceCrs": "EPSG:32643",
+      "groundResolutionM": null,
+      "verticalDatum": null,
+      "permittedUse": "Anonymous public query; redistribution licence not specified by service",
+      "attribution": "JNPA public GIS; positional accuracy and survey epoch unpublished"
+    },
+    {
+      "sourceId": "jnpa-gis-5",
+      "sourceProductId": "JNPA Port GIS layer 5",
+      "sourceReceiptId": "d8ebc9f5aefab731bcd24c3b296fdcf8ef3bf0492dfc56305ef7f245fe201cd6",
+      "originalSha256": "d8ebc9f5aefab731bcd24c3b296fdcf8ef3bf0492dfc56305ef7f245fe201cd6",
+      "publisher": "Jawaharlal Nehru Port Authority",
+      "url": "https://gis.jnpa.in/server/rest/services/JNPA/Port/MapServer/5/query?where=1%3D1&outFields=*&outSR=4326&f=geojson",
+      "firstAvailableAt": "2026-10-19",
+      "acquisitionFrom": null,
+      "acquisitionThrough": null,
+      "publicationDate": null,
+      "horizontalCrs": "EPSG:4326",
+      "originalServiceCrs": "EPSG:32643",
+      "groundResolutionM": null,
+      "verticalDatum": null,
+      "permittedUse": "Anonymous public query; redistribution licence not specified by service",
+      "attribution": "JNPA public GIS; positional accuracy and survey epoch unpublished"
+    }
+  ],
+  "imagery": {
+    "itemId": "S2B_43QBA_20260322_0_L2A",
+    "acquisitionAt": "2026-03-22T05:53:51.540000Z",
+    "sourceAsset": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/43/Q/BA/2026/3/S2B_43QBA_20260322_0_L2A/TCI.tif",
+    "sourceCrs": "EPSG:32643",
+    "sourceResolutionM": [
+      10.0,
+      10.0
+    ],
+    "bounds": [
+      72.925,
+      18.9,
+      72.995,
+      18.985
+    ],
+    "width": 750,
+    "height": 950,
+    "resampling": "nearest",
+    "processingVersion": "port-reference-crop/1",
+    "sourceSubsetSha256": "ecffe0e1b01d6c596c06189a47e6593348fac456247f148882589c6852be0b71",
+    "displaySha256": "66ad93e1ac16972f0de8337b9032efc3f8f0bc1c45c85dc3571843bec0d89af5",
+    "originalMetadataSha256": "5974ed8879c56038ca04288f3c0df2a59e340bc047759761c26ae5ff95ead34c",
+    "originalScope": "Retained native pixel window; full remote COG is not retained."
+  },
+  "authorityPlan": {
+    "schemaVersion": "port-dimension-comparison/1",
+    "authorityPlanUrl": "https://www.jnport.gov.in/uploads/content_manager/Report_on_land_Use_Plan_for_JNPA___August_2022__23_2022_10_06_17_04_09.pdf",
+    "authorityPlanSha256": "be43a656a9806c0658d281b348cd890b589ebda380e5785b1a2d7b4d2003948f",
+    "publicationLabel": "August 2022",
+    "firstAvailableAt": "2026-10-19",
+    "pagesReviewed": [
+      27,
+      102
+    ],
+    "table": "Table 13",
+    "retainedOriginal": "work/port-geometry-sources/be43a656a9806c0658d281b348cd890b589ebda380e5785b1a2d7b4d2003948f.pdf",
+    "redistributionPermission": "Not established; full PDF retained in ignored local work directory, not included in the public release.",
+    "comparisons": [
+      {
+        "featureId": "jnpa-berth-15",
+        "name": "JNPCT / later NSFPT name requires identity review",
+        "published2022LengthM": 680,
+        "gisLengthAttributeM": 680,
+        "polygonMaximumChordM": 683.4921094841009,
+        "chordMinusPublishedM": 3.4921094841008653,
+        "axisBearingDegreesFromNorthModulo180": 27.876069000923536,
+        "publishedOrientationDegrees": null,
+        "orientationDifferenceDegrees": null,
+        "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+      },
+      {
+        "featureId": "jnpa-berth-16",
+        "name": "NSICT",
+        "published2022LengthM": 600,
+        "gisLengthAttributeM": 600,
+        "polygonMaximumChordM": 399.3430220936874,
+        "chordMinusPublishedM": -200.6569779063126,
+        "axisBearingDegreesFromNorthModulo180": 18.41237264883756,
+        "publishedOrientationDegrees": null,
+        "orientationDifferenceDegrees": null,
+        "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+      },
+      {
+        "featureId": "jnpa-berth-12",
+        "name": "NSIGT",
+        "published2022LengthM": 330,
+        "gisLengthAttributeM": 300,
+        "polygonMaximumChordM": 532.8706072383621,
+        "chordMinusPublishedM": 202.87060723836214,
+        "axisBearingDegreesFromNorthModulo180": 19.813449898331783,
+        "publishedOrientationDegrees": null,
+        "orientationDifferenceDegrees": null,
+        "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+      },
+      {
+        "featureId": "jnpa-berth-22",
+        "name": "GTIPL / APM",
+        "published2022LengthM": 712,
+        "gisLengthAttributeM": 712,
+        "polygonMaximumChordM": 715.0685764941696,
+        "chordMinusPublishedM": 3.0685764941696334,
+        "axisBearingDegreesFromNorthModulo180": 33.553645918976116,
+        "publishedOrientationDegrees": null,
+        "orientationDifferenceDegrees": null,
+        "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+      }
+    ],
+    "verticalAccuracyM": null,
+    "positionalAccuracyM": null
+  }
+}

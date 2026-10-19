@@ -1,5 +1,6 @@
 export type GeometryKind =
   | "boundary"
+  | "terminal"
   | "coastline"
   | "water"
   | "breakwater"
@@ -30,6 +31,7 @@ export interface GeographicFeature {
     heightM: number | null;
     heightDatum: string | null;
     valueKind: string;
+    publishedLengthM?: number | null;
   };
 }
 export interface Catalogue {
@@ -39,6 +41,7 @@ export interface Catalogue {
   geometryVersion: string;
   horizontalCrs: "EPSG:4326";
   origin: Position;
+  displayBounds?: [number, number, number, number];
   features: GeographicFeature[];
   sources: {
     sourceId: string;
@@ -110,6 +113,16 @@ export function parseCatalogue(value: unknown, portCode: string): Catalogue {
   )
     throw new Error("Unsupported geometry catalogue");
   const ids = new Set<string>();
+  if (
+    c.displayBounds &&
+    (c.displayBounds.length !== 4 ||
+      !c.displayBounds.every(Number.isFinite) ||
+      !validPoint([c.displayBounds[0], c.displayBounds[1]]) ||
+      !validPoint([c.displayBounds[2], c.displayBounds[3]]) ||
+      c.displayBounds[0] >= c.displayBounds[2] ||
+      c.displayBounds[1] >= c.displayBounds[3])
+  )
+    throw new Error("Invalid display bounds");
   for (const f of c.features) {
     if (
       !f ||
@@ -118,6 +131,7 @@ export function parseCatalogue(value: unknown, portCode: string): Catalogue {
       !f.properties ||
       ![
         "boundary",
+        "terminal",
         "coastline",
         "water",
         "breakwater",
@@ -137,6 +151,10 @@ export function parseCatalogue(value: unknown, portCode: string): Catalogue {
       ].includes(f.properties.horizontalQuality) ||
       f.properties.portCode !== portCode ||
       f.properties.geometryVersion !== c.geometryVersion ||
+      (f.properties.heightM !== null &&
+        (!Number.isFinite(f.properties.heightM) ||
+          f.properties.heightM < 0 ||
+          f.properties.heightM > 1000)) ||
       !["Polygon", "LineString"].includes(f.geometry?.type)
     )
       throw new Error("Invalid geometry feature");

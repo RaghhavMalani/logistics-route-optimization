@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "port-dimension-comparison/1",
+  "authorityPlanUrl": "https://www.jnport.gov.in/uploads/content_manager/Report_on_land_Use_Plan_for_JNPA___August_2022__23_2022_10_06_17_04_09.pdf",
+  "authorityPlanSha256": "be43a656a9806c0658d281b348cd890b589ebda380e5785b1a2d7b4d2003948f",
+  "publicationLabel": "August 2022",
+  "firstAvailableAt": "2026-10-19",
+  "pagesReviewed": [
+    27,
+    102
+  ],
+  "table": "Table 13",
+  "retainedOriginal": "work/port-geometry-sources/be43a656a9806c0658d281b348cd890b589ebda380e5785b1a2d7b4d2003948f.pdf",
+  "redistributionPermission": "Not established; full PDF retained in ignored local work directory, not included in the public release.",
+  "comparisons": [
+    {
+      "featureId": "jnpa-berth-15",
+      "name": "JNPCT / later NSFPT name requires identity review",
+      "published2022LengthM": 680,
+      "gisLengthAttributeM": 680,
+      "polygonMaximumChordM": 683.4921094841009,
+      "chordMinusPublishedM": 3.4921094841008653,
+      "axisBearingDegreesFromNorthModulo180": 27.876069000923536,
+      "publishedOrientationDegrees": null,
+      "orientationDifferenceDegrees": null,
+      "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+    },
+    {
+      "featureId": "jnpa-berth-16",
+      "name": "NSICT",
+      "published2022LengthM": 600,
+      "gisLengthAttributeM": 600,
+      "polygonMaximumChordM": 399.3430220936874,
+      "chordMinusPublishedM": -200.6569779063126,
+      "axisBearingDegreesFromNorthModulo180": 18.41237264883756,
+      "publishedOrientationDegrees": null,
+      "orientationDifferenceDegrees": null,
+      "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+    },
+    {
+      "featureId": "jnpa-berth-12",
+      "name": "NSIGT",
+      "published2022LengthM": 330,
+      "gisLengthAttributeM": 300,
+      "polygonMaximumChordM": 532.8706072383621,
+      "chordMinusPublishedM": 202.87060723836214,
+      "axisBearingDegreesFromNorthModulo180": 19.813449898331783,
+      "publishedOrientationDegrees": null,
+      "orientationDifferenceDegrees": null,
+      "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+    },
+    {
+      "featureId": "jnpa-berth-22",
+      "name": "GTIPL / APM",
+      "published2022LengthM": 712,
+      "gisLengthAttributeM": 712,
+      "polygonMaximumChordM": 715.0685764941696,
+      "chordMinusPublishedM": 3.0685764941696334,
+      "axisBearingDegreesFromNorthModulo180": 33.553645918976116,
+      "publishedOrientationDegrees": null,
+      "orientationDifferenceDegrees": null,
+      "interpretation": "Screening only: berth/water polygon maximum chord is not necessarily quay-face length. Epoch and identity may differ."
+    }
+  ],
+  "verticalAccuracyM": null,
+  "positionalAccuracyM": null
+}

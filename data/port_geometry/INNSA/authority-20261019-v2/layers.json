@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "geospatial-layer-catalogue/1",
+  "portCode": "INNSA",
+  "layers": [
+    {
+      "schemaVersion": "geospatial-layer/1",
+      "layerId": "innsa-sentinel2-20260322",
+      "portCode": "INNSA",
+      "kind": "raster",
+      "bounds": [
+        72.925,
+        18.9,
+        72.995,
+        18.985
+      ],
+      "horizontalCrs": "EPSG:4326",
+      "verticalDatum": null,
+      "acquisitionFrom": "2026-03-22T05:53:51.540000Z",
+      "acquisitionThrough": "2026-03-22T05:53:51.540000Z",
+      "firstAvailableAt": "2026-10-19",
+      "nativeResolutionM": 10,
+      "resamplingMethod": "nearest",
+      "noDataDefinition": "Black pixels may be source no-data; no occupancy or depth inference.",
+      "sourceProduct": "S2B_43QBA_20260322_0_L2A",
+      "processingVersion": "port-reference-crop/1",
+      "sourceHashes": [
+        "ecffe0e1b01d6c596c06189a47e6593348fac456247f148882589c6852be0b71",
+        "5974ed8879c56038ca04288f3c0df2a59e340bc047759761c26ae5ff95ead34c"
+      ],
+      "attribution": "Contains modified Copernicus Sentinel data (2026), distributed via Element 84 Earth Search.",
+      "quality": "Imagery-derived",
+      "displayResource": {
+        "url": "/api/public/port-geometry/INNSA/reference-image",
+        "valueKind": "display",
+        "format": "image/png",
+        "expiresAt": null
+      },
+      "analyticalResource": null,
+      "assetIds": []
+    }
+  ]
+}

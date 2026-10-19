@@ -1,0 +1,24 @@
+{
+  "itemId": "S2B_43QBA_20260322_0_L2A",
+  "acquisitionAt": "2026-03-22T05:53:51.540000Z",
+  "sourceAsset": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/43/Q/BA/2026/3/S2B_43QBA_20260322_0_L2A/TCI.tif",
+  "sourceCrs": "EPSG:32643",
+  "sourceResolutionM": [
+    10.0,
+    10.0
+  ],
+  "bounds": [
+    72.925,
+    18.9,
+    72.995,
+    18.985
+  ],
+  "width": 750,
+  "height": 950,
+  "resampling": "nearest",
+  "processingVersion": "port-reference-crop/1",
+  "sourceSubsetSha256": "ecffe0e1b01d6c596c06189a47e6593348fac456247f148882589c6852be0b71",
+  "displaySha256": "66ad93e1ac16972f0de8337b9032efc3f8f0bc1c45c85dc3571843bec0d89af5",
+  "originalMetadataSha256": "5974ed8879c56038ca04288f3c0df2a59e340bc047759761c26ae5ff95ead34c",
+  "originalScope": "Retained native pixel window; full remote COG is not retained."
+}

@@ -178,7 +178,9 @@ async def _identity_gate(request: Request, call_next):
             or path.startswith("/api/public/research/download/")
             or path == "/api/public/port-calls"
             or re.fullmatch(r"/api/public/port-calls/(?:evidence/[a-f0-9]{64}\.pdf|[a-f0-9]{64}/audit)", path) is not None)
-        if path.startswith("/api/") and request.method != "OPTIONS" and path not in IDENTITY_EXEMPT and not public_read:
+        from src.portwatch_os.geospatial.catalogue_service import is_public_geometry_request
+        public_geometry = is_public_geometry_request(request.method, path)
+        if path.startswith("/api/") and request.method != "OPTIONS" and path not in IDENTITY_EXEMPT and not (public_read or public_geometry):
             authorization = request.headers.get("authorization", "")
             if authorization:
                 scheme, _, token = authorization.partition(" ")

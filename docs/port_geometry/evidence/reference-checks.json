@@ -1,0 +1,327 @@
+{
+  "schemaVersion": "port-geometry-reference-checks/1",
+  "portCode": "INNSA",
+  "geometryVersion": "authority-20261019-v2",
+  "referenceSource": "S2B_43QBA_20260322_0_L2A",
+  "acquisitionAt": "2026-03-22T05:53:51.540000Z",
+  "referenceNativeResolutionM": 10,
+  "registrationMethod": "Native georeferencing; zero fitted translations, rotations or scale changes",
+  "calibrationPointCount": 0,
+  "screeningPointCount": 10,
+  "independentlyVerifiedCorrespondenceCount": 0,
+  "pixelSelectionUncertaintyM": "At least one native pixel (~10 m), plus unpublished product geolocation uncertainty and correspondence uncertainty",
+  "screeningDiscrepancies": {
+    "status": "measured",
+    "count": 10,
+    "medianM": 354.1314061339066,
+    "p95M": 685.1355167259403,
+    "maximumM": 700.9087973872818
+  },
+  "absoluteAccuracyStatus": "unverified",
+  "provisionalGoal": {
+    "medianM": 5,
+    "p95M": 10,
+    "supportedByReference": false
+  },
+  "heightErrorM": null,
+  "unverifiedCoverage": "All absolute positions, heights and asset identity correspondences remain unverified.",
+  "limitations": [
+    "Nearest-vertex matching is a screening procedure, not independent surveyed validation.",
+    "Reference pixel selections may include quay edges, shadows or nearby vessels at this resolution.",
+    "Report all points without cherry-picking. Do not call these discrepancies absolute positional errors.",
+    "A March 2026 image cannot establish current occupancy or distinguish every later construction change."
+  ],
+  "checks": [
+    {
+      "id": "image-screen-1",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        20,
+        585
+      ],
+      "referenceLonLat": [
+        72.92691333333333,
+        18.932613157894735
+      ],
+      "referenceEN": [
+        -2431.8182976646426,
+        -1924.4142346765423
+      ],
+      "featureId": "osm-way-909252327",
+      "vertexIndex": 5,
+      "modelLonLat": [
+        72.9329335,
+        18.9353107
+      ],
+      "modelEN": [
+        -1797.6593076771385,
+        -1625.8920115960582
+      ],
+      "discrepancyM": 700.9087973872818,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-2",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        51,
+        615
+      ],
+      "referenceLonLat": [
+        72.92980666666666,
+        18.92992894736842
+      ],
+      "referenceEN": [
+        -2127.084990165624,
+        -2221.5702158169165
+      ],
+      "featureId": "osm-way-909252327",
+      "vertexIndex": 3,
+      "modelLonLat": [
+        72.9339886,
+        18.9344399
+      ],
+      "modelEN": [
+        -1686.5315947845063,
+        -1722.2924037607806
+      ],
+      "discrepancyM": 665.8570625843007,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-3",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        55,
+        542
+      ],
+      "referenceLonLat": [
+        72.93018,
+        18.936460526315788
+      ],
+      "referenceEN": [
+        -2087.6784025834577,
+        -1498.585922602615
+      ],
+      "featureId": "osm-way-909252327",
+      "vertexIndex": 5,
+      "modelLonLat": [
+        72.9329335,
+        18.9353107
+      ],
+      "modelEN": [
+        -1797.6593076771385,
+        -1625.8920115960582
+      ],
+      "discrepancyM": 316.73003600082995,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-4",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        194,
+        335
+      ],
+      "referenceLonLat": [
+        72.94315333333333,
+        18.95498157894737
+      ],
+      "referenceEN": [
+        -721.092932047969,
+        551.4324518941388
+      ],
+      "featureId": "osm-way-42938968",
+      "vertexIndex": 0,
+      "modelLonLat": [
+        72.9453049,
+        18.9524454
+      ],
+      "modelEN": [
+        -494.4967752623269,
+        270.69154405917703
+      ],
+      "discrepancyM": 360.7787072458986,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-5",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        215,
+        318
+      ],
+      "referenceLonLat": [
+        72.94511333333334,
+        18.956502631578946
+      ],
+      "referenceEN": [
+        -514.6604958657655,
+        719.7932480020627
+      ],
+      "featureId": "osm-way-42938968",
+      "vertexIndex": 36,
+      "modelLonLat": [
+        72.9471771,
+        18.9553942
+      ],
+      "modelEN": [
+        -297.3079217034621,
+        597.0944966336583
+      ],
+      "discrepancyM": 249.5939203633476,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-6",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        281,
+        171
+      ],
+      "referenceLonLat": [
+        72.95127333333333,
+        18.969655263157893
+      ],
+      "referenceEN": [
+        134.09610904674105,
+        2175.672783604277
+      ],
+      "featureId": "osm-way-42938968",
+      "vertexIndex": 3,
+      "modelLonLat": [
+        72.9518792,
+        18.9658259
+      ],
+      "modelEN": [
+        197.9051010731045,
+        1751.794713619165
+      ],
+      "discrepancyM": 428.6539462990211,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-7",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        292,
+        179
+      ],
+      "referenceLonLat": [
+        72.9523,
+        18.96893947368421
+      ],
+      "referenceEN": [
+        242.2165187624654,
+        2096.4419267302533
+      ],
+      "featureId": "osm-way-42938968",
+      "vertexIndex": 3,
+      "modelLonLat": [
+        72.9518792,
+        18.9658259
+      ],
+      "modelEN": [
+        197.9051010731045,
+        1751.794713619165
+      ],
+      "discrepancyM": 347.4841050219146,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-8",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        221,
+        307
+      ],
+      "referenceLonLat": [
+        72.94567333333333,
+        18.95748684210526
+      ],
+      "referenceEN": [
+        -455.67899443276633,
+        828.7355025910883
+      ],
+      "featureId": "osm-way-42938968",
+      "vertexIndex": 35,
+      "modelLonLat": [
+        72.947954,
+        18.9570182
+      ],
+      "modelEN": [
+        -215.48270269817394,
+        776.8564395016464
+      ],
+      "discrepancyM": 245.73501124196306,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-9",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        118,
+        404
+      ],
+      "referenceLonLat": [
+        72.93606,
+        18.94880789473684
+      ],
+      "referenceEN": [
+        -1468.2188567739665,
+        -131.89787780572084
+      ],
+      "featureId": "osm-way-42422926",
+      "vertexIndex": 0,
+      "modelLonLat": [
+        72.9353663,
+        18.9527216
+      ],
+      "modelEN": [
+        -1541.246295573491,
+        301.3218744803899
+      ],
+      "discrepancyM": 439.33172044419626,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    },
+    {
+      "id": "image-screen-10",
+      "role": "check",
+      "referenceSourceId": "S2B_43QBA_20260322_0_L2A",
+      "referencePixel": [
+        140,
+        414
+      ],
+      "referenceLonLat": [
+        72.93811333333333,
+        18.947913157894735
+      ],
+      "referenceEN": [
+        -1251.9599137463617,
+        -230.9534279803865
+      ],
+      "featureId": "osm-way-42939260",
+      "vertexIndex": 40,
+      "modelLonLat": [
+        72.9395293,
+        18.9463379
+      ],
+      "modelEN": [
+        -1102.83396038387,
+        -405.33043985193893
+      ],
+      "discrepancyM": 229.4469268382639,
+      "correspondenceStatus": "nearest-vertex screening candidate; independent expert review pending"
+    }
+  ],
+  "referenceDisplaySha256": "66ad93e1ac16972f0de8337b9032efc3f8f0bc1c45c85dc3571843bec0d89af5"
+}

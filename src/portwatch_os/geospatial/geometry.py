@@ -8,7 +8,7 @@ import math
 
 SCHEMA_VERSION = "port-geometry/1"
 QUALITY = {"Surveyed", "Authority plan", "Imagery-derived", "Illustrative", "Unknown"}
-KINDS = {"boundary", "coastline", "water", "breakwater", "berth", "yard", "building", "gate", "road", "rail"}
+KINDS = {"boundary", "terminal", "coastline", "water", "breakwater", "berth", "yard", "building", "gate", "road", "rail"}
 
 
 def coordinate(lon, lat, height=0):

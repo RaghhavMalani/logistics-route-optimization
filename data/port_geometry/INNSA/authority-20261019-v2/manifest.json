@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "port-geometry-manifest/1",
+  "portCode": "INNSA",
+  "geometryVersion": "authority-20261019-v2",
+  "catalogueSha256": "e444478b62061b47fa37ecb953ad577c071bd27380a4a87db7ccecefc1fad9de",
+  "baseCatalogueSha256": "bffdc9859ad70aa0d6f00a8616346a8e4d3ab92d2dcd2da57a4957b56e649b74",
+  "featureCount": 3256,
+  "accuracyStatus": "reference comparisons; absolute accuracy unverified",
+  "sourceReceiptHashes": [
+    "7325ea85c8214158d09302fe76c1bebad428b2cdc64ea1f03d8326ee30600a20",
+    "f8a0487c9ee259ed81cbd20c485a3d0d834df4ca959a08dc13e69832ea182f18",
+    "d8ebc9f5aefab731bcd24c3b296fdcf8ef3bf0492dfc56305ef7f245fe201cd6"
+  ]
+}

@@ -1,0 +1,4 @@
+# Optional import/reference tools; the production geometry API needs no rasterio.
+rasterio>=1.4,<2
+pyproj>=3.7,<4
+Pillow>=11,<13

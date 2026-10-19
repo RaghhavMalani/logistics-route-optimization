@@ -1,4 +1,57 @@
-# JNPA geographic pilot
+# Port geometry and GEE integration
+
+Current release: `authority-20261019-v2`, on
+`feat/ananya-georeferenced-port-twins`.
+
+- [GEE API URLs, payload and copyable teammate message](GEE_HANDOFF.md)
+- [Current accuracy report and acceptance matrix](ACCURACY_AND_ACCEPTANCE.md)
+- [Current verification results and screenshots](VALIDATION_V2.md)
+- [Second-port feasibility](SECOND_PORT_FEASIBILITY.md)
+- [Machine-readable evidence](evidence/source-inventory.json)
+
+The current scene loads public API geometry, real authority terminal/berth labels,
+and provider-neutral dated raster/vector display layers. It preserves the original
+simulator and schematic reference. Reviewed operational-ID mappings are supported;
+the real release explicitly remains unmapped because schematic IDs do not prove
+physical identity. Unknown heights stay unknown. An optional, labelled 6 m building
+extrusion illustrates volumes without changing source height metadata.
+
+The local handoff manifest is
+`http://127.0.0.1:8001/api/public/port-geometry/INNSA`.
+The remote placeholder is
+`https://<PORTWATCH_BACKEND_HOST>/api/public/port-geometry/INNSA`.
+No remotely hosted URL is claimed until the host is agreed and the branch deployed.
+
+Rebuild the current release offline from retained sources:
+
+```sh
+python scripts/port_geometry/build_authority_pilot.py \
+  --sources data/port_geometry/INNSA/authority-20261019-v2/originals \
+  --reference data/port_geometry/INNSA/authority-20261019-v2/reference
+python scripts/port_geometry/reference_checks.py \
+  --release data/port_geometry/INNSA/authority-20261019-v2 \
+  --output docs/port_geometry/evidence
+python -m unittest discover -s tests -p 'test_port_geometry_*.py' -v
+```
+
+`prepare_reference.py` can reproduce the display from the retained native image
+window using optional dependencies in `scripts/port_geometry/requirements.txt`.
+The image was rebuilt offline with the same display SHA-256. The optional
+`gee_export_example.py` shows teammate-side export; it requires his authorized
+GEE project and has not been run against a GEE account here.
+
+**Full accuracy acceptance is still not met.** The source investigation found
+semantic/date/dimension mismatches. The report retains those discrepancies and
+unknown absolute errors; it does not turn a 10 m image or unreviewed point match
+into a 5 m survey claim. See the current acceptance matrix for the precise
+external evidence and identity decisions still needed.
+
+---
+
+## Historical v1 implementation record — October 17, 2026
+
+The following describes the first release and is retained as a comparison record.
+The current implementation and source coverage are described above.
 
 Branch: `feat/ananya-georeferenced-port-twins`. Shared base:
 `c854e60b4404c0763818f49a780bc2764c668450` from

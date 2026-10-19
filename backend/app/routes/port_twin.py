@@ -29,6 +29,11 @@ from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
+
+from backend.app.routes.port_geometry import router as geographic_router
+router.include_router(geographic_router)
+
+
 #: Horizons the 3D twin's time control offers.
 SNAPSHOT_HOURS = (2, 6, 12, 24)
 

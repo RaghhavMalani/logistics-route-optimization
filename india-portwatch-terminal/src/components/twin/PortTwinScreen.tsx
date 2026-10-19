@@ -87,7 +87,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   const showGeographic = geographic && geographicPort !== null;
   const [policy, setPolicy] = useState("greedy");
 
-  const simulation = useTwinSimulation(portCode, policy, 24);
+  const simulation = useTwinSimulation(portCode, policy, horizon || 24);
   const optimize = useTwinOptimize(portCode, 24);
 
   // A port decision, when one is open: the scene shows the selected option's
@@ -204,8 +204,16 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               : "Schematic digital twin — not a surveyed port plan."}
           </span>{" "}
           {showGeographic
-            ? "Real static OSM footprints; acquisition dates and heights unknown. Operational overlays remain available in the schematic reference; no reviewed real-asset mappings exist."
+            ? "Static OSM and authority footprints; survey accuracy and heights unknown. Dated imagery is shown separately. Simulated operations require reviewed real-asset identity; the current release remains unmapped."
             : twin.data.geometryDisclaimer}
+          {horizon > 0 && !simulation.data && !decisionOption && (
+            <span role="status">
+              {" "}
+              {simulation.isError
+                ? "Selected-horizon simulation unavailable."
+                : "Loading selected-horizon simulation; static geography remains available."}
+            </span>
+          )}
         </p>
         {geographicPort && (
           <button
@@ -232,6 +240,12 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             {showGeographic ? (
               <GeoreferencedPortScene
                 portCode={geographicPort!}
+                state={
+                  horizon > 0 && !simulation.data && !decisionOption
+                    ? undefined
+                    : state
+                }
+                overlay={overlay}
                 selectedId={selection?.id ?? null}
                 onSelect={setSelection}
                 onFallback={() => {
