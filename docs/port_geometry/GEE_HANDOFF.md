@@ -136,3 +136,24 @@ The operational mapping audit explicitly leaves all real berths unmapped:
 simulator `B1..Bn` IDs are schematic and do not prove physical identity. A future
 reviewed mapping can enable simulated overlays without changing geographic IDs.
 GEE integration does not need those operational mappings to display imagery.
+
+## Portable API handoff (October 21, 2026)
+
+Build a minimal archive from the branch root with Python 3.10+:
+
+```sh
+python -m scripts.port_geometry.package_handoff /tmp/ananya-gee-handoff.zip
+```
+
+The command verifies catalogue integrity, layer bindings and the reference PNG,
+then copies an explicit allowlist of API modules and required static assets. It
+excludes private state, credentials, the full authority PDF and development caches.
+Unset `PORTWATCH_GEOSPATIAL_LAYERS_FILE` before packaging so the retained release
+is used. The archive includes `SHA256SUMS.json`, minimal Python requirements and
+`START_HERE.txt`. It refuses to overwrite an existing archive.
+
+The extracted API is tested in a separate process outside the checkout: handshake,
+3,256-feature geometry, layers, PNG delivery and dry-run descriptor validation.
+This is a runtime bundle; reproducible source builds still use this Git branch.
+Source reuse permission still needs review before public hosting. A bundle does
+not supply a public hostname or perform deployment.

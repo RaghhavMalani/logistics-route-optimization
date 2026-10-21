@@ -1,4 +1,4 @@
-# Evidence and acceptance status — October 20, 2026
+# Evidence and acceptance status — October 21, 2026
 
 This report separates working engineering from unsupported accuracy/identity
 claims. It does not certify the port model for navigation or port access.
@@ -122,3 +122,16 @@ final framing and label collision handling. Later changes require another sample
 GEE integration can begin with the implemented contract while these evidence
 and deployment decisions are resolved. The full original acceptance criteria
 are not represented as complete merely because the software tests pass.
+
+## Final engineering handoff check — October 21, 2026
+
+The geometry/API suite passed 17 tests again. An additional handoff test verifies
+checksums and runs all required static API routes plus dry-run layer validation
+from a clean extracted minimal archive in a separate Python process. No renderer
+or simulation changes were made in this check; previously recorded browser and
+performance results remain scoped to the v2 implementation.
+
+The remaining evidence and hosting dependencies above are unchanged. They cannot
+be completed by relabelling unknown metadata, mapping schematic IDs by order or
+providing a placeholder URL. This delivery is ready for teammate integration
+development, but full independent accuracy/identity sign-off is outstanding.
