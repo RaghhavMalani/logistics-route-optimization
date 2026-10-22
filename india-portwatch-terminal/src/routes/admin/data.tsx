@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { FinanceBasisPanel } from "@/components/decision/FinanceBasisPanel";
 import {
@@ -76,6 +76,7 @@ function DataSources() {
   );
   const sourceReport = provenance.data;
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const returnFocusToSource = useRef<string | null>(null);
   const selected =
     rows.find((source) => source.source === selectedSource) ?? null;
 
@@ -109,10 +110,16 @@ function DataSources() {
       render: (row) => (
         <button
           type="button"
+          ref={(button) => {
+            if (button && returnFocusToSource.current === row.source) {
+              button.focus();
+              returnFocusToSource.current = null;
+            }
+          }}
           aria-label={`Inspect evidence for ${row.source}`}
-          aria-pressed={selectedSource === row.source}
           onClick={(event) => {
             event.stopPropagation();
+            returnFocusToSource.current = null;
             setSelectedSource(row.source);
           }}
           className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--text-2)] hover:border-[var(--info)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--info)]"
@@ -346,7 +353,10 @@ function DataSources() {
             <SourceQualityInspector
               source={selected}
               portRegistry={portRegistry.data ?? null}
-              onClose={() => setSelectedSource(null)}
+              onClose={() => {
+                returnFocusToSource.current = selected.source;
+                setSelectedSource(null);
+              }}
             />
           ) : (
             <DataTable

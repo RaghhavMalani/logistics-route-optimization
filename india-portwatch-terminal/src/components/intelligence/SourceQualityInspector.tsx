@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { ProvenanceSource } from "@/types/portwatch";
 import {
   KeyValue,
@@ -33,6 +34,14 @@ export function SourceQualityInspector({
   portRegistry?: readonly PortRegistryEntry[] | null;
   onClose?: () => void;
 }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const sourceName = source?.source;
+
+  useEffect(() => {
+    if (sourceName) (closeRef.current ?? headingRef.current)?.focus();
+  }, [sourceName]);
+
   if (!source) {
     return (
       <Panel
@@ -82,10 +91,11 @@ export function SourceQualityInspector({
       actions={
         source && onClose ? (
           <button
+            ref={closeRef}
             type="button"
             aria-label="Close source evidence inspector"
             onClick={onClose}
-            className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--text-2)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--info)]"
+            className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--text-2)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--info)]"
           >
             Close
           </button>
@@ -97,11 +107,16 @@ export function SourceQualityInspector({
         </Pill>
       }
       className="h-full min-h-0 rounded-none border-x-0 border-t-0"
+      bodyClassName="overflow-x-hidden"
       scroll
       testId="source-quality-inspector"
     >
-      <div className="px-3 py-2">
-        <h3 className="mb-1 text-[12px] font-medium text-[var(--text)]">
+      <div className="min-w-0 px-3 py-2 [overflow-wrap:anywhere] [&>div>span:first-child]:max-w-[48%] [&>div>span:first-child]:shrink-0 [&>div>span:first-child]:overflow-visible [&>div>span:first-child]:whitespace-normal [&>div>span:last-child]:min-w-0 [&>div>span:last-child]:shrink [&>div>span:last-child]:whitespace-normal">
+        <h3
+          ref={headingRef}
+          tabIndex={-1}
+          className="mb-1 text-[12px] font-medium text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--info)]"
+        >
           {source.source}
         </h3>
         <p className="mb-2 text-[10.5px] text-[var(--text-3)]">

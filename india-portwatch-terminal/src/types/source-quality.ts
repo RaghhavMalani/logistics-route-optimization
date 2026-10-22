@@ -138,6 +138,11 @@ export type ObservationDTO = z.infer<typeof ObservationSchema>;
 export const ForecastClaimSchema = z
   .object({
     schemaVersion: z.literal(1),
+    // Additive fields: targetId continues to identify the outcome being forecast.
+    predictionId: nullableId.optional(),
+    provider: nullableId.optional(),
+    sourceProductId: nullableId.optional(),
+    sourceVersion: nullableId.optional(),
     targetId: NonEmptyId,
     portCode: nullableId,
     variable: NonEmptyId,
@@ -177,6 +182,191 @@ export const ForecastClaimSchema = z
     }
   });
 export type ForecastClaimDTO = z.infer<typeof ForecastClaimSchema>;
+
+export const FORECAST_PREDICTION_IDENTITY_VERSION = "forecast-prediction-v1";
+
+type ForecastPredictionIdentity =
+  | { ok: true; identity: string; basis: "EXPLICIT" | "COMPATIBILITY" }
+  | { ok: false; reason: string };
+
+/**
+ * This presentation identity never changes existing ledger IDs. An explicit
+ * predictionId is authoritative. Compatibility records need an origin instant
+ * and known model/source version. Optional provider/product are retained exactly
+ * as known or null; null does not infer a provider. This legacy namespace cannot
+ * distinguish unreported providers and therefore quarantines conflicting claims.
+ * Receipt IDs identify supporting fetches, not predictions; targetId identifies
+ * the outcome. Neither the forecast value nor a later error enters identity.
+ * The full versioned tuple is retained rather than a collision-prone short hash.
+ */
+export function forecastPredictionIdentity(
+  forecast: ForecastClaimDTO,
+): ForecastPredictionIdentity {
+  if (forecast.predictionId) {
+    return {
+      ok: true,
+      basis: "EXPLICIT",
+      identity: JSON.stringify([
+        FORECAST_PREDICTION_IDENTITY_VERSION,
+        "explicit",
+        forecast.predictionId,
+      ]),
+    };
+  }
+  const modelVersion = forecast.modelVersion?.trim() || null;
+  const sourceVersion = forecast.sourceVersion?.trim() || null;
+  const originAt = forecast.originAt;
+  if (
+    !originAt?.includes("T") ||
+    !Number.isFinite(Date.parse(originAt)) ||
+    (!modelVersion && !sourceVersion)
+  ) {
+    return {
+      ok: false,
+      reason:
+        "Forecast identity is unknown: provide predictionId or an origin instant and modelVersion/sourceVersion. A target or receipt alone cannot identify a prediction.",
+    };
+  }
+  return {
+    ok: true,
+    basis: "COMPATIBILITY",
+    identity: JSON.stringify([
+      FORECAST_PREDICTION_IDENTITY_VERSION,
+      "compatibility",
+      forecast.targetId,
+      new Date(originAt).toISOString(),
+      forecast.provider?.trim() || null,
+      forecast.sourceProductId?.trim() || null,
+      modelVersion,
+      sourceVersion,
+    ]),
+  };
+}
+
+/** Canonical JSON preserves unknown input metadata without relying on key order. */
+function canonicalJson(value: unknown, ancestors = new Set<object>()): string {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean")
+    return JSON.stringify(value);
+  if (typeof value === "number" && Number.isFinite(value))
+    return JSON.stringify(value);
+  if (typeof value !== "object" || ancestors.has(value))
+    throw new Error("Forecast payload must be acyclic JSON data.");
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value))
+      return `[${value.map((item) => canonicalJson(item, ancestors)).join(",")}]`;
+    if (Object.getPrototypeOf(value) !== Object.prototype)
+      throw new Error("Forecast payload must contain plain JSON objects.");
+    return `{${Object.keys(value)
+      .sort()
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key], ancestors)}`,
+      )
+      .join(",")}}`;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+type ForecastBatchRow = {
+  row: ForecastClaimDTO;
+  raw: unknown;
+  index: number;
+};
+
+/**
+ * Receipt references form an unordered evidence set. Only their order and
+ * repeated identical references are normalized. Different evidence sets or any
+ * other payload difference under one prediction identity are conflicts: every
+ * version is quarantined with its original payload, never first-row selected.
+ */
+function groupForecastRows(rows: ForecastBatchRow[]) {
+  const groups = new Map<
+    string,
+    Array<
+      ForecastBatchRow & {
+        canonical: string | null;
+        normalized: ForecastClaimDTO;
+      }
+    >
+  >();
+  const rejected: Array<{
+    index: number;
+    recordId: string;
+    reason: string;
+    raw: unknown;
+  }> = [];
+  for (const item of rows) {
+    const identity = forecastPredictionIdentity(item.row);
+    const id = item.row.predictionId ?? item.row.targetId;
+    if (!identity.ok) {
+      rejected.push({
+        index: item.index,
+        recordId: id,
+        reason: identity.reason,
+        raw: item.raw,
+      });
+      continue;
+    }
+    const normalized = {
+      ...item.row,
+      sourceReceiptIds: [...new Set(item.row.sourceReceiptIds)].sort(),
+    };
+    let canonical: string | null;
+    try {
+      canonical = canonicalJson(normalized);
+    } catch {
+      canonical = null;
+    }
+    const group = groups.get(identity.identity) ?? [];
+    group.push({ ...item, canonical, normalized });
+    groups.set(identity.identity, group);
+  }
+  const accepted: ForecastClaimDTO[] = [];
+  for (const [identity, group] of [...groups].sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  )) {
+    if (
+      group.every((item) => item.canonical !== null) &&
+      new Set(group.map((item) => item.canonical)).size === 1
+    ) {
+      accepted.push(group[0].normalized);
+      continue;
+    }
+    for (const item of group.sort((a, b) =>
+      (a.canonical ?? "") < (b.canonical ?? "")
+        ? -1
+        : (a.canonical ?? "") > (b.canonical ?? "")
+          ? 1
+          : 0,
+    )) {
+      rejected.push({
+        index: item.index,
+        recordId: item.row.predictionId ?? item.row.targetId,
+        reason: group.some((version) => version.canonical === null)
+          ? `Forecast: prediction identity ${identity} has a non-JSON payload; all versions quarantined.`
+          : `Forecast: conflicting payloads for prediction identity ${identity}; all versions quarantined.`,
+        raw: item.raw,
+      });
+    }
+  }
+  // Audit ordering does not decide acceptance; it too is stable on replay.
+  rejected.sort((a, b) => {
+    const left = `${a.recordId}\u0000${a.reason}`;
+    const right = `${b.recordId}\u0000${b.reason}`;
+    if (left !== right) return left < right ? -1 : 1;
+    try {
+      const leftRaw = canonicalJson(a.raw);
+      const rightRaw = canonicalJson(b.raw);
+      return leftRaw < rightRaw ? -1 : leftRaw > rightRaw ? 1 : 0;
+    } catch {
+      return 0;
+    }
+  });
+  return { accepted, rejected };
+}
 
 export const EventRestrictionSchema = z
   .object({
@@ -333,10 +523,15 @@ export const QualityBatchSchema = z
       batch.observations.map((row) => row.observationId),
       ["observations"],
     );
-    checkUnique(
-      batch.forecasts.map((row) => row.targetId),
-      ["forecasts"],
-    );
+    for (const issue of groupForecastRows(
+      batch.forecasts.map((row, index) => ({ row, raw: row, index })),
+    ).rejected) {
+      context.addIssue({
+        code: "custom",
+        path: ["forecasts", issue.index],
+        message: issue.reason,
+      });
+    }
     checkUnique(
       batch.events.map((row) => row.eventId),
       ["events"],
@@ -345,7 +540,13 @@ export const QualityBatchSchema = z
       batch.outcomes.map((row) => row.outcomeId),
       ["outcomes"],
     );
-  });
+  })
+  .transform((batch) => ({
+    ...batch,
+    forecasts: groupForecastRows(
+      batch.forecasts.map((row, index) => ({ row, raw: row, index })),
+    ).accepted,
+  }));
 export type QualityBatchDTO = z.infer<typeof QualityBatchSchema>;
 
 /**
@@ -506,6 +707,7 @@ function recordId(value: unknown): string | null {
   const item = value as Record<string, unknown>;
   for (const key of [
     "observationId",
+    "predictionId",
     "targetId",
     "eventId",
     "outcomeId",
@@ -577,11 +779,28 @@ export function parseQualityBatch(value: unknown): QualityBatchParseResult {
     (row) => row.observationId,
     "Observation",
   );
-  const forecasts = acceptRows(
-    envelope.data.forecasts,
-    ForecastClaimSchema,
-    (row) => row.targetId,
-    "Forecast",
+  const forecastRows: ForecastBatchRow[] = [];
+  envelope.data.forecasts.forEach((raw, index) => {
+    const parsed = ForecastClaimSchema.safeParse(raw);
+    if (parsed.success) {
+      forecastRows.push({ row: parsed.data, raw, index });
+      return;
+    }
+    const issue = parsed.error.issues[0];
+    rejected.push({
+      recordId: recordId(raw),
+      reason: `Forecast: ${issue?.path.join(".") || "record"}: ${issue?.message ?? "invalid record"}`,
+      raw,
+    });
+  });
+  const forecastGroups = groupForecastRows(forecastRows);
+  const forecasts = forecastGroups.accepted;
+  rejected.push(
+    ...forecastGroups.rejected.map(({ recordId, reason, raw }) => ({
+      recordId,
+      reason,
+      raw,
+    })),
   );
   const events = acceptRows(
     envelope.data.events,

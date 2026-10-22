@@ -292,7 +292,7 @@ test("Admin Data inspector keeps receipt, source time, and unknown coverage sepa
   await expect(inspector).not.toContainText("100%");
 });
 
-test("source evidence control is keyboard reachable and exposes selection", async ({
+test("inline source evidence moves keyboard focus and restores the remounted control", async ({
   context,
   page,
 }) => {
@@ -305,15 +305,133 @@ test("source evidence control is keyboard reachable and exposes selection", asyn
   });
   await inspect.focus();
   await expect(inspect).toBeFocused();
+  await expect(inspect).not.toHaveAttribute("aria-pressed");
   await page.keyboard.press("Enter");
-  await expect(inspect).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByTestId("source-quality-inspector")).toContainText(
+
+  const inspector = page.getByTestId("source-quality-inspector");
+  const close = inspector.getByRole("button", {
+    name: "Close source evidence inspector",
+  });
+  // Opening the inline view replaces the table and unmounts its Inspect buttons.
+  await expect(inspect).toHaveCount(0);
+  await expect(close).toBeFocused();
+  await expect(close).toHaveCSS("outline-style", "solid");
+  await expect(close).toHaveCSS("outline-width", "2px");
+  await expect(inspector).toContainText(
     "Original receipt hash and derivation version",
   );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator('[aria-modal="true"]')).toHaveCount(0);
+
+  // The inspector is not a modal: keyboard navigation can reach the page action.
+  await page.keyboard.press("Shift+Tab");
+  await expect(
+    page.getByRole("button", {
+      name: "Download source quality report as JSON",
+    }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(inspector).toHaveCount(0);
+  await expect(inspect).toBeFocused();
+  await expect(inspect).toHaveCSS("outline-style", "solid");
+  await expect(inspect).toHaveCSS("outline-width", "2px");
+
+  const otherInspect = page.getByRole("button", {
+    name: "Inspect evidence for Weather history (Open-Meteo ERA5 archive)",
+  });
+  await otherInspect.focus();
+  await page.keyboard.press("Space");
+  await expect(close).toBeFocused();
+  await expect(inspector).toContainText("HISTORICAL");
+  await page.keyboard.press("Space");
+  await expect(otherInspect).toBeFocused();
+});
+
+test("inline source evidence wraps long originals and scrolls at 390px", async ({
+  context,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const provenance = JSON.parse(
+    fs.readFileSync(
+      new URL("../fixtures/provenance.json", import.meta.url),
+      "utf8",
+    ),
+  ) as {
+    sources: Record<
+      string,
+      {
+        sourceQuality: {
+          provenance: { originalRef: string; originalHash: string };
+          unknownReasons: string[];
+        };
+      }
+    >;
+  };
+  const quality =
+    provenance.sources["Port activity (IMF PortWatch)"].sourceQuality;
+  const originalHash = "0123456789abcdef".repeat(4);
+  const originalRef = `https://evidence.example.test/receipts/${"retained-original-".repeat(14)}.json`;
+  quality.provenance.originalRef = originalRef;
+  quality.provenance.originalHash = originalHash;
+  quality.unknownReasons.push(
+    ...Array.from(
+      { length: 12 },
+      (_, index) =>
+        `Unknown field ${index + 1}: retained receipt has no value.`,
+    ),
+  );
+  await signInAdmin(context, page);
+  await context.route(
+    (url) => url.pathname.endsWith("/api/demo/terminal/provenance"),
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(provenance),
+      }),
+  );
+  await page.goto("/admin/data");
+  await settle(page);
   await page
-    .getByRole("button", { name: "Close source evidence inspector" })
+    .getByRole("button", {
+      name: "Inspect evidence for Port activity (IMF PortWatch)",
+    })
     .click();
-  await expect(page.getByTestId("source-quality-inspector")).not.toBeVisible();
+
+  const inspector = page.getByTestId("source-quality-inspector");
+  await expect(inspector).toContainText(originalRef);
+  await expect(inspector).toContainText(originalHash);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const body = inspector.locator(":scope > div").last();
+  const size = await body.evaluate((element) => ({
+    width: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    height: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(size.width).toBeGreaterThan(0);
+  expect(size.width).toBeLessThanOrEqual(390);
+  expect(size.scrollWidth).toBeLessThanOrEqual(size.width + 1);
+  expect(size.height).toBeGreaterThan(80);
+  expect(size.scrollHeight).toBeGreaterThan(size.height);
+  await body.hover();
+  await page.mouse.wheel(0, size.scrollHeight);
+  await expect
+    .poll(() => body.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(
+    inspector.getByText("Unknown field 12:", { exact: false }),
+  ).toBeInViewport();
+  // Close stays in the fixed panel header while the evidence body scrolls.
+  await expect(
+    inspector.getByRole("button", {
+      name: "Close source evidence inspector",
+    }),
+  ).toBeInViewport();
 });
 
 test("malformed optional quality metadata is explained without losing legacy receipt data", async ({
