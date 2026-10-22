@@ -1,7 +1,8 @@
 # Coverage and integration audit
 
-Date: 2026-10-18  
-Branch: `feat/preksha-ui-data-quality`  
+Date: 2026-10-18
+
+Branch: `feat/preksha-ui-data-quality`
 Purpose: Milestone 5 review and handoff boundaries for the next deliverable.
 
 ## What this audit can establish
