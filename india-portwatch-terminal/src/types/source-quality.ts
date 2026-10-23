@@ -599,6 +599,54 @@ export const SourceQualitySchema = z
       issues: z.array(z.string()),
     }),
     unknownReasons: z.array(z.string()),
+    metadataVersion: z.string().optional(),
+    projectionVersion: z.string().optional(),
+    firstAvailableAt: nullableDate.optional(),
+    semantics: z
+      .object({
+        dataKind: z.string().optional(),
+        measurementKind: z.string().optional(),
+        consumerRole: z.string().optional(),
+        meaning: z.string().optional(),
+        firstAvailableAt: nullableDate.optional(),
+        publishedAt: nullableDate.optional(),
+        providerPublicationAt: nullableDate.optional(),
+        providerIssueAt: nullableDate.optional(),
+        parserVersion: z.string().optional(),
+        stationObservation: z.boolean().optional(),
+        sourceUnits: z.record(z.string(), z.string().nullable()).optional(),
+        outputUnits: z.record(z.string(), z.string().nullable()).optional(),
+      })
+      .passthrough()
+      .optional(),
+    requestedCoverage: z
+      .object({
+        portCodes: z.array(z.string()).nullable(),
+        variables: z.array(z.string()).nullable(),
+        from: nullableDate.optional(),
+        through: nullableDate.optional(),
+        meaning: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    units: z
+      .array(
+        z
+          .object({
+            variable: z.string(),
+            sourceVariable: z.string(),
+            sourceUnit: z.string().nullable(),
+            outputUnit: z.string(),
+            statistic: z.string(),
+            aggregation: z.string(),
+            derivation: z.string(),
+            parserVersion: z.string(),
+          })
+          .passthrough(),
+      )
+      .optional(),
+    sourceReceipts: z.array(SourceReceiptSchema).optional(),
+    components: z.array(z.record(z.string(), z.unknown())).optional(),
   })
   .passthrough();
 

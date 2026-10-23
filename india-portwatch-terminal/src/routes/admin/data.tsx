@@ -52,6 +52,8 @@ function downloadSourceReport(
     exportedAt: new Date().toISOString(),
     limitation:
       "Diagnostic snapshot only. Fetch status does not make an older source observation current; unknown values remain null.",
+    projection: provenance.sourceQualityProjection ?? null,
+    legacyStatusReadiness: provenance.readiness,
     sources: rows.map((source) => ({ ...source })),
   };
   const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -71,7 +73,11 @@ function DataSources() {
   const portRegistry = usePortRegistry();
 
   const rows = useMemo(
-    () => Object.values(provenance.data?.sources ?? {}),
+    () =>
+      Object.values({
+        ...provenance.data?.sources,
+        ...provenance.data?.sourceQualityProducts,
+      }),
     [provenance.data],
   );
   const sourceReport = provenance.data;
@@ -93,7 +99,10 @@ function DataSources() {
     );
   }
 
-  const counts = provenance.data?.counts ?? {};
+  const counts = rows.reduce<Record<string, number>>((totals, source) => {
+    totals[source.status] = (totals[source.status] ?? 0) + 1;
+    return totals;
+  }, {});
   const readiness = provenance.data?.readiness ?? 0;
   const overdue = rows.filter(
     (source) =>
@@ -161,7 +170,7 @@ function DataSources() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Declared status",
       width: 128,
       render: (row) => {
         const historicalArchive =
@@ -193,7 +202,13 @@ function DataSources() {
       width: 130,
       render: (row) => (
         <span className="num text-[var(--text-2)]">
-          {formatUtc(row.observed_at)}
+          {row.sourceQuality
+            ? row.sourceQuality.coverage.observedThrough == null
+              ? "Unknown"
+              : row.sourceQuality.coverage.datePrecision === "DATE_ONLY"
+                ? `${row.sourceQuality.coverage.observedThrough} (date only)`
+                : formatUtc(row.sourceQuality.coverage.observedThrough)
+            : formatUtc(row.observed_at)}
         </span>
       ),
       sort: (row) => row.observed_at,
@@ -205,7 +220,11 @@ function DataSources() {
       width: 130,
       render: (row) => (
         <span className="num text-[var(--text-3)]">
-          {formatUtc(row.fetched_at)}
+          {formatUtc(
+            row.sourceQuality
+              ? row.sourceQuality.receipt.lastFetchedAt
+              : row.fetched_at,
+          )}
         </span>
       ),
       sort: (row) => row.fetched_at,
@@ -238,11 +257,14 @@ function DataSources() {
     },
     {
       key: "confidence",
-      header: "Confidence",
+      header: "Status weight",
       align: "right",
       width: 118,
       render: (row) => (
-        <span className="flex items-center justify-end gap-2">
+        <span
+          className="flex items-center justify-end gap-2"
+          title="Legacy status heuristic, not calibrated source accuracy. Additional diagnostic products have no model weight."
+        >
           <span className="w-10">
             <MiniBar
               value={row.confidence}
@@ -290,22 +312,22 @@ function DataSources() {
         size="sm"
         items={[
           {
-            label: "Feed readiness",
+            label: "Legacy status readiness",
             value: `${(readiness * 100).toFixed(0)}%`,
             tone: readiness >= 0.8 ? "ok" : readiness >= 0.5 ? "warn" : "crit",
-            note: `${rows.length} sources registered`,
+            note: `${Object.keys(provenance.data?.sources ?? {}).length} legacy sources · heuristic, not accuracy`,
           },
           {
             label: "Live",
             value: counts.LIVE ?? 0,
             tone: "ok",
-            note: "fetched inside its budget",
+            note: "recorded status; inspect receipt separately",
           },
           {
             label: "Cached",
             value: counts.CACHED_LIVE ?? 0,
             tone: "info",
-            note: "served from the local response cache",
+            note: "recorded cache/product status",
           },
           {
             label: "Stale",

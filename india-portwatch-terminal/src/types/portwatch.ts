@@ -109,6 +109,14 @@ export interface Provenance {
   synthetic?: string[];
   unavailable?: string[];
   sources: Record<string, ProvenanceSource>;
+  /** Retained product diagnostics; excluded from legacy numerical readiness. */
+  sourceQualityProducts?: Record<string, ProvenanceSource>;
+  sourceQualityProjection?: {
+    version: string;
+    readOnly: boolean;
+    legacyReadinessMeaning: string;
+    unavailableProjections: string[];
+  };
   forecastOrigin?: string | null;
   cacheAgeSeconds?: number | null;
   reason?: string;

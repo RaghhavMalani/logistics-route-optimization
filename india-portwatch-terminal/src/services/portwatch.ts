@@ -20,6 +20,7 @@ import type {
   PortRegistryEntry,
   PortSnapshot,
   Provenance,
+  ProvenanceSource,
   RegimeState,
   ScenarioDefinition,
   ScenarioResult,
@@ -37,23 +38,32 @@ import {
 export const fetchHealth = () => getJson<Health>("/health");
 export async function fetchProvenance(): Promise<Provenance> {
   const provenance = await getJson<Provenance>("/provenance");
-  const sources = Object.fromEntries(
-    Object.entries(provenance.sources ?? {}).map(([key, source]) => {
-      if (source.sourceQuality == null) return [key, source];
-      const parsed = parseSourceQuality(source.sourceQuality);
-      return [
-        key,
-        parsed.ok
-          ? { ...source, sourceQuality: parsed.value, sourceQualityError: null }
-          : {
-              ...source,
-              sourceQuality: null,
-              sourceQualityError: parsed.reason,
-            },
-      ];
-    }),
-  );
-  return { ...provenance, sources };
+  const parseSources = (rows: Record<string, ProvenanceSource> = {}) =>
+    Object.fromEntries(
+      Object.entries(rows).map(([key, source]) => {
+        if (source.sourceQuality == null) return [key, source];
+        const parsed = parseSourceQuality(source.sourceQuality);
+        return [
+          key,
+          parsed.ok
+            ? {
+                ...source,
+                sourceQuality: parsed.value,
+                sourceQualityError: null,
+              }
+            : {
+                ...source,
+                sourceQuality: null,
+                sourceQualityError: parsed.reason,
+              },
+        ];
+      }),
+    );
+  return {
+    ...provenance,
+    sources: parseSources(provenance.sources),
+    sourceQualityProducts: parseSources(provenance.sourceQualityProducts),
+  };
 }
 
 /* ---------------------------------------------------------------- ports --- */

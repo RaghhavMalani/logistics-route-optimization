@@ -1,11 +1,12 @@
 import { expect, settle, test } from "../harness";
 import fs from "node:fs";
+import type { BrowserContext, Page } from "@playwright/test";
 
 // Presentation fixtures only; these do not enter the retained weather ledger.
-test("archive location survives variable changes without mixing matched or shadow context", async ({
-  context,
-  page,
-}) => {
+async function verifyArchive(
+  { context, page }: { context: BrowserContext; page: Page },
+  workspace: "Admin" | "Port",
+) {
   const now = new Date().toISOString();
   await context.route("**/api/demo/terminal/**", (route) => {
     const path = new URL(route.request().url()).pathname.split(
@@ -29,9 +30,9 @@ test("archive location survives variable changes without mixing matched or shado
           id: "qa-weather-admin",
           email: "weather@portwatch.demo",
           displayName: "QA weather",
-          role: "NATIONAL_ADMIN",
+          role: workspace === "Port" ? "PORT_AUTHORITY" : "NATIONAL_ADMIN",
           organisation: "QA",
-          portCode: null,
+          portCode: workspace === "Port" ? "INNSA" : null,
           companyId: null,
           vesselIds: [],
         },
@@ -94,7 +95,10 @@ test("archive location survives variable changes without mixing matched or shado
             forecastEvidence: evidence,
             outcomeEvidence: evidence,
           },
-          matchedContextCounts: { independentTargets: 2, forecastSnapshots: 6 },
+          matchedContextCounts: {
+            independentTargets: 2,
+            forecastSnapshots: 6,
+          },
           currentCandidate: {
             status: "COLLECTING",
             sampleCount: 2,
@@ -209,12 +213,36 @@ test("archive location survives variable changes without mixing matched or shado
     }),
   );
   await page.goto("/login");
-  await page.getByRole("button", { name: "Admin demo", exact: true }).click();
-  await page.waitForURL("**/admin/radar");
-  await page.goto("/admin/learning");
+  await page
+    .getByRole("button", { name: `${workspace} demo`, exact: true })
+    .click();
+  await page.waitForURL(
+    workspace === "Port" ? "**/port/overview" : "**/admin/radar",
+  );
+  await page.goto(workspace === "Port" ? "/port/weather" : "/admin/learning");
   await settle(page);
   const archive = page.getByTestId("weather-verification-chain");
   await expect(archive).toBeVisible();
+  if (workspace === "Port") {
+    const learning = archive.locator(
+      "xpath=ancestor::section[contains(@class, 'panel')]",
+    );
+    expect(
+      await learning.evaluate((element) => element.clientHeight),
+    ).toBeGreaterThan(100);
+    await archive
+      .getByRole("combobox", {
+        name: "Weather verification location",
+        exact: true,
+      })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      archive.getByRole("combobox", {
+        name: "Weather verification location",
+        exact: true,
+      }),
+    ).toBeInViewport();
+  }
   await archive
     .getByRole("combobox", {
       name: "Weather verification location",
@@ -280,4 +308,22 @@ test("archive location survives variable changes without mixing matched or shado
   await expect(
     shadow.getByRole("region", { name: "Selected shadow context" }),
   ).not.toContainText("INNSA");
+}
+
+test("archive location survives variable changes without mixing matched or shadow context", async ({
+  context,
+  page,
+}) => {
+  await verifyArchive({ context, page }, "Admin");
+});
+
+test("Port Weather learning is reachable inside the original sidebar", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "mobile390",
+    "The preserved Port Weather sidebar uses its desktop layout; mobile inspector is checked separately.",
+  );
+  await verifyArchive({ context, page }, "Port");
 });

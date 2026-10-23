@@ -70,8 +70,8 @@ export function FrozenWeatherBasis({
       </p>
       <p>
         Calculation: hourly gust and visibility, requested arrival and operator
-        limits. GDACS hazards, wave overlays and stale activity are contextual
-        layers; they do not change this gate calculation.
+        limits. GDACS hazards, wave overlays and activity are contextual layers;
+        they do not change this gate calculation.
       </p>
       <details>
         <summary>Forecast hours used to find the approach window</summary>
@@ -86,8 +86,49 @@ export function FrozenWeatherBasis({
       <p>
         Without weather gate: {evidence.noWeatherGateWaitHours} h wait. Forecast
         gate: {evidence.forecastGateWaitHours.toFixed(1)} h assumed anchorage
-        wait. October 2 activity input retains its age.
+        wait.
       </p>
+      {evidence.activityContext ? (
+        <details data-testid="frozen-activity-context">
+          <summary>
+            Frozen activity context · no effect on this calculation
+          </summary>
+          <p>
+            {evidence.activityContext.provider ?? "Provider unavailable"} ·{" "}
+            {evidence.activityContext.sourceProductId ?? "Product unavailable"}.
+            Observation period{" "}
+            {evidence.activityContext.observedFrom ??
+              evidence.activityContext.observationDate ??
+              "unavailable"}
+            {evidence.activityContext.observedThrough &&
+            evidence.activityContext.observedThrough !==
+              evidence.activityContext.observedFrom
+              ? ` through ${evidence.activityContext.observedThrough}`
+              : ""}
+            ; precision {evidence.activityContext.datePrecision ?? "unknown"}.
+            Daily dates are not measurement or publication instants.
+          </p>
+          <p>
+            First application receipt{" "}
+            {evidence.activityContext.firstAvailableAt
+              ? formatUtc(evidence.activityContext.firstAvailableAt)
+              : "unavailable"}
+            . {evidence.activityContext.unknownReason}
+          </p>
+          <p className="break-all text-[var(--text-3)]">
+            Projection {evidence.activityContext.projectionVersion} · source
+            version {evidence.activityContext.sourceVersion ?? "unavailable"} ·
+            receipt {evidence.activityContext.sourceReceiptId ?? "unavailable"}{" "}
+            · original {evidence.activityContext.originalRef ?? "unavailable"} ·
+            hash {evidence.activityContext.originalHash ?? "unavailable"}
+          </p>
+        </details>
+      ) : (
+        <p data-testid="frozen-activity-legacy">
+          {evidence.activityObservation ??
+            "Activity context was not retained in this frozen comparison."}
+        </p>
+      )}
       <p className="break-all text-[var(--text-3)]">
         Evidence {evidence.evidenceId} · snapshot {evidence.snapshotId}
       </p>

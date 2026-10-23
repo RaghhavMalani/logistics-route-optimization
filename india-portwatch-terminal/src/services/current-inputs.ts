@@ -12,6 +12,7 @@ export interface CurrentHour {
   wave_height: number | null;
 }
 export interface FrozenEnvironment {
+  evidenceVersion?: string;
   evidenceId: string;
   snapshotId: string;
   responseSha256: string;
@@ -27,7 +28,29 @@ export interface FrozenEnvironment {
   noWeatherGateWaitHours: number;
   consumedForecasts: CurrentHour[];
   assumptions: { maxGustKn: number; minVisibilityM: number; scope: string };
+  // Both forms are frozen evidence. Never fill either from live provenance.
+  activityObservation?: string;
+  activityContext?: FrozenActivityContext;
   meaning: string;
+}
+export interface FrozenActivityContext {
+  schemaVersion: 1;
+  projectionVersion: string;
+  operationalUse: "CONTEXT_ONLY";
+  calculationEffect: "NONE";
+  portCode: string;
+  provider: string | null;
+  sourceProductId: string | null;
+  sourceVersion: string | null;
+  observationDate: string | null;
+  observedFrom: string | null;
+  observedThrough: string | null;
+  datePrecision: string | null;
+  sourceReceiptId: string | null;
+  originalRef: string | null;
+  originalHash: string | null;
+  firstAvailableAt: string | null;
+  unknownReason: string | null;
 }
 export interface CurrentEnvironment {
   portCode: string;

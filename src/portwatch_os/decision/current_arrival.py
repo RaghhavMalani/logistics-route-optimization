@@ -8,6 +8,7 @@ from datetime import timedelta
 import hashlib
 import json
 from src.portwatch_os.intelligence.current_environment import bundle, instant, finite
+from src.portwatch_os.intelligence.operational_quality import freeze_activity_context
 from src.portwatch_os.decision.model import (
     DecisionProblem, DecisionOption, DecisionEvaluation, DecisionObjective,
     ConstraintResult, OBJECTIVES, VESSEL_ROUTING, FEASIBLE, known, unknown,
@@ -41,7 +42,8 @@ def build_arrival_problem(vessel, request, actor, state, at):
         raise ValueError("No two consecutive clear forecast hours in the next 48h; no bounded arrival alternative")
     safe_at = max(planned, instant(rows[index]["validAt"]))
     wait = (safe_at-planned).total_seconds()/3600
-    frozen = {"portCode": port.locode, "voyageId": vessel.vessel_id, "source": source["source"],
+    frozen = {"evidenceVersion": "current-weather-approach-v2", "portCode": port.locode,
+        "voyageId": vessel.vessel_id, "source": source["source"],
         "snapshotId": source["snapshotId"], "responseSha256": source["responseSha256"],
         "issuedAt": source["issuedAt"], "observedAt": None, "availableAt": source["availableAt"],
         "earliestVoyageArrival": earliest.isoformat(), "plannedArrival": planned.isoformat(),
@@ -52,7 +54,9 @@ def build_arrival_problem(vessel, request, actor, state, at):
             "scope": "Port approach only; not an official JNPA limit, berth guarantee or bridge navigation instruction."},
         "hazardSnapshotId": data["sources"]["hazards"].get("snapshotId"),
         "hazardRelationship": "Regional context only; no hazard-to-delay formula used.",
-        "activityObservation": "2026-10-02; not refreshed or used as current approach weather",
+        # Context is frozen for inspection only, after all hourly gate calculations.
+        # It is not a continuation dependency, a delay input or a daily correction.
+        "activityContext": freeze_activity_context(port.locode, now=at),
         "meaning": "Current public forecast applied to a fictional voyage under explicit operating assumptions. Forecast-driven simulated wait, not observed delay."}
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()

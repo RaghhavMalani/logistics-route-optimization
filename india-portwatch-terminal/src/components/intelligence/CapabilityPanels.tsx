@@ -66,6 +66,8 @@ export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
     <Panel
       title="Weather-error learning"
       note="Original → corrected → observed"
+      className="shrink-0"
+      bodyClassName="flex-none overflow-visible"
     >
       <Section title="Forecast inspection">
         <label className="text-xs">

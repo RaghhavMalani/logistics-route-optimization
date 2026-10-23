@@ -17,10 +17,25 @@ function known(value: string | number | null | undefined): string {
 function date(value: string | null | undefined, precision?: string): string {
   if (value == null) return "Unknown";
   if (precision === "DATE_ONLY" || /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return `${value} (date only)`;
+    return `${value.slice(0, 10)} (date only)`;
   }
   const formatted = formatUtc(value);
   return formatted === "—" ? "Unknown" : formatted;
+}
+
+function EvidenceDetails({ label, value }: { label: string; value: unknown }) {
+  if (value == null || (Array.isArray(value) && value.length === 0))
+    return null;
+  return (
+    <details className="mt-2 border-t border-[var(--line)] pt-2 text-[10.5px] text-[var(--text-2)]">
+      <summary className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--info)]">
+        {label}
+      </summary>
+      <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px] [overflow-wrap:anywhere]">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    </details>
+  );
 }
 
 /** Read-only evidence view. Legacy provenance fields remain useful, while
@@ -62,6 +77,7 @@ export function SourceQualityInspector({
   const issues = quality?.quality;
   const unknowns = quality?.unknownReasons ?? [];
   const completeness = issues?.completeness;
+  const semantics = quality?.semantics;
   const portCodes = coverage?.portCodes;
   const portResolution =
     portCodes != null && portRegistry != null
@@ -146,9 +162,28 @@ export function SourceQualityInspector({
         <KeyValue label="Operational use" dense>
           {quality?.operationalUse ?? "Unknown"}
         </KeyValue>
+        <KeyValue label="Receipt / check status" dense>
+          {receipt?.status ?? "Unknown"}
+        </KeyValue>
+        {semantics ? (
+          <>
+            <KeyValue label="Product meaning" dense>
+              {known(semantics.dataKind ?? semantics.measurementKind)}
+            </KeyValue>
+            <KeyValue label="Consumer / interpretation" dense>
+              {known(semantics.consumerRole ?? semantics.meaning)}
+            </KeyValue>
+            <KeyValue label="First application receipt" dense>
+              {date(quality?.firstAvailableAt ?? semantics.firstAvailableAt)}
+            </KeyValue>
+            <KeyValue label="Provider publication" dense>
+              {date(semantics.providerPublicationAt ?? semantics.publishedAt)}
+            </KeyValue>
+          </>
+        ) : null}
         <KeyValue label="Last fetched" dense>
           <span className="num">
-            {date(receipt?.lastFetchedAt ?? source.fetched_at)}
+            {date(quality ? receipt?.lastFetchedAt : source.fetched_at)}
           </span>
         </KeyValue>
         <KeyValue label="Last checked" dense>
@@ -157,7 +192,7 @@ export function SourceQualityInspector({
         <KeyValue label="Source observation through" dense>
           <span className="num">
             {date(
-              coverage?.observedThrough ?? source.observed_at,
+              quality ? coverage?.observedThrough : source.observed_at,
               coverage?.datePrecision,
             )}
           </span>
@@ -189,12 +224,12 @@ export function SourceQualityInspector({
           <span className="num">
             {coverage?.observationAgeSeconds != null
               ? formatAge(coverage.observationAgeSeconds / 3600)
-              : source.ageHours != null
+              : !quality && source.ageHours != null
                 ? formatAge(source.ageHours)
                 : "Unknown"}
             {coverage?.observationFreshnessBudgetSeconds != null
               ? ` / ${formatAge(coverage.observationFreshnessBudgetSeconds / 3600)}`
-              : source.freshness_budget_hours != null
+              : !quality && source.freshness_budget_hours != null
                 ? ` / ${formatAge(source.freshness_budget_hours)}`
                 : " / budget unknown"}
           </span>
@@ -215,6 +250,44 @@ export function SourceQualityInspector({
           {known(provenance?.originalRef)} · hash{" "}
           {known(provenance?.originalHash)}
         </KeyValue>
+        <KeyValue label="Metadata / derivation version" dense>
+          {known(quality?.metadataVersion ?? quality?.projectionVersion)} /{" "}
+          {known(provenance?.derivationVersion)}
+        </KeyValue>
+        <KeyValue label="Accuracy evidence" dense>
+          {issues?.confidence == null
+            ? "Unknown; status weights and completeness are not calibrated accuracy."
+            : issues.confidence}
+        </KeyValue>
+        <EvidenceDetails
+          label="Requested coverage (separate from actual coverage)"
+          value={quality?.requestedCoverage}
+        />
+        <EvidenceDetails
+          label="Units, daily statistics and derivations"
+          value={
+            quality?.units?.length
+              ? quality.units
+              : semantics?.sourceUnits
+                ? {
+                    sourceUnits: semantics.sourceUnits,
+                    outputUnits: semantics.outputUnits,
+                  }
+                : null
+          }
+        />
+        <EvidenceDetails
+          label="Retained receipts and revisions"
+          value={quality?.sourceReceipts}
+        />
+        <EvidenceDetails
+          label="Product semantics and time precision"
+          value={semantics}
+        />
+        <EvidenceDetails
+          label="Distinct component products"
+          value={quality?.components}
+        />
 
         {issues?.issues.length ? (
           <div className="mt-2 border-t border-[var(--line)] pt-2">

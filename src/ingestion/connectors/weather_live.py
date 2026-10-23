@@ -34,6 +34,7 @@ import pandas as pd
 from src.utils import port_registry, provenance
 from src.utils.config import DATA_DIR, DATE, PORT_ID
 from src.utils.logging_utils import get_logger
+from src.ingestion import source_receipts
 
 log = get_logger(__name__)
 
@@ -71,12 +72,32 @@ def _fresh(path: Path, ttl: int) -> bool:
 def _fetch(url: str, params: dict, cache: Path, ttl: int,
            timeout: int = 30) -> tuple[Optional[list], str]:
     """Return (payload, mode) where mode is 'live', 'cache' or 'unavailable'."""
+    try:
+        with source_receipts.cache_lock(cache):
+            return _fetch_locked(url, params, cache, ttl, timeout)
+    except OSError:
+        # Optional receipt/lock files may be unwritable even when an existing
+        # source cache is readable. Preserve that numerical fallback without
+        # an uncoordinated network write or a fabricated receipt/check clock.
+        log.warning("Open-Meteo receipt lock unavailable; checking the existing parsed cache only.")
+        signature = hashlib.sha256(json.dumps({"url": url, "params": params}, sort_keys=True).encode()).hexdigest()
+        try:
+            if cache.with_suffix(".request").read_text(encoding="utf-8") == signature:
+                return json.loads(cache.read_text(encoding="utf-8")), "cache"
+        except (OSError, json.JSONDecodeError):
+            pass
+        return None, "unavailable"
+
+
+def _fetch_locked(url, params, cache, ttl, timeout):
     signature = hashlib.sha256(json.dumps({"url": url, "params": params}, sort_keys=True).encode()).hexdigest()
     signature_file = cache.with_suffix(".request")
     matches = signature_file.exists() and signature_file.read_text(encoding="utf-8") == signature
     if _fresh(cache, ttl) and matches:
         try:
-            return json.loads(cache.read_text(encoding="utf-8")), "cache"
+            payload = json.loads(cache.read_text(encoding="utf-8"))
+            _checked(cache, signature)
+            return payload, "cache"
         except (OSError, json.JSONDecodeError):
             pass
 
@@ -88,19 +109,41 @@ def _fetch(url: str, params: dict, cache: Path, ttl: int,
             payload = response.json()
             # A single-location query returns an object; batched returns a list.
             payload = payload if isinstance(payload, list) else [payload]
-            CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            cache.write_text(json.dumps(payload), encoding="utf-8")
-            signature_file.write_text(signature, encoding="utf-8")
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            source_receipts.atomic_json(cache, payload)
+            source_receipts.atomic_text(signature_file, signature)
+            try:
+                source_receipts.retain(cache, url, params, signature, response)
+            except (OSError, ValueError, TypeError):
+                # Evidence retention failure cannot fabricate an original or
+                # change existing weather values. Do not expose local paths.
+                try:
+                    source_receipts.atomic_json(source_receipts.sidecar_path(cache), {
+                        "schemaVersion": 1, "requestSignature": signature,
+                        "sourceReceiptId": None, "lastCheckedAt": source_receipts.now_iso(),
+                        "lastFetchedAt": None, "unknownReason": "Original response retention failed; original receipt is unknown."})
+                except OSError:
+                    pass
+                log.warning("Open-Meteo original response retention failed.")
             return payload, "live"
         except Exception as exc:
             log.warning("Open-Meteo fetch failed for %s (%s).", cache.stem, exc)
 
     if cache.exists() and matches:
         try:
-            return json.loads(cache.read_text(encoding="utf-8")), "cache"
+            payload = json.loads(cache.read_text(encoding="utf-8"))
+            _checked(cache, signature)
+            return payload, "cache"
         except (OSError, json.JSONDecodeError):
             pass
     return None, "unavailable"
+
+
+def _checked(cache, signature):
+    try:
+        source_receipts.checked(cache, signature)
+    except (OSError, ValueError, TypeError):
+        log.warning("Open-Meteo check metadata could not be retained.")
 
 
 def _daily_frame(payload: list, ports, field_map: dict) -> pd.DataFrame:
@@ -185,7 +228,8 @@ def fetch_archive_weather(start: pd.Timestamp,
         provider="Open-Meteo ERA5 archive",
         observed_at=frame[DATE].max(), rows=len(frame),
         freshness_hours=24 * 365,
-        fallback=None if mode == "live" else "local response cache")
+        fallback=None if mode == "live" else "local response cache",
+        source_quality=_quality("Weather history (Open-Meteo ERA5 archive)", mode))
     return frame
 
 
@@ -296,10 +340,23 @@ def fetch_port_weather(past_days: int = 92,
         "Marine weather (Open-Meteo)", mode, detail,
         provider="Open-Meteo (ERA5 blend + ICON/GFS forecast)",
         observed_at=observed, rows=len(frame), freshness_hours=24.0,
-        fallback=None if surface_mode == "live" else "local response cache")
+        fallback=None if surface_mode == "live" else "local response cache",
+        source_quality=_quality("Marine weather (Open-Meteo)", surface_mode))
 
     frame = _weather_feedback(frame, surface_mode, marine_mode)
     return frame.sort_values([PORT_ID, DATE]).reset_index(drop=True)
+
+
+def _quality(name, mode):
+    try:
+        from src.ingestion.weather_quality import quality_for_weather_source
+        return quality_for_weather_source(name, {"status": "LIVE" if mode == "live" else "CACHED_LIVE",
+            "fallback": None if mode == "live" else "local response cache"})
+    except Exception:
+        # Optional diagnostic metadata must not change numerical ingestion.
+        # Do not expose source payloads, local paths or private exception text.
+        log.warning("Open-Meteo source-quality metadata is unavailable; legacy source information retained.")
+        return None
 
 
 def _weather_feedback(frame: pd.DataFrame, surface_mode: str, marine_mode: str) -> pd.DataFrame:
