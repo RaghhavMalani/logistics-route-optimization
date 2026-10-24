@@ -577,6 +577,17 @@ def _weather(plan: OptionPlan, at: datetime, grid: Any) -> Tuple[Measure, Measur
     return wave, rough, (worst.wave_m if worst else None), marks
 
 
+def relative_passage_fuel_index(distance_nm, speed_kn, baseline_distance_nm, baseline_speed_kn):
+    """The shared hull-agnostic propulsion index, never a mass conversion.
+
+    Callers must keep auxiliary/holding fuel separate. This law alone cannot
+    support tonnes, a complete fuel objective or a financial saving.
+    """
+    if baseline_distance_nm <= 0 or baseline_speed_kn <= 0 or distance_nm < 0 or speed_kn <= 0:
+        raise ValueError("positive passage distance and speed are required")
+    return (distance_nm / baseline_distance_nm) * (speed_kn / baseline_speed_kn) ** 2
+
+
 def _fuel_index(plan: OptionPlan, context: VesselContext) -> Measure:
     """Burn relative to the plan: distance ratio times the square of the speed ratio.
 
@@ -593,7 +604,7 @@ def _fuel_index(plan: OptionPlan, context: VesselContext) -> Measure:
         rest = max(0.0, base_nm - choke)
         index = (choke / base_nm) * (plan.speed_kn / base_speed) ** 2 + rest / base_nm
     else:
-        index = (distance / base_nm) * (plan.speed_kn / base_speed) ** 2
+        index = relative_passage_fuel_index(distance, plan.speed_kn, base_nm, base_speed)
     return known(index, "index", basis="propeller law: burn per nm ∝ speed²; hull-agnostic",
                  confidence=0.5, distanceNm=round(distance, 0), speedKn=round(plan.speed_kn, 1))
 

@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
+import { PassagePlanInputs } from "./PassagePlanInputs";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { useCompanyFleet } from "@/services/os-hooks";
 import { useCreateDecision } from "@/services/decisions";
 import { getJson, postJson } from "@/services/api";
-import type { CurrentEnvironment } from "@/services/current-inputs";
+import type {
+  CurrentEnvironment,
+  DeclaredPassagePlan,
+} from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
 import { Button } from "@/components/ui/button";
 import { formatUtc, Pill } from "@/components/kit/primitives";
@@ -22,6 +26,9 @@ export function CurrentInputControl({
   const [arrival, setArrival] = useState("");
   const [gust, setGust] = useState(15);
   const [visibility, setVisibility] = useState(5000);
+  const [passagePlan, setPassagePlan] = useState<DeclaredPassagePlan | null>(
+    null,
+  );
   const fleet = useCompanyFleet();
   const vessel = fleet.data?.vessels.find((v) => v.vessel_id === vesselId);
   const port = vessel?.destination_port ?? "INNSA";
@@ -36,6 +43,13 @@ export function CurrentInputControl({
     enabled: open,
     staleTime: 30000,
   });
+  const earliest = Date.parse(vessel?.eta ?? "");
+  const hours = (inputs.data?.hourly ?? []).filter(
+    (r) =>
+      Date.parse(r.validAt) >= earliest &&
+      Date.parse(r.validAt) <= earliest + 72 * 3600000,
+  );
+  const selected = arrival || hours[0]?.validAt || "";
   const create = useCreateDecision(identityHeaders);
   const saved = useQuery({
     queryKey: ["saved-weather-comparisons"],
@@ -47,6 +61,14 @@ export function CurrentInputControl({
     enabled: session?.mode === "demo" && open,
     refetchInterval: 10000,
   });
+  const predecessor = [...(saved.data?.problems ?? [])]
+    .filter(
+      (p) =>
+        p.evidence.currentEnvironment &&
+        p.actor.role === "SHIPPING_COMPANY" &&
+        p.subject.id === vesselId,
+    )
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
   const resume = useMutation({
     mutationFn: (id: string) =>
       getJson<DecisionProblem>(`/decisions/problems/${id}`, identityHeaders),
@@ -59,7 +81,19 @@ export function CurrentInputControl({
     mutationFn: (id: string) =>
       postJson<DecisionProblem>(
         `/decisions/problems/${id}/refresh`,
-        {},
+        passagePlan &&
+          saved.data?.problems.some(
+            (p) => p.decisionId === id && p.subject.id === vesselId,
+          )
+          ? {
+              currentArrival: {
+                plannedArrival: selected,
+                maxGustKn: gust,
+                minVisibilityM: visibility,
+                passagePlan,
+              },
+            }
+          : {},
         identityHeaders,
       ),
     onSuccess: (problem) => {
@@ -68,13 +102,6 @@ export function CurrentInputControl({
     },
   });
   if (session?.mode !== "demo") return null;
-  const earliest = Date.parse(vessel?.eta ?? "");
-  const hours = (inputs.data?.hourly ?? []).filter(
-    (r) =>
-      Date.parse(r.validAt) >= earliest &&
-      Date.parse(r.validAt) <= earliest + 72 * 3600000,
-  );
-  const selected = arrival || hours[0]?.validAt || "";
   const today = new Date().toISOString().slice(0, 10);
   const fiveDay = new Date(
     Date.UTC(
@@ -149,6 +176,14 @@ export function CurrentInputControl({
                 comparison, approvals and advisories. The successor needs its
                 own review and approval.
               </p>
+              {predecessor ? (
+                <p className="break-all">
+                  New comparison links to {predecessor.decisionId}. For an
+                  expired passage declaration, enter updated passage inputs
+                  before refreshing its saved comparison; position is never
+                  advanced automatically.
+                </p>
+              ) : null}
               {resume.isError || refresh.isError ? (
                 <p role="alert">
                   {resume.error?.message ?? refresh.error?.message}
@@ -164,6 +199,7 @@ export function CurrentInputControl({
                     onChange={(e) => {
                       setVesselId(e.target.value);
                       setArrival("");
+                      setPassagePlan(null);
                     }}
                   >
                     {fleet.data?.vessels.map((v) => (
@@ -304,6 +340,12 @@ export function CurrentInputControl({
                       Waves and hazards are context here; no whole-route safety
                       or berth allocation is inferred.
                     </p>
+                    <PassagePlanInputs
+                      value={passagePlan}
+                      onChange={setPassagePlan}
+                      voyageEta={vessel?.eta ?? null}
+                      requestedArrival={selected}
+                    />
                     <Button
                       size="sm"
                       disabled={!selected || create.isPending}
@@ -312,10 +354,16 @@ export function CurrentInputControl({
                           {
                             domain: "vessel",
                             vesselId,
+                            ...(predecessor
+                              ? {
+                                  predecessorDecisionId: predecessor.decisionId,
+                                }
+                              : {}),
                             currentArrival: {
                               plannedArrival: selected,
                               maxGustKn: gust,
                               minVisibilityM: visibility,
+                              ...(passagePlan ? { passagePlan } : {}),
                             },
                           },
                           {
@@ -328,7 +376,7 @@ export function CurrentInputControl({
                       }
                     >
                       {create.isPending
-                        ? "Comparing dated arrival windows…"
+                        ? "Comparing frozen voyage inputs…"
                         : "Compare in the original decision panel"}
                     </Button>
                     {create.isError ? (

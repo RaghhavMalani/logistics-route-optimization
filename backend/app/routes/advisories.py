@@ -521,8 +521,17 @@ def modify_advisory(
         is_admin=(admin or "").lower() in ("1", "true", "yes"),
     )
     try:
-        advisory = get_advisory_store().modify(
-            advisory_id, dict(payload.get("changes") or {}),
+        store = get_advisory_store()
+        saved = store.require(advisory_id)
+        acting.assert_may_issue(saved)
+        changes = dict(payload.get("changes") or {})
+        if (saved.evidence.get("currentEnvironment") or {}).get("passagePlan") and any(
+            key not in saved.recommendation or saved.recommendation[key] != value
+            for key, value in changes.items()
+        ):
+            raise HTTPException(409,"This advisory carries the Company's frozen passage plan. Changed speed, departure, timing or other recommendation inputs require a linked successor comparison and fresh Company/Port approval.")
+        advisory = store.modify(
+            advisory_id, changes,
             principal=acting, reason=str(payload.get("reason") or ""),
         )
     except AuthorisationError as exc:

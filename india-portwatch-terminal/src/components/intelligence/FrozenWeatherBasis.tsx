@@ -1,5 +1,6 @@
 import { formatUtc } from "@/components/kit/primitives";
 import type { FrozenEnvironment } from "@/services/current-inputs";
+import { PassageComparison } from "./PassageComparison";
 
 export function FrozenWeatherBasis({
   evidence,
@@ -29,45 +30,51 @@ export function FrozenWeatherBasis({
         visibility ≥ {evidence.assumptions.minVisibilityM} m; two clear hourly
         forecasts. {evidence.assumptions.scope}
       </p>
-      <p>
-        Requested arrival {formatUtc(evidence.plannedArrival)} → clear approach{" "}
-        {formatUtc(evidence.firstClearApproach)}.
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <caption className="text-left">
-            Frozen option comparison · UTC
-          </caption>
-          <thead>
-            <tr>
-              <th>Option</th>
-              <th>Requested arrival</th>
-              <th>Clear approach</th>
-              <th>Assumed anchorage wait</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Continue plan</td>
-              <td>{formatUtc(evidence.plannedArrival)}</td>
-              <td>{formatUtc(evidence.firstClearApproach)}</td>
-              <td>{evidence.forecastGateWaitHours.toFixed(1)} h</td>
-            </tr>
-            <tr>
-              <td>Later arrival window</td>
-              <td>{formatUtc(evidence.firstClearApproach)}</td>
-              <td>{formatUtc(evidence.firstClearApproach)}</td>
-              <td>0 h</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>
-        Overall approach timing is unchanged. Later arrival reduces assumed
-        anchorage waiting; faster delivery and measured savings are not
-        established. Fuel, cost, berth availability and calibrated uncertainty
-        remain unavailable.
-      </p>
+      {evidence.passageComparison ? (
+        <PassageComparison evidence={evidence} />
+      ) : (
+        <>
+          <p>
+            Requested arrival {formatUtc(evidence.plannedArrival)} → clear
+            approach {formatUtc(evidence.firstClearApproach)}.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <caption className="text-left">
+                Frozen option comparison · UTC
+              </caption>
+              <thead>
+                <tr>
+                  <th>Option</th>
+                  <th>Requested arrival</th>
+                  <th>Clear approach</th>
+                  <th>Assumed anchorage wait</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Continue plan</td>
+                  <td>{formatUtc(evidence.plannedArrival)}</td>
+                  <td>{formatUtc(evidence.firstClearApproach)}</td>
+                  <td>{evidence.forecastGateWaitHours.toFixed(1)} h</td>
+                </tr>
+                <tr>
+                  <td>Later arrival window</td>
+                  <td>{formatUtc(evidence.firstClearApproach)}</td>
+                  <td>{formatUtc(evidence.firstClearApproach)}</td>
+                  <td>0 h</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Overall approach timing is unchanged. Later arrival reduces assumed
+            anchorage waiting; faster delivery and measured savings are not
+            established. Fuel, cost, berth availability and calibrated
+            uncertainty remain unavailable.
+          </p>
+        </>
+      )}
       <p>
         Calculation: hourly gust and visibility, requested arrival and operator
         limits. GDACS hazards, wave overlays and activity are contextual layers;
@@ -83,11 +90,13 @@ export function FrozenWeatherBasis({
           </p>
         ))}
       </details>
-      <p>
-        Without weather gate: {evidence.noWeatherGateWaitHours} h wait. Forecast
-        gate: {evidence.forecastGateWaitHours.toFixed(1)} h assumed anchorage
-        wait.
-      </p>
+      {!evidence.passageComparison ? (
+        <p>
+          Without weather gate: {evidence.noWeatherGateWaitHours} h wait.
+          Forecast gate: {evidence.forecastGateWaitHours.toFixed(1)} h assumed
+          anchorage wait.
+        </p>
+      ) : null}
       {evidence.activityContext ? (
         <details data-testid="frozen-activity-context">
           <summary>

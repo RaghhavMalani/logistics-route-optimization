@@ -51,6 +51,18 @@ ANCHOR_TOLERANCE_NM = 90.0
 Point = Tuple[float, float]  # (lat, lon)
 
 
+def sailing_hours(distance_nm: float, speed_kn: float) -> float:
+    """Time for a declared remaining passage: nm / (nm per hour).
+
+    It supplies no geometry, weather safety or current correction by itself.
+    """
+    import math
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+           for v in (distance_nm, speed_kn)) or distance_nm <= 0 or speed_kn <= 0:
+        raise ValueError("passage distance and speed must be finite positive numbers")
+    return distance_nm / speed_kn
+
+
 # --------------------------------------------------------------------------
 # the routing catalogue, read from the terminal's asset
 # --------------------------------------------------------------------------

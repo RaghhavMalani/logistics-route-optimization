@@ -153,11 +153,16 @@ export interface TimelineMark {
     | "sailing"
     | "restriction_start"
     | "restriction_end"
-    | "passage_request";
+    | "passage_request"
+    | "position"
+    | "departure_reference"
+    | "departure";
   // Authority constraints carry their own meaning instead of masquerading as
   // claim expiry or an observed vessel movement.
   subject: string;
   hours: number;
+  at?: string;
+  label?: string;
   waveM?: number | null;
 }
 

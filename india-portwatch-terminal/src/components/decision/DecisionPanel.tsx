@@ -206,11 +206,16 @@ export function DecisionPanel({
     FrozenEnvironment | undefined;
   const intelligence = problem.evidence?.intelligenceBasis as
     IntelligenceBasis | undefined;
+  const passageUnavailable = problem.evidence.passagePlanningUnavailable as
+    { reason: string; fallback: string; meaning: string } | undefined;
   const columns = currentWeather
     ? [
         { key: "eta", label: "Clear approach shift" },
         { key: "port_wait", label: "Assumed wait" },
         { key: "weather", label: "Wave" },
+        ...(currentWeather.passageComparison
+          ? [{ key: "fuel", label: "Modeled fuel" }]
+          : []),
         { key: "cost", label: "Cost" },
       ]
     : intelligence?.kind === "NOTICE_RESTRICTION"
@@ -299,10 +304,21 @@ export function DecisionPanel({
 
       {problem.evidence.currentEnvironment ? (
         <p className="px-2 py-2 text-xs">
-          Forecast approach comparison: both options reach the same clear
-          approach time. Later arrival reduces assumed anchorage waiting. The
-          closure-duration stress model does not apply; calibrated uncertainty
-          is unavailable.
+          {currentWeather?.passageComparison ? (
+            <>
+              Declared passage comparison: sailing, permitted holding and each
+              option's conditional approach use the frozen inputs. Port review
+              is advisory; vessel navigation remains the operator's decision.
+              Unknown costs are not zero.
+            </>
+          ) : (
+            <>
+              Forecast approach comparison: both options reach the same clear
+              approach time. Later arrival reduces assumed anchorage waiting.
+              The closure-duration stress model does not apply; calibrated
+              uncertainty is unavailable.
+            </>
+          )}
         </p>
       ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
         <p className="p-2 text-xs">
@@ -320,6 +336,15 @@ export function DecisionPanel({
       ) : (
         <RobustHeadline problem={problem} />
       )}
+      {passageUnavailable ? (
+        <p
+          role="status"
+          className="border-b border-[var(--line)] px-2 py-2 text-xs"
+        >
+          Passage planning unavailable: {passageUnavailable.reason}. Fallback:
+          arrival-window comparison only. {passageUnavailable.meaning}
+        </p>
+      ) : null}
 
       <PanelTabs
         value={tab}
@@ -468,7 +493,22 @@ export function DecisionPanel({
         ) : null}
 
         {tab === "robust" ? (
-          problem.evidence.currentEnvironment ? (
+          currentWeather?.passageComparison ? (
+            <div
+              className="space-y-2 p-2 text-xs"
+              data-testid="passage-policy-explanation"
+            >
+              <p>
+                {problem.recommendation?.statement ??
+                  "Insufficient basis: no feasible passage recommendation is available. Inspect the declared inputs and option constraints."}
+              </p>
+              <p>
+                Closure-duration stress horizons are not used for this declared
+                hourly approach comparison. Partial monetary components do not
+                establish a total cost or cheapest plan.
+              </p>
+            </div>
+          ) : problem.evidence.currentEnvironment ? (
             <p className="p-2 text-xs">
               This comparison uses hourly gust and visibility with explicit
               operator limits. Both options reach the same forecast-clear

@@ -16,6 +16,9 @@ same store, under the same authorisation, and nothing else can.
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -265,6 +268,31 @@ def create_problem(
     _domain_allowed_or_403(domain, _identity(role, actor_name, header_port, organisation, vessel_ids))
     basis = _basis_with_assumptions(engine, payload.get("assumptions") or [], actor_name or "operator")
     mode = payload.get("mode")
+    predecessor = None
+    successor_key = None
+    if payload.get("predecessorDecisionId"):
+        from src.portwatch_os.sandbox import current_sandbox
+        identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
+        if current_sandbox.get() is None or identity.role != "SHIPPING_COMPANY":
+            raise HTTPException(403,"Company creates linked successors in its own visitor world")
+        if domain != "vessel" or not isinstance(payload.get("currentArrival"), dict):
+            raise HTTPException(400,"A connected voyage successor requires currentArrival inputs")
+        predecessor = engine.get(str(payload["predecessorDecisionId"]))
+        if predecessor is None:
+            raise HTTPException(404,"No predecessor comparison in this visitor's records")
+        _visible_or_403(predecessor, identity)
+        if not connected_basis(predecessor) or predecessor.actor.role != "SHIPPING_COMPANY" or predecessor.subject_id != payload.get("vesselId"):
+            raise HTTPException(409,"The predecessor must be this Company's connected comparison for the same voyage")
+        try:
+            successor_key = hashlib.sha256(json.dumps({
+                "vesselId": payload.get("vesselId"), "currentArrival": payload["currentArrival"],
+                "assumptions": payload.get("assumptions") or [],
+            }, sort_keys=True, allow_nan=False).encode()).hexdigest()
+        except (ValueError, TypeError):
+            raise HTTPException(400,"Successor inputs must contain finite JSON values") from None
+        prior_id = (predecessor.evidence.get("successorRequests") or {}).get(successor_key)
+        if prior_id and engine.get(prior_id):
+            return engine.get(prior_id).to_dict()
 
     try:
         if domain == "vessel":
@@ -279,6 +307,15 @@ def create_problem(
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    if predecessor is not None:
+        problem.evidence["predecessorDecisionId"] = predecessor.decision_id
+        predecessor.evidence["successorDecisionId"] = problem.decision_id
+        successors = predecessor.evidence.setdefault("successorDecisionIds", [])
+        if problem.decision_id not in successors:
+            successors.append(problem.decision_id)
+        predecessor.evidence.setdefault("successorRequests", {})[successor_key] = problem.decision_id
+        engine._record(problem)
+        engine._record(predecessor)
     return problem.to_dict()
 
 
@@ -552,6 +589,9 @@ def transition_problem(
     from src.portwatch_os.decision.continuation import connected_basis
     environment = connected_basis(held)
     if target == APPROVED and environment:
+        proposal = held.evidence.get("companyProposal") or {}
+        if environment.get("passagePlan") and proposal and payload.get("optionId") != proposal.get("optionId"):
+            raise HTTPException(409,"Port review must preserve the Company's selected passage plan. Company must create and approve a linked successor to propose a different plan.")
         from src.portwatch_os.decision.continuation import require_current
         require_current(held)
         from src.portwatch_os.intelligence.current_environment import instant
@@ -766,6 +806,13 @@ def _approved_operational_action(problem: DecisionProblem, option) -> Optional[D
             "measurementTargets": targets,
             "action": option.action, "parameters": option.params, "decisionId": problem.decision_id,
             "optionId": option.option_id, "evidenceId": basis["evidenceId"],
+            **({"passageCalculation": {
+                "version": (basis.get("passageComparison") or {}).get("version"),
+                "inputVersion": (basis.get("passageComparison") or {}).get("inputVersion") or option.params.get("passagePlanVersion"),
+                "inputs": copy.deepcopy(basis["passagePlan"]),
+                "selected": copy.deepcopy(option.evaluation.derived),
+                "financial": copy.deepcopy(option.evaluation.financial),
+            }} if basis.get("passagePlan") else {}),
             "approvedAt": next((h["at"] for h in problem.workflow_history if h["state"] == "APPROVED"), None),
             "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None}
 
@@ -775,6 +822,19 @@ def _recipients_for(problem: DecisionProblem, option, payload: Dict[str, Any]) -
     if problem.domain == VESSEL_ROUTING:
         derived = option.evaluation.derived if option.evaluation else {}
         if connected_basis(problem):
+            if connected_basis(problem).get("passagePlan"):
+                return [{"vesselId":problem.subject_id,"vesselName":problem.subject_label,"kind":"arrival_window",
+                    "recommendation":{
+                        "recommendedArrival":derived["arrivalAt"], "approachClearAt":derived.get("approachClearAt"),
+                        "action":option.action, "recommendedSpeedKn":derived.get("speedKn"),
+                        "departureAt":derived.get("departureAt"),
+                        "arrivalShiftHours":derived["arrivalShiftHours"], "holdHours":derived["holdHours"],
+                        "sailingHours":derived.get("sailingHours"), "anchorageWaitHours":derived.get("anchorageWaitHours"),
+                        "totalElapsedHours":derived.get("totalElapsedHours"),
+                        "scheduleShiftHours":derived.get("scheduleShiftHours"), "deadlineMet":derived.get("deadlineMet"),
+                        "passagePlanVersion":option.params.get("passagePlanVersion"),
+                        "basis":"Company-proposed passage under frozen operator inputs and hourly approach forecasts; Port review is advisory and does not command vessel navigation"},
+                    "organisation":payload.get("recipientOrganisation")}]
             return [{"vesselId":problem.subject_id,"vesselName":problem.subject_label,"kind":"arrival_window",
                 "recommendation":{"recommendedArrival":derived["arrivalAt"],"approachClearAt":derived.get("approachClearAt"),
                     "arrivalShiftHours":derived["arrivalShiftHours"],"holdHours":derived["holdHours"],

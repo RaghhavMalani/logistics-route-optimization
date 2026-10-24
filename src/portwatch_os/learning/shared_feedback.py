@@ -511,6 +511,13 @@ def operational_action_basis(basis, option):
         'requestedArrivalAt': derived.get('arrivalAt'),
         'requestedPassageAt': derived.get('requestedPassageAt'),
         'referenceArrivalAt': basis.get('earliestVoyageArrival') or basis['plannedArrival'],
+        **({'declaredRemainingPassage': {
+            **{key: basis['passagePlan'].get(key) for key in (
+                'schemaVersion', 'referenceKind', 'referenceAt', 'referenceLabel',
+                'remainingDistanceNm', 'distanceBasis', 'geometry', 'baselineArrivalAt',
+                'departureHoldPermitted', 'departureHoldLocation')},
+            'requestedApproachAt': basis['plannedArrival'],
+        }} if basis.get('passagePlan') else {}),
         'declaredPassage': {key: plan.get(key) for key in
             ('areaId', 'route', 'direction', 'characteristics', 'passageAt',
              'postPassageHours', 'alternativeAccess', 'openingRequired',

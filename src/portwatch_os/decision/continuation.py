@@ -103,6 +103,28 @@ def weather_explanation(problem):
     rec = problem.recommendation
     if rec is None:
         return
+    environment = problem.evidence.get("currentEnvironment") or {}
+    if environment.get("passagePlan"):
+        chosen = problem.option(rec.option_id)
+        derived = chosen.evaluation.derived if chosen and chosen.evaluation else {}
+        ranking = rec.ranking_basis or {}
+        used = ", ".join(ranking.get("objectivesUsed") or []) or "none"
+        dropped = ", ".join(ranking.get("objectivesDropped") or []) or "none"
+        rec.policy = "declared-passage-comparison-v1"
+        rec.why = (
+            ("Keep the current declared passage plan. " if chosen and chosen.is_baseline else
+             "Conditional passage alternative for Company and Vessel review. ")
+            + f"Selected approach arrival {derived.get('arrivalAt', 'unavailable')}; "
+              f"conditional clear approach {derived.get('approachClearAt', 'unavailable')}. "
+              "Each option uses its own sailing time and relevant hourly gust/visibility forecasts under the frozen operator limits. "
+              f"Existing ranking objectives used: {used}; dropped or unavailable: {dropped}. "
+              "Fuel and monetary components are modeled only where their displayed quantities, consumption assumptions and applicable rates support them; partial costs are not total savings. "
+              "The Port reviews an advisory proposal and does not command navigation. GDACS remains regional context. "
+              "No measured saving, berth availability, whole-route safety or official clearance is established."
+        )
+        rec.statement = rec.why
+        rec.robustness = None
+        return
     rec.policy = "forecast-approach-comparison-v1"
     rec.why = ("Both options reach the same forecast-clear approach time. Later requested arrival reduces assumed anchorage waiting; overall port access is unchanged. "
                "Gust and visibility forecasts and operator limits drive this comparison. GDACS is regional context. "

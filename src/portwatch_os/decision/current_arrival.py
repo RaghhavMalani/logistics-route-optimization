@@ -91,7 +91,7 @@ def build_arrival_problem(vessel, request, actor, state, at):
             timeline=[{"at": arrival.isoformat(), "kind": "arrival", "label": "Requested demo arrival"},
                       {"at": safe_at.isoformat(), "kind": "weather", "label": "First forecast-clear approach under assumed limits"}])
         options.append(option)
-    return DecisionProblem(decision_id=decision_id,created_at=at.isoformat(),domain=VESSEL_ROUTING,
+    problem = DecisionProblem(decision_id=decision_id,created_at=at.isoformat(),domain=VESSEL_ROUTING,
         world_revision=state.summary()["revision"],world_state_id=state.state_id+":"+frozen["evidenceId"],
         subject_type="vessel",subject_id=vessel.vessel_id,subject_label=vessel.name,actor=actor,at=at.isoformat(),
         objectives=[DecisionObjective("eta","Clear approach shift","hours","min","Time to a clear approach under the assumed forecast gate"), OBJECTIVES["port_wait"]],
@@ -102,3 +102,7 @@ def build_arrival_problem(vessel, request, actor, state, at):
         headline=f"{vessel.name}: current forecast versus an assumed approach gate at {port.locode}",
         do_nothing_statement=f"Without this weather gate: 0h assumed weather wait. With the consumed forecast: {wait:.1f}h at anchor, clear at {safe_at.isoformat()}.",
         notes=[frozen["meaning"],"No berth assignment or whole-voyage weather safety claim is made."])
+    if request.get("passagePlan") is not None:
+        from .passage import extend_arrival_problem
+        return extend_arrival_problem(problem, request["passagePlan"], data, at=at)
+    return problem
