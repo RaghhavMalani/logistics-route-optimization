@@ -100,6 +100,7 @@ export function DecisionTimeline({
             type="button"
             data-testid="timeline-row"
             data-option={option.optionId}
+            aria-pressed={selected}
             onClick={() => onSelect(option.optionId)}
             className="group relative h-[18px] w-full rounded text-left hover:bg-[var(--surface-2)]"
             title={option.label}

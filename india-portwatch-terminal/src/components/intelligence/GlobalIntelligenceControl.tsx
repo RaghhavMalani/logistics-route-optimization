@@ -27,12 +27,14 @@ export function GlobalIntelligenceControl({
   onEvent,
   onVessel,
   onDecision,
+  hideLauncher = false,
 }: {
   portCode: string | null;
   onPort: (code: string) => void;
   onEvent: (id: string) => void;
   onVessel: (id: string) => void;
   onDecision?: (problem: DecisionProblem) => void;
+  hideLauncher?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -44,9 +46,11 @@ export function GlobalIntelligenceControl({
   }, []);
   return (
     <div className="absolute bottom-[164px] right-3 z-30 pointer-events-auto">
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        Global intelligence
-      </Button>
+      {!hideLauncher ? (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          Global intelligence
+        </Button>
+      ) : null}
       {open
         ? createPortal(
             <div

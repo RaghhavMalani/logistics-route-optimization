@@ -106,7 +106,12 @@ function OptionEvidence({ option }: { option: PassageOptionComparison }) {
             )}
             . Operator assumptions; no measured saving or cheapest-plan claim.
           </p>
-          <div className="max-w-full overflow-x-auto">
+          <div
+            className="max-w-full overflow-x-auto"
+            role="region"
+            tabIndex={0}
+            aria-label={`${option.label} component costs, scroll horizontally for all measures`}
+          >
             <table className="w-full text-left">
               <caption className="text-left">
                 Modeled variable components and unavailable costs
@@ -232,6 +237,7 @@ export function PassageComparison({
       </p>
       <div
         className="max-w-full overflow-x-auto"
+        role="region"
         tabIndex={0}
         aria-label="Passage schedule comparison, scroll horizontally for all measures"
       >

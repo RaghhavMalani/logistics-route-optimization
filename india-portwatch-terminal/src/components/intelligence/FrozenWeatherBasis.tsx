@@ -10,7 +10,7 @@ export function FrozenWeatherBasis({
   const first = evidence.consumedForecasts[0];
   return (
     <div
-      className="space-y-1 border-b border-[var(--line)] px-2 py-2 text-[10.5px] text-[var(--text-2)]"
+      className="min-w-0 space-y-1 border-b border-[var(--line)] px-2 py-2 text-xs text-[var(--text-2)] [overflow-wrap:anywhere]"
       data-testid="frozen-weather-basis"
     >
       <strong className="text-[var(--text)]">
@@ -38,7 +38,12 @@ export function FrozenWeatherBasis({
             Requested arrival {formatUtc(evidence.plannedArrival)} → clear
             approach {formatUtc(evidence.firstClearApproach)}.
           </p>
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto"
+            role="region"
+            tabIndex={0}
+            aria-label="Frozen arrival-window schedule, scroll horizontally for all measures"
+          >
             <table className="w-full text-left">
               <caption className="text-left">
                 Frozen option comparison · UTC

@@ -87,7 +87,7 @@ export function GlobalEyeScreen({
   const workspace = useWorkspaceMap({
     layerOverrides: { events: true, routes: true, cascade: true },
   });
-  const { identityHeaders } = useAuth();
+  const { identityHeaders, session } = useAuth();
   const { role } = useWorkspace();
 
   // Selection, lens and horizon live in the world context rather than here, so
@@ -143,6 +143,12 @@ export function GlobalEyeScreen({
   const createDecision = useCreateDecision(identityHeaders);
   const decision = useDecision(world.decisionId);
   const decisionOpen = Boolean(world.decisionId);
+  const [currentInputsOpen, setCurrentInputsOpen] = useState(false);
+  // These controls share the inspector's map space. The weather action moves
+  // into the inspector while it is open rather than floating over its results.
+  const inspectorOpen = Boolean(
+    decisionOpen || evidenceOpen || workspace.selectedObservedMmsi,
+  );
   const decisionLayerData = useMemo(
     () =>
       decisionLayers(
@@ -364,6 +370,7 @@ export function GlobalEyeScreen({
     <div className="absolute inset-0">
       <h1 className="sr-only">{title}</h1>
       <GlobalIntelligenceControl
+        hideLauncher={inspectorOpen}
         onDecision={
           scope === "company"
             ? (problem) => {
@@ -394,6 +401,9 @@ export function GlobalEyeScreen({
       />
       {scope === "company" ? (
         <CurrentInputControl
+          open={currentInputsOpen}
+          onOpenChange={setCurrentInputsOpen}
+          hideLauncher={inspectorOpen}
           onDecision={(problem) => {
             world.selectVessel(problem.subject.id);
             world.openDecision(
@@ -546,6 +556,11 @@ export function GlobalEyeScreen({
                       canHandoff={canHandoff}
                       onRecompute={recompute}
                       recomputing={createDecision.isPending}
+                      onEditCurrentInputs={
+                        scope === "company" && session?.mode === "demo"
+                          ? () => setCurrentInputsOpen(true)
+                          : undefined
+                      }
                     />
                   ) : decision.isError ? (
                     <p className="px-2 py-3 text-[10.5px] text-[var(--crit)]">
