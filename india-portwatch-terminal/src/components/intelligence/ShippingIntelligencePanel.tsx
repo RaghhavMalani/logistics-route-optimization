@@ -120,7 +120,11 @@ export function ShippingIntelligencePanel({
       className="mt-3 border border-[var(--line)] p-3 text-[11px]"
       data-testid="shipping-intelligence"
     >
-      <SharedFeedbackPanel onDecision={onDecision} />
+      <SharedFeedbackPanel
+        onDecision={onDecision}
+        vesselId={vesselId}
+        onVesselChange={setVesselId}
+      />
       <OperationalEvidencePanel />
       <NavigationRestrictionPanel onDecision={onDecision} />
       <OperationalNoticePanel onDecision={onDecision} />

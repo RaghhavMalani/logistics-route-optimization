@@ -117,10 +117,13 @@ def _task_source(payload, *, destination_port=None):
             raise HTTPException(409, str(exc))
         # wall-clock: source assessment is bounded by real information availability.
         assessed_at = wall_now().isoformat()
+        from src.portwatch_os.ledger.store import get_ledger
+        frozen=feedback.freeze_consumption(public,get_ledger(),[item['id']],assessed_at)
         return {"id": item["id"], "claimId": item["id"], "category": "news", "title": item["wording"],
             "fact": item["wording"], "source": item["source"], "responseSha256": item["responseSha256"],
             "availableAt": item["firstAvailableAt"], "status": "UNRESOLVED", "claim": item,
-            "verification": feedback.current_assessment(public, item, as_of=assessed_at),
+            "verification": frozen['inputs'][0]['assessment'],
+            "feedbackConsumption":frozen,
             "relationship": "Reported evidence requiring source and voyage confirmation; no quantified operational delay"}
     finally:
         public.close()
@@ -139,6 +142,33 @@ def review_tasks():
     from src.portwatch_os.intelligence.evidence_dispositions import project_task
     dispositions = get_ledger().feedback("review-task-disposition")
     rows = [project_task(row, [d for d in dispositions if d["taskId"] == row["id"]]) for row in rows]
+    # Only the visitor's consumed claims are checked. Public counts/descriptive
+    # weights are not dependencies, and this projection never rewrites tasks.
+    if any((row.get('source') or {}).get('claim') for row in rows):
+        from src.portwatch_os.learning import intelligence_reconciliation as collector
+        from src.portwatch_os.learning import shared_feedback as feedback
+        public=collector.open_public();at=wall_now().isoformat()
+        try:
+            for row in rows:
+                source=row.get('source') or {};item=source.get('claim')
+                if not item:continue
+                current=feedback.news_assessment(public,item,at)
+                reason='Consumed source assessment and applicability are unchanged; no numerical action is inferred'
+                changed=[]
+                frozen=source.get('feedbackConsumption') or {'inputs':[{'claim':item,'assessment':source.get('verification')} ]}
+                try:
+                    feedback.require_consumption(public,frozen,now=at)
+                    if feedback.retained_original_status(public,item):
+                        raise ValueError('Consumed original is unavailable or corrupt; review remains required')
+                    initial=source.get('verification')
+                    if initial and feedback.assessment_dependency(current)!=feedback.assessment_dependency(initial):
+                        raise ValueError('Consumed verification or applicability changed; inspect current source evidence and request fresh review')
+                except ValueError as exc:
+                    changed=['consumedVerificationOrApplicability'];reason=str(exc)
+                row['sourceReview']={'status':'REVIEW_REQUIRED' if changed else 'UNCHANGED','asOf':at,
+                    'reason':reason,'requiresFreshReview':bool(changed),'currentAssessment':current,
+                    'changedFields':changed,'realOperationalTargetsAdded':0}
+        finally:public.close()
     return {"tasks": sorted(rows, key=lambda row: (row["createdAt"], row["id"]), reverse=True),
         "meaning": "Durable requests to verify evidence and exposure, not voyage approvals, measured effects or executed actions"}
 

@@ -18,6 +18,18 @@ export function IntelligenceReviewTasks() {
         Source accuracy and passage exposure need separate verification. These
         records do not approve an action, change an arrival or prove execution.
       </p>
+      <button
+        type="button"
+        className="my-2 rounded border border-[var(--line)] px-2 py-1 text-xs"
+        disabled={q.isFetching}
+        onClick={() => void q.refetch()}
+      >
+        Check consumed source state
+      </button>
+      <p>
+        These current task checks use the wall clock, separately from the
+        feedback archive's as-of view.
+      </p>
       {q.isError ? <p role="alert">{q.error.message}</p> : null}
       {q.data?.tasks.length === 0 ? (
         <p>No task requested in this visitor world.</p>
@@ -28,6 +40,43 @@ export function IntelligenceReviewTasks() {
             {task.status} · {formatUtc(task.createdAt)}
           </summary>
           <p>{task.reason}</p>
+          {task.sourceReview ? (
+            <div
+              className="my-2 min-w-0 border border-[var(--line)] p-2 text-xs [overflow-wrap:anywhere]"
+              data-testid="task-source-review"
+            >
+              <p
+                role={
+                  task.sourceReview.requiresFreshReview ? "status" : undefined
+                }
+              >
+                <strong>
+                  {task.sourceReview.status === "REVIEW_REQUIRED"
+                    ? "Consumed source changed — fresh review required"
+                    : "Consumed source unchanged"}
+                </strong>
+              </p>
+              <p>{task.sourceReview.reason}</p>
+              <p>
+                Checked as of {formatUtc(task.sourceReview.asOf)}. Changed
+                dependencies:{" "}
+                {task.sourceReview.changedFields.join(", ") || "none"}.
+              </p>
+              {task.sourceReview.currentAssessment ? (
+                <p>
+                  Current source assessment{" "}
+                  {task.sourceReview.currentAssessment.verdict}; applicability{" "}
+                  {task.sourceReview.currentAssessment.applicability}.{" "}
+                  {task.sourceReview.currentAssessment.reason}
+                </p>
+              ) : null}
+              <p>
+                Original task status and frozen evidence remain {task.status}.
+                This source review adds zero real operational targets and does
+                not approve an action.
+              </p>
+            </div>
+          ) : null}
           {task.dispositions?.map((review) => (
             <div
               className="border border-[var(--line)] p-2 my-2"

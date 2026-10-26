@@ -5,6 +5,13 @@ import pytest
 from src.portwatch_os.ledger.store import SqliteLedgerStore
 from src.portwatch_os.learning import shared_feedback as f
 
+
+from tests.feedback_originals import NEWS_ORIGINAL, AUTHORITY_ORIGINAL, retain_test_originals
+
+@pytest.fixture(autouse=True)
+def _retained_news_originals(tmp_path):
+    retain_test_originals(tmp_path)
+
 ORIGIN='2026-10-13T10:00:00+00:00'
 LATER='2026-10-20T10:00:00+00:00'
 
@@ -35,7 +42,7 @@ def actual(store,item,value, **changes):
         'actionBasisSha256':item['actionBasisSha256'],'metricBasisSha256':item['metricBasisSha256'],
         'executedAt':'2026-10-17T12:00:00+00:00','observedAt':'2026-10-18T23:00:00+00:00',
         'firstAvailableAt':LATER,'unit':'hours','aggregation':'SELECTED_VOYAGE_OPTION','value':value,
-        'recordKind':'ACTUAL_OPERATIONAL_RECORD','responseSha256':'b'*64, **changes})
+        'recordKind':'ACTUAL_OPERATIONAL_RECORD','responseSha256':AUTHORITY_ORIGINAL, **changes})
 
 
 def test_generated_identity_counts_distinct_calls_same_vessel_same_port(tmp_path):
@@ -231,8 +238,8 @@ def test_actual_revisions_exclude_fit_but_wrong_entity_or_measurement_do_not(tmp
 def report(store,entity,at=ORIGIN):
     item=f.news_report(store,wording='Specific announcement '+entity,source='Authority '+entity,
         source_version='v1',independence_key='Authority '+entity,event_key=entity+':window',entity=entity,
-        geography='Geography '+entity,target={'kind':'ANNOUNCEMENT','from':'2026-10-15','through':'2026-10-15'},
-        first_available_at=at,published_at=at,response_sha256='a'*64)
+        geography='Geography '+entity,target={'kind':'ANNOUNCEMENT','predicate':'OPERATOR_ANNOUNCED_LOCK_CLOSURE','from':'2026-10-15','through':'2026-10-15'},
+        first_available_at=at,published_at=at,response_sha256=NEWS_ORIGINAL)
     f.verify_news(store,item,at)
     return item
 
@@ -273,7 +280,7 @@ def test_relevant_contradiction_or_cancellation_requires_successor(tmp_path, rec
         'entity':item['entity'],'geography':item['geography'],'source':'Independent operator',
         'sourceVersion':'operator-v1','independenceKey':'Independent operator',
         'firstAvailableAt':at,'observedAt':at,'unit':item['unit'],'aggregation':item['aggregation'],
-        'value':value,'recordKind':record_kind,'responseSha256':'b'*64,
+        'value':value,'recordKind':record_kind,'responseSha256':AUTHORITY_ORIGINAL,
         **({'cancelsSourceVersion':item['sourceVersion']} if record_kind=='CANCELLATION' else {})})
     result=f.verify_news(public,item,at)
     if record_kind=='CANCELLATION':
@@ -320,4 +327,38 @@ def test_discovered_policy_is_not_applied_to_review_only_comparison(tmp_path):
     later=f.freeze_consumption(public,private,[item['id']],LATER)
     assert later['appliedDependencies']==[f.neutral_dependency(item)]
     assert 'Review context only' in later['effect']
+    public.close();private.close()
+
+
+def test_new_consumption_freezes_current_news_before_worker_assessment_and_tracks_later_change(tmp_path):
+    """A fresh review must not wait for the worker to persist an identical view."""
+    public=SqliteLedgerStore(tmp_path/'public.db');private=SqliteLedgerStore(tmp_path/'private.db')
+    item=report(public,'A')
+    stored=f.current_assessment(public,item,as_of=ORIGIN)
+    at='2026-10-13T11:00:00+00:00'
+    corroboration=f.evidence(public,{'eventKey':item['eventKey'],'target':item['target'],
+        'entity':item['entity'],'geography':item['geography'],'source':'Independent operator',
+        'sourceVersion':'operator-v1','independenceKey':'Independent operator',
+        'firstAvailableAt':at,'observedAt':at,'unit':item['unit'],'aggregation':item['aggregation'],
+        'value':True,'recordKind':'OPERATOR_RECORD','responseSha256':AUTHORITY_ORIGINAL})
+    assert stored['verdict']=='UNRESOLVED'
+    frozen=f.freeze_consumption(public,private,[item['id']],at)
+    assert frozen['inputs'][0]['assessmentBasis']=='CURRENT_AS_OF_PROJECTION_V1'
+    assert frozen['inputs'][0]['assessment']['verdict']=='CORROBORATED'
+    assert f.current_assessment(public,item,as_of=at)==stored
+    f.require_consumption(public,frozen,now=at)
+    # Worker persistence and unrelated reports do not invalidate this snapshot.
+    f.verify_news(public,item,at)
+    report(public,'B',at)
+    f.require_consumption(public,frozen,now=LATER)
+    changed='2026-10-20T11:00:00+00:00'
+    f.evidence(public,{**{k:v for k,v in corroboration.items() if k!='id'},
+        'sourceVersion':'operator-v2','value':False,'firstAvailableAt':changed,'observedAt':changed,
+        'supersedes':corroboration['id']})
+    with pytest.raises(ValueError,match='verification changed'):
+        f.require_consumption(public,frozen,now=changed)
+    successor=f.freeze_consumption(public,private,[item['id']],changed)
+    assert successor['inputs'][0]['assessment']['verdict']=='CONTRADICTED'
+    f.require_consumption(public,successor,now=changed)
+    assert private.feedback('consumption',frozen['id'])[0]==frozen
     public.close();private.close()

@@ -6,6 +6,13 @@ from src.portwatch_os.ledger.store import SqliteLedgerStore, LedgerError
 from src.portwatch_os.learning import shared_feedback as f
 from src.portwatch_os.learning import intelligence_reconciliation as collector
 
+
+from tests.feedback_originals import NEWS_ORIGINAL, AUTHORITY_ORIGINAL, retain_test_originals
+
+@pytest.fixture(autouse=True)
+def _retained_news_originals(tmp_path):
+    retain_test_originals(tmp_path)
+
 ORIGIN = "2026-10-13T10:00:00+00:00"
 LATER = "2026-10-19T21:00:00+00:00"
 
@@ -18,8 +25,8 @@ def fx(store, tmp_path):
 def report(store, source="Reuters", wording="The operator announced a closure", target_kind="ANNOUNCEMENT"):
     return f.news_report(store, wording=wording, source=source, source_version=source+":v1", independence_key="Reuters wire",
         event_key="operator-notice:17", entity="Lock A", geography="Canal control area",
-        target={"kind": target_kind, "from": "2026-10-15", "through": "2026-10-17"},
-        first_available_at=ORIGIN, published_at=ORIGIN, response_sha256="a"*64)
+        target={"kind": target_kind, "predicate":"OPERATOR_ANNOUNCED_LOCK_CLOSURE", "from": "2026-10-15", "through": "2026-10-17"},
+        first_available_at=ORIGIN, published_at=ORIGIN, response_sha256=NEWS_ORIGINAL)
 
 
 def authority(store, item, **changes):
@@ -27,7 +34,7 @@ def authority(store, item, **changes):
         "geography": item["geography"], "source": "Canal authority log", "sourceVersion": "authority-v1",
         "independenceKey": "Canal authority", "firstAvailableAt": LATER, "observedAt": "2026-10-15T12:00:00+00:00",
         "unit": "boolean", "aggregation": "EXPLICIT_NEWS_TARGET", "value": True,
-        "recordKind": "AUTHORITY_RECORD", "responseSha256": "b"*64, **changes})
+        "recordKind": "AUTHORITY_RECORD", "responseSha256": AUTHORITY_ORIGINAL, **changes})
 
 
 def test_syndication_is_one_event_not_multiple_observations(tmp_path):
@@ -88,7 +95,7 @@ def test_persistence_observations_missing_dates_revision_and_restart(tmp_path):
     assert len([e for e in store.feedback("evidence") if e["eventKey"] == "DEXINUS:2026-10-14"]) == 1
     actual = next(e for e in store.feedback("evidence") if e["eventKey"] == "DEXINUS:2026-10-14")
     f.evidence(store, {**{k:v for k,v in actual.items() if k != "id"}, "value":1200,
-        "recordKind":"SIMULATED", "firstAvailableAt":"2026-10-20T09:00:00+00:00"})
+        "recordKind":"SIMULATED", "observedAt": "2026-10-14T12:00:00+00:00", "firstAvailableAt":"2026-10-20T09:00:00+00:00"})
     assert f.reliability_version(store, "2026-10-20T10:00:00+00:00")["slices"][0]["independentTargets"] == 1
     collector.collect_fx(store, raw.replace(b"97.31", b"97.50"), "2026-10-20T11:00:00+00:00", tmp_path)
     assert store.get_prediction(item["id"]).observed_value == 97.31
@@ -114,7 +121,7 @@ def test_wrong_units_identity_availability_and_simulation_do_not_score(tmp_path,
         "geography": item["geography"], "source": "Federal Reserve H.10", "sourceVersion": "new-vintage",
         "independenceKey": "Federal Reserve H.10", "firstAvailableAt": LATER,
         "observedAt": "2026-10-14T00:00:00+00:00", "unit": f.FX_UNIT, "aggregation": f.FX_AGGREGATION,
-        "value": 97.31, "recordKind": "ECONOMIC_OBSERVATION", "responseSha256": "b"*64, **change})
+        "value": 97.31, "recordKind": "ECONOMIC_OBSERVATION", "responseSha256": AUTHORITY_ORIGINAL, **change})
     assert f.reconcile(store, LATER)[0] == 0
     assert store.get_prediction(item["id"]).observed_value is None
     store.close()
@@ -196,7 +203,10 @@ def test_context_stays_nonnumerical_and_review_task_recovers_across_roles(tmp_pa
     assert client.post(task_path,headers=headers,json={**request,'claimId':'another-claim'}).status_code==409
     for role in ('PORT_AUTHORITY','VESSEL_OPERATOR','NATIONAL_ADMIN'):
         store.switch(token,role)
-        assert client.get(task_path,headers=headers).json()['tasks']==[task]
+        projected=client.get(task_path,headers=headers).json()['tasks'][0]
+        assert {k:v for k,v in projected.items() if k!='sourceReview'}==task
+        assert projected['sourceReview']['status']=='UNCHANGED'
+        assert projected['sourceReview']['realOperationalTargetsAdded']==0
         assert client.post(task_path,headers=headers,json=request).status_code==403
     assert not client.get(BASE+'/intelligence/feedback/impacts',headers=headers).json()['claims']
     other=store.create('SHIPPING_COMPANY');other_headers={'Authorization':'Bearer '+other['accessToken']}
@@ -235,7 +245,7 @@ def test_legacy_approved_targets_without_episode_and_execution_stay_unscored(tmp
         record={"eventKey":item["eventKey"],"target":item["target"],"entity":item["entity"],"geography":item["geography"],
             "source":"Independent operator log fixture","sourceVersion":"record-1","independenceKey":"Operator",
             "independentTargetKey":"one-voyage-one-wait","firstAvailableAt":LATER,"observedAt":"2026-10-15T13:00:00+00:00",
-            "unit":"hours","aggregation":"SELECTED_VOYAGE_OPTION","value":4,"recordKind":"ACTUAL_OPERATIONAL_RECORD","responseSha256":"b"*64}
+            "unit":"hours","aggregation":"SELECTED_VOYAGE_OPTION","value":4,"recordKind":"ACTUAL_OPERATIONAL_RECORD","responseSha256":AUTHORITY_ORIGINAL}
         f.evidence(store,record)
         assert f.reconcile(store,LATER)[0]==0  # Counterfactual/unapproved cannot settle.
         store.append_feedback("selected-impact",{"id":item["id"],"decisionId":decision})

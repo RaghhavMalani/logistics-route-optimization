@@ -6,6 +6,13 @@ from src.portwatch_os.ledger.store import SqliteLedgerStore
 from src.portwatch_os.learning import shared_feedback as feedback
 from src.portwatch_os.learning import news_vintages as vintages
 
+
+from tests.feedback_originals import NEWS_ORIGINAL, AUTHORITY_ORIGINAL, retain_test_originals
+
+@pytest.fixture(autouse=True)
+def _retained_news_originals(tmp_path):
+    retain_test_originals(tmp_path)
+
 T0 = '2026-10-10T10:00:00+00:00'
 T1 = '2026-10-11T10:00:00+00:00'
 T2 = '2026-10-12T10:00:00+00:00'
@@ -24,7 +31,7 @@ def body(value=10, *, version='v1', at=T0, document='wire:report-17', lineage='W
         'source': 'https://source.example/'+document, 'sourceVersion': version,
         'sourceLineageId': lineage, 'sourceReportId': document, 'sourceRevisionId': version,
         'eventKey': 'OPERATOR:VESSELS', 'eventReference': 'OPERATOR:VESSELS',
-        'independenceKey': lineage, 'inputs': [], 'responseSha256': 'a'*64,
+        'independenceKey': lineage, 'inputs': [], 'responseSha256': NEWS_ORIGINAL,
         'unit': 'vessels', 'aggregation': 'EXPLICIT_NEWS_TARGET',
         **({'supersedesClaimId': parent} if parent else {}),
         **({'supersedesClaimIds': parents} if parents is not None else {})}
@@ -40,7 +47,7 @@ def authority(store, item, value=10, *, at=T3, **changes):
         'source': 'https://authority.example/log', 'sourceVersion': 'authority:v1',
         'independenceKey': 'Independent operator', 'sourceLineageId': 'Independent operator',
         'firstAvailableAt': at, 'observedAt': at, 'unit': item['unit'], 'aggregation': item['aggregation'],
-        'value': value, 'recordKind': 'AUTHORITY_RECORD', 'responseSha256': 'b'*64, **changes})
+        'value': value, 'recordKind': 'AUTHORITY_RECORD', 'responseSha256': AUTHORITY_ORIGINAL, **changes})
 
 
 def view(store, at=T4):
@@ -256,7 +263,7 @@ def test_legacy_headline_count_keys_remain_one_ambiguous_family_not_known_events
             entity='Strait of Hormuz',geography='Hormuz / Iranian-port blockade',
             target={'kind':'ANNOUNCEMENT','predicate':'CENTCOM_REPORTED_CUMULATIVE_REDIRECTIONS',
                     'reportedPeriod':'UNKNOWN; article reporting period unavailable'},
-            first_available_at=at,published_at=None,response_sha256='a'*64,value=count,unit='vessels')
+            first_available_at=at,published_at=None,response_sha256=NEWS_ORIGINAL,value=count,unit='vessels')
     result=view(store)
     assert len({row['eventFamilyId'] for row in result['claims']})==1
     assert result['summary']['independentTargets']==0 and result['summary']['eventCount']==0
@@ -270,7 +277,7 @@ def test_reviewed_legacy_navcen_identity_adapts_without_rewriting_original(tmp_p
     legacy={'kind':'REPORTED_FACT','wording':'Bridge held closed from 04:30 to 10:15 local',
         'value':True,'entity':'WRIGHTSVILLE_SR74','geography':'Atlantic Intracoastal Waterway at Wrightsville Beach, North Carolina',
         'originAt':T0,'firstAvailableAt':T0,'source':'https://www.navcen.uscg.gov/sites/default/files/msi/bridge_1.geojson',
-        'sourceVersion':'retained-legacy-revision','responseSha256':'a'*64,
+        'sourceVersion':'retained-legacy-revision','responseSha256':NEWS_ORIGINAL,
         'target':{'kind':'ANNOUNCEMENT','from':'2026-10-17T08:30:00+00:00','through':'2026-10-17T14:15:00+00:00',
                   'timeZoneBasis':'OPERATOR_CONFIRMED_GEOGRAPHIC_ASSUMPTION'},
         'eventKey':'USCG MSI #53842:2026-10-17:WRIGHTSVILLE_SR74','independenceKey':'USCG NAVCEN',
@@ -285,11 +292,13 @@ def test_reviewed_legacy_navcen_identity_adapts_without_rewriting_original(tmp_p
     b=record(store,upgraded)
     assert vintages.identity(a)['targetId']==vintages.identity(b)['targetId']
     authority(store,a,value=True)
-    assert feedback.verify_news(store,b,T4)['verdict']=='CORROBORATED'
+    assessment=feedback.verify_news(store,b,T4)
+    assert assessment['verdict']=='UNRESOLVED'
+    assert 'UNQUALIFIED_LEGACY_PREDICATE' in assessment['exclusionReasons']
     result=view(store)
     assert result['summary']['independentTargets']==1 and result['summary']['reportCount']==1
     assert result['summary']['revisionCount']==2
-    assert result['targets'][0]['status']=='ELIGIBLE'
+    assert result['targets'][0]['status']=='EXCLUDED'
     assert result['targets'][0]['activeClaimIds']==[b['id']]
     assert store.feedback('claim',a['id'])[0]==a
     assert 'eventReference' not in store.feedback('claim',a['id'])[0]
@@ -339,15 +348,11 @@ def test_inspection_hides_future_outcomes_matches_and_scores_without_deleting_th
     store=SqliteLedgerStore(tmp_path/'ledger.db')
     report=record(store,body())
     authority(store,report,at=T3)
-    forecast=feedback.freeze_fx(store,{'value':96.31,'unit':feedback.FX_UNIT,
-        'aggregation':feedback.FX_AGGREGATION,'observedAt':'2026-10-09T16:00:00+00:00',
-        'firstAvailableAt':T0,'target':{'date':'2026-10-09'},'responseSha256':'c'*64},
-        T0,target_date='2026-10-12')
-    outcome=feedback.evidence(store,{'eventKey':forecast['eventKey'],'target':forecast['target'],
-        'entity':forecast['entity'],'geography':forecast['geography'],'source':'Synthetic FX observation',
-        'sourceVersion':'outcome-v1','independenceKey':'Independent FX series','firstAvailableAt':T4,
-        'observedAt':T2,'unit':forecast['unit'],'aggregation':forecast['aggregation'],'value':97.31,
-        'recordKind':'ECONOMIC_OBSERVATION','responseSha256':'d'*64})
+    from src.portwatch_os.learning import intelligence_reconciliation as collector
+    quote=collector.collect_fx(store,b'observation_date,DEXINUS\n2026-10-09,96.31\n',T0,tmp_path)[0]
+    forecast=feedback.freeze_fx(store,quote,T0,target_date='2026-10-12')
+    collector.collect_fx(store,b'observation_date,DEXINUS\n2026-10-09,96.31\n2026-10-12,97.31\n',T4,tmp_path)
+    outcome=next(e for e in store.feedback('evidence') if e['eventKey']==forecast['eventKey'])
     assert feedback.reconcile(store,T4)[0]==1
     earlier=feedback.inspect(store,T1)
     shown={c['id']:c for c in earlier['claims']}

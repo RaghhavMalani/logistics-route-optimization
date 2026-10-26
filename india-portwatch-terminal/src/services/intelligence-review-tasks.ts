@@ -17,6 +17,24 @@ const tasksSchema = z.object({
         createsOperationalTarget: z.literal(false),
         vesselId: z.string(),
         taskQuestion: z.string().optional(),
+        sourceReview: z
+          .object({
+            status: z.enum(["UNCHANGED", "REVIEW_REQUIRED"]),
+            asOf: z.string(),
+            reason: z.string(),
+            requiresFreshReview: z.boolean(),
+            currentAssessment: z
+              .object({
+                verdict: z.string(),
+                applicability: z.string(),
+                reason: z.string(),
+              })
+              .passthrough()
+              .nullable(),
+            changedFields: z.array(z.string()),
+            realOperationalTargetsAdded: z.literal(0),
+          })
+          .optional(),
         source: z
           .object({
             operationalEvidence: z

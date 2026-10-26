@@ -67,7 +67,11 @@ def test_explicit_provider_revision_link_survives_reversed_import_and_restart(tm
         earlier=f.news_vintages.aggregate(store,NOW.isoformat())
         current=f.news_vintages.aggregate(store,(NOW+timedelta(minutes=2)).isoformat())
         assert earlier['summary']['claimCount']==1 and current['summary']['independentTargets']==1
-        assert all(row['status']=='ELIGIBLE' for row in current['targets'])
+        # The retained legacy NAVCEN target has no exact predicate. Its explicit
+        # revision graph remains stable, but this is not qualified assessment
+        # evidence until a separately available interpretation supplies one.
+        assert all(row['status']=='EXCLUDED' for row in current['targets'])
+        assert all('UNQUALIFIED_LEGACY_PREDICATE' in row['exclusionReasons'] for row in current['targets'])
         assert all(len(row['activeClaimIds'])==1 and len(row['supersededClaimIds'])==1 for row in current['targets'])
         views.append([(row['targetId'],row['status'],len(row['activeClaimIds'])) for row in current['targets']])
         store.close()
@@ -88,6 +92,7 @@ def test_missing_unavailable_and_unsupported_products_never_cancel_or_inherit_cl
 
 def test_worker_collects_all_features_and_reports_provider_failure(tmp_path,monkeypatch,collection_clock):
     from src.portwatch_os.intelligence import navigation_restrictions as n, operational_notices
+    from src.portwatch_os.learning import reviewed_news
     from backend.app.services import cache_service
     first=retained(tmp_path,monkeypatch)
     second={**copy.deepcopy(first),'providerNoticeId':'synthetic-second','noticeId':'NAVCEN_MSI:synthetic-second',
@@ -95,6 +100,10 @@ def test_worker_collects_all_features_and_reports_provider_failure(tmp_path,monk
     monkeypatch.setattr(c,'DB',tmp_path/'worker.db')
     monkeypatch.setattr(c.requests,'get',lambda *args,**kwargs:SimpleNamespace(content=b'DATE,DEXINUS\n2026-10-13,95.0\n',raise_for_status=lambda:None))
     monkeypatch.setattr(operational_notices,'refresh',lambda:{})
+    # This test's HTTP stub is the FX request only. A separate reviewed-report
+    # outage must neither reuse FX bytes as HTML nor stop NAVCEN collection.
+    monkeypatch.setattr(reviewed_news,'refresh_gac_eastham',lambda *args,**kwargs:{
+        'status':'UNAVAILABLE','reason':'Synthetic independent reviewed-report outage'})
     monkeypatch.setattr(cache_service,'get_news_bundle',lambda:{})
     monkeypatch.setattr(n,'refresh_all',lambda:{'sourceStatus':'CURRENT','checkedAt':NOW.isoformat(),'notices':[first,second]})
     def legacy_default(*args,**kwargs):
@@ -105,6 +114,7 @@ def test_worker_collects_all_features_and_reports_provider_failure(tmp_path,monk
     monkeypatch.setattr(c,'collect_news_product',lambda *args,**kwargs:None)
     result=c.run_once()
     assert result['navigation']['discovered']==2 and result['navigation']['claimsCollected']==4
+    assert any(row['source']=='GAC Eastham announcement' and 'Synthetic independent' in row['reason'] for row in result['failures'])
     store=SqliteLedgerStore(c.DB)
     assert len({r['providerNoticeId'] for r in store.feedback('claim')})==2
     store.close()

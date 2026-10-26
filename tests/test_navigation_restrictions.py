@@ -11,6 +11,7 @@ from src.portwatch_os.intelligence import navigation_restrictions as n
 from src.portwatch_os.learning import intelligence_reconciliation as collector
 from src.portwatch_os.learning import shared_feedback as f
 from src.portwatch_os.ledger.store import SqliteLedgerStore
+from tests.feedback_originals import AUTHORITY_ORIGINAL, retain_test_originals
 
 RAW=Path(__file__).parent/'fixtures/navigation_restrictions/navcen-msi-20261014.geojson'
 NOW=datetime(2026,10,14,10,tzinfo=timezone.utc)
@@ -67,8 +68,9 @@ def test_reviewed_original_clock_precision_exemption_and_consequence():
     with pytest.raises(ValueError,match='absence is not cancellation'):n.parse(json.dumps(changed).encode())
 
 
-def test_collector_receipts_revisions_cancellation_and_independent_confirmation(tmp_path,monkeypatch):
+def test_collector_receipts_revisions_cancellation_preserve_legacy_predicate_quarantine(tmp_path,monkeypatch):
     source=retained(tmp_path,monkeypatch); store=SqliteLedgerStore(tmp_path/'ledger.db')
+    retain_test_originals(tmp_path)
     claims=collector.collect_navigation(store,source);collector.collect_navigation(store,source)
     assert len(store.feedback('claim'))==2
     assert all(f.current_assessment(store,c)['verdict']=='UNRESOLVED' for c in claims)
@@ -78,13 +80,19 @@ def test_collector_receipts_revisions_cancellation_and_independent_confirmation(
         'target':announcement['target'],'source':'Synthetic independent operator authority fixture','sourceVersion':'fixture-v1',
         'independenceKey':'Independent operator','firstAvailableAt':(NOW+timedelta(minutes=1)).isoformat(),
         'observedAt':NOW.isoformat(),'unit':'boolean','aggregation':'EXPLICIT_NOTICE_WINDOW','value':True,
-        'recordKind':'OPERATOR_RECORD','responseSha256':'b'*64}
+        'recordKind':'OPERATOR_RECORD','responseSha256':AUTHORITY_ORIGINAL}
     f.evidence(store,authority)
-    assert f.verify_news(store,announcement,(NOW+timedelta(minutes=2)).isoformat())['verdict']=='CORROBORATED'
+    # The original target lacks an exact predicate. Even retained independent
+    # evidence must not retroactively qualify that legacy interpretation.
+    assessment=f.verify_news(store,announcement,(NOW+timedelta(minutes=2)).isoformat())
+    assert assessment['verdict']=='UNRESOLVED'
+    assert 'UNQUALIFIED_LEGACY_PREDICATE' in assessment['exclusionReasons']
     assert f.verify_news(store,actual,(NOW+timedelta(minutes=2)).isoformat())['verdict']=='UNRESOLVED'
     # A syndicated/derived copy cannot confirm the authority's own report.
     f.evidence(store,{**authority,'independenceKey':'USCG NAVCEN','derivedFrom':'USCG NAVCEN','value':False})
-    assert f.verify_news(store,announcement,(NOW+timedelta(minutes=2)).isoformat())['verdict']=='CORROBORATED'
+    assessment=f.verify_news(store,announcement,(NOW+timedelta(minutes=2)).isoformat())
+    assert assessment['verdict']=='UNRESOLVED'
+    assert 'SELF_REFERENCE_OR_SYNDICATED_ORIGIN' in assessment['exclusionReasons']
     revision={**source,'revisionId':'new-reviewed-version','previousRevisionId':source['revisionId'],
         'availableAt':(NOW+timedelta(minutes=3)).isoformat()}
     newer=collector.collect_navigation(store,revision)
@@ -92,7 +100,8 @@ def test_collector_receipts_revisions_cancellation_and_independent_confirmation(
     cancelled={**source,'status':'CANCELLED','revisionId':'cancellation-v1','availableAt':(NOW+timedelta(minutes=4)).isoformat()}
     collector.collect_navigation(store,cancelled)
     assessment=f.current_assessment(store,announcement)
-    assert assessment['verdict']=='CORROBORATED' and assessment['applicability']=='SUPERSEDED'
+    assert assessment['verdict']=='UNRESOLVED' and assessment['applicability']=='SUPERSEDED'
+    assert 'UNQUALIFIED_LEGACY_PREDICATE' in assessment['exclusionReasons']
     assert f.current_assessment(store,actual)['verdict']=='UNRESOLVED'
     assert len(store.feedback('claim'))==4
     store.close()

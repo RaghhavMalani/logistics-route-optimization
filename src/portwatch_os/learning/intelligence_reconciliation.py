@@ -3,7 +3,6 @@
 No visitor worlds are enumerated. Quotes are observations. Only an explicitly
 frozen future persistence claim is scored when the matching release arrives.
 """
-import csv
 import io
 import json
 import logging
@@ -17,8 +16,9 @@ from src.portwatch_os.clock import wall_now
 from src.portwatch_os.ledger.store import SqliteLedgerStore, DEFAULT_LEDGER_PATH
 from src.portwatch_os.intelligence.current_environment import ROOT
 from src.portwatch_os.learning import shared_feedback as feedback
+from src.portwatch_os.learning import economic_feedback as economic
 
-DB = DEFAULT_LEDGER_PATH
+DB = Path(os.getenv('PORTWATCH_PUBLIC_FEEDBACK_DB') or DEFAULT_LEDGER_PATH)
 STOP = threading.Event()
 LOCK = threading.Lock()
 THREAD = None
@@ -30,7 +30,7 @@ def open_public():
     return SqliteLedgerStore(DB)
 
 
-def retain_response(store, raw, source, received, root=ROOT):
+def retain_response(store, raw, source, received, root=ROOT, *, product=None, request_metadata=None):
     digest = feedback.hashlib.sha256(raw).hexdigest()
     archive = Path(root)/"shared_feedback"
     archive.mkdir(parents=True, exist_ok=True)
@@ -39,44 +39,57 @@ def retain_response(store, raw, source, received, root=ROOT):
         raise ValueError("Source archive hash mismatch")
     if not path.exists():
         path.write_bytes(raw)
-    store.append_feedback("receipt", {"id": feedback.identifier([digest, received]), "responseSha256": digest,
-        "source": source, "receivedAt": received, "providerPublishedAt": None})
+    previous = [row for row in store.feedback("receipt") if row.get("responseSha256") == digest and row.get("source") == source]
+    if not previous:
+        store.append_feedback("receipt", {"id": feedback.identifier(["public-source-receipt-v2", source, digest, product]),
+            "responseSha256": digest, "source": source, "receivedAt": received, "firstAvailableAt": received,
+            "providerPublishedAt": None, "productId": product, "requestMetadata": request_metadata,
+            "archivePath": str(path.resolve()), "originalBytesRetained": True})
+    check = {"source": source, "productId": product, "responseSha256": digest, "checkedAt": received,
+             "status": "HASH_VERIFIED", "requestMetadata": request_metadata}
+    store.append_feedback("receipt-check", {**check, "id": feedback.identifier(check)})
     return digest
 
 
-def collect_fx(store, raw, received, root=ROOT):
-    digest = retain_response(store, raw, URL, received, root)
-    rows = csv.DictReader(io.StringIO(raw.decode("utf-8-sig")))
-    if rows.fieldnames not in (["observation_date", "DEXINUS"], ["DATE", "DEXINUS"]):
-        raise ValueError("Unexpected DEXINUS CSV schema")
-    date_key = rows.fieldnames[0]
+def collect_fx(store, raw, received, root=ROOT, *, request_metadata=None):
+    digest = retain_response(store, raw, URL, received, root, product=economic.PRODUCT,
+        request_metadata={"url": URL, "series": "DEXINUS", "format": "CSV", "derivationVersion": "fred-dexinus-date-only-v2",
+                          "requestParameters": None, "requestScopeMeaning": "Caller supplied response; exact network parameters unavailable",
+                          **(request_metadata or {})})
+    try:
+        rows = economic.parse_fx_csv(raw)
+    except ValueError:
+        record_fx_check(store, received, "MALFORMED_RESPONSE", digest=digest,
+                        reason="Retained response failed the reviewed DEXINUS CSV schema/date/value checks")
+        raise
     observations = []
-    for row in rows:
-        day = row[date_key]
-        measured = day + "T00:00:00+00:00"
-        if feedback.instant(measured).date() > feedback.instant(received).date():
+    for day, value in sorted(rows.items()):
+        if economic._date(day) > feedback.instant(received).date():
             continue
-        if row["DEXINUS"] in (".", "", "NA"):
+        if value is None:
             store.append_feedback("missing-date", {"id": "DEXINUS:" + day, "date": day,
                 "source": URL, "responseSha256": digest, "firstAvailableAt": received}) if not store.feedback("missing-date", "DEXINUS:" + day) else None
+            missing = {"date": day, "series": "DEXINUS", "source": URL, "responseSha256": digest,
+                       "firstAvailableAt": received, "reason": "Publisher supplies no observation; holiday cause is not inferred"}
+            missing_id = feedback.identifier(["DEXINUS-missing-v2", day, digest])
+            if not store.feedback("economic-missing-observation", missing_id):
+                store.append_feedback("economic-missing-observation", {**missing, "id": missing_id})
             continue
-        value = float(row["DEXINUS"])
-        if not feedback.finite(value) or value <= 0:
-            raise ValueError("Invalid DEXINUS observation")
         # The first receipt of this date/value retains its original vintage.
         vintages = [e for e in store.feedback("evidence") if e["eventKey"] == "DEXINUS:" + day
                     and e["recordKind"] == "ECONOMIC_OBSERVATION"
                     and e["source"] == "Federal Reserve H.10 via FRED DEXINUS"
                     and e["unit"] == feedback.FX_UNIT and e["aggregation"] == feedback.FX_AGGREGATION]
-        latest = max(vintages, key=lambda e: e["firstAvailableAt"]) if vintages else None
+        latest = max(vintages, key=lambda e: (feedback.instant(e["firstAvailableAt"]), e["id"])) if vintages else None
         if latest and latest["value"] == value:
             observations.append(latest); continue
         outcome = feedback.evidence(store, {"eventKey": "DEXINUS:" + day,
             "target": {"kind": "ECONOMIC_OBSERVATION", "series": "DEXINUS", "date": day,
-                       "at": day+"T16:00:00+00:00", "timePrecision": "OBSERVATION_DATE_ONLY; UTC timestamp is an eligibility label"},
+                       "timePrecision": "DATE_ONLY"},
             "entity": "USD/INR", "geography": "India / New York reference rate", "source": "Federal Reserve H.10 via FRED DEXINUS",
             "sourceVersion": digest, "independenceKey": "Federal Reserve H.10", "firstAvailableAt": received,
-            "observedAt": measured, "measurementTimePrecision": "DATE_ONLY; New York noon buying rate, not closing price",
+            "observedAt": None, "observationDate": day, "measurementTimePrecision": "DATE_ONLY",
+            "productId": economic.PRODUCT, "baseCurrency": "USD", "quoteCurrency": "INR", "statistic": feedback.FX_AGGREGATION,
             "providerPublishedAt": None, "availabilityBasis": "First PortWatch receipt; historical publication vintage unavailable",
             "unit": feedback.FX_UNIT, "aggregation": feedback.FX_AGGREGATION, "value": value,
             "recordKind": "ECONOMIC_OBSERVATION", "responseSha256": digest,
@@ -84,9 +97,20 @@ def collect_fx(store, raw, received, root=ROOT):
         observations.append(outcome)
     if observations:
         quote = max(observations, key=lambda e: (e["target"]["date"], e["firstAvailableAt"]))
-        if (feedback.instant(received)-feedback.instant(quote["observedAt"])).days <= 14:
+        if (feedback.instant(received).date()-economic._date(economic.observation_date(quote))).days <= 14:
             feedback.freeze_fx(store, quote, received)
+    record_fx_check(store, received, "CURRENT", digest=digest, observations=len(observations),
+                    latest_observation=max((economic.observation_date(row) for row in observations), default=None))
     return observations
+
+
+def record_fx_check(store, checked_at, status, *, digest=None, reason=None, observations=None, latest_observation=None):
+    """Append public source-check diagnostics to the existing ledger."""
+    body = {"source": "DEXINUS", "productId": economic.PRODUCT, "checkedAt": checked_at, "status": status,
+            "responseSha256": digest, "reason": reason, "observationsInResponse": observations,
+            "latestObservationDate": latest_observation, "providerPublishedAt": None,
+            "meaning": "Fetch/check time is distinct from original first receipt, observation date and actual provider publication"}
+    return store.append_feedback("economic-source-check", {**body, "id": feedback.identifier(body)})
 
 
 def collect_notice(store, notice):
@@ -261,18 +285,40 @@ def run_once():
     status = {"status": "COLLECTING", "ranAt": wall_now().isoformat(), "failures": []}
     try:
         try:
-            response = requests.get(URL, params={"id": "DEXINUS", "cosd": (wall_now()-feedback.timedelta(days=45)).date().isoformat(),
-                                                "coed": wall_now().date().isoformat()}, timeout=(4, 20))
+            request_params = {"id": "DEXINUS", "cosd": (wall_now()-feedback.timedelta(days=45)).date().isoformat(),
+                              "coed": wall_now().date().isoformat()}
+            response = requests.get(URL, params=request_params, timeout=(4, 20))
             response.raise_for_status()
-            status["observations"] = len(collect_fx(store, response.content, wall_now().isoformat()))
-        except (requests.RequestException, ValueError) as exc:
-            status["failures"].append({"source": "DEXINUS", "reason": str(exc)[:180]})
+            status["observations"] = len(collect_fx(store, response.content, wall_now().isoformat(),
+                request_metadata={"requestParameters": request_params, "requestScopeMeaning": "Exact parameters sent by the existing six-hour worker"}))
+        except requests.RequestException:
+            reason = "DEXINUS provider request failed; the last retained observation is not reused as a new outcome"
+            record_fx_check(store, wall_now().isoformat(), "PROVIDER_UNAVAILABLE", reason=reason)
+            status["failures"].append({"source": "DEXINUS", "reason": reason})
+        except (ValueError, OSError):
+            reason = "DEXINUS source response or original-evidence validation failed; retained records remain inspectable"
+            latest = sorted(store.feedback("economic-source-check"), key=lambda row: (row["checkedAt"], row["id"]))
+            if not latest or latest[-1]["status"] != "MALFORMED_RESPONSE":
+                record_fx_check(store, wall_now().isoformat(), "ORIGINAL_VALIDATION_FAILED", reason=reason)
+            status["failures"].append({"source": "DEXINUS", "reason": reason})
+        notice = {}
         try:
             from src.portwatch_os.intelligence.operational_notices import refresh
             notice = refresh()
             collect_notice(store, notice)
         except (ValueError, KeyError, OSError) as exc:
             status["failures"].append({"source": "Peel Ports", "reason": str(exc)[:180]})
+        # A primary-notice fetch/parser failure must not suppress this separate
+        # report's check or original retention on the existing worker.
+        try:
+            from src.portwatch_os.learning.reviewed_news import refresh_gac_eastham
+            status["reviewedNews"] = refresh_gac_eastham(store, notice)
+            if status['reviewedNews'].get('status') != 'RETAINED':
+                status['failures'].append({'source':'GAC Eastham announcement',
+                    'reason':status['reviewedNews'].get('reason') or 'Reviewed source evidence is not currently qualified'})
+        except (requests.RequestException, ValueError, OSError):
+            status["reviewedNews"] = {"status": "UNAVAILABLE", "reason": "Reviewed GAC announcement evidence unavailable or unsupported; no resolution inferred"}
+            status["failures"].append({"source": "GAC Eastham announcement", "reason": status["reviewedNews"]["reason"]})
         try:
             from src.portwatch_os.intelligence.navigation_restrictions import refresh_all
             catalogue=refresh_all()
@@ -299,6 +345,8 @@ def run_once():
             status["failures"].append({"source": "News source product", "reason": str(exc)[:180]})
         status["resolved"], status["pending"] = feedback.reconcile(store, wall_now().isoformat())
         status["reliabilityVersion"] = feedback.reliability_version(store, wall_now().isoformat())["id"]
+        status['completedAt']=wall_now().isoformat()
+        status['firstAvailableAt']=status['completedAt']
         store.append_feedback("run", {**status, "id": feedback.identifier(status)})
         return status
     finally:

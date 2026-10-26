@@ -8,9 +8,52 @@ from datetime import date, datetime, timezone
 import hashlib
 import json
 import re
+from urllib.parse import urlparse
 
 POLICY = 'EXPLICIT_SUPERSESSION_AS_OF_V1'
 NEWS_KINDS = {'ANNOUNCEMENT', 'ACTUAL_EVENT', 'CANCELLATION'}
+
+
+def primary_announcement_verification(report, evidence):
+    """A primary notice attests the reviewed secondary report's attribution.
+
+    Both documents retain the same originating-authority lineage. This narrow
+    exception is not independent reporting, actual-closure evidence or authority
+    self-confirmation. The caller separately verifies original hashes/clocks.
+    """
+    family = 'GAC_EASTHAM_NOTICE_ANNOUNCEMENT_V1'
+    reference = 'MNTM 2026-18'
+    authority = 'Peel Ports:MNTM 2026-18'
+    target = report.get('target', {})
+    if (report.get('reviewedSourceFamily') != family
+            or evidence.get('reviewedSourceFamily') != family
+            or report.get('sourceRole') != 'SECONDARY_ATTRIBUTED_REPORT'
+            or evidence.get('sourceRole') != 'PRIMARY_AUTHORITY_NOTICE'
+            or evidence.get('recordKind') != 'AUTHORITY_RECORD'
+            or evidence.get('verificationMode') != 'PRIMARY_DOCUMENT_ATTESTS_ATTRIBUTED_ANNOUNCEMENT'
+            or target.get('kind') != 'ANNOUNCEMENT'
+            or target.get('predicate') != 'AUTHORITY_NOTICE_ANNOUNCED_LOCK_CLOSURE'
+            or target.get('authorityNoticeRef') != reference
+            or evidence.get('target') != target
+            or report.get('entity') != 'EASTHAM_80_LOCK'
+            or evidence.get('entity') != report.get('entity')
+            or report.get('geography') != 'Eastham 80-foot Lock, Manchester Ship Canal'
+            or evidence.get('geography') != report.get('geography')
+            or period(target).get('status') != 'KNOWN'
+            or period(target).get('precision') != 'DATE_ONLY'
+            or lineage(report) != authority or lineage(evidence) != authority
+            or report.get('derivedFrom') != authority
+            or report.get('attributedAuthorityLineageId') != authority
+            or report.get('sourceReportId') != 'https://www.gac.com/hot-port-news/upcoming-lock-closures'
+            or evidence.get('sourceReportId') != reference
+            or not report.get('sourceRevisionId') or not evidence.get('sourceRevisionId')
+            or not report.get('responseSha256') or not evidence.get('responseSha256')
+            or report['responseSha256'] == evidence['responseSha256']):
+        return False
+    primary = urlparse(str(evidence.get('source', '')))
+    return (report.get('source') == report['sourceReportId']
+            and primary.scheme == 'https' and primary.hostname == 'www.peelports.com'
+            and bool(re.search(r'/mntm[-_]2026[-_]18[^/]*eastham[^/]*lock\.pdf$', primary.path, re.I)))
 
 
 def _hash(kind, value):
@@ -225,6 +268,11 @@ def aggregate(store, as_of, *, assessment_for=None):
         values = {_value(row) for row in heads}
         if len(values) > 1: why.add('UNRESOLVED_SAME_TARGET_VALUE_CONFLICT')
         assessments = [assessment_for(row) if assessment_for else _assessment(store, row, as_of) for row in heads]
+        for assessment in assessments:
+            why.update(code for code in (assessment or {}).get('exclusionReasons',[]) if code in
+                       {'UNQUALIFIED_LEGACY_PREDICATE','MISSING_ORIGINAL','CORRUPT_ORIGINAL',
+                        'CONFLICTING_EVIDENCE','CYCLIC_EVIDENCE_SUPERSESSION','INVALID_EVIDENCE_SUPERSESSION',
+                        'SUPERSESSION_PARENT_UNAVAILABLE_OR_INCOMPATIBLE'})
         verdicts = {a['verdict'] if a else 'UNRESOLVED' for a in assessments}
         applicability = {a.get('applicability', 'AS_REPORTED') if a else 'AS_REPORTED' for a in assessments}
         if len(verdicts) > 1: why.add('CONFLICTING_HEAD_VERIFICATION')
@@ -252,7 +300,8 @@ def aggregate(store, as_of, *, assessment_for=None):
     eligible = {t['targetId'] for t in targets if t['status'] == 'ELIGIBLE'}
     resolved = {t['targetId'] for t in targets if t['status'] == 'ELIGIBLE'
                 and t['verdict'] in ('CORROBORATED', 'CONTRADICTED')}
-    return {'contractVersion': 'news-vintages-v1', 'policy': POLICY, 'asOf': _instant(as_of).isoformat(),
+    return {'contractVersion': 'news-vintages-v1', 'policy': POLICY,
+        'sourceQualificationPolicy':'ORIGINAL_BACKED_EXACT_PREDICATE_V2', 'asOf': _instant(as_of).isoformat(),
         'summary': {'eventCount': len({t['eventId'] for t in targets if t['eventId']}),
             'independentTargets': len(known), 'eligibleIndependentTargets': len(eligible),
             'resolvedIndependentTargets': len(resolved), 'pendingIndependentTargets': len(eligible-resolved),

@@ -12,6 +12,7 @@ from src.portwatch_os.ledger.schema import PredictionRecord, PredictionContext, 
 from src.portwatch_os.learning.outcome_agent import OutcomeAgent
 from src.portwatch_os.learning.reliability import fit_reliability, MIN_SAMPLES_TO_APPLY
 from src.portwatch_os.learning import news_vintages
+from src.portwatch_os.learning import economic_feedback
 
 FX_UNIT = "INR/USD"
 FX_AGGREGATION = "NEW_YORK_NOON_BUYING_RATE"
@@ -33,6 +34,16 @@ def finite(value):
     return isinstance(value, (float, int)) and not isinstance(value, bool) and math.isfinite(value)
 
 
+def target_eligibility(item):
+    """Internal ledger due boundary; never a measurement or publication clock."""
+    target = item['target']
+    if target.get('kind') == 'ECONOMIC_OBSERVATION' and target.get('date'):
+        from datetime import date
+        day = date.fromisoformat(target['date'])
+        return day.isoformat()+'T23:59:59+00:00'
+    return target['at']
+
+
 def claim(store, body):
     required = ("kind", "wording", "entity", "geography", "originAt", "target", "firstAvailableAt",
                 "source", "sourceVersion", "inputs", "eventKey", "independenceKey")
@@ -40,7 +51,9 @@ def claim(store, body):
         raise ValueError("Explicit claim semantics required")
     instant(body["originAt"]); instant(body["firstAvailableAt"])
     if body["kind"] == "FORECAST":
-        if instant(body["target"]["at"]) <= instant(body["originAt"]):
+        economic = body['target'].get('kind') == 'ECONOMIC_OBSERVATION' and body['target'].get('date')
+        if (economic and datetime.fromisoformat(body['target']['date']).date() <= instant(body['originAt']).date()) or (
+                not economic and instant(body["target"]["at"]) <= instant(body["originAt"])):
             raise ValueError("A forecast must be frozen before its future target")
         if any(instant(i["firstAvailableAt"]) > instant(body["originAt"]) for i in body["inputs"]):
             raise ValueError("Consumed input was unavailable at forecast origin")
@@ -83,42 +96,134 @@ def evidence(store, body):
         raise ValueError("Retained source response required")
     if body["recordKind"] == "ACTUAL_OPERATIONAL_RECORD" and not body.get("independentTargetKey"):
         raise ValueError("Actual operational records require an independent voyage/operation target identity")
-    instant(body["firstAvailableAt"]); instant(body["observedAt"])
-    if instant(body["firstAvailableAt"]) < instant(body["observedAt"]):
+    available = instant(body["firstAvailableAt"])
+    date_only = body['recordKind'] == 'ECONOMIC_OBSERVATION' and body.get('observedAt') is None
+    if date_only:
+        day = economic_feedback.observation_date(body)
+        if not day or available.date().isoformat() < day:
+            raise ValueError('Observation date cannot follow first availability')
+    else:
+        instant(body["observedAt"])
+    if not date_only and available < instant(body["observedAt"]):
         raise ValueError("Outcome cannot be available before observation")
     value = {**body, "id": identifier(body)}
     return store.append_feedback("evidence", value)
 
 
-def news_assessment(store, report, now):
-    """Independent operator/authority evidence must address the exact target.
+def retained_original_status(store, record):
+    """Public original qualification, with no paths exposed in the response."""
+    from pathlib import Path
+    digest = record.get('responseSha256')
+    if not isinstance(digest,str) or len(digest)!=64 or any(c not in '0123456789abcdef' for c in digest):
+        return 'MISSING_ORIGINAL'
+    from src.portwatch_os.intelligence import current_environment, operational_notices, navigation_restrictions
+    roots = [current_environment.ROOT, operational_notices.ROOT, navigation_restrictions.ROOT]
+    paths = [Path(root)/folder/(digest+'.response') for root in roots for folder in ('shared_feedback','operational_notices')]
+    if getattr(store,'path',None) and str(store.path)!=':memory:':
+        paths.extend(Path(store.path).parent/folder/(digest+'.response') for folder in ('shared_feedback','operational_notices'))
+    for receipt in store.feedback('receipt'):
+        if receipt.get('responseSha256')==digest and receipt.get('archivePath'):
+            path=Path(receipt['archivePath'])
+            if path.name==digest+'.response' and path.parent.name in ('shared_feedback','operational_notices'):
+                paths.append(path)
+    found=False
+    for path in dict.fromkeys(paths):
+        try:
+            if path.is_file():
+                found=True
+                if hashlib.sha256(path.read_bytes()).hexdigest()==digest:
+                    return None
+        except OSError:
+            pass
+    return 'CORRUPT_ORIGINAL' if found else 'MISSING_ORIGINAL'
 
-    ANNOUNCEMENT and ACTUAL_EVENT deliberately cannot settle each other.
-    Cancellation changes applicability, not the truth of a past announcement.
-    """
-    report_identity = news_vintages.identity(report)
-    candidates = [e for e in store.feedback("evidence") if news_vintages.identity(e)['eventFamilyId'] == report_identity['eventFamilyId']
-                  and e["entity"] == report["entity"] and e["geography"] == report["geography"]
-                  and instant(e["firstAvailableAt"]) <= instant(now)]
-    matching = [e for e in candidates if report_identity['targetId']
-                and news_vintages.identity(e)['targetId'] == report_identity['targetId']
-                and e["unit"] == report.get("unit") and e["aggregation"] == report.get("aggregation")
-                and e["recordKind"] in ("AUTHORITY_RECORD", "OPERATOR_RECORD")
-                and news_vintages.lineage(e) != news_vintages.lineage(report)
-                and e.get("derivedFrom") not in (report["independenceKey"], news_vintages.lineage(report))]
-    latest = sorted(matching, key=lambda e: (instant(e["firstAvailableAt"]), e["id"]))
-    # Contradictory independent records remain unresolved until explicitly revised.
-    live = [e for e in latest if not any(x.get("supersedes") == e["id"] for x in latest)]
-    verdicts = {"CORROBORATED" if e["value"] == report.get("value") else "CONTRADICTED" for e in live}
-    verdict = verdicts.pop() if len(verdicts) == 1 else "UNRESOLVED"
-    cancelled = [e for e in candidates if e["recordKind"] == "CANCELLATION"
-                 and e.get("cancelsSourceVersion") == report["sourceVersion"]]
-    return {"claimId": report["id"], "eventKey": report["eventKey"], "verdict": verdict,
-            "applicability": "SUPERSEDED" if cancelled else "AS_REPORTED",
-            "evidenceIds": sorted(e["id"] for e in live + cancelled),
-            "reason": "Reporting period ambiguous; matching cannot be established" if not report_identity['targetId'] else
-                      "Independent evidence addresses the same target" if live else
-                      "Independent authority/operator evidence unavailable; absence is not contradiction"}
+
+def _news_evidence_heads(rows):
+    """Explicit same-target/lineage revisions; clocks never choose a truth."""
+    by_id={row['id']:row for row in rows}; parents={}; reasons=[]
+    for row in rows:
+        parent=row.get('supersedes')
+        if parent is None:
+            parents[row['id']]=[];continue
+        if not isinstance(parent,str) or parent not in by_id:
+            reasons.append('SUPERSESSION_PARENT_UNAVAILABLE_OR_INCOMPATIBLE');parents[row['id']]=[];continue
+        previous=by_id[parent]
+        if news_vintages.lineage(row)!=news_vintages.lineage(previous) or instant(previous['firstAvailableAt'])>instant(row['firstAvailableAt']):
+            reasons.append('INVALID_EVIDENCE_SUPERSESSION');parents[row['id']]=[];continue
+        parents[row['id']]=[parent]
+    def visit(node,path):
+        if node in path:return True
+        return any(visit(parent,path|{node}) for parent in parents.get(node,[]))
+    if any(visit(node,set()) for node in parents):reasons.append('CYCLIC_EVIDENCE_SUPERSESSION')
+    if reasons:return [],sorted(set(reasons))
+    superseded={parent for values in parents.values() for parent in values}
+    return [row for row in rows if row['id'] not in superseded],[]
+
+
+def news_assessment(store, report, now):
+    """Exact, original-backed source assessment; never an occurrence forecast."""
+    identity=news_vintages.identity(report)
+    exclusions=[];matching=[];cancelled=[];primary_ids=set()
+    original_problem=retained_original_status(store,report)
+    if original_problem:exclusions.append(original_problem)
+    if not identity['targetId']:exclusions.append('AMBIGUOUS_REPORTING_PERIOD')
+    if not report.get('target',{}).get('predicate'):exclusions.append('UNQUALIFIED_LEGACY_PREDICATE')
+    report_visible=instant(report['firstAvailableAt'])<=instant(now)
+    if not report_visible:exclusions.append('REPORT_UNAVAILABLE_AS_OF')
+    for row in store.feedback('evidence'):
+        try:
+            if instant(row['firstAvailableAt'])>instant(now):continue
+            ri=news_vintages.identity(row)
+            if ri['eventFamilyId']!=identity['eventFamilyId']:continue
+            if row['entity']!=report['entity'] or row['geography']!=report['geography']:
+                continue
+            if not identity['targetId'] or ri['targetId']!=identity['targetId']:
+                exclusions.append('INCOMPATIBLE_TARGET_OR_PERIOD');continue
+            if row['unit']!=report.get('unit') or row['aggregation']!=report.get('aggregation'):
+                exclusions.append('INCOMPATIBLE_UNIT_OR_STATISTIC');continue
+            raw_problem=retained_original_status(store,row)
+            if raw_problem:exclusions.append(raw_problem);continue
+            if row['recordKind']=='CANCELLATION':
+                if row.get('cancelsSourceVersion')==report['sourceVersion']:
+                    cancelled.append(row)
+                continue
+            if row['recordKind'] not in ('AUTHORITY_RECORD','OPERATOR_RECORD'):
+                exclusions.append('UNSUPPORTED_EVIDENCE_PREDICATE');continue
+            primary_check=getattr(news_vintages,'primary_announcement_verification',lambda *_:False)
+            primary=primary_check(report,row)
+            self_reference=(news_vintages.lineage(row)==news_vintages.lineage(report) or
+                row.get('derivedFrom') in (report['independenceKey'],news_vintages.lineage(report)) or
+                row.get('responseSha256')==report.get('responseSha256') or row.get('sourceReportId')==report.get('sourceReportId') and row.get('sourceReportId') is not None)
+            if self_reference and not primary:
+                exclusions.append('SELF_REFERENCE_OR_SYNDICATED_ORIGIN');continue
+            if primary:primary_ids.add(row['id'])
+            matching.append(row)
+        except (ValueError,TypeError,KeyError):
+            exclusions.append('MALFORMED_OR_UNSUPPORTED_EVIDENCE')
+    live, revision_problems=_news_evidence_heads(matching)
+    exclusions.extend(revision_problems)
+    verdicts={'CORROBORATED' if row['value']==report.get('value') else 'CONTRADICTED' for row in live}
+    verdict=next(iter(verdicts)) if len(verdicts)==1 and report_visible and not original_problem and identity['targetId'] and report['target'].get('predicate') else 'UNRESOLVED'
+    if len(verdicts)>1:exclusions.append('CONFLICTING_EVIDENCE')
+    if original_problem or not identity['targetId'] or not report_visible:
+        live=[];cancelled=[]
+    primary_live=[row for row in live if row['id'] in primary_ids]
+    reason=('Report unavailable at the requested as-of time' if not report_visible else
+        'Reporting period ambiguous; matching cannot be established' if not identity['targetId'] else
+        'Retained original is missing or corrupt; prior assessments remain inspectable' if original_problem else
+        'Exact legacy predicate is unqualified; a newly available versioned interpretation is required' if not report['target'].get('predicate') else
+        'Conflicting or invalid evidence revisions remain unresolved' if len(verdicts)>1 or revision_problems else
+        'Primary document corroborates the attributed announcement; shared authority origin is not independent reporting or proof of occurrence' if primary_live else
+        'Independent evidence addresses the same target' if live else
+        'Independent authority/operator evidence unavailable; absence is not contradiction')
+    return {'claimId':report['id'],'eventKey':report['eventKey'],'verdict':verdict,
+        'applicability':'SUPERSEDED' if cancelled else 'AS_REPORTED',
+        'evidenceIds':sorted(row['id'] for row in live+cancelled),'reason':reason,
+        'exclusionReasons':sorted(set(exclusions)),
+        'verificationMode':'PRIMARY_DOCUMENT_ATTESTS_ATTRIBUTED_ANNOUNCEMENT' if primary_live else 'INDEPENDENT_EXACT_TARGET_EVIDENCE',
+        'independentReportingConfirmations':len({news_vintages.lineage(row) for row in live if row['id'] not in primary_ids}),
+        'occurrenceStatus':'NOT_ESTABLISHED_BY_ANNOUNCEMENT_ASSESSMENT' if report['target']['kind']=='ANNOUNCEMENT' else 'SEPARATE_EXACT_TARGET',
+        'operationalEffectStatus':'NOT_OBSERVED','realOperationalTargetsAdded':0}
 
 
 def verify_news(store, report, now):
@@ -137,30 +242,43 @@ def current_assessment(store, item, as_of=None):
 
 
 def freeze_fx(store, quote, now, target_date=None):
+    """Freeze persistence before a future calendar target; retain legacy records."""
+    from datetime import date
     origin = instant(now)
-    target = instant(target_date + "T16:00:00+00:00") if target_date else origin.replace(hour=16, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    target = date.fromisoformat(target_date) if target_date else (origin+timedelta(days=1)).date()
     while target.weekday() >= 5:
         target += timedelta(days=1)
-    # This UTC time is a target-date label, not a claimed publication/market time.
-    date = target.date().isoformat()
-    existing = [c for c in store.feedback("claim") if c["target"].get("series") == "DEXINUS"
-                and c["kind"] == "FORECAST" and c["target"]["date"] == date]
+    if target <= origin.date():
+        raise ValueError('A forecast must be frozen before its future target date')
+    if quote['unit'] != FX_UNIT or quote['aggregation'] != FX_AGGREGATION or not finite(quote['value']) or quote['value'] <= 0:
+        raise ValueError('A finite DEXINUS noon rate in INR per USD is required')
+    if instant(quote['firstAvailableAt']) > origin:
+        raise ValueError('Consumed input was unavailable at forecast origin')
+    day = economic_feedback.observation_date(quote)
+    if not day or date.fromisoformat(day) > origin.date():
+        raise ValueError('Input quote observation date follows forecast origin')
+    problem, reason = economic_feedback._raw_status(store, quote)
+    if problem:
+        raise ValueError(reason)
+    date_text = target.isoformat()
+    existing = [c for c in store.feedback('claim') if c['target'].get('series') == 'DEXINUS'
+                and c['kind'] == 'FORECAST' and c['target'].get('date') == date_text]
     if existing:
-        return existing[0]
-    if quote["unit"] != FX_UNIT or quote["aggregation"] != FX_AGGREGATION or not finite(quote["value"]):
-        raise ValueError("A finite DEXINUS noon rate in INR per USD is required")
-    item = claim(store, {"kind": "FORECAST", "wording": "Persistence forecast: next target-date DEXINUS equals the latest retained quote",
-        "value": quote["value"], "unit": FX_UNIT, "aggregation": FX_AGGREGATION,
-        "entity": "USD/INR", "geography": "India / New York reference rate", "originAt": now,
-        "target": {"kind": "ECONOMIC_OBSERVATION", "series": "DEXINUS", "date": date, "at": target.isoformat(),
-                   "timePrecision": "OBSERVATION_DATE_ONLY; UTC timestamp is an eligibility label"},
-        "firstAvailableAt": now, "source": "PortWatch persistence baseline", "sourceVersion": "persistence-v1",
-        "eventKey": "DEXINUS:" + date, "independenceKey": "PortWatch persistence baseline", "inputs": [quote],
-        "releasePolicy": "Daily observations released weekly by Federal Reserve H.10; holiday delays and revisions possible",
-        "missingDatePolicy": "No interpolation or carry-forward as outcome", "status": "COLLECTING",
-        "baselineAgeDays": (origin-instant(quote["observedAt"])).days,
-        "baselineStatus": "STALE" if (origin-instant(quote["observedAt"])).days > 7 else "RECENT_OBSERVATION"})
-    register_prediction(store, item, "economic_persistence")
+        return min(existing,key=lambda c:(instant(c['originAt']),c['id']))
+    age = (origin.date()-date.fromisoformat(day)).days
+    item = claim(store, {'kind':'FORECAST', 'wording':'Persistence forecast: next target-date DEXINUS equals the latest retained quote',
+        'value':quote['value'], 'unit':FX_UNIT, 'aggregation':FX_AGGREGATION,
+        'entity':'USD/INR', 'geography':'India / New York reference rate', 'originAt':now,
+        'target':{'kind':'ECONOMIC_OBSERVATION','series':'DEXINUS','date':date_text,'timePrecision':'DATE_ONLY'},
+        'firstAvailableAt':now, 'source':'PortWatch persistence baseline', 'sourceVersion':'persistence-v1',
+        'forecastPolicy':'persistence-v1','targetIdentityVersion':'economic-date-target-v2',
+        'eventKey':'DEXINUS:'+date_text, 'independenceKey':'PortWatch persistence baseline','inputs':[quote],
+        'productId':economic_feedback.PRODUCT,'baseCurrency':'USD','quoteCurrency':'INR',
+        'releasePolicy':economic_feedback.METADATA['releaseRule'],
+        'missingDatePolicy':'No interpolation or carry-forward as outcome', 'status':'COLLECTING',
+        'baselineObservationDate':day, 'baselineAgeDays':age,
+        'baselineStatus':'STALE' if age>7 else 'RECENT_OBSERVATION'})
+    register_prediction(store,item,'economic_persistence')
     return item
 
 
@@ -170,42 +288,60 @@ def register_prediction(store, item, model):
     value = item["value"]
     store.record_prediction(PredictionRecord(prediction_id=item["id"], domain="event" if model == "economic_persistence" else "route",
         kind=CONTINUOUS, target=item["target"]["kind"], subject=item["entity"], model=model,
-        model_version="shared-feedback-v1", issued_at=item["originAt"], valid_at=item["target"]["at"],
-        context=PredictionContext(region=item["geography"], horizon_hours=(instant(item["target"]["at"])-instant(item["originAt"])).total_seconds()/3600),
+        model_version="shared-feedback-v1", issued_at=item["originAt"], valid_at=target_eligibility(item),
+        context=PredictionContext(region=item["geography"], horizon_hours=(instant(target_eligibility(item))-instant(item["originAt"])).total_seconds()/3600),
         predicted_value=value, features={model: value, "__persistence__": value},
         provenance={"feedbackClaimId": item["id"], "unit": item["unit"], "aggregation": item["aggregation"]}))
 
 
 def reconcile(store, now):
-    claims = {c["id"]: c for c in store.feedback("claim") if c["kind"] == "FORECAST"}
-    outcomes = store.feedback("evidence")
+    """Existing Outcome Agent, scoped to this feedback family, with causal qualification."""
+    claims={c['id']:c for c in store.feedback('claim') if c['kind']=='FORECAST' and instant(c['firstAvailableAt'])<=instant(now)}
+    outcomes=store.feedback('evidence')
+    selections={cid:economic_feedback.select_outcome(store,item,now) for cid,item in claims.items()
+                if item['target']['kind']=='ECONOMIC_OBSERVATION'}
     def observe(row):
-        item = claims.get(row.prediction_id)
-        if not item:
-            return None
-        allowed = [e for e in outcomes if e["entity"] == item["entity"] and e["geography"] == item["geography"]
-                   and e["unit"] == item["unit"] and e["aggregation"] == item["aggregation"]
-                   and e["recordKind"] in ("ECONOMIC_OBSERVATION", "ACTUAL_OPERATIONAL_RECORD")
-                   and instant(item["originAt"]) < instant(e["firstAvailableAt"]) <= instant(now)
-                   and instant(e["observedAt"]) > instant(item["originAt"]) and finite(e["value"])]
-        if item["target"]["kind"] != "ECONOMIC_OBSERVATION":
-            selected = store.feedback("selected-impact", item["id"])
-            if not selected or not item.get('operationalEpisode'):
-                return None
-            allowed = [e for e in allowed if operational_record_matches(e, item)
-                       and execution_cutoff(e, item, selected[0])]
-            if len({instant(e['forecastCutoffAt']) for e in allowed}) > 1:
-                return None
-        else:
-            allowed = [e for e in allowed if e['recordKind']=='ECONOMIC_OBSERVATION'
-                       and e['eventKey'] == item['eventKey'] and e['target'] == item['target']]
-        if not allowed:
-            return None
-        first = min(allowed, key=lambda e: (instant(e["firstAvailableAt"]), e["id"]))
-        store.append_feedback("match", {"id": item["id"], "claimId": item["id"], "evidenceId": first["id"],
-                                          "availableAt": first["firstAvailableAt"], "scoringVintage": "FIRST_RETAINED_OUTCOME"})
-        return first["value"], first["firstAvailableAt"], first["source"]
-    return OutcomeAgent(store, observer=observe).resolve_due(now=now)
+        item=claims[row.prediction_id]
+        if item['target']['kind']=='ECONOMIC_OBSERVATION':
+            selection=selections[item['id']]
+            if not selection['eligible']:return None
+            first=selection['evidence']
+            old=store.feedback('match',item['id'])
+            if old and old[0]['evidenceId']!=first['id']:return None
+            if not old:
+                store.append_feedback('match',{'id':item['id'],'claimId':item['id'],'evidenceId':first['id'],
+                    'availableAt':first['firstAvailableAt'],'assessedAt':now,
+                    'selectionPolicy':economic_feedback.SELECTION_POLICY,'scoringVintage':'FIRST_RETAINED_OUTCOME'})
+            return first['value'],now,first['source']
+        selected=store.feedback('selected-impact',item['id'])
+        if not selected or not item.get('operationalEpisode'):return None
+        allowed=[e for e in outcomes if e['recordKind']=='ACTUAL_OPERATIONAL_RECORD'
+                 and instant(item['originAt'])<instant(e['firstAvailableAt'])<=instant(now)
+                 and instant(e['observedAt'])>instant(item['originAt']) and finite(e['value'])
+                 and operational_record_matches(e,item) and execution_cutoff(e,item,selected[0])]
+        if not allowed or len({instant(e['forecastCutoffAt']) for e in allowed})>1:return None
+        first=min(allowed,key=lambda e:(instant(e['firstAvailableAt']),e['id']))
+        store.append_feedback('match',{'id':item['id'],'claimId':item['id'],'evidenceId':first['id'],
+            'availableAt':first['firstAvailableAt'],'scoringVintage':'FIRST_RETAINED_OUTCOME'})
+        return first['value'],first['firstAvailableAt'],first['source']
+    class ScopedPredictions:
+        def predictions(self,status=None,**kwargs):
+            return [row for cid in sorted(claims) if (row:=store.get_prediction(cid)) and (status is None or row.status==status)]
+        def __getattr__(self,key):return getattr(store,key)
+    result=OutcomeAgent(ScopedPredictions(),observer=observe).resolve_due(now=now)
+    for cid,selection in selections.items():
+        if not selection['eligible']:continue
+        first=selection['evidence'];row=store.get_prediction(cid);match=store.feedback('match',cid)
+        if not row or row.status!='resolved' or row.observed_value!=first['value'] or not match or match[0]['evidenceId']!=first['id']:
+            continue
+        key=identifier([economic_feedback.SELECTION_POLICY,cid,first['id']])
+        if store.feedback('economic-qualification',key):continue
+        store.append_feedback('economic-qualification',{'id':key,'claimId':cid,'evidenceId':first['id'],
+            'assessedAt':now,'availableAt':now,'selectionPolicy':economic_feedback.SELECTION_POLICY,
+            'scoringVintage':'FIRST_RETAINED_OUTCOME','predicted':claims[cid]['value'],'observed':first['value'],
+            'error':first['value']-claims[cid]['value'],'absoluteError':abs(first['value']-claims[cid]['value']),
+            'errorConvention':'observed minus predicted','legacyScorePreserved':not bool(match[0].get('assessedAt'))})
+    return result
 
 
 def execution_cutoff(record, item, selection):
@@ -259,7 +395,7 @@ def operational_record_matches(record, item):
         and record.get('target', {}).get('kind') == item['target']['kind'])
 
 
-def reliability_version(store, now):
+def reliability_version(store, now, *, persist=True):
     """Independent cohorts; descriptive reliability, no automatic promotion.
 
     Revisions remain visible but revised targets are excluded from fitting.
@@ -271,6 +407,8 @@ def reliability_version(store, now):
         if not row or row.status != "resolved" or instant(row.observed_at) >= instant(now):
             continue
         operational = item['target']['kind'] != 'ECONOMIC_OBSERVATION'
+        if not operational:
+            continue
         if operational and not item.get('operationalEpisode'):
             exclusions.append({'claimId':item['id'], 'reason':'Legacy target lacks a stable call and executed-action identity'})
             continue
@@ -337,66 +475,98 @@ def reliability_version(store, now):
                        "fittedWeight": global_weight.weight if global_weight else 1,
                        "consumedWeight": 1, "status": "COLLECTING",
                        "reason": "Chronological held-out improvement and calibration required before applying learning"})
+    economic = economic_feedback.inspect_economics(store,now)
+    for part in economic['slices']:
+        slices.append({**part,'context':['USD/INR','India / New York reference rate','economic_persistence',FX_UNIT,FX_AGGREGATION,'ECONOMIC_OBSERVATION',str(part['horizonCalendarDays'])+' calendar days'],
+                       'consumedWeight':1,'fittedWeight':1,'status':'COLLECTING',
+                       'reason':'Descriptive persistence errors; no independent improvement over the same baseline or applied correction'})
     aggregation = news_vintages.aggregate(store, now, assessment_for=lambda item: news_assessment(store, item, now))
     news_slices = news_vintages.slices(aggregation)
     body = {"contractVersion": "shared-feedback-v1", "status": "COLLECTING", "consumedWeight": 1,
             "correction": None, "minimumSamplesForReliability": MIN_SAMPLES_TO_APPLY,
-            "slices": slices, "newsSlices": news_slices, "sampleIds": sorted(r.prediction_id for r in independent.values()),
+            "slices": slices, "newsSlices": news_slices, "sampleIds": sorted([r.prediction_id for r in independent.values()]+economic.get("selectedClaimIds",[])),
             "errorConvention": "observed minus predicted", "scope": "Source accuracy and shipping impact scored separately"}
     body['operationalSelectionPolicy'] = 'LATEST_APPROVED_FORECAST_BEFORE_EXECUTED_LOG_CUTOFF_V1'
     body['excludedTargets'] = exclusions
+    if not persist:
+        return {**body,'id':identifier(body),'createdAt':now,'projection':'READ_ONLY_AS_OF'}
     old = store.feedback("version", identifier(body))
     if old:
         return old[0]
     return store.append_feedback("version", {**body, "id": identifier(body), "createdAt": now})
 
 
-def inspect(store, now):
-    items = []
-    for item in store.feedback("claim"):
-        if instant(item['firstAvailableAt']) > instant(now): continue
-        row = store.get_prediction(item["id"])
-        assessment = current_assessment(store, item, as_of=now)
-        retained_match = next(iter(store.feedback("match", item["id"])), None)
-        matching_id = retained_match.get('evidenceId') if retained_match else None
-        outcomes = [e for e in store.feedback("evidence") if
-            (e["eventKey"] == item["eventKey"] and e["target"] == item["target"]) or e['id'] == matching_id]
-        visible = [e for e in outcomes if instant(e['firstAvailableAt']) <= instant(now)
-                   and instant(e['observedAt']) <= instant(now)]
-        match = (retained_match if retained_match and instant(retained_match['availableAt']) <= instant(now)
-            and matching_id in {e['id'] for e in visible} else None)
-        resolution_visible = bool(row and row.status == 'resolved' and row.observed_at
-            and instant(row.observed_at) <= instant(now))
-        exclusions = [{'kind':'OUTCOME','reason':'Observation or first availability is after the requested as-of time'}
-                      for e in outcomes if e not in visible]
-        if row and row.status == 'resolved' and not resolution_visible:
-            exclusions.append({'kind':'SCORE','reason':'Resolution was unavailable at the requested as-of time'})
-        items.append({**item, "verification": assessment, "outcomes": visible, "match": match,
-                      'inspectionExclusions':exclusions,
-                      "sourceQuality": next(iter(store.feedback("news-source-quality", item["id"])), None),
-                      "score": {"status": row.status if resolution_visible else 'open',
-                                "observed": row.observed_value if resolution_visible else None,
-                                "error": row.error if resolution_visible else None,
-                                "absoluteError": row.absolute_error if resolution_visible else None,
-                                "availableAt": row.observed_at if resolution_visible else None} if row else None})
-    aggregation = news_vintages.aggregate(store, now, assessment_for=lambda item: news_assessment(store, item, now))
-    identities = {row['claimId']:row for row in aggregation['claims']}
+def inspect(store, now, *, kind='ALL', offset=0, limit=100, claim_id=None):
+    """Read-only complete-dataset summaries with an explicitly separate visible page."""
+    as_of=instant(now);now=as_of.isoformat()
+    if kind not in ('ALL','ECONOMIC_FORECAST','NEWS'):raise ValueError('Unsupported feedback filter')
+    if offset<0 or limit<1:raise ValueError('Invalid feedback page')
+    economic=economic_feedback.inspect_economics(store,now)
+    economics={row['claimId']:row for row in economic['targets']}
+    items=[]
+    for item in store.feedback('claim'):
+        if instant(item['firstAvailableAt'])>as_of:continue
+        row=store.get_prediction(item['id'])
+        assessment=current_assessment(store,item,as_of=now)
+        retained_match=next(iter(store.feedback('match',item['id'])),None)
+        matching_id=retained_match.get('evidenceId') if retained_match else None
+        outcomes=[e for e in store.feedback('evidence') if
+            (e['eventKey']==item['eventKey'] and e['target']==item['target']) or e['id']==matching_id]
+        def visible_outcome(e):
+            if instant(e['firstAvailableAt'])>as_of:return False
+            if e.get('observedAt') is not None:return instant(e['observedAt'])<=as_of
+            return bool(e.get('recordKind')=='ECONOMIC_OBSERVATION' and economic_feedback.observation_date(e)<=as_of.date().isoformat())
+        visible=[e for e in outcomes if visible_outcome(e)]
+        match=(retained_match if retained_match and instant(retained_match.get('assessedAt') or retained_match['availableAt'])<=as_of
+               and matching_id in {e['id'] for e in visible} else None)
+        resolution_visible=bool(row and row.status=='resolved' and row.observed_at and instant(row.observed_at)<=as_of)
+        entry={**item,'verification':assessment,'outcomes':visible,'match':match,
+               'sourceQuality':next(iter(store.feedback('news-source-quality',item['id'])),None),
+               'inspectionExclusions':[{'kind':'OUTCOME','reason':'Observation or receipt unavailable at the requested as-of time'} for e in outcomes if e not in visible]+
+                   ([{'kind':'SCORE','reason':'Resolution unavailable at the requested as-of time'}] if row and row.status=='resolved' and not resolution_visible else []),
+               'score':{'status':row.status if resolution_visible else 'open','observed':row.observed_value if resolution_visible else None,
+                        'error':row.error if resolution_visible else None,'absoluteError':row.absolute_error if resolution_visible else None,
+                        'availableAt':row.observed_at if resolution_visible else None} if row else None}
+        if item['id'] in economics:
+            detail=economics[item['id']];entry['economicInspection']=detail
+            qualified=detail.get('assessmentAvailableAt') is not None and detail.get('error') is not None
+            entry['score']={'status':'resolved' if qualified else 'open','observed':detail['matchedObservation']['value'] if qualified else None,
+                            'error':detail['error'],'absoluteError':detail['absoluteError'],'availableAt':detail.get('assessmentAvailableAt')}
+            if not qualified:entry['match']=None
+        if item['target'].get('kind') in news_vintages.NEWS_KINDS:
+            current=news_assessment(store,item,now)
+            evidence_ids=set(current['evidenceIds'])
+            entry['newsInspection']={'currentAssessment':{**current,'id':identifier(current)},'asOf':now,
+                'evidence':[e for e in store.feedback('evidence') if e['id'] in evidence_ids and instant(e['firstAvailableAt'])<=as_of],
+                'exclusionReasons':current['exclusionReasons'],
+                'assessmentHistory':sorted([a for a in store.feedback('assessment') if a['claimId']==item['id'] and instant(a['assessedAt'])<=as_of],key=lambda a:(instant(a['assessedAt']),a['id']))}
+        items.append(entry)
+    aggregation=news_vintages.aggregate(store,now,assessment_for=lambda item:news_assessment(store,item,now))
+    identities={row['claimId']:row for row in aggregation['claims']}
     for item in items:
-        if item['id'] in identities: item['newsIdentity'] = identities[item['id']]
-    events = []
-    for event_id in sorted({row['eventId'] for row in identities.values() if row['eventId']}):
-        reports = [item for item in items if identities.get(item['id'],{}).get('eventId') == event_id]
-        events.append({'id':event_id, 'reportIds':sorted(r['id'] for r in reports),
+        if item['id'] in identities:item['newsIdentity']=identities[item['id']]
+    events=[]
+    for event_id in sorted({r['eventId'] for r in identities.values() if r['eventId']}):
+        reports=[item for item in items if identities.get(item['id'],{}).get('eventId')==event_id]
+        events.append({'id':event_id,'reportIds':sorted(r['id'] for r in reports),
             'sourceIds':sorted({identities[r['id']]['lineageId'] for r in reports if identities[r['id']]['lineageId']}),
             'targets':[r['target'] for r in sorted(reports,key=lambda r:r['id'])]})
-    return {"contractVersion": "shared-feedback-v1", "claims": sorted(items, key=lambda i: i["originAt"], reverse=True)[:100],
-            "events": events,
-            "newsAggregation": aggregation,
-            "reliability": reliability_version(store, now),
-            "newsIndependentEvents": aggregation['summary']['eventCount'],
-            "newsSourceReports": aggregation['summary']['reportCount'],
-            "newsRevisionCount": aggregation['summary']['revisionCount'],
-            "note": "Unresolved reports, ambiguous periods and absent outcomes remain pending. Simulation never verifies a real claim."}
+    filtered=[item for item in items if kind=='ALL' or kind=='ECONOMIC_FORECAST' and item['id'] in economics or
+              kind=='NEWS' and item['target'].get('kind') in news_vintages.NEWS_KINDS]
+    filtered.sort(key=lambda i:(instant(i['originAt']),i['id']),reverse=True)
+    page=([item for item in filtered if item['id']==claim_id] if claim_id else filtered[offset:offset+limit])
+    metrics=[{**part,'context':['DEXINUS','persistence-v1',str(part['horizonCalendarDays'])+' calendar days'],
+              'targetFrom':part['targetDateFrom'],'targetThrough':part['targetDateThrough']} for part in economic['slices']]
+    return {'contractVersion':'shared-feedback-v1','claims':page,'events':events,'newsAggregation':aggregation,
+        'dataset':{'scope':'ALL_RETAINED_PUBLIC_CLAIMS_AS_OF','asOf':now,'totalClaims':len(items),'filteredClaims':len(filtered),
+                   'offset':offset,'limit':limit,'returnedClaims':len(page),'hasMore':not claim_id and offset+len(page)<len(filtered),
+                   'filter':kind,'selectedClaimId':claim_id},
+        'economicSummary':{**economic['counts'],'metrics':metrics,'metadata':economic['metadata'],
+                           'collector':economic['collector'],'selectionPolicy':economic['dataset']['selectionPolicy'],
+                           'asOf':now,'errorConvention':'observed minus predicted','status':'COLLECTING'},
+        'reliability':reliability_version(store,now,persist=False),'newsIndependentEvents':aggregation['summary']['eventCount'],
+        'newsSourceReports':aggregation['summary']['reportCount'],'newsRevisionCount':aggregation['summary']['revisionCount'],
+        'note':'Full as-of dataset summaries are independent of the displayed page. Source assessment, economic forecast error and real operational outcomes are separate. Simulation never verifies a real claim.'}
 
 
 def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculation_consumers=None):
@@ -418,8 +588,17 @@ def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculati
         item = found[0]; assessment = current_assessment(public_store, item, as_of=now)
         if instant(item["firstAvailableAt"]) > instant(now):
             raise ValueError("Claim unavailable at comparison origin")
+        projected_news = item.get('target', {}).get('kind') in news_vintages.NEWS_KINDS
+        if projected_news:
+            # New consumption freezes the same current, evidence-qualified view
+            # shown by inspection. The worker's older assessments remain audit
+            # history, rather than making every new review stale until its next run.
+            current = news_assessment(public_store, item, now)
+            assessment = {**current, 'id': identifier(current), 'asOf': now,
+                          'projection': 'READ_ONLY_AS_OF'}
         inputs.append({"claim": {**item, "sourceQuality": next(iter(public_store.feedback("news-source-quality", item["id"])), None)},
-            "assessment": assessment, 'newsTargetDependency':news_vintages.dependency(news_state,item)})
+            "assessment": assessment, 'newsTargetDependency':news_vintages.dependency(news_state,item),
+            **({'assessmentBasis':'CURRENT_AS_OF_PROJECTION_V1'} if projected_news else {})})
     body = {"contractVersion": "shared-feedback-v1", "inputs": inputs, "reliabilityVersion": version,
             "appliedDependencies": [applied_dependency(public_store, row['claim'], now,
                 calculation_consumers.get(row['claim']['id'])) for row in inputs],
@@ -436,9 +615,14 @@ def require_consumption(public_store, consumed, now=None):
     news_state = news_vintages.aggregate(public_store, now,
         assessment_for=lambda item: news_assessment(public_store, item, now))
     for entry in consumed["inputs"]:
-        latest = current_assessment(public_store, entry["claim"], as_of=now)
-        if assessment_dependency(latest) != assessment_dependency(entry['assessment']):
-            raise ValueError("Consumed verification changed; refresh a linked successor for fresh review")
+        if entry.get('assessmentBasis') != 'CURRENT_AS_OF_PROJECTION_V1':
+            latest = current_assessment(public_store, entry["claim"], as_of=now)
+            if assessment_dependency(latest) != assessment_dependency(entry['assessment']):
+                raise ValueError("Consumed verification changed; refresh a linked successor for fresh review")
+        if entry['claim'].get('target',{}).get('kind') in news_vintages.NEWS_KINDS:
+            current=news_assessment(public_store,entry['claim'],now)
+            if assessment_dependency(current)!=assessment_dependency(entry['assessment']):
+                raise ValueError('Consumed verification changed; refresh a linked successor for fresh review')
         if entry.get('newsTargetDependency') is not None and news_vintages.dependency(news_state,entry['claim']) != entry['newsTargetDependency']:
             raise ValueError('Consumed news target vintage/conflict changed; refresh a linked successor for fresh review')
         revisions = [c for c in public_store.feedback('claim') if news_vintages.relevant_supersession(c,entry['claim'])
@@ -464,7 +648,9 @@ def require_consumption(public_store, consumed, now=None):
 
 
 def assessment_dependency(assessment):
-    return {k:assessment.get(k) for k in ('verdict','applicability','evidenceIds')} if assessment else None
+    return {'verdict':(assessment or {}).get('verdict','UNRESOLVED'),
+            'applicability':(assessment or {}).get('applicability','AS_REPORTED'),
+            'evidenceIds':sorted((assessment or {}).get('evidenceIds') or [])}
 
 
 def neutral_dependency(item):
