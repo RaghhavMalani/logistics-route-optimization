@@ -33,6 +33,8 @@ data/cache/*
 !data/cache/current_environment/**
 !data/cache/public_weather_feedback.json
 !data/cache/public_weather_forecasts.sqlite3
+!data/cache/preview_public_seed/
+!data/cache/preview_public_seed/**
 !data/cache/fred_DCOILBRENTEU.txt
 !data/cache/fred_DEXINUS.txt
 !data/cache/fred_INDCPIALLMINMEI.txt

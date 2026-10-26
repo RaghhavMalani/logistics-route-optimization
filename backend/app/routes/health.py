@@ -48,6 +48,35 @@ def _licence_mode() -> dict:
     }
 
 
+def release_identity() -> dict:
+    """Non-secret, server-configured release binding for hosted verification.
+
+    Unknown is intentional. Neither a request header nor a repository/cache
+    timestamp can establish which application revision is actually serving.
+    """
+    import os
+    import re
+
+    def configured(name: str, pattern: str) -> str:
+        value = os.environ.get(name, "")
+        return value if re.fullmatch(pattern, value) else "UNKNOWN"
+
+    sha = configured("PORTWATCH_RELEASE_SHA", r"[0-9a-fA-F]{40}")
+    return {
+        "sha": sha.lower() if sha != "UNKNOWN" else sha,
+        "environment": configured("PORTWATCH_RELEASE_ENVIRONMENT", r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}"),
+        "provider": {
+            key: configured(name, r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+            for key, name in (
+                ("serviceId", "RAILWAY_SERVICE_ID"),
+                ("environmentId", "RAILWAY_ENVIRONMENT_ID"),
+                ("deploymentId", "RAILWAY_DEPLOYMENT_ID"),
+            )
+        },
+        "basis": "SERVER_CONFIGURED_RELEASE_AND_PROVIDER_IDENTIFIERS",
+    }
+
+
 #: How long a durable-store probe is served from memory. Health is polled
 #: every thirty seconds by the terminal and by a container's healthcheck, and
 #: a probe opens and integrity-checks two databases; a minute's memory keeps
@@ -140,6 +169,7 @@ def health_check() -> dict:
     payload = {
         "status": "ok" if artefacts["forecast"] and stores["ok"] else "degraded",
         "service": "india-portwatch-backend",
+        "release": release_identity(),
         "serverTimeUtc": now.isoformat(),
         # The world's own clock: LIVE reads the wall; a replay, mission or
         # scenario reads its anchor and says how far from the wall it sits.

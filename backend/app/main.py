@@ -79,6 +79,11 @@ async def lifespan(_: FastAPI):
         log.warning("licence mode %s by default: %s", mode, problem)
     else:
         log.info("licence mode %s (%s)", mode, source)
+    # An explicit, reviewed public seed is merged before this process starts
+    # any collectors. Unconfigured deployments do no import work.
+    from src.portwatch_os.learning.public_evidence_seed import import_configured_seed
+    app.state.public_evidence_import = import_configured_seed()
+    log.info("public evidence seed: %s", app.state.public_evidence_import["status"])
     start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
