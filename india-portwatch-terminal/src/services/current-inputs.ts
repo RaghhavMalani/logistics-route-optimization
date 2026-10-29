@@ -49,6 +49,101 @@ export interface DeclaredPassagePlan {
     currency?: string;
   };
 }
+export interface CargoConnectionDeclaration {
+  vesselId: string;
+  name: string;
+  departureAt?: string;
+  loadingCutoffAt?: string;
+  onwardPorts?: string[];
+  availableTeu?: number;
+  availableDeadweightT?: number;
+  availableReeferPlugs?: number;
+  acceptsHazardous?: boolean;
+  acceptsOog?: boolean;
+  basis?: string;
+}
+export interface CargoCommitmentDeclaration {
+  schemaVersion: 1;
+  fictionalShipment: true;
+  voyageId: string;
+  portCode: string;
+  declaredAt: string;
+  basis: string;
+  mustMeet: boolean;
+  shipment: {
+    shipmentId: string;
+    teu?: number;
+    cargoClass: "dry" | "reefer" | "hazardous" | "oog" | "empty";
+    destinationPort: string;
+    weightT?: number;
+    latestDepartureAt?: string;
+  };
+  transfer: {
+    approachToStartHours?: number;
+    basis?: string;
+    acceptedSchematicHandling: boolean;
+    gangs?: number;
+    mode: "DIRECT" | "YARD";
+    zone?: {
+      zoneId: string;
+      name: string;
+      freeTeu?: number;
+      capacityTeu?: number;
+      reeferPlugsFree?: number;
+      acceptsHazardous?: boolean;
+      acceptsOog?: boolean;
+      quayTransferMinutesPerTeu?: number;
+    };
+  };
+  bookedConnection: CargoConnectionDeclaration;
+  laterConnections: CargoConnectionDeclaration[];
+}
+export interface CargoOptionAssessment {
+  optionId: string;
+  status: "COMPATIBLE_UNDER_ASSUMPTIONS" | "BLOCKED" | "UNKNOWN";
+  timingStatus: "FITS" | "MISSES" | "UNKNOWN";
+  startAt?: string | null;
+  readinessAt?: string | null;
+  cutoffAt?: string | null;
+  departureAt?: string | null;
+  slackHours?: number | null;
+  handlingHours?: number | null;
+  stages?: {
+    dischargeHours: number;
+    transferOverheadHours: number;
+    yardMovesHours: number;
+    loadHours: number;
+    totalHandlingHours: number;
+  } | null;
+  reasons: string[];
+  missing: string[];
+  requiredConstraint: { required: boolean; passed: boolean | null };
+  alternativesUnavailableBecause?: string;
+  alternatives: Array<{
+    optionId: string;
+    action: string;
+    label: string;
+    status: string;
+    vesselId: string;
+    departureAt: string;
+    readinessAt: string;
+    cutoffAt: string;
+    slackHours: number;
+    departureShiftHours: number;
+    bookingStatus: string;
+    execution: string;
+    limitation: string;
+    [key: string]: unknown;
+  }>;
+  [key: string]: unknown;
+}
+export interface FrozenCargoComparison {
+  version: string;
+  inputVersion: string;
+  referenceAt: string;
+  options: CargoOptionAssessment[];
+  [key: string]: unknown;
+}
 export interface PassageOptionComparison {
   optionId: string;
   label: string;
@@ -177,6 +272,8 @@ export interface FrozenEnvironment {
   activityContext?: FrozenActivityContext;
   passagePlan?: DeclaredPassagePlan;
   passageComparison?: FrozenPassageComparison;
+  cargoCommitment?: CargoCommitmentDeclaration;
+  cargoComparison?: FrozenCargoComparison;
   meaning: string;
 }
 export interface FrozenActivityContext {

@@ -14,7 +14,10 @@ import {
 } from "@tanstack/react-query";
 
 import { getJson, postJson } from "./api";
-import type { DeclaredPassagePlan } from "./current-inputs";
+import type {
+  CargoCommitmentDeclaration,
+  DeclaredPassagePlan,
+} from "./current-inputs";
 import type {
   DecisionHandoff,
   DecisionLearning,
@@ -45,6 +48,7 @@ export interface CreateDecisionPayload {
     maxGustKn: number;
     minVisibilityM: number;
     passagePlan?: DeclaredPassagePlan;
+    cargoCommitment?: CargoCommitmentDeclaration;
   };
   horizonHours?: number;
   attentionId?: string;

@@ -337,7 +337,17 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
         if vessel is None:
             raise HTTPException(404,"Voyage is not in this demo fleet")
         _build, _events, state = _observed_state(payload.get("companyId"),mode,moment)
-        return engine.finish(build_arrival_problem(vessel,payload["currentArrival"],actor,state,moment))
+        problem = build_arrival_problem(vessel,payload["currentArrival"],actor,state,moment)
+        if connected_basis(problem).get("cargoCommitment"):
+            from src.portwatch_os.decision.passage_cargo_integration import bind_declaration
+            bind_declaration(problem, predecessor_id=payload.get("predecessorDecisionId"), persist=False)
+            # Persist the frozen assessment first. An interrupted mirror save
+            # may leave an inspectable unused comparison, never a declaration
+            # pointing to a comparison which the ledger cannot recover.
+            problem = engine.finish(problem)
+            bind_declaration(problem, predecessor_id=payload.get("predecessorDecisionId"))
+            return problem
+        return engine.finish(problem)
     branch_id = payload.get("branchId")
     grid, marine = _marine_grid(mode)
     # Figures the hull does not declare, supplied for this scenario. Numbers
@@ -813,6 +823,13 @@ def _approved_operational_action(problem: DecisionProblem, option) -> Optional[D
                 "selected": copy.deepcopy(option.evaluation.derived),
                 "financial": copy.deepcopy(option.evaluation.financial),
             }} if basis.get("passagePlan") else {}),
+            **({"cargoCalculation": {
+                "version": basis["cargoComparison"]["version"],
+                "inputVersion": basis["cargoComparison"]["inputVersion"],
+                "inputs": copy.deepcopy(basis["cargoCommitment"]),
+                "selected": copy.deepcopy(option.evaluation.derived["cargoAssessment"]),
+                "executionAuthority": "Assessment only; navigation acceptance does not book or execute a cargo alternative",
+            }} if basis.get("cargoCommitment") else {}),
             "approvedAt": next((h["at"] for h in problem.workflow_history if h["state"] == "APPROVED"), None),
             "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None}
 

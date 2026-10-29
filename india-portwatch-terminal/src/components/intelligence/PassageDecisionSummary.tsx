@@ -6,6 +6,8 @@ import type {
   PassageOptionComparison,
 } from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
+import { CargoAssessmentStatus } from "./CargoCommitmentEvidence";
+import { cargoHours, cargoTime } from "./cargo-presentation";
 
 const finite = (value: number | null | undefined): value is number =>
   value != null && Number.isFinite(value);
@@ -92,6 +94,9 @@ export function PassageDecisionSummary({
     ) ??
     comparison.options.find((row) => row.optionId !== baselineId);
   const plans = [baseline, alternative];
+  const cargo = evidence.cargoComparison;
+  const cargoFor = (option: PassageOptionComparison) =>
+    cargo?.options.find((row) => row.optionId === option.optionId);
   const sameClear =
     baseline?.approachClearAt &&
     alternative?.approachClearAt &&
@@ -153,6 +158,30 @@ export function PassageDecisionSummary({
       render: (option) => formatUtc(option.arrivalAt),
     },
   ];
+  if (evidence.cargoCommitment && cargo) {
+    rows.splice(
+      1,
+      0,
+      {
+        label: "Cargo connection",
+        render: (option) => (
+          <CargoAssessmentStatus assessment={cargoFor(option)} />
+        ),
+      },
+      {
+        label: "Conditional cargo ready",
+        render: (option) => cargoTime(cargoFor(option)?.readinessAt),
+      },
+      {
+        label: "Loading cutoff",
+        render: (option) => cargoTime(cargoFor(option)?.cutoffAt),
+      },
+      {
+        label: "Cutoff slack",
+        render: (option) => cargoHours(cargoFor(option)?.slackHours, true),
+      },
+    );
+  }
 
   return (
     <section
@@ -217,6 +246,21 @@ export function PassageDecisionSummary({
       {sameClear ? (
         <p className="text-[var(--text)]">
           Same conditional clear-approach time. No earlier delivery is
+          established.
+          {cargo
+            ? " With the same downstream assumptions, cargo readiness and cutoff slack are also unchanged."
+            : ""}
+        </p>
+      ) : null}
+      {evidence.cargoCommitment ? (
+        <p data-testid="cargo-commitment-summary">
+          Fictional cargo {evidence.cargoCommitment.shipment.shipmentId} →{" "}
+          {evidence.cargoCommitment.bookedConnection.name}.{" "}
+          {evidence.cargoCommitment.mustMeet
+            ? "Declared must-meet connection."
+            : "Context only; passage ranking unchanged."}{" "}
+          Full stage arithmetic, capacities and later-sailing proposals are in
+          Full passage schedule and evidence. No booking or final delivery is
           established.
         </p>
       ) : null}

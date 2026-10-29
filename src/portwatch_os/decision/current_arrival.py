@@ -104,5 +104,8 @@ def build_arrival_problem(vessel, request, actor, state, at):
         notes=[frozen["meaning"],"No berth assignment or whole-voyage weather safety claim is made."])
     if request.get("passagePlan") is not None:
         from .passage import extend_arrival_problem
-        return extend_arrival_problem(problem, request["passagePlan"], data, at=at)
+        problem = extend_arrival_problem(problem, request["passagePlan"], data, at=at)
+    if request.get("cargoCommitment") is not None:
+        from .passage_cargo_integration import extend_with_cargo
+        problem = extend_with_cargo(problem, request["cargoCommitment"], at=at)
     return problem

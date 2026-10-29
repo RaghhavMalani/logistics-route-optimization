@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
 import { PassagePlanInputs } from "./PassagePlanInputs";
+import { CargoCommitmentInputs } from "./CargoCommitmentInputs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { useCompanyFleet } from "@/services/os-hooks";
@@ -9,6 +10,7 @@ import { useCreateDecision } from "@/services/decisions";
 import { getJson, postJson } from "@/services/api";
 import type {
   CurrentEnvironment,
+  CargoCommitmentDeclaration,
   DeclaredPassagePlan,
 } from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
@@ -47,6 +49,8 @@ export function CurrentInputControl({
   const [passagePlan, setPassagePlan] = useState<DeclaredPassagePlan | null>(
     null,
   );
+  const [cargoCommitment, setCargoCommitment] =
+    useState<CargoCommitmentDeclaration | null>(null);
   const fleet = useCompanyFleet();
   const vessel = fleet.data?.vessels.find((v) => v.vessel_id === vesselId);
   const port = vessel?.destination_port ?? "INNSA";
@@ -109,6 +113,7 @@ export function CurrentInputControl({
                 maxGustKn: gust,
                 minVisibilityM: visibility,
                 passagePlan,
+                ...(cargoCommitment ? { cargoCommitment } : {}),
               },
             }
           : {},
@@ -244,6 +249,7 @@ export function CurrentInputControl({
                     setVesselId(e.target.value);
                     setArrival("");
                     setPassagePlan(null);
+                    setCargoCommitment(null);
                   }}
                 >
                   {fleet.data?.vessels.map((v) => (
@@ -392,9 +398,20 @@ export function CurrentInputControl({
                   </p>
                   <PassagePlanInputs
                     value={passagePlan}
-                    onChange={setPassagePlan}
+                    onChange={(next) => {
+                      setPassagePlan(next);
+                      if (!next) setCargoCommitment(null);
+                    }}
                     voyageEta={vessel?.eta ?? null}
                     requestedArrival={selected}
+                  />
+                  <CargoCommitmentInputs
+                    value={cargoCommitment}
+                    onChange={setCargoCommitment}
+                    voyageId={vesselId}
+                    portCode={port}
+                    requestedArrival={selected}
+                    passageEnabled={passagePlan != null}
                   />
                   <Button
                     size="sm"
@@ -414,6 +431,7 @@ export function CurrentInputControl({
                             maxGustKn: gust,
                             minVisibilityM: visibility,
                             ...(passagePlan ? { passagePlan } : {}),
+                            ...(cargoCommitment ? { cargoCommitment } : {}),
                           },
                         },
                         {

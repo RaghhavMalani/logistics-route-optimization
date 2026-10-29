@@ -82,6 +82,9 @@ def require_current(problem):
                     from src.portwatch_os.intelligence.operational_notices import require_revision
                 try: require_revision(env)
                 except ValueError as exc: reason = str(exc)
+        if not reason and env.get("cargoCommitment"):
+            from .passage_cargo_integration import require_cargo_current
+            reason = require_cargo_current(env, scoped)
     if not reason and env.get('feedbackConsumption'):
         from src.portwatch_os.learning import intelligence_reconciliation as collector
         from src.portwatch_os.learning.shared_feedback import require_consumption
@@ -123,6 +126,13 @@ def weather_explanation(problem):
               "No measured saving, berth availability, whole-route safety or official clearance is established."
         )
         rec.statement = rec.why
+        if environment.get("cargoCommitment"):
+            assessment = derived.get("cargoAssessment") or {}
+            rec.why += (" Cargo connection: " + str(assessment.get("status", "UNKNOWN")) + ". "
+                + ("The explicitly required commitment constrains passage eligibility. " if environment["cargoCommitment"].get("mustMeet")
+                   else "Optional cargo context does not change passage eligibility or ranking. ")
+                + "Conditional handling uses declared downstream assumptions; no booking, berth access, cargo release or final delivery is confirmed.")
+            rec.statement = rec.why
         rec.robustness = None
         return
     rec.policy = "forecast-approach-comparison-v1"

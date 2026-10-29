@@ -169,6 +169,12 @@ def demo_outcome(decision_id: str):
             totalScheduleShiftHours=derived.get("scheduleShiftHours"),
             financial=copy.deepcopy(choice.evaluation.financial),
             note="Reproduces the accepted frozen passage, hourly approach assumptions and modeled fuel/cost components in this fictional visitor world; not actual vessel execution, measured savings, weather verification or a navigation command.")
+    if env.get("cargoCommitment"):
+        outcome.update(cargoCommitment=copy.deepcopy(env["cargoCommitment"]),
+            cargoComparisonVersion=env["cargoComparison"]["version"],
+            selectedCargoAssessment=copy.deepcopy(choice.evaluation.derived["cargoAssessment"]),
+            cargoExecutionStatus="NOT_EXECUTED", cargoBookingStatus="NOT_RESERVED",
+            finalDeliveryAt=None)
     from backend.app.routes.decisions import _approved_operational_action
     approved = _approved_operational_action(problem, choice)
     if approved:
@@ -251,7 +257,8 @@ def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
     else:
         inputs = copy.deepcopy(override) if override is not None else {
             "plannedArrival":env["plannedArrival"], **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")},
-            **({"passagePlan":copy.deepcopy(env["passagePlan"])} if env.get("passagePlan") else {})}
+            **({"passagePlan":copy.deepcopy(env["passagePlan"])} if env.get("passagePlan") else {}),
+            **({"cargoCommitment":copy.deepcopy(env["cargoCommitment"])} if env.get("cargoCommitment") else {})}
         if env.get("passagePlan"):
             # Frozen assumptions stay inspectable, but an expired position or
             # declaration cannot silently turn a passage refresh into the older

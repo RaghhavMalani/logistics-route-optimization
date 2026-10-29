@@ -8,6 +8,7 @@ import type {
   FinancialEvaluation,
 } from "@/types/decisions";
 import type {
+  CargoCommitmentDeclaration,
   CurrentEnvironment,
   FrozenEnvironment,
 } from "@/services/current-inputs";
@@ -111,6 +112,310 @@ async function companyCurrentInputs(
     name: "Current inputs for voyage planning",
   });
 }
+
+// Bounded cargo presentation fixtures. They never enter a source or visitor ledger.
+function cargoPassageFixture(mode: "same" | "blocked" | "unknown") {
+  const problem = passageFixture();
+  const environment = problem.evidence.currentEnvironment as FrozenEnvironment;
+  const declaration: CargoCommitmentDeclaration = {
+    schemaVersion: 1,
+    fictionalShipment: true,
+    voyageId: "PWD-001",
+    portCode: "INNSA",
+    declaredAt: at(0),
+    basis: "SIMULATED presentation assumptions only",
+    mustMeet: mode === "blocked",
+    shipment: {
+      shipmentId: "QA-FICTIONAL-SHIPMENT",
+      teu: 24,
+      cargoClass: "dry",
+      destinationPort: "SGSIN",
+      weightT: 288,
+    },
+    transfer: {
+      approachToStartHours: 2,
+      basis:
+        "SIMULATED 2h access and prerequisite interval before discharge; no handling pre-added",
+      acceptedSchematicHandling: true,
+      gangs: 1,
+      mode: "DIRECT",
+    },
+    bookedConnection: {
+      vesselId: "QA-BOOKED",
+      name: "Fictional booked connection",
+      departureAt: at(24),
+      loadingCutoffAt: at(22),
+      onwardPorts: ["SGSIN"],
+      availableTeu: mode === "unknown" ? undefined : 200,
+      availableDeadweightT: 3000,
+      basis: "SIMULATED declared schedule and available capacity",
+    },
+    laterConnections: [],
+  };
+  environment.cargoCommitment = declaration;
+  environment.cargoComparison = {
+    version: "passage-cargo-v1",
+    inputVersion: "c".repeat(64),
+    referenceAt: at(0),
+    options: environment.passageComparison!.options.map((option, index) => {
+      const blocked = mode === "blocked" && index === 1;
+      const offset = blocked ? 2 : 0;
+      if (blocked) {
+        option.status = "REJECTED";
+        option.reason =
+          "Required booked connection misses loading cutoff by 1.59 h under declared assumptions.";
+        option.approachClearAt = at(18);
+        option.scheduleShiftHours = 2;
+        problem.options[index].status = "REJECTED";
+        problem.options[index].feasible = false;
+        problem.options[index].rejectedBy = [
+          {
+            key: "cargo_commitment",
+            label: "Required cargo commitment",
+            passed: false,
+            hard: true,
+            detail: option.reason,
+            basis: declaration.basis,
+          },
+        ];
+      }
+      return {
+        optionId: option.optionId,
+        status: blocked
+          ? "BLOCKED"
+          : mode === "unknown"
+            ? "UNKNOWN"
+            : "COMPATIBLE_UNDER_ASSUMPTIONS",
+        timingStatus: blocked ? "MISSES" : "FITS",
+        startAt: at(18 + offset),
+        readinessAt: at(21.590909 + offset),
+        cutoffAt: at(22),
+        departureAt: at(24),
+        slackHours: 0.409091 - offset,
+        handlingHours: 3.590909,
+        stages: {
+          dischargeHours: 1,
+          transferOverheadHours: 1.5,
+          yardMovesHours: 0,
+          loadHours: 1.090909,
+          totalHandlingHours: 3.590909,
+        },
+        reasons: blocked ? [option.reason!] : [],
+        missing:
+          mode === "unknown"
+            ? [
+                "Booked available TEU is unknown; timing fits alone cannot verify the connection.",
+              ]
+            : [],
+        requiredConstraint: {
+          required: declaration.mustMeet,
+          passed: blocked ? false : mode === "unknown" ? null : true,
+        },
+        alternatives: blocked
+          ? [
+              {
+                optionId: "cargo-later",
+                action: "CHANGE_CONNECTION",
+                label: "Fictional compatible later sailing",
+                status: "PROPOSAL_UNDER_ASSUMPTIONS",
+                vesselId: "QA-LATER",
+                departureAt: at(48),
+                readinessAt: at(23.590909),
+                cutoffAt: at(46),
+                slackHours: 22.409091,
+                departureShiftHours: 24,
+                bookingStatus: "NOT_RESERVED",
+                execution: "SEPARATE_COMPANY_REVIEW_REQUIRED",
+                limitation:
+                  "Final delivery unavailable; declared capacity only.",
+              },
+            ]
+          : [],
+      };
+    }),
+  };
+  if (mode === "blocked") {
+    problem.recommendation!.optionId = "keep";
+    problem.recommendation!.kind = "KEEP_CURRENT_PLAN";
+  }
+  return problem;
+}
+
+test("cargo declaration requires deliberate selection and keeps editable missing inputs explicit", async ({
+  context,
+  page,
+}) => {
+  const sent: CreateDecisionPayload[] = [];
+  await context.route("**/api/demo/terminal/decisions/problems", (route) => {
+    sent.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 422,
+      json: { detail: "SIMULATED request capture; nothing persisted" },
+    });
+  });
+  const dialog = await companyCurrentInputs(context, page);
+  const add = dialog.getByRole("button", {
+    name: "Use illustrative cargo connection scenario",
+    exact: true,
+  });
+  await expect(add).toBeDisabled();
+  await dialog
+    .getByRole("checkbox", {
+      name: "Include a declared remaining passage",
+      exact: true,
+    })
+    .check();
+  await dialog
+    .getByRole("button", {
+      name: "Use named simulated passage scenario",
+      exact: true,
+    })
+    .click();
+  await add.click();
+  await expect(
+    dialog.getByRole("checkbox", {
+      name: "Require this booked connection for passage approval",
+      exact: true,
+    }),
+  ).not.toBeChecked();
+  await dialog
+    .getByRole("checkbox", {
+      name: "Require this booked connection for passage approval",
+      exact: true,
+    })
+    .check();
+  await dialog
+    .getByRole("textbox", {
+      name: "Booked loading cutoff (aware ISO time)",
+      exact: true,
+    })
+    .fill("");
+  await dialog
+    .getByRole("spinbutton", {
+      name: "Booked available capacity (TEU)",
+      exact: true,
+    })
+    .fill("");
+  await dialog
+    .getByRole("button", {
+      name: "Declare an illustrative later sailing",
+      exact: true,
+    })
+    .click();
+  await dialog
+    .getByRole("button", {
+      name: "Compare in the original decision panel",
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => sent.length).toBe(1);
+  const cargo = sent[0].currentArrival!.cargoCommitment!;
+  expect(cargo).toMatchObject({
+    fictionalShipment: true,
+    voyageId: "PWD-001",
+    portCode: "INNSA",
+    mustMeet: true,
+    transfer: { approachToStartHours: 2, acceptedSchematicHandling: true },
+  });
+  expect(cargo.bookedConnection).not.toHaveProperty("loadingCutoffAt");
+  expect(cargo.bookedConnection).not.toHaveProperty("availableTeu");
+  expect(cargo.laterConnections).toHaveLength(1);
+  expect(cargo.basis).toContain("demonstration assumptions");
+  await dialog
+    .getByRole("combobox", { name: "Current input voyage", exact: true })
+    .selectOption("PWD-002");
+  await expect(add).toBeDisabled();
+  await expect(
+    dialog.getByRole("textbox", { name: "Fictional shipment ID", exact: true }),
+  ).toHaveCount(0);
+});
+
+for (const mode of ["same", "unknown"] as const) {
+  test(`cargo ${mode} consequence stays compact and conditional with the existing option selection`, async ({
+    context,
+    page,
+  }) => {
+    const { summary } = await openFixture(
+      context,
+      page,
+      cargoPassageFixture(mode),
+    );
+    await expect(summary.getByTestId("cargo-commitment-summary")).toContainText(
+      "QA-FICTIONAL-SHIPMENT",
+    );
+    const core = summary.getByTestId("passage-core-comparison");
+    await noHorizontalOverflow(summary);
+    await noHorizontalOverflow(core);
+    const ready = core.getByRole("row", { name: /conditional cargo ready/i });
+    const cells = ready.getByRole("cell");
+    expect(await cells.nth(0).textContent()).toBe(
+      await cells.nth(1).textContent(),
+    );
+    await expect(
+      core.getByRole("row", { name: /cutoff slack/i }),
+    ).toContainText("+0.41 h");
+    await expect(summary).toContainText(
+      "cargo readiness and cutoff slack are also unchanged",
+    );
+    if (mode === "unknown") {
+      await expect(core).toContainText("Unknown");
+      await expect(core).toContainText("timing fits alone cannot verify");
+      await expect(
+        summary.getByRole("button", {
+          name: "Select Slower declared passage",
+          exact: true,
+        }),
+      ).toBeEnabled();
+    } else await expect(core).toContainText("Compatible under assumptions");
+    await summary
+      .getByRole("button", { name: "Select current plan", exact: true })
+      .click();
+    await expect(summary).toHaveAttribute("data-selected-option", "keep");
+  });
+}
+
+test("cargo required cutoff rejection exposes later proposal and keyboard stage evidence without booking authority", async ({
+  context,
+  page,
+}) => {
+  const { panel, summary } = await openFixture(
+    context,
+    page,
+    cargoPassageFixture("blocked"),
+  );
+  await expect(summary).toContainText(
+    "Required booked connection misses loading cutoff",
+  );
+  await expect(
+    summary.getByRole("button", {
+      name: "Select Slower declared passage",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await expect(summary).toContainText("KEEP CURRENT PLAN");
+  await panel
+    .getByText("Full passage schedule and evidence", { exact: true })
+    .click();
+  const archive = panel.getByTestId("frozen-cargo-comparison");
+  const disclosure = archive.locator(":scope > summary");
+  await disclosure.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    archive.getByText("Discharge", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(archive).toContainText("3.59 h");
+  await archive
+    .getByText("Supported cargo-engine alternatives · proposals only", {
+      exact: true,
+    })
+    .click();
+  await expect(archive).toContainText("Fictional compatible later sailing");
+  await expect(archive).toContainText("+24 h versus booked sailing");
+  await expect(archive).toContainText(
+    "Proposal only · not reserved · separate Company review required",
+  );
+  await noHorizontalOverflow(archive);
+});
 
 test("passage assumptions require deliberate selection; vessel changes reset them and default request stays bounded", async ({
   context,

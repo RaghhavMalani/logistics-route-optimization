@@ -1,4 +1,5 @@
 import { formatUtc } from "@/components/kit/primitives";
+import { CargoCommitmentEvidence } from "./CargoCommitmentEvidence";
 import type {
   FrozenEnvironment,
   PassageOptionComparison,
@@ -330,6 +331,7 @@ export function PassageComparison({
       {comparison.options.map((option) => (
         <OptionEvidence key={option.optionId} option={option} />
       ))}
+      <CargoCommitmentEvidence evidence={evidence} />
       <details>
         <summary>
           Inspect frozen passage declaration, consumption and rate provenance
