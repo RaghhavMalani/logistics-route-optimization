@@ -6,7 +6,7 @@ import math
 from fastapi import APIRouter, Body, HTTPException, Query
 from backend.app.routes.operational_notices import company
 from backend.app.routes.shipping_intelligence import scoped_world
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import wall_now, world_now, get_clock
 from src.portwatch_os.intelligence import navigation_restrictions as notices
 from src.portwatch_os.intelligence.current_environment import instant
 from src.portwatch_os.decision.episodes import ensure_episode
@@ -20,6 +20,7 @@ router=APIRouter()
 
 @router.get('/intelligence/navigation-restrictions')
 def listing():
+    query_at = world_now()
     scoped=scoped_world()
     catalogue=notices.refresh_all()
     from backend.app.identity import current_identity
@@ -27,7 +28,7 @@ def listing():
     vessels=[v for v in scoped.world['fleet'] if who.role!='VESSEL_OPERATOR' or v['id'] in who.vessel_ids]
     return {**catalogue, 'voyages':[
         {k:v.get(k) for k in ('id','name','laneCode','portCode','cargo','declaredPassage','declaredPassages','possibleAssetIds','operationalEpisode')}
-        for v in vessels], 'exposureQueue':queue(catalogue.get('notices',[]),vessels,wall_now()),
+        for v in vessels], 'asOf':query_at.isoformat(), 'exposureQueue':queue(catalogue.get('notices',[]),vessels,query_at),
         'meaning':'The original map point identifies the restricted asset. Exposure requires an explicit declared passage; no destination or lane automatically crosses this bridge.'}
 
 
@@ -38,7 +39,7 @@ def exposure(noticeId: str = Query(None), vesselId: str = Query(None)):
         raise HTTPException(404,'Voyage not owned by this role and visitor')
     rows=[r for r in data['exposureQueue'] if (not noticeId or noticeId in (r['noticeId'],r.get('providerNoticeId')))
           and (not vesselId or r['vesselId']==vesselId)]
-    return {'asOf':wall_now().isoformat(),'relations':rows,'exposureQueue':rows,
+    return {'asOf':data['asOf'],'relations':rows,'exposureQueue':rows,
         'counts':{state:sum(r['status']==state for r in rows) for state in (
             'CONFIRMED_DECLARED_EXPOSURE','POSSIBLE_EXPOSURE','NO_DEMONSTRATED_EXPOSURE','INSUFFICIENT_DATA')},
         'sourceRegistry':data.get('sourceRegistry',[]),
@@ -64,13 +65,14 @@ def exposure_lead(payload:dict=Body(...)):
         vessel=next(v for v in world['fleet'] if v['id']==row['id'])
         vessel['possibleAssetIds']=sorted(set(vessel.get('possibleAssetIds') or [])|{asset})
         return {'vesselId':row['id'],'assetId':asset,'noticeId':notice.get('noticeId'),
-            'exposure':match(notice,vessel,wall_now()),'createsOperationalTarget':False,
+            'exposure':match(notice,vessel,world_now()),'createsOperationalTarget':False,
             'meaning':'Operator-marked review lead only; route membership, passage timing and vessel applicability need confirmation. No arrival, approval or measured impact changes.'}
     return scoped.save_world(save)
 
 
 @router.post('/intelligence/navigation-passage-plan')
 def declare(payload:dict=Body(...)):
+    query_at = world_now()
     scoped,who=company()
     row=next((v for v in scoped.world['fleet'] if v['id']==payload.get('vesselId')),None)
     if not row: raise HTTPException(404,'Voyage not owned by this visitor')
@@ -79,7 +81,7 @@ def declare(payload:dict=Body(...)):
     zones={w.get('timeZone') for w in notice.get('windows',[]) if w.get('timeZone')}
     try:
         passage=instant(payload['passageAt']); hours=payload['postPassageHours']
-        if not wall_now() < passage <= wall_now()+timedelta(days=365): raise ValueError('Declare a future passage within one year')
+        if not query_at < passage <= query_at+timedelta(days=365): raise ValueError('Declare a future passage within one year')
         if isinstance(hours,bool) or not isinstance(hours,(int,float)) or not math.isfinite(hours) or not 24<=hours<=720:
             raise ValueError('Declared onward travel must be 24–720 hours')
         if not area or payload.get('areaId') != area or payload.get('passageConfirmed') is not True:
@@ -95,6 +97,8 @@ def declare(payload:dict=Body(...)):
                 raise ValueError('Positive finite vessel characteristics required')
     except (KeyError,ValueError,TypeError) as exc: raise HTTPException(422,str(exc))
     episode=ensure_episode(scoped,row)
+    # wall-clock: the operator declaration's receipt is actual audit time; passageAt is a distinct domain instant.
+    declared_at = wall_now().isoformat()
     plan={'sourceFamily':'NAVCEN_MSI','areaId':area,'route':[area,row['portCode']],
         'noticeId':notice.get('noticeId') or payload.get('noticeId') or notice.get('noticeRef'),
         'origin':'Visitor-declared upstream passage at '+notice.get('title','reviewed asset')+'; route suitability unverified',
@@ -102,7 +106,7 @@ def declare(payload:dict=Body(...)):
         'characteristics':{k:chars[k] for k in ('loaM','beamM','draughtM','airDraughtM')},
         'openingRequired':payload['openingRequired'],'emergencyTransit':payload['emergencyTransit'],'timezoneAssumption':payload['timezoneAssumption'],
         'alternativeAccess':'NOT_VERIFIED','operationalEpisode':episode,
-        'source':'OPERATOR_DECLARED_FICTIONAL_VOYAGE','declaredAt':wall_now().isoformat(),'actor':who.actor}
+        'source':'OPERATOR_DECLARED_FICTIONAL_VOYAGE','declaredAt':declared_at,'actor':who.actor}
     signature={k:v for k,v in plan.items() if k not in ('declaredAt','actor','noticeId')}
     plan['id']=hashlib.sha256(json.dumps(signature,sort_keys=True).encode()).hexdigest()
     arrival=passage+timedelta(hours=hours)
@@ -129,6 +133,7 @@ def declare(payload:dict=Body(...)):
 
 @router.post('/intelligence/navigation-comparison')
 def comparison(payload:dict=Body(...)):
+    at = world_now()
     scoped,who=company(); row=next((v for v in scoped.world['fleet'] if v['id']==payload.get('vesselId')),None)
     if not row: raise HTTPException(404,'Voyage not owned by this visitor')
     notice=selected_notice(payload)
@@ -137,18 +142,20 @@ def comparison(payload:dict=Body(...)):
     if notice.get('revisionId') != payload.get('revisionId'): raise HTTPException(409,'Authority revision changed; inspect current evidence')
     try:
         result=notices.planned_consequence(notice,plan)
-        if instant(plan['passageAt'])<=wall_now(): raise ValueError('Declared passage is no longer future')
+        if instant(plan['passageAt'])<=at: raise ValueError('Declared passage is no longer future')
     except (ValueError,KeyError) as exc: raise HTTPException(409,str(exc))
     from backend.app.services.demo_terminal import company_for
     eta=instant(company_for(scoped.world).vessel(row['id']).eta)
     if eta != instant(plan['passageAt'])+timedelta(hours=plan['postPassageHours']):
         raise HTTPException(409,'Declared ETA changed; save a fresh passage plan for the same call')
-    at=wall_now(); wait=result['calculatedWaitHours']; shifted=eta+timedelta(hours=wait)
+    wait=result['calculatedWaitHours']; shifted=eta+timedelta(hours=wait)
     relation=match(notice,row,at)
     if not relation['calculable']:
         raise HTTPException(409,relation['calculationReason'])
+    # wall-clock: comparison creation is actual application knowledge; at/computedAt remain domain query times.
+    created_at = wall_now().isoformat()
     basis={'kind':'NOTICE_RESTRICTION','operationalEpisode':ensure_episode(scoped,row),
-        'portCode':row['portCode'],'voyageId':row['id'],'availableAt':at.isoformat(),
+        'portCode':row['portCode'],'voyageId':row['id'],'availableAt':created_at,'evaluatedAt':at.isoformat(),
         'earliestVoyageArrival':eta.isoformat(),'plannedArrival':eta.isoformat(),'firstClearApproach':shifted.isoformat(),
         'forecastGateWaitHours':wait,'reportedFact':{**notice,'fact':notice['restriction']},
         'inferredExposure':{'route':' → '.join(plan['route']),'port':row['portCode'],'vessel':row['name'],'cargo':row['cargo'],
@@ -189,7 +196,7 @@ def comparison(payload:dict=Body(...)):
                     'earliestScheduledAccess':result['earliestScheduledAccess'],'actualEarliestPermittedAccess':None,
                     'earliestDestinationArrival':shifted.isoformat(),'approachClearAt':shifted.isoformat()},computed_at=at.isoformat()),
             timeline=[{'at':when.isoformat(),'hours':(when-at).total_seconds()/3600,'kind':kind,'subject':text,'label':text} for when,kind,text in marks]))
-    problem=DecisionProblem(decision_id=did,created_at=at.isoformat(),domain=VESSEL_ROUTING,world_revision={'mode':'LIVE'},
+    problem=DecisionProblem(decision_id=did,created_at=created_at,domain=VESSEL_ROUTING,world_revision={'mode':get_clock().state.mode},
         world_state_id=scoped.world['epoch']+basis['evidenceId'],subject_type='vessel',subject_id=row['id'],subject_label=row['name'],
         actor=DecisionActor(role=who.role,organisation=who.organisation),at=at.isoformat(),
         objectives=[DecisionObjective('eta','Conditional destination schedule shift','hours','min','Authority interval plus declared travel'),

@@ -114,6 +114,8 @@ def record_fx_check(store, checked_at, status, *, digest=None, reason=None, obse
 
 
 def collect_notice(store, notice):
+    # wall-clock: extraction assessments become available when this collector interprets retained source bytes.
+    assessed_at = wall_now().isoformat()
     if not notice.get("revisionId") or not notice.get("pdfSha256"):
         return []
     from src.portwatch_os.intelligence import operational_notices
@@ -136,7 +138,7 @@ def collect_notice(store, notice):
                     "independenceKey": "Peel Ports", "firstAvailableAt": notice["availableAt"], "observedAt": notice["availableAt"],
                     "unit": "boolean", "aggregation": "EXPLICIT_NOTICE_WINDOW", "value": None,
                     "recordKind": "CANCELLATION", "responseSha256": notice["pdfSha256"], "cancelsSourceVersion": item["sourceVersion"]})
-                feedback.verify_news(store, item, wall_now().isoformat())
+                feedback.verify_news(store, item, assessed_at)
         return []
     # This source's own notice is not an independent confirmation of itself.
     made = []
@@ -154,7 +156,7 @@ def collect_notice(store, notice):
                 "eventKey": event_key, "independenceKey": "Peel Ports", "inputs": [],
                 "unit": "boolean", "aggregation": "EXPLICIT_NOTICE_WINDOW"}
             item = feedback.claim(store, body)
-            feedback.verify_news(store, item, wall_now().isoformat()); made.append(item)
+            feedback.verify_news(store, item, assessed_at); made.append(item)
     return made
 
 
@@ -282,23 +284,28 @@ def run_once():
     if not LOCK.acquire(blocking=False):
         return {"status": "RUNNING"}
     store = open_public()
-    status = {"status": "COLLECTING", "ranAt": wall_now().isoformat(), "failures": []}
+    # wall-clock: run audit and bounded provider query dates describe an actual collection attempt.
+    started_at = wall_now()
+    status = {"status": "COLLECTING", "ranAt": started_at.isoformat(), "failures": []}
     try:
         try:
-            request_params = {"id": "DEXINUS", "cosd": (wall_now()-feedback.timedelta(days=45)).date().isoformat(),
-                              "coed": wall_now().date().isoformat()}
+            request_params = {"id": "DEXINUS", "cosd": (started_at-feedback.timedelta(days=45)).date().isoformat(),
+                              "coed": started_at.date().isoformat()}
             response = requests.get(URL, params=request_params, timeout=(4, 20))
             response.raise_for_status()
+            # wall-clock: observation availability starts after the actual provider response returns.
             status["observations"] = len(collect_fx(store, response.content, wall_now().isoformat(),
                 request_metadata={"requestParameters": request_params, "requestScopeMeaning": "Exact parameters sent by the existing six-hour worker"}))
         except requests.RequestException:
             reason = "DEXINUS provider request failed; the last retained observation is not reused as a new outcome"
+            # wall-clock: persist this failed attempt's receipt; no new observation is created.
             record_fx_check(store, wall_now().isoformat(), "PROVIDER_UNAVAILABLE", reason=reason)
             status["failures"].append({"source": "DEXINUS", "reason": reason})
         except (ValueError, OSError):
             reason = "DEXINUS source response or original-evidence validation failed; retained records remain inspectable"
             latest = sorted(store.feedback("economic-source-check"), key=lambda row: (row["checkedAt"], row["id"]))
             if not latest or latest[-1]["status"] != "MALFORMED_RESPONSE":
+                # wall-clock: validation failure is an actual audit check, not an observation date.
                 record_fx_check(store, wall_now().isoformat(), "ORIGINAL_VALIDATION_FAILED", reason=reason)
             status["failures"].append({"source": "DEXINUS", "reason": reason})
         notice = {}
@@ -340,11 +347,15 @@ def run_once():
             status['failures'].append({'source':'USCG NAVCEN','reason':str(exc)[:180]})
         try:
             from backend.app.services.cache_service import get_news_bundle
+            # wall-clock: public news cache becomes available to this collector at actual ingest.
             collect_news_product(store, get_news_bundle(), wall_now().isoformat())
         except (ValueError, OSError, RuntimeError) as exc:
             status["failures"].append({"source": "News source product", "reason": str(exc)[:180]})
-        status["resolved"], status["pending"] = feedback.reconcile(store, wall_now().isoformat())
-        status["reliabilityVersion"] = feedback.reliability_version(store, wall_now().isoformat())["id"]
+        # wall-clock: evaluate a live collection cohort at one post-ingest instant, not a visitor's replay.
+        evaluation_at = wall_now().isoformat()
+        status["resolved"], status["pending"] = feedback.reconcile(store, evaluation_at)
+        status["reliabilityVersion"] = feedback.reliability_version(store, evaluation_at)["id"]
+        # wall-clock: completed result availability follows calculation completion, not run start.
         status['completedAt']=wall_now().isoformat()
         status['firstAvailableAt']=status['completedAt']
         store.append_feedback("run", {**status, "id": feedback.identifier(status)})

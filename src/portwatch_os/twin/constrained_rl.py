@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from datetime import datetime, timezone
+from src.portwatch_os.clock import wall_now
 import hashlib
 import numpy as np
 from src.portwatch_os.twin.policies import BasePolicy, FirstComeFirstServed, GreedyPolicy, LookaheadPolicy
@@ -127,7 +127,8 @@ def experiment(directory: Path, episodes=250, validation=50, test=100):
     strongest = max((r for r in valid if r["policyId"] != policy.policy_id),key=lambda r:r["meanReward"])
     gain = (candidate["meanReward"]-strongest["meanReward"])/max(1,abs(strongest["meanReward"]))
     status = "CANDIDATE" if gain>.02 and candidate["violations"]==0 and candidate["rejectedActions"]==0 and candidate["minReward"]>=strongest["minReward"]-.05*abs(strongest["minReward"]) else "REJECTED"
-    report = {"generatedAt":datetime.now(timezone.utc).isoformat(),"status":status,
+    # wall-clock: report generation is an actual research-run audit stamp, independent of simulator time.
+    report = {"generatedAt":wall_now().isoformat(),"status":status,
         "trainingEpisodes":episodes,"trainingSeedRange":[TRAIN_SEED_BASE,TRAIN_SEED_BASE+episodes-1],
         "validationSeedRange":[8_000_000,8_000_000+validation-1],"testSeedRange":[9_000_000,9_000_000+test-1],
         "validation":valid,"test":measured,"validationGainVsStrongest":round(gain,4),

@@ -11,7 +11,7 @@ import re
 import threading
 from zoneinfo import ZoneInfo
 import requests
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.intelligence.current_environment import ROOT, instant
 from src.portwatch_os.intelligence.source_registry import ASSETS, NAVCEN_SOURCE, registry
 
@@ -284,6 +284,7 @@ def _hydrate_retained(root, previous, extracted_at, failure_reason):
 def refresh_all(force=False):
     with LOCK:
         from src.portwatch_os.deployment import resolve_mode
+        # wall-clock: live collection cadence and receivedAt record the actual source check, not scenario time.
         now = wall_now(); received = now.isoformat()
         if resolve_mode(None)[0] not in ('DEMO', 'RESEARCH'):
             return {'sourceFamily': 'NAVCEN_MSI', 'source': SOURCE, 'notices': [], 'sourceStatus': 'UNAVAILABLE',
@@ -375,16 +376,18 @@ def planned_consequence(notice, plan):
         'condition': notice['confirmation']+' Time-zone conversion uses the explicitly confirmed geographic assumption.'}
 
 
-def require_revision(basis):
+def require_revision(basis, *, now=None):
+    query_at = world_now() if now is None else instant(now)
     uid = basis.get('reportedFact', {}).get('providerNoticeId')
     latest = refresh(notice_id=uid) if uid and str(uid) != str(FEATURE_ID) else refresh()
     if latest.get('sourceStatus') != 'CURRENT' or latest.get('status') != 'SCHEDULED':
         raise ValueError('Authority restriction unavailable or cancelled; further action blocked')
     if latest['revisionId'] != basis['restriction']['revisionId']:
         raise ValueError('Authority restriction revised; explicitly refresh a linked successor')
-    if (wall_now() > instant(latest['checkedAt'])+TTL
-            or (latest.get('productThrough') and wall_now() >= instant(latest['productThrough']))
-            or (latest.get('windows') and all(instant(w['end']) <= wall_now() for w in latest['windows']))):
+    if (query_at < instant(latest.get('availableAt') or latest['checkedAt'])
+            or query_at > instant(latest['checkedAt'])+TTL
+            or (latest.get('productThrough') and query_at >= instant(latest['productThrough']))
+            or (latest.get('windows') and all(instant(w['end']) <= query_at for w in latest['windows']))):
         raise ValueError('Authority receipt or product validity expired')
     digest = basis['reportedFact']['responseSha256']; path = ROOT/'operational_notices'/(digest+'.response')
     if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:

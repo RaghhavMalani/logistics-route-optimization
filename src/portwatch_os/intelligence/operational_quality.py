@@ -23,6 +23,7 @@ from src.portwatch_os.intelligence.public_ports import (
 )
 from src.utils import port_registry
 from src.utils.config import DATA_DIR, STATE_DIR
+from src.portwatch_os.clock import world_now
 
 VERSION = "operational-source-quality-v1"
 IMF_PRODUCT = "imf-portwatch-data"
@@ -38,7 +39,7 @@ _STATUS = {"LIVE", "CACHED_LIVE", "STALE", "SYNTHETIC", "UNAVAILABLE"}
 
 
 def _now(now=None):
-    value = now or datetime.now(timezone.utc)
+    value = world_now() if now is None else now
     if not isinstance(value, datetime) or value.tzinfo is None:
         raise ValueError("Source quality requires an aware clock")
     return value.astimezone(timezone.utc)

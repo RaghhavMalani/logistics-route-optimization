@@ -52,9 +52,11 @@ def require_current(problem):
     scoped = current_sandbox.get()
     env = connected_basis(problem)
     reason = None
+    # wall-clock: continuation is a live-only approval action against actual receipt expiry.
+    operation_at = wall_now()
     if get_clock().state.mode != LIVE:
         reason = "Return to the live clock before continuing this frozen comparison."
-    elif instant(env["plannedArrival"]) <= wall_now() or wall_now()-instant(env["availableAt"]) > timedelta(hours=1):
+    elif instant(env["plannedArrival"]) <= operation_at or operation_at-instant(env["availableAt"]) > timedelta(hours=1):
         reason = "The frozen input receipt or requested arrival has expired."
     elif scoped:
         vessel = next((v for v in scoped.world["fleet"] if v["id"] == problem.subject_id), None)
@@ -73,7 +75,7 @@ def require_current(problem):
             declared=passage_for(vessel,env['restriction']['plan'].get('areaId')) or {}
             if declared.get('id') != env['restriction']['plan']['id']:
                 reason = 'The consumed route, characteristics or passage declaration has changed.'
-            elif instant(env['restriction']['plan']['passageAt']) <= wall_now():
+            elif instant(env['restriction']['plan']['passageAt']) <= operation_at:
                 reason = 'The declared lock passage is no longer future.'
             else:
                 if env['restriction'].get('sourceFamily')=='NAVCEN_MSI':

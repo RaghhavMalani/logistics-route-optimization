@@ -14,7 +14,7 @@ def test_shadow_route_filters_asof_and_is_read_only(state, tmp_path, monkeypatch
     from backend.app.routes import weather_verification as route
     monkeypatch.setattr(environment, "FEEDBACK_DB", ledger.path)
     monkeypatch.setattr(environment, "ROOT", root)
-    monkeypatch.setattr(route, "wall_now", lambda: NOW)
+    monkeypatch.setattr(route, "world_now", lambda: NOW)
     store, client = setup(tmp_path/"demo", monkeypatch)
     token = store.create("SHIPPING_COMPANY")["accessToken"]
     headers = {"Authorization": "Bearer "+token}

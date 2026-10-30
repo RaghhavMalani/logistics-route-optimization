@@ -119,6 +119,7 @@ def get_news_bundle() -> dict:
 
 def get_live_status() -> dict:
     status = dict(_read_json_optional(STATUS_CACHE, {}))
+    # wall-clock: this LIVE status measures current file/collector health, independent of domain replay.
     now = wall_now()
     for source, age_key, state_key, budget in (("forecastOrigin", "forecastOriginAgeHours", "forecastOriginStatus", 36),
                                               ("exportedAt", "generationAgeHours", "generationStatus", 24)):

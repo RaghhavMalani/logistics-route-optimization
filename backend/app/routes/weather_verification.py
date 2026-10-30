@@ -5,7 +5,7 @@ import json
 import re
 from fastapi import APIRouter, HTTPException, Query
 
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import world_now
 from src.portwatch_os.ledger.store import SqliteLedgerStore
 from src.portwatch_os.learning.weather_feedback import WeatherFeedback, instant
 from src.portwatch_os.learning.weather_reconciliation import WeatherEvidenceStore, outcome_key, sampling_window, original_response_retained
@@ -14,22 +14,26 @@ router=APIRouter()
 
 
 def inspection(port="INNSA", variable="wind_gust"):
+    query_at = world_now()
     from src.portwatch_os.intelligence.current_environment import FEEDBACK_DB, ROOT
     if not FEEDBACK_DB.exists(): raise HTTPException(503,"Public weather archive unavailable")
     ledger=SqliteLedgerStore(FEEDBACK_DB); evidence=WeatherEvidenceStore(FEEDBACK_DB)
     try:
         feedback=WeatherFeedback(ledger)
-        report=feedback.report(port,variable=variable,limit=10000,public_only=True,now=wall_now())
+        report=feedback.report(port,variable=variable,limit=10000,public_only=True,now=query_at)
         forecasts=report["forecasts"]
         cases=sorted((r for r in ledger.predictions(domain="weather",subject=port)
                       if r.target==variable and r.model in ("Open-Meteo surface","Open-Meteo marine")
-                      and r.context.extra.get("horizonDays")==5 and instant(r.issued_at)<=wall_now()),
+                      and r.context.extra.get("horizonDays")==5 and instant(r.issued_at)<=query_at),
                      key=lambda r:(r.issued_at,r.prediction_id))
         def inspect_case(row):
             if row is None: return None
-            original=feedback.report(port,variable=variable,limit=1,public_only=True,prediction_id=row.prediction_id,now=wall_now())["forecasts"][0]
+            original=feedback.report(port,variable=variable,limit=1,public_only=True,prediction_id=row.prediction_id,now=query_at)["forecasts"][0]
             original={**original,"forecastEvidence":evidence.get("weather_forecast_annotations",row.prediction_id),
                       "outcomeEvidence":evidence.get("weather_outcome_evidence",outcome_key(port,variable,original["validAt"]))}
+            outcome = original["outcomeEvidence"]
+            if outcome and instant(outcome["availableAt"]) > query_at:
+                original["outcomeEvidence"] = None
             # A derived interval annotation also explains older immutable claims.
             if original["forecastEvidence"]:
                 original["forecastEvidence"]={**original["forecastEvidence"],"measurementWindow":sampling_window(original["targetDate"],variable)}
@@ -39,7 +43,7 @@ def inspection(port="INNSA", variable="wind_gust"):
         matched=[r for r in ledger.predictions(domain="weather",subject=port,status="resolved")
             if r.target==variable and r.model=="Open-Meteo surface"
             and r.observation_source=="reanalysis: Open-Meteo ERA5 archive"
-            and r.observed_at and instant(r.observed_at)<=wall_now() and instant(r.issued_at)<=wall_now()]
+            and r.observed_at and instant(r.observed_at)<=query_at and instant(r.issued_at)<=query_at]
         latest_matched=None
         for row in sorted(matched,key=lambda r:(instant(r.observed_at),instant(r.issued_at),r.prediction_id),reverse=True):
             candidate=inspect_case(row)
@@ -53,9 +57,9 @@ def inspection(port="INNSA", variable="wind_gust"):
                 latest_matched=candidate
                 break
         status=ROOT/"reconciliation.json"
-        next_rows=[f for f in forecasts if instant(f["validAt"])>wall_now()]
+        next_rows=[f for f in forecasts if instant(f["validAt"])>query_at]
         subsequent=next((f for f in next_rows if f["horizonDays"]==5),next_rows[0] if next_rows else None)
-        candidate=feedback.correction(port,variable,"Open-Meteo surface",5,wall_now())
+        candidate=feedback.correction(port,variable,"Open-Meteo surface",5,query_at)
         candidate={**candidate,"candidateEligible":candidate.get("decisionEligible",False),
             "decisionEligible":False,"mode":"SHADOW_ONLY","adoptionStatus":"NOT_ADOPTED",
             "status":"SHADOW_VALIDATED" if candidate["status"]=="VALIDATED" else candidate["status"]}
@@ -118,13 +122,14 @@ def shadow_analysis(portCode: str | None = Query(None), variable: str | None = Q
         raise HTTPException(422, "Registered port and supported weather variable required")
     if provider and provider not in ("Open-Meteo surface", "Open-Meteo marine"):
         raise HTTPException(422, "Provider must identify a retained public forecast product")
-    at = wall_now()
+    at = world_now()
+    latest_query_at = at
     if asOf:
         try:
             at = instant(asOf)
         except (ValueError, TypeError, OverflowError):
             raise HTTPException(422, "asOf must be an aware ISO timestamp") from None
-        if at > wall_now():
+        if at > latest_query_at:
             raise HTTPException(422, "An analysis cannot use future evidence")
     ledger, evidence = SqliteLedgerStore(FEEDBACK_DB), WeatherEvidenceStore(FEEDBACK_DB)
     try:

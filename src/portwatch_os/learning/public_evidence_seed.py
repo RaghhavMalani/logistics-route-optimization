@@ -13,6 +13,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import sqlite3
+from src.portwatch_os.clock import wall_now
 
 
 VERSION = 'public-preview-seed-v1'
@@ -197,7 +198,8 @@ def import_public_seed(manifest_path,*,state_dir,current_environment_dir,weather
     from src.portwatch_os.ledger.store import SqliteLedgerStore
     from src.portwatch_os.learning.weather_reconciliation import WeatherEvidenceStore
     from src.portwatch_os.intelligence.public_ports import PublicPilot
-    at=_instant(now or datetime.now(timezone.utc).isoformat()).isoformat()
+    # wall-clock: this is the actual import audit receipt; original availability stays in the imported rows.
+    at=_instant(wall_now().isoformat() if now is None else now).isoformat()
     state,environment=Path(state_dir),Path(current_environment_dir)
     targets={'feedback':Path(feedback_db),'weather':Path(weather_db),'ports':state/'public_port_pilot/public_ports.db'}
     # The operator explicitly chose these destinations through preview server config.

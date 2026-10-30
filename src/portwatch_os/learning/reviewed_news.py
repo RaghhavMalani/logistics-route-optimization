@@ -115,7 +115,8 @@ def collect_gac_eastham(store, raw, received, notice, *, root=ROOT, interpreted_
     digest = retain_response(store, raw, SOURCE, received, root, product=FAMILY,
                              request_metadata={'method': 'GET', 'url': SOURCE, 'parserVersion': PARSER_VERSION})
     parsed = parse_gac_eastham(raw)
-    available = max(feedback.instant(received), feedback.instant(interpreted_at or wall_now().isoformat())).isoformat()
+    # wall-clock: new extraction knowledge starts when actually interpreted; an explicit replay/test instant wins.
+    available = max(feedback.instant(received), feedback.instant(wall_now().isoformat() if interpreted_at is None else interpreted_at)).isoformat()
     revision = feedback.identifier([PARSER_VERSION, parsed])
     base = {'kind': 'REPORTED_FACT', 'wording': parsed['wording'], 'value': True,
         'entity': ENTITY, 'geography': GEOGRAPHY, 'originAt': available, 'firstAvailableAt': available,
@@ -172,7 +173,8 @@ def collect_primary_notice_state(store, notice, *, interpreted_at=None):
     canonical_revision = hashlib.sha256(json.dumps(retained, sort_keys=True).encode()).hexdigest()
     if any(notice.get(key) != value for key, value in retained.items()) or notice['revisionId'] != canonical_revision:
         raise ValueError('Primary interpretation does not match its original')
-    available = max(feedback.instant(notice['availableAt']), feedback.instant(interpreted_at or wall_now().isoformat())).isoformat()
+    # wall-clock: interpretation availability may be later than source receipt; preserve both clocks.
+    available = max(feedback.instant(notice['availableAt']), feedback.instant(wall_now().isoformat() if interpreted_at is None else interpreted_at)).isoformat()
     if retained.get('status') == 'CANCELLED':
         records = [(item['target'], item['eventKey'], item['sourceVersion']) for item in store.feedback('claim')
                    if item.get('reviewedSourceFamily') == FAMILY and item.get('sourceRole') == 'SECONDARY_ATTRIBUTED_REPORT']
@@ -214,6 +216,7 @@ def collect_primary_notice_state(store, notice, *, interpreted_at=None):
 
 def refresh_gac_eastham(store, notice, *, root=ROOT):
     """One bounded fetch called by the existing six-hour worker; no scheduler."""
+    # wall-clock: collector check cadence describes this actual provider attempt.
     checked = wall_now().isoformat()
     try:
         primary_count = len(collect_primary_notice_state(store, notice))
@@ -226,6 +229,7 @@ def refresh_gac_eastham(store, notice, *, root=ROOT):
         final = urlparse(response.url)
         if final.scheme != 'https' or final.hostname != 'www.gac.com' or final.path.rstrip('/') != '/hot-port-news/upcoming-lock-closures':
             raise ValueError('Unsupported GAC redirect')
+        # wall-clock: returned article bytes become available after the network response, not at publication.
         received = wall_now().isoformat()
         claims = collect_gac_eastham(store, response.content, received, notice, root=root)
         state = {'status': 'RETAINED', 'source': SOURCE, 'checkedAt': checked,

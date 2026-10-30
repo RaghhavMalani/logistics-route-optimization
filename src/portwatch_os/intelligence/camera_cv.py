@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from datetime import datetime, timezone
+from src.portwatch_os.clock import world_now
 import numpy as np
 from PIL import Image
 from src.portwatch_os.learning.weather_feedback import instant
@@ -22,7 +22,8 @@ def gray(path, roi):
         return np.asarray(image.convert("L").crop(tuple(roi)),dtype=float)
 
 
-def analyse(manifest_path: Path):
+def analyse(manifest_path: Path, *, now=None):
+    query_at = instant(world_now() if now is None else now)
     manifest_path = manifest_path.resolve()
     spec = json.loads(manifest_path.read_text())
     if not spec.get("rightsBasis") or not spec.get("cameraId") or not spec.get("coverage"):
@@ -39,7 +40,7 @@ def analyse(manifest_path: Path):
     observations=[]
     for frame in frames:
         at = instant(frame["observedAt"])
-        if not reference_at < at <= datetime.now(timezone.utc):
+        if not reference_at < at <= query_at:
             raise ValueError("frames must follow the empty reference and be in the past")
         path = (root/frame["path"]).resolve()
         pixels = gray(path,roi)

@@ -3,14 +3,16 @@ import hashlib
 import secrets
 from datetime import timedelta
 
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import wall_now, world_now
 
 
 def new_episode(scoped, vessel):
+    # wall-clock: call identity creation is an actual operator audit receipt, not the voyage target.
+    created_at = wall_now().isoformat()
     return {"contractVersion": "operational-episode-v1", "id": "call-" + secrets.token_hex(16),
             "voyageLegId": "leg-" + secrets.token_hex(16), "vesselId": vessel["id"],
             "portCode": vessel["portCode"], "namespace": hashlib.sha256(str(scoped.root).encode()).hexdigest(),
-            "createdAt": wall_now().isoformat(), "source": "OPERATOR_DECLARED_DEMO_CALL"}
+            "createdAt": created_at, "source": "OPERATOR_DECLARED_DEMO_CALL"}
 
 
 def ensure_episode(scoped, vessel):
@@ -33,6 +35,7 @@ def begin_call(scoped, vessel, requested_arrival, request_id):
     if not isinstance(request_id, str) or not 8 <= len(request_id) <= 100:
         raise ValueError('A stable requestId is required for safe new-call retries')
     at = instant(requested_arrival)
+    query_at = world_now()
     episode = new_episode(scoped, vessel)
     def save(world):
         intents = world.setdefault('operationalCallIntents', {})
@@ -42,7 +45,7 @@ def begin_call(scoped, vessel, requested_arrival, request_id):
             if old['input'] != signature:
                 raise ValueError('New-call requestId was already used with different inputs')
             return old['result']
-        if not wall_now() < at <= wall_now() + timedelta(days=365):
+        if not query_at < at <= query_at + timedelta(days=365):
             raise ValueError('New call arrival must be future and within one year')
         row = next(v for v in world["fleet"] if v["id"] == vessel["id"])
         row["operationalEpisode"] = episode

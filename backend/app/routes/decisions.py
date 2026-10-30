@@ -607,7 +607,9 @@ def transition_problem(
         from src.portwatch_os.intelligence.current_environment import instant
         from src.portwatch_os.clock import wall_now, get_clock, LIVE
         from datetime import timedelta
-        if get_clock().state.mode != LIVE or instant(environment["plannedArrival"]) <= wall_now() or wall_now()-instant(environment["availableAt"]) > timedelta(hours=1):
+        # wall-clock: actual live approval rechecks receipt expiry once; replay cannot authorize this action.
+        approval_at = wall_now()
+        if get_clock().state.mode != LIVE or instant(environment["plannedArrival"]) <= approval_at or approval_at-instant(environment["availableAt"]) > timedelta(hours=1):
             raise HTTPException(409,"The frozen weather receipt or planned arrival has expired; recompute this comparison")
         # This comparison consumes approach weather and explicit limits, not the
         # unrelated Suez cascade/fleet revision. Preserve that boundary in audit.

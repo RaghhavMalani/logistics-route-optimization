@@ -14,13 +14,15 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import HTTPException
+from src.portwatch_os.clock import wall_now
 
 ROLES = ("SHIPPING_COMPANY", "VESSEL_OPERATOR", "PORT_AUTHORITY", "NATIONAL_ADMIN")
 LABELS = dict(zip(ROLES, ("Company", "Vessel", "Port", "Admin")))
 
 
 def utc_now():
-    return datetime.now(timezone.utc)  # wall-clock: actual demo session expiry and action receipt.
+    # wall-clock: real credential expiry and visitor action receipts cannot move with a replay seek.
+    return wall_now()
 
 
 def seed_world(at):

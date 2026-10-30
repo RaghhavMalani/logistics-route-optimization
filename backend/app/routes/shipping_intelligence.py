@@ -147,7 +147,8 @@ def review_tasks():
     if any((row.get('source') or {}).get('claim') for row in rows):
         from src.portwatch_os.learning import intelligence_reconciliation as collector
         from src.portwatch_os.learning import shared_feedback as feedback
-        public=collector.open_public();at=wall_now().isoformat()
+        from src.portwatch_os.clock import world_now
+        public=collector.open_public();at=world_now().isoformat()
         try:
             for row in rows:
                 source=row.get('source') or {};item=source.get('claim')

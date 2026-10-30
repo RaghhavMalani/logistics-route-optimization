@@ -613,8 +613,8 @@ def freeze_consumption(public_store, visitor_store, claim_ids, now, *, calculati
 
 
 def require_consumption(public_store, consumed, now=None):
-    from src.portwatch_os.clock import wall_now
-    now = now or wall_now().isoformat()
+    from src.portwatch_os.clock import world_now
+    now = world_now().isoformat() if now is None else now
     news_state = news_vintages.aggregate(public_store, now,
         assessment_for=lambda item: news_assessment(public_store, item, now))
     for entry in consumed["inputs"]:

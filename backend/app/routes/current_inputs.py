@@ -92,6 +92,7 @@ def review_proposal(payload: dict = Body(...)):
     problem.decision_id = source.decision_id+"-port"
     problem.actor = DecisionActor(role=who.role,organisation=who.organisation,port_code=env["portCode"])
     problem.workflow, problem.workflow_history, problem.human_choice = COMPUTED, [], None
+    # wall-clock: Port review creation is a new actual audit action over frozen domain evidence.
     problem.created_at = wall_now().isoformat()
     problem.evidence["companyProposal"] = {"decisionId":source.decision_id,"optionId":proposal["optionId"],
         "environmentEvidenceId":env["evidenceId"],"meaning":"Port review of the identical frozen Company input/assumptions"}
@@ -179,9 +180,11 @@ def demo_outcome(decision_id: str):
     approved = _approved_operational_action(problem, choice)
     if approved:
         from src.portwatch_os.learning.shared_feedback import identifier
+        # wall-clock: the simulated-action audit is recorded now; simulatedTargetAt remains a separate schedule.
+        recorded_at = wall_now().isoformat()
         action = {**approved, "kind": "SIMULATED_DEMO_ACTION", "recordKind": "SIMULATED_OPERATIONAL_RECORD",
             "id": "sim-action-" + identifier([decision_id, approved["operationalActionId"]]),
-            "recordedAt": wall_now().isoformat(), "simulatedTargetAt": choice.evaluation.derived.get("requestedPassageAt") or choice.evaluation.derived["arrivalAt"],
+            "recordedAt": recorded_at, "simulatedTargetAt": choice.evaluation.derived.get("requestedPassageAt") or choice.evaluation.derived["arrivalAt"],
             "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None,
             "eligibleForRealTarget": False,
             "meaning": "Reproduces the accepted conditional plan in this fictional visitor world; no real vessel action or actual operational record is asserted."}

@@ -1,7 +1,7 @@
 """Public source feedback and visitor-owned consumption; no demo evidence writes."""
 import json
 from fastapi import APIRouter, Body, HTTPException, Query
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import world_now
 from src.portwatch_os.learning import shared_feedback as feedback
 from src.portwatch_os.learning import intelligence_reconciliation as collector
 from src.portwatch_os.ledger.store import get_ledger
@@ -30,7 +30,7 @@ def begin_operational_call(payload: dict = Body(...)):
 
 def inspection_time(value=None):
     try:
-        now=wall_now()
+        now=world_now()
         at=feedback.instant(value) if value else now
         if at>now:raise ValueError('An as-of view cannot inspect future application knowledge')
         return at.isoformat()
@@ -110,7 +110,7 @@ def audit(asOf: str | None = None,kind: str = 'ALL',claimId: str | None = None):
 @router.get("/intelligence/feedback/impacts")
 def impacts():
     scoped_world()
-    return feedback.inspect(get_ledger(), wall_now().isoformat())
+    return feedback.inspect(get_ledger(), world_now().isoformat())
 
 
 @router.get("/intelligence/feedback/evidence/{digest}")
@@ -188,7 +188,7 @@ def comparison(payload: dict = Body(...)):
 def consumption(ids):
     store = collector.open_public()
     try:
-        frozen = feedback.freeze_consumption(store, get_ledger(), ids, wall_now().isoformat())
+        frozen = feedback.freeze_consumption(store, get_ledger(), ids, world_now().isoformat())
         require_originals(frozen)
         return frozen
     except ValueError as exc:

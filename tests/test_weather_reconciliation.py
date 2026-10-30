@@ -142,7 +142,7 @@ def test_latest_matched_inspection_exposes_both_retained_sources_and_independent
     reconcile(db=db,root=root,now=NOW,fetch=Mock(return_value=response))
     monkeypatch.setattr(current_environment,"FEEDBACK_DB",db)
     monkeypatch.setattr(current_environment,"ROOT",root)
-    monkeypatch.setattr(weather_verification,"wall_now",lambda:NOW)
+    monkeypatch.setattr(weather_verification,"world_now",lambda:NOW)
     result=weather_verification.inspection("INNSA","wind_gust")
     case=result["latestMatchedCase"]
     assert case["portCode"]=="INNSA" and case["variable"]=="wind_gust"
@@ -161,10 +161,12 @@ def test_latest_matched_inspection_exposes_both_retained_sources_and_independent
         assert served["sha256"]==hashlib.sha256(raw).hexdigest()==digest
         assert served["response"]==json.loads(raw)
     # An outcome cannot become inspectable before its first receipt.
-    monkeypatch.setattr(weather_verification,"wall_now",lambda:NOW-timedelta(seconds=1))
+    monkeypatch.setattr(weather_verification,"world_now",lambda:NOW-timedelta(seconds=1))
     hidden=weather_verification.inspection("INNSA","wind_gust")
     assert hidden["latestMatchedCase"] is None
     assert hidden["matchedContextCounts"]["independentTargets"]==0
+    assert hidden["originalFiveDayCase"]["outcomeEvidence"] is None
+    assert hidden["retainedFiveDayCase"]["outcomeEvidence"] is None
 
 
 @pytest.mark.parametrize("corrupt",[False,True])
@@ -175,7 +177,7 @@ def test_latest_matched_inspection_requires_intact_original_and_outcome(tmp_path
     reconcile(db=db,root=root,now=NOW,fetch=Mock(return_value=provider()))
     monkeypatch.setattr(current_environment,"FEEDBACK_DB",db)
     monkeypatch.setattr(current_environment,"ROOT",root)
-    monkeypatch.setattr(weather_verification,"wall_now",lambda:NOW)
+    monkeypatch.setattr(weather_verification,"world_now",lambda:NOW)
     case=weather_verification.inspection("INNSA","wind_gust")["latestMatchedCase"]
     assert case is not None
     raw=root/"outcomes"/(case["outcomeEvidence"]["responseSha256"]+".response")
