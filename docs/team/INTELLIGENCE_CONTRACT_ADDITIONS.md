@@ -1,5 +1,15 @@
 # Additive intelligence contracts
 
+## October 31 Indian-source review additions
+
+`NHO_NAVAREA_VIII` is enabled for attributed metadata/context only, with `nho-navarea-metadata-v1` extraction and `indian-source-review-v1` dependency bindings. The retained notice DTO adds product date/precision, issuer DTG, page references, original/confirming response hashes, source-use scope and independently evaluated original availability. A newly fetched old bulletin stays historical; no Indian closure/access calculator is enabled.
+
+The existing navigation GET is a retained read. Explicit role-checked POST `/intelligence/navigation-restrictions/refresh` selects a fixed reviewed family; callers cannot supply URLs/paths. `/intelligence/indian-passage-plan` stores an acknowledged fictional owned-call INPRT/named-aid declaration. `/intelligence/indian-source-audit` exports the same as-of metadata as the inspector, without full PDF/private paths. The existing worker optionally collects NHO with `PORTWATCH_NHO_ENABLED=1` (default off).
+
+`currentArrival.sourceReviews` explicitly selects `{noticeId, revisionId, acknowledged: true}`. Frozen `sourceReviewBindings` carry exact originals, revision/check clocks, declared call/route and context-only meaning. Continuation and linked-successor creation recheck these dependencies; no source is silently adopted or dropped. The fleet DTO adds `sourceReviews` for separate Company source responsibility and `freshness.sourceChanges` for structured consumed/current differences. Workflow next-role, category order, approved option, cargo/finance equations and hourly weather gates are unchanged. Eastham keeps its dedicated lock/tide workflow; Indian context never uses bridge/lock formulas.
+
+See [integrated source/clock/mobile validation](../INDIAN_PORT_INTELLIGENCE_AND_RELIABILITY.md) and [bounded REA reference review](../UI_REA_REFERENCE_REVIEW.md). The eight protected role/twin sources and teammate geometry ownership remain unchanged. Hosting is deferred.
+
 October 14, 2026. Integration track changes for teammates branching from `feat/portwatch-restored-intelligence`. The Company, Vessel, Port and Admin role sources and `PortTwinScene` retain the restored interface. This adds data and shared components; Ananya's geometry/GEE work and Preksha's UI/data-quality work remain their assignments.
 
 `NavigationRestrictionPanel` takes the existing optional `onDecision(DecisionProblem)` callback. It mounts within `ShippingIntelligencePanel`; no new role shell is introduced. `FrozenIntelligenceBasis` accepts `restriction.sourceFamily = NAVCEN_MSI` alongside existing Eastham evidence. The original inspector carries this frozen basis through Company, Port and Vessel.

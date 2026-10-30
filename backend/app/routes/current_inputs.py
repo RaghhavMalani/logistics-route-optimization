@@ -262,6 +262,8 @@ def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
             "plannedArrival":env["plannedArrival"], **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")},
             **({"passagePlan":copy.deepcopy(env["passagePlan"])} if env.get("passagePlan") else {}),
             **({"cargoCommitment":copy.deepcopy(env["cargoCommitment"])} if env.get("cargoCommitment") else {})}
+        if env.get('sourceReviewBindings') and override is None:
+            raise HTTPException(409,'Refresh requires explicit review of the current Indian-source revision in the input editor; the approved predecessor remains saved.')
         if env.get("passagePlan"):
             # Frozen assumptions stay inspectable, but an expired position or
             # declaration cannot silently turn a passage refresh into the older

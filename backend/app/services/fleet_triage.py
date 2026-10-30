@@ -155,17 +155,15 @@ def retained_snapshot(scoped, store, credential, identity):
 
 def cached_source_leads(world, environment_root, as_of):
     """Existing exposure relations over retained catalogue bytes only."""
-    path = environment_root / "operational_notices/navcen-catalogue-latest.json"
     coverage = {"status": "MISSING", "checkedAt": None,
         "reason": "No retained source catalogue available; missing coverage does not establish a clear route"}
-    if not path.is_file():
-        return [], coverage
     try:
-        catalogue = json.loads(path.read_text(encoding="utf-8"))
+        from src.portwatch_os.intelligence.notice_catalogue import retained, exposure_rows
+        catalogue = retained(environment_root, as_of)
         notices = catalogue.get("notices")
         if not isinstance(notices, list):
             raise ValueError()
-        from src.portwatch_os.intelligence.voyage_exposure import queue
+        if not notices: return [], coverage
         rows = []
         malformed = 0
         for notice in notices:
@@ -173,7 +171,7 @@ def cached_source_leads(world, environment_root, as_of):
                 malformed += 1
                 continue
             try:
-                candidates = queue([notice], world.get("fleet", []), as_of)
+                candidates = exposure_rows([notice], world.get("fleet", []), as_of)
                 for candidate in candidates:
                     required_text = ("noticeId", "title", "vesselId", "vesselName", "status", "sourceStatus", "reason", "calculationReason")
                     if (all(isinstance(candidate.get(k), str) for k in required_text)
@@ -210,6 +208,11 @@ def project_snapshot(snapshot, *, as_of: datetime, clock_mode, consistent):
             if check["status"] == "CURRENT":
                 check["status"] = "UNKNOWN"
     result = project_fleet_triage(world, decisions, advisories, as_of=as_of, freshness=freshness, snapshot_consistent=consistent)
+    from src.portwatch_os.intelligence.indian_notices import retained as indian_retained
+    from src.portwatch_os.intelligence.indian_review import annotate_worklist
+    try: indian = retained.get('indianNotices') if 'indianNotices' in retained else indian_retained(root=environment_root/'indian_notices',as_of=as_of)['notices']
+    except (ValueError,TypeError,KeyError,AttributeError): indian=[]
+    annotate_worklist(result,world,decisions,indian,at=as_of)
     leads, lead_coverage = cached_source_leads(world, environment_root, as_of)
     result.update(sourceLeads=leads, sourceLeadCoverage=lead_coverage)
     result["coverage"]["malformedRetainedRecords"] = len(snapshot["malformed"])

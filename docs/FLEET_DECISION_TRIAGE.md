@@ -1,5 +1,7 @@
 # Fleet decision triage in the Company review queue
 
+October 31 follow-up: shared mobile Layers access and both inherited static clock-audit failures are resolved by the [Indian-source/clock/mobile milestone](INDIAN_PORT_INTELLIGENCE_AND_RELIABILITY.md). NHO context adds separate Company source-review actions and exact consumed-source changes without changing the existing workflow next-role, approved-plan selection or ordering. The validation counts below remain historical to the original fleet-triage checkpoint.
+
 October 30, 2026 (India time). Local product work following `cf9aceec50b3ce2b5513e902ab481748eb2e5d5f` on `feat/portwatch-restored-intelligence`. Hosting remains deferred. The dated October 26 hosting package and its source/evidence manifests retain their original status; this feature does not describe a deployed revision.
 
 The original Company overview's review entry now answers which owned current voyage needs review, the retained reason, the next responsible role and the exact comparison to inspect. It opens a bounded worklist over the existing chart. It does not create a second fleet, optimizer, ledger or approval state machine.

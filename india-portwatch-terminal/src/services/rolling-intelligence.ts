@@ -38,6 +38,22 @@ export const noticeSchema = z
     confirmation: z.string().nullish(),
     originalWording: z.string().optional(),
     responseSha256: z.string().optional(),
+    productAsOfDate: z.string().nullish(),
+    productAgeDays: z.number().nullish(),
+    providerIssueAt: z.string().nullish(),
+    documentPages: z.array(z.number()).optional(),
+    extractionVersion: z.string().optional(),
+    lastSuccessfulReceiptAt: z.string().nullish(),
+    latestResponseSha256: z.string().optional(),
+    latestDocumentPages: z.array(z.number()).optional(),
+    originalAvailability: z.string().optional(),
+    sourceUse: z
+      .object({
+        status: z.string(),
+        basis: z.string(),
+        attribution: z.string(),
+      })
+      .optional(),
     coordinates: z
       .object({
         lat: z.number().finite().min(-90).max(90),
@@ -86,8 +102,9 @@ export const exposureSchema = z
 export const rollingSchema = z
   .object({
     sourceStatus: z.string(),
-    checkedAt: z.string(),
+    checkedAt: z.string().nullish(),
     meaning: z.string(),
+    asOf: z.string().optional(),
     notices: z.array(noticeSchema),
     voyages: z.array(
       z
@@ -216,7 +233,43 @@ export const fleetTriageSchema = z
         freshness: z.object({
           status: z.string(),
           reasons: z.array(triageReasonSchema),
+          sourceChanges: z
+            .array(
+              z.object({
+                code: z.string(),
+                text: z.string(),
+                noticeId: z.string().nullish(),
+                consumedRevisionId: z.string().nullish(),
+                currentRevisionId: z.string().nullish(),
+                consumedAvailableAt: z.string().nullish(),
+                currentAvailableAt: z.string().nullish(),
+                changes: z.array(
+                  z.object({
+                    field: z.string(),
+                    before: z.unknown(),
+                    after: z.unknown(),
+                  }),
+                ),
+                unknown: z.string(),
+                nextAction: z.string(),
+              }),
+            )
+            .optional(),
         }),
+        sourceReviews: z
+          .array(
+            z.object({
+              noticeId: z.string(),
+              revisionId: z.string(),
+              title: z.string(),
+              sourceStatus: z.string(),
+              responsibleRole: z.string(),
+              passageAt: z.string(),
+              reason: z.string(),
+              action: z.string(),
+            }),
+          )
+          .optional(),
         deadline: z
           .object({
             at: z.string(),

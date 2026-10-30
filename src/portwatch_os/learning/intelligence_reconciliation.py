@@ -351,6 +351,12 @@ def run_once():
             collect_news_product(store, get_news_bundle(), wall_now().isoformat())
         except (ValueError, OSError, RuntimeError) as exc:
             status["failures"].append({"source": "News source product", "reason": str(exc)[:180]})
+        # Optional bounded family on the existing worker; no extra scheduler.
+        # Context metadata is never collected as an actual closure/outcome claim.
+        if os.getenv("PORTWATCH_NHO_ENABLED", "0") == "1":
+            from src.portwatch_os.intelligence import indian_notices
+            indian = indian_notices.refresh()
+            status["indianNavigation"] = {key: indian.get(key) for key in ("sourceStatus", "checkedAt", "lastSuccessfulReceiptAt", "productAsOfDate", "reason")}
         # wall-clock: evaluate a live collection cohort at one post-ingest instant, not a visitor's replay.
         evaluation_at = wall_now().isoformat()
         status["resolved"], status["pending"] = feedback.reconcile(store, evaluation_at)

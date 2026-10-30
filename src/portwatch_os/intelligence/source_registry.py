@@ -64,9 +64,11 @@ ADAPTERS = [{
 }, {
     'id': 'IN_NHO_NAVAREA_VIII_REVIEW', 'provider': 'Indian Naval Hydrographic Department',
     'sourceFamily': 'NHO_NAVAREA_VIII', 'source': 'https://www.hydrobharat.gov.in/web/guest/navarea-warnings',
-    'status': 'INVESTIGATED_NOT_ENABLED', 'geography': ['NAVAREA VIII', 'India', 'Indian Ocean'],
-    'reason': 'Current-product extraction and public redistribution terms not established in this review',
-    'calculationCapability': 'NONE',
+    'status': 'ENABLED_REFERENCE_CONTEXT', 'geography': ['NAVAREA VIII', 'India', 'Indian Ocean', 'INPRT'],
+    'reason': 'Received in-force product date is evaluated separately from download time. One named Paradip DGPS point has reviewed context mapping; no closure semantics are qualified.',
+    'sourceUse': 'Metadata/issuer references only; full bulletin public republication is not enabled. Retained research originals remain separate.',
+    'calculationCapability': 'NONE; source-backed navigation-aid review context only',
+    'extractionVersion': 'nho-navarea-metadata-v1',
 }, {
     'id': 'JNPA_MARINE_CIRCULAR_REVIEW', 'provider': 'Jawaharlal Nehru Port Authority',
     'sourceFamily': 'JNPA_MARINE_CIRCULAR',

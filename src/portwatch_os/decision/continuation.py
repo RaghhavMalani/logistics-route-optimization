@@ -99,6 +99,24 @@ def require_current(problem):
             reason = str(exc)
         finally:
             public.close()
+    if not reason and env.get('sourceReviewBindings'):
+        from src.portwatch_os.intelligence.indian_notices import retained, root_path
+        from src.portwatch_os.intelligence.indian_review import assess
+        import hashlib
+        bindings = env['sourceReviewBindings']
+        for binding in bindings:
+            sha = binding.get('originalSha256')
+            if not isinstance(sha,str) or len(sha)!=64 or any(c not in '0123456789abcdef' for c in sha):
+                reason = 'Consumed Indian-source original identity is unavailable'; break
+            path = root_path()/(sha+'.response')
+            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=sha:
+                reason = 'Consumed Indian-source original is unavailable or corrupt'; break
+        if not reason:
+            try:
+                findings = assess(bindings, scoped.world, retained(as_of=operation_at)['notices'], at=operation_at)
+                if findings: reason = findings[0]['text']
+            except (ValueError, TypeError, KeyError, AttributeError):
+                reason = 'Consumed Indian-source metadata cannot be verified; inspect the preserved comparison and explicitly review refreshed inputs'
     if reason:
         raise HTTPException(409, reason + " Company can explicitly refresh to a linked successor; this comparison and its approvals remain saved.")
 

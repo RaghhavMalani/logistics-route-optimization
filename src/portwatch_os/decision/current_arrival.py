@@ -64,6 +64,9 @@ def build_arrival_problem(vessel, request, actor, state, at):
         from src.portwatch_os.decision.episodes import ensure_episode
         owned = next(v for v in scoped.world["fleet"] if v["id"] == vessel.vessel_id)
         frozen["operationalEpisode"] = ensure_episode(scoped, owned)
+        if request.get("sourceReviews") is not None:
+            from src.portwatch_os.intelligence.indian_review import freeze
+            frozen["sourceReviewBindings"] = freeze(scoped, vessel.vessel_id, request["sourceReviews"], at=at)
     frozen["evidenceId"] = hashlib.sha256(json.dumps(frozen,sort_keys=True).encode()).hexdigest()
     decision_id = "dec-arrival-" + hashlib.sha256((frozen["evidenceId"]+actor.role+at.isoformat()).encode()).hexdigest()[:20]
     options = []

@@ -3,6 +3,11 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
 import { PassagePlanInputs } from "./PassagePlanInputs";
 import { CargoCommitmentInputs } from "./CargoCommitmentInputs";
+import {
+  IndianSourceReviewChoices,
+  type IndianReviewSelection,
+  type FrozenIndianReview,
+} from "./IndianSourceReviewChoices";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { useCompanyFleet } from "@/services/os-hooks";
@@ -56,6 +61,9 @@ export function CurrentInputControl({
   );
   const [cargoCommitment, setCargoCommitment] =
     useState<CargoCommitmentDeclaration | null>(null);
+  const [sourceReviews, setSourceReviews] = useState<IndianReviewSelection[]>(
+    [],
+  );
   const preparedForOpen = useRef(false);
   useEffect(() => {
     if (!open) {
@@ -64,6 +72,7 @@ export function CurrentInputControl({
     }
     if (preparedForOpen.current) return;
     preparedForOpen.current = true;
+    setSourceReviews([]);
     const target = initialVesselId ?? sourceComparison?.subject.id;
     if (target) setVesselId(target);
     const frozen = sourceComparison?.evidence.currentEnvironment as
@@ -134,7 +143,7 @@ export function CurrentInputControl({
     mutationFn: (id: string) =>
       postJson<DecisionProblem>(
         `/decisions/problems/${id}/refresh`,
-        passagePlan &&
+        (passagePlan || sourceReviews.length) &&
           saved.data?.problems.some(
             (p) => p.decisionId === id && p.subject.id === vesselId,
           )
@@ -143,8 +152,9 @@ export function CurrentInputControl({
                 plannedArrival: selected,
                 maxGustKn: gust,
                 minVisibilityM: visibility,
-                passagePlan,
+                ...(passagePlan ? { passagePlan } : {}),
                 ...(cargoCommitment ? { cargoCommitment } : {}),
+                ...(sourceReviews.length ? { sourceReviews } : {}),
               },
             }
           : {},
@@ -444,6 +454,18 @@ export function CurrentInputControl({
                     requestedArrival={selected}
                     passageEnabled={passagePlan != null}
                   />
+                  <IndianSourceReviewChoices
+                    vesselId={vesselId}
+                    previous={
+                      (
+                        predecessor?.evidence.currentEnvironment as
+                          | { sourceReviewBindings?: FrozenIndianReview[] }
+                          | undefined
+                      )?.sourceReviewBindings
+                    }
+                    value={sourceReviews}
+                    onChange={setSourceReviews}
+                  />
                   <Button
                     size="sm"
                     disabled={!selected || create.isPending}
@@ -463,6 +485,7 @@ export function CurrentInputControl({
                             minVisibilityM: visibility,
                             ...(passagePlan ? { passagePlan } : {}),
                             ...(cargoCommitment ? { cargoCommitment } : {}),
+                            ...(sourceReviews.length ? { sourceReviews } : {}),
                           },
                         },
                         {

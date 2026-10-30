@@ -313,7 +313,8 @@ def _row(world, vessel, current, all_decisions, advisories, freshness, as_of, co
     raw_fresh = _object(freshness.get(_id(selected))) if selected else {}
     safe_reasons = [{key: value for key, value in reason.items() if key in {"code", "text", "basis", "evidenceId", "decisionId", "optionId"} and isinstance(value, str)} for reason in _rows(raw_fresh.get("reasons"))]
     fresh = {"status": raw_fresh.get("status") if raw_fresh.get("status") in {"CURRENT", "REASSESSMENT", "UNKNOWN"} else "UNKNOWN",
-             "reasons": safe_reasons}
+             "reasons": safe_reasons,
+             "sourceChanges": [{k:v for k,v in change.items() if k in {"code","text","basis","noticeId","consumedRevisionId","currentRevisionId","consumedAvailableAt","currentAvailableAt","changes","unknown","nextAction"}} for change in _rows(raw_fresh.get("sourceChanges"))]}
     if workflow["completed"]:
         fresh = {"status": "NOT_REQUIRED_COMPLETED", "reasons": []}
     elif selected:

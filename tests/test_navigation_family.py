@@ -126,10 +126,12 @@ def test_family_collection_update_missing_cancellation_expiry_and_failure(tmp_pa
     assert len(receipts) == 5 and json.loads(receipts[-1])['responseSha256'] is None
 
 
-def test_registry_is_additive_and_investigated_sources_are_not_enabled():
+def test_registry_is_additive_and_only_qualified_indian_context_is_enabled():
     rows = registry(); nav = next(r for r in rows if r['sourceFamily'] == 'NAVCEN_MSI')
     assert set(nav['assetIds']) == set(n.ASSETS)
-    investigated = {'NHO_NAVAREA_VIII', 'JNPA_MARINE_CIRCULAR', 'MPA_PORT_MARINE', 'SCA_NAVIGATION_CIRCULAR'}
+    indian = next(r for r in rows if r['sourceFamily']=='NHO_NAVAREA_VIII')
+    assert indian['status']=='ENABLED_REFERENCE_CONTEXT' and indian['calculationCapability'].startswith('NONE')
+    investigated = {'JNPA_MARINE_CIRCULAR', 'MPA_PORT_MARINE', 'SCA_NAVIGATION_CIRCULAR'}
     assert all(r['status'] == 'INVESTIGATED_NOT_ENABLED' for r in rows if r['sourceFamily'] in investigated)
     contexts = {r['sourceFamily']: r for r in rows if r['sourceFamily'] in ('PUBLIC_PORT_PDF', 'IMF_PORTWATCH_DAILY')}
     assert set(contexts) == {'PUBLIC_PORT_PDF', 'IMF_PORTWATCH_DAILY'}

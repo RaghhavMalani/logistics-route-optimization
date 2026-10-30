@@ -283,6 +283,13 @@ def create_problem(
         _visible_or_403(predecessor, identity)
         if not connected_basis(predecessor) or predecessor.actor.role != "SHIPPING_COMPANY" or predecessor.subject_id != payload.get("vesselId"):
             raise HTTPException(409,"The predecessor must be this Company's connected comparison for the same voyage")
+        required_sources = {r.get('noticeId') for r in connected_basis(predecessor).get('sourceReviewBindings',[]) if isinstance(r,dict)}
+        source_reviews = payload['currentArrival'].get('sourceReviews', [])
+        if not isinstance(source_reviews, list) or any(not isinstance(r,dict) or not isinstance(r.get('noticeId'),str) for r in source_reviews):
+            raise HTTPException(422,'Source reviews must be a list of exact retained notice identities and revisions')
+        reviewed_sources = {r['noticeId'] for r in source_reviews}
+        if not required_sources.issubset(reviewed_sources):
+            raise HTTPException(409,'Explicitly review the current revision/status of every consumed Indian-source identity; a successor cannot silently discard that basis.')
         try:
             successor_key = hashlib.sha256(json.dumps({
                 "vesselId": payload.get("vesselId"), "currentArrival": payload["currentArrival"],

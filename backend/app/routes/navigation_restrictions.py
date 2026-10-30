@@ -22,13 +22,15 @@ router=APIRouter()
 def listing():
     query_at = world_now()
     scoped=scoped_world()
-    catalogue=notices.refresh_all()
+    from src.portwatch_os.intelligence.current_environment import ROOT
+    from src.portwatch_os.intelligence.notice_catalogue import retained, exposure_rows
+    catalogue=retained(ROOT, query_at)
     from backend.app.identity import current_identity
     who=current_identity.get()
     vessels=[v for v in scoped.world['fleet'] if who.role!='VESSEL_OPERATOR' or v['id'] in who.vessel_ids]
     return {**catalogue, 'voyages':[
         {k:v.get(k) for k in ('id','name','laneCode','portCode','cargo','declaredPassage','declaredPassages','possibleAssetIds','operationalEpisode')}
-        for v in vessels], 'asOf':query_at.isoformat(), 'exposureQueue':queue(catalogue.get('notices',[]),vessels,query_at),
+        for v in vessels], 'asOf':query_at.isoformat(), 'exposureQueue':exposure_rows(catalogue.get('notices',[]),vessels,query_at),
         'meaning':'The original map point identifies the restricted asset. Exposure requires an explicit declared passage; no destination or lane automatically crosses this bridge.'}
 
 
@@ -47,6 +49,11 @@ def exposure(noticeId: str = Query(None), vesselId: str = Query(None)):
 
 
 def selected_notice(payload):
+    from src.portwatch_os.intelligence import indian_notices
+    if str(payload.get('noticeId','')).startswith(indian_notices.FAMILY+':'):
+        found=next((n for n in indian_notices.retained()['notices'] if n['noticeId']==payload['noticeId']),None)
+        if found is None: raise HTTPException(404,'Retained Indian-source identity unavailable')
+        return found
     kwargs={'notice_id':payload['noticeId']} if payload.get('noticeId') else {}
     return notices.refresh(force=payload.get('refreshSource') is True, **kwargs)
 
@@ -207,3 +214,82 @@ def comparison(payload:dict=Body(...)):
         headline=row['name']+': published bridge restriction → passage window',do_nothing_statement='Keep requested passage; wait for the scheduled closed-position period to end.',notes=[basis['meaning']])
     from src.portwatch_os.decision.engine import get_engine
     return get_engine().finish(problem).to_dict()
+
+
+@router.post('/intelligence/navigation-restrictions/refresh')
+def refresh_source(payload:dict=Body(...)):
+    from backend.app.identity import current_identity
+    scoped_world()
+    if current_identity.get().role not in ('SHIPPING_COMPANY','PORT_AUTHORITY','NATIONAL_ADMIN'):
+        raise HTTPException(403,'Source collection belongs to Company/Port/Admin review')
+    if set(payload)-{'sourceFamily'}: raise HTTPException(422,'Select a reviewed source family; URLs and paths are server configured')
+    family=payload.get('sourceFamily')
+    if family=='NHO_NAVAREA_VIII':
+        from src.portwatch_os.intelligence import indian_notices
+        indian_notices.refresh(force=True)
+    elif family=='NAVCEN_MSI': notices.refresh_all(force=True)
+    elif family=='PEEL_PORTS':
+        from src.portwatch_os.intelligence import operational_notices
+        operational_notices.refresh(force=True)
+    else: raise HTTPException(422,'Reviewed source family required')
+    return listing()
+
+
+@router.get('/intelligence/indian-source-audit')
+def indian_source_audit(noticeId:str=Query(...), asOf:str=Query(None)):
+    scoped_world()
+    from backend.app.routes.shared_feedback import inspection_time
+    from src.portwatch_os.intelligence import indian_notices
+    at=inspection_time(asOf)
+    row=next((n for n in indian_notices.retained(as_of=at)['notices'] if n['noticeId']==noticeId),None)
+    if row is None: raise HTTPException(404,'Source identity was not available at this inspection instant')
+    return {'contractVersion':'indian-source-audit-v1','asOf':at,'notice':row,
+        'originalAvailability':'Retained local research original; full-document republication is not enabled. Follow the issuer link/page.',
+        'numericalConsequence':'UNAVAILABLE','realOperationalTargetsResolved':0}
+
+
+@router.post('/intelligence/indian-passage-plan')
+def declare_indian_context(payload:dict=Body(...)):
+    scoped,who=company()
+    from src.portwatch_os.intelligence import indian_notices as source
+    row=next((v for v in scoped.world['fleet'] if v['id']==payload.get('vesselId')),None)
+    if row is None: raise HTTPException(404,'Voyage not owned by this visitor')
+    notice=next((n for n in source.retained()['notices'] if n['noticeId']==payload.get('noticeId')),None)
+    if not notice or notice.get('areaId')!=source.AREA or notice.get('extractionStatus')!='CONTEXT_METADATA':
+        raise HTTPException(422,'Select the reviewed named Paradip navigation-aid context; unsupported warnings cannot define a route')
+    at=world_now()
+    try:
+        from src.portwatch_os.learning.weather_feedback import instant as aware_instant
+        passage=aware_instant(payload['passageAt']);hours=payload['postPassageHours']
+        if payload.get('declarationConfirmed') is not True or payload.get('portCode')!='INPRT' or payload.get('direction')!='INBOUND':
+            raise ValueError('Explicitly confirm the fictional INPRT destination and inbound named-aid passage')
+        if not at<passage<=at+timedelta(days=365): raise ValueError('Declare an aware future passage within one year')
+        if isinstance(hours,bool) or not isinstance(hours,(int,float)) or not math.isfinite(hours) or not 0<=hours<=720:
+            raise ValueError('Supply 0–720 onward hours as an explicit operator assumption, not source-predicted delay')
+    except (KeyError,TypeError,ValueError) as exc: raise HTTPException(422,str(exc))
+    episode=ensure_episode(scoped,row)
+    for journey in (scoped.world.get('weatherJourneys') or {}).values():
+        proposal=journey.get('proposal') or {};old_call=proposal.get('operationalEpisode') or (proposal.get('approvedAction') or {}).get('operationalEpisode') or {}
+        if journey.get('outcome') and old_call.get('id')==episode['id']:
+            raise HTTPException(409,'This call has a completed simulated journey. Start an explicit new call before declaring another passage.')
+    # wall-clock: actual operator receipt is separate from planned passage and arrival.
+    received=wall_now().isoformat()
+    plan={'sourceFamily':source.FAMILY,'vesselId':row['id'],'areaId':source.AREA,'portCode':'INPRT','route':[source.AREA,'INPRT'],
+        'direction':'INBOUND','passageAt':passage.isoformat(),'postPassageHours':hours,'characteristics':{},'operationalEpisode':episode,
+        'basis':'Operator-declared fictional named-aid passage and onward duration; no surveyed route, observed crossing or source-caused delay',
+        'source':'OPERATOR_DECLARED_FICTIONAL_VOYAGE','declaredAt':received,'actor':who.actor}
+    plan['id']=source.digest({k:v for k,v in plan.items() if k not in ('declaredAt','actor')})
+    arrival=passage+timedelta(hours=hours)
+    def save(world):
+        vessel=next(v for v in world['fleet'] if v['id']==row['id'])
+        current=(vessel.get('declaredPassages') or {}).get(source.AREA)
+        if current and current.get('id')==plan['id']: return {'vesselId':row['id'],'plan':current,'requestedDestinationArrival':arrival.isoformat()}
+        vessel.setdefault('declaredPassages',{})[source.AREA]=plan;vessel['declaredPassage']=plan
+        vessel['portCode']='INPRT';vessel['etaHours']=(arrival-instant(world['epoch'])).total_seconds()/3600
+        world['portCode']='INPRT'
+        if (world.get('terminalProposal') or {}).get('vesselId')==row['id']:
+            for name in ('terminalProposal','currentArrivalReview','currentArrivalOutcome'):world.pop(name,None)
+        world.setdefault('passagePlanHistory',[]).append({'vesselId':row['id'],'plan':plan})
+        return {'vesselId':row['id'],'plan':plan,'requestedDestinationArrival':arrival.isoformat(),
+            'numericalNoticeEffect':None,'meaning':'Destination/timing changed only by operator declaration. NHO provides context, not delay.'}
+    return scoped.save_world(save)

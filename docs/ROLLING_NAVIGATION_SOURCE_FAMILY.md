@@ -1,5 +1,7 @@
 # Rolling navigation discovery and reviewed extraction
 
+October 31 addition: [NHO NAVAREA VIII metadata/context integration](INDIAN_PORT_INTELLIGENCE_AND_RELIABILITY.md) uses the same retained-source/worklist workflow through a bounded family read seam. The inspected bulletin remains historical; Indian numerical consequences are disabled. NAVCEN and Eastham retain their reviewed calculators and source identities. Hosting remains deferred.
+
 Source review: October 16, 2026. This extends [the preceding NAVCEN source review](NAVCEN_SOURCE_REVIEW.md); it does not establish worldwide operational coverage or actual navigational clearance.
 
 ## Family selection and coverage

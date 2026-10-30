@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import type { BrowserContext, Page } from "@playwright/test";
-import { ACCOUNTS, expect, settle, test } from "../harness";
+import { ACCOUNTS, expect, mockApi, settle, test } from "../harness";
 import type {
   FleetDecisionRow,
   FleetDecisionTriage,
@@ -34,6 +34,116 @@ const reason = (code: string, text: string) => ({
   code,
   text,
   basis: "SIMULATED retained presentation contract",
+});
+
+test("source changes retain exact revisions and keep Company source responsibility separate from Vessel workflow", async ({
+  browser,
+  context,
+  page,
+}, info) => {
+  const item = row(1, "REASSESSMENT");
+  item.workflow.stage = "AWAITING_VESSEL";
+  item.workflow.nextRole = "VESSEL_OPERATOR";
+  item.reasons = [
+    reason(
+      "INDIAN_SOURCE_REVISION_CHANGED",
+      "Consumed navigation-aid context changed; explicitly review a successor.",
+    ),
+  ];
+  item.freshness = {
+    status: "REASSESSMENT",
+    reasons: item.reasons,
+    sourceChanges: [
+      {
+        code: "INDIAN_SOURCE_REVISION_CHANGED",
+        text: "Review the changed source interpretation.",
+        noticeId: "NHO_NAVAREA_VIII:609/25",
+        consumedRevisionId: "synthetic-consumed-v1",
+        currentRevisionId: "synthetic-retained-v2",
+        consumedAvailableAt: at(-2),
+        currentAvailableAt: at(-1),
+        changes: [
+          {
+            field: "status",
+            before: "REVIEW_CONTEXT",
+            after: "SOURCE_NOTICE_CANCELLED",
+          },
+        ],
+        unknown: "Actual navigation-aid restoration remains unverified.",
+        nextAction:
+          "Explicit successor review is required; earlier approval remains saved.",
+      },
+    ],
+  };
+  item.sourceReviews = [
+    {
+      noticeId: "NHO_NAVAREA_VIII:610/25",
+      revisionId: "synthetic-other-v1",
+      title: "Synthetic additional aid notice",
+      sourceStatus: "CURRENT_PRODUCT_DATE",
+      responsibleRole: "SHIPPING_COMPANY",
+      passageAt: at(24),
+      reason:
+        "Declared current-call passage; this additional identity has not been consumed.",
+      action: "Inspect source",
+    },
+  ];
+  const data = projection([item]);
+  const baseline = process.env.QA_REFERENCE_BASELINE;
+  if (baseline) {
+    if (new URL(baseline).hostname !== "127.0.0.1")
+      throw new Error("Reference baseline must be an owned local application");
+    const before = await browser.newContext({
+      baseURL: baseline,
+      viewport: page.viewportSize() ?? undefined,
+    });
+    await mockApi(before);
+    const old = await before.newPage();
+    await company(before, old, data);
+    await old.getByRole("button", { name: /Fleet review queue/ }).click();
+    await old
+      .getByText("Reasons and retained plan basis", { exact: true })
+      .click();
+    await old.screenshot({
+      path: info.outputPath("ui-before-source-change.png"),
+    });
+    await before.close();
+  }
+  const state = await company(context, page, data);
+  await page.getByRole("button", { name: /Fleet review queue/ }).click();
+  const dialog = page.getByTestId("company-fleet-triage");
+  await expect(dialog).toContainText("AWAITING VESSEL · Next: Vessel");
+  await expect(dialog).toContainText("Separate source review · Company");
+  const source = dialog.getByRole("link", {
+    name: "Inspect Synthetic additional aid notice",
+  });
+  await expect(source).toHaveAttribute(
+    "href",
+    "/company/global-eye#intelligence-review?noticeId=NHO_NAVAREA_VIII%3A610%2F25&vesselId=PWD-001",
+  );
+  await dialog
+    .getByText("Reasons and retained plan basis", { exact: true })
+    .click();
+  const changes = dialog.getByRole("region", {
+    name: "Consumed source changes",
+  });
+  await expect(changes).toContainText(
+    "synthetic-consumed-v1 → retained revision synthetic-retained-v2",
+  );
+  await expect(changes).toContainText('Consumed: "REVIEW_CONTEXT"');
+  await expect(changes).toContainText('Retained: "SOURCE_NOTICE_CANCELLED"');
+  await changes.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: info.outputPath("ui-after-source-change.png"),
+  });
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(changes).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: /Fleet review queue/ }),
+  ).toBeFocused();
+  expect(state.mutations).toEqual([]);
+  expect(state.refreshingListings).toEqual([]);
 });
 
 function row(

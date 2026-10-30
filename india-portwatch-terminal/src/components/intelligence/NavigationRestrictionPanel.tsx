@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatUtc } from "@/components/kit/primitives";
 import type { DecisionProblem } from "@/types/decisions";
+import { IndianNoticeReview } from "./IndianNoticeReview";
 
 function focusAsset(notice: NavigationNotice) {
   if (!notice.coordinates) return;
@@ -65,13 +66,16 @@ export function NavigationRestrictionPanel({
     if (selected.noticeId) setNoticeId(selected.noticeId);
     if (selected.vesselId) setVesselId(selected.vesselId);
   }, []);
-  const notice =
-    q.data?.notices.find((n) => n.noticeId === noticeId) ??
-    q.data?.notices.find(
-      (n) => n.extractionStatus === "SUPPORTED" && n.status === "SCHEDULED",
-    ) ??
-    q.data?.notices.find((n) => n.extractionStatus === "SUPPORTED") ??
-    q.data?.notices[0];
+  const notice = noticeId
+    ? q.data?.notices.find((n) => n.noticeId === noticeId)
+    : (q.data?.notices.find(
+        (n) => n.extractionStatus === "SUPPORTED" && n.status === "SCHEDULED",
+      ) ??
+      q.data?.notices.find(
+        (n) => n.sourceFamily === "NHO_NAVAREA_VIII" && n.areaId != null,
+      ) ??
+      q.data?.notices.find((n) => n.extractionStatus === "SUPPORTED") ??
+      q.data?.notices[0]);
   const vessel = q.data?.voyages.find((v) => v.id === vesselId);
   const plan = notice?.areaId
     ? (vessel?.declaredPassages?.[notice.areaId] ??
@@ -95,6 +99,16 @@ export function NavigationRestrictionPanel({
     void client.invalidateQueries({ queryKey: ["navigation-restrictions"] });
     void client.invalidateQueries({ queryKey: ["company"] });
   };
+  const [refreshFamily, setRefreshFamily] = useState("NHO_NAVAREA_VIII");
+  const refreshSource = useMutation({
+    mutationFn: () =>
+      postJson(
+        "/intelligence/navigation-restrictions/refresh",
+        { sourceFamily: refreshFamily },
+        identityHeaders,
+      ),
+    onSuccess: invalidate,
+  });
   const nextCall = useMutation({
     mutationFn: () =>
       postJson(
@@ -187,10 +201,61 @@ export function NavigationRestrictionPanel({
       <summary>
         Rolling official notices → voyage exposure → supported decisions
       </summary>
+      {session.user.role !== "VESSEL_OPERATOR" ? (
+        <div className="my-3 flex flex-wrap items-center gap-2">
+          <label>
+            Source family to check{" "}
+            <select
+              className="max-w-full bg-[var(--panel-2)] p-1"
+              aria-label="Source family to refresh"
+              value={refreshFamily}
+              onChange={(e) => setRefreshFamily(e.target.value)}
+            >
+              <option value="NHO_NAVAREA_VIII">India · NHO NAVAREA VIII</option>
+              <option value="NAVCEN_MSI">USCG NAVCEN</option>
+            </select>
+          </label>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={refreshSource.isPending}
+            onClick={() => refreshSource.mutate()}
+          >
+            {refreshSource.isPending
+              ? "Checking selected authority…"
+              : "Explicitly refresh source"}
+          </Button>
+        </div>
+      ) : null}
+      {refreshSource.isError ? (
+        <p role="alert">
+          Source refresh failed: {refreshSource.error.message}. Retained records
+          remain inspectable.
+        </p>
+      ) : null}
+      {q.isError ? (
+        <div
+          role="alert"
+          className="my-2 space-y-2 border border-[var(--line)] p-2"
+        >
+          <p>
+            Source read unavailable: {q.error.message}.{" "}
+            {q.data
+              ? "The retained view below is the previous result, not a newly verified check."
+              : "No current-source conclusion is available."}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={q.isFetching}
+            onClick={() => void q.refetch()}
+          >
+            Retry retained source read
+          </Button>
+        </div>
+      ) : null}
       {q.isPending ? (
-        <p>Checking retained NAVCEN MSI…</p>
-      ) : q.isError ? (
-        <p role="alert">Source unavailable: {q.error.message}</p>
+        <p>Reading retained authority sources…</p>
       ) : notice ? (
         <>
           <p>
@@ -256,335 +321,362 @@ export function NavigationRestrictionPanel({
               </select>
             </label>
           </div>
-          <p>
-            {q.data?.notices.length ?? 0} discovered notices ·{" "}
-            {q.data?.notices.filter((n) => n.extractionStatus === "SUPPORTED")
-              .length ?? 0}{" "}
-            extraction-supported notices. A supported parser does not establish
-            current applicability or observed closure.
-          </p>
-          <details open className="border border-[var(--line)] p-2 my-2">
-            <summary>
-              Review queue · {rows.length} event/voyage relations
-            </summary>
-            <p>
-              Heuristic review priority uses declared exposure, source status
-              and time to declared passage. It is not a disruption probability.
-            </p>
-            <div className="max-h-64 overflow-auto">
-              {rows.slice(0, limit).map((r) => (
-                <div
-                  key={`${r.noticeId}-${r.vesselId}`}
-                  className="border-t border-[var(--line)] py-2"
-                >
-                  <button
-                    className="underline text-left"
-                    onClick={() => {
-                      setNoticeId(r.noticeId);
-                      setVesselId(r.vesselId);
-                      setConfirmed(false);
-                    }}
-                  >
-                    #{r.priority.rank} · {r.title} → {r.vesselName}
-                  </button>
-                  <p>
-                    {r.status} · source {r.sourceValidity ?? r.sourceStatus} ·{" "}
-                    {r.calculable
-                      ? "Conditional comparison available"
-                      : "No numerical action"}
-                  </p>
-                  <p>{r.reason}</p>
-                  <p>{r.calculationReason}</p>
-                  <p>
-                    Passage {formatUtc(r.passageAt ?? null)} · missing{" "}
-                    {r.missingInputs.join(", ") ||
-                      "none for this matching rule"}
-                    .
-                  </p>
-                  <details>
-                    <summary>Matching and priority evidence</summary>
-                    <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all">
-                      {JSON.stringify(r, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              ))}
-            </div>
-            {rows.length > limit ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setLimit((n) => n + 30)}
-              >
-                Show next 30 relations
-              </Button>
-            ) : null}
-          </details>
-          <p>
-            {notice.noticeRef} · {notice.title} · {notice.sourceStatus} /{" "}
-            {notice.status ?? "UNAVAILABLE"}
-          </p>
-          {notice.extractionMode === "HISTORICAL_EXTRACTION_REPLAY" ? (
-            <p role="status">
-              Historical extraction replay from a retained original. Source
-              first received {formatUtc(notice.sourceFirstReceivedAt ?? null)};
-              this extraction available {formatUtc(notice.availableAt ?? null)}.
-              Current source is unavailable; new numerical actions are blocked.
-            </p>
-          ) : null}
-          <p>
-            Extraction {notice.extractionStatus ?? "UNSUPPORTED"} ·{" "}
-            {notice.reason ?? "Reviewed source semantics"}.{" "}
-            {relation?.calculationReason}
-          </p>
-          {canPropose && notice.areaId ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={lead.isPending}
-              onClick={() => lead.mutate()}
-            >
-              Mark possible passage; needs confirmation
-            </Button>
-          ) : null}
-          {lead.isSuccess ? (
-            <p role="status">
-              Possible passage recorded as a review lead. No confirmed route,
-              applicability, delay or change to the current arrival is asserted.
-            </p>
-          ) : null}
-          <p>{notice.restriction ?? notice.reason}</p>
-          <p>{notice.unaffectedAlternative}</p>
-          <p>
-            Provider created {formatUtc(notice.providerCreatedAt ?? null)} ·
-            modified {formatUtc(notice.providerModifiedAt ?? null)}. Publication
-            instant unverified; extraction/revision available{" "}
-            {formatUtc(notice.availableAt ?? null)} · checked{" "}
-            {formatUtc(notice.checkedAt)}.
-          </p>
-          {notice.windows.map((w) => (
-            <p key={w.start}>
-              Closed-position interval {w.localDate} {w.localStart}–{w.localEnd}
-              . UTC planning interval {formatUtc(w.start)}–{formatUtc(w.end)}.{" "}
-              {w.timeZoneBasis}.{" "}
-              {Date.parse(w.end) <= Date.now()
-                ? "Elapsed published window; actual occurrence remains unverified."
-                : "Scheduled window; actual access is unconfirmed."}
-            </p>
-          ))}
-          <p>{notice.confirmation}</p>
-          <p>{q.data?.meaning}</p>
-          <a
-            className="underline"
-            href={notice.source}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Official original GeoJSON
-          </a>{" "}
-          {notice.responseSha256 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={original.isPending}
-              onClick={() => original.mutate()}
-            >
-              Retained hash-verified original
-            </Button>
-          ) : null}
-          {notice.coordinates ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => focusAsset(notice)}
-            >
-              Show bridge constraint on original map
-            </Button>
-          ) : null}
-          <details>
-            <summary>Inspect literal authority wording and hash</summary>
-            <p className="whitespace-pre-wrap">{notice.originalWording}</p>
-            <p className="break-all">{notice.responseSha256}</p>
-          </details>
-          {canPropose && notice.areaId && notice.windows.length > 0 ? (
-            <fieldset className="border border-[var(--line)] p-2 space-y-2">
-              <legend>
-                Declare ordinary fictional passage requiring a bridge opening
-              </legend>
-              <label className="block">
-                Voyage{" "}
-                <select
-                  aria-label="Bridge restriction voyage"
-                  value={vesselId}
-                  onChange={(e) => {
-                    setVesselId(e.target.value);
-                    setConfirmed(false);
-                    setNewCall(false);
-                    setRequestId(crypto.randomUUID());
-                  }}
-                  className="bg-[var(--panel-2)]"
-                >
-                  {q.data?.voyages.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} · {v.portCode}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!nextWindow}
-                onClick={() => {
-                  if (!nextWindow) return;
-                  setPassage(nextWindow.start.slice(0, 16));
-                  setConfirmed(false);
-                  setRequestId(crypto.randomUUID());
-                }}
-              >
-                Use next restriction start as requested UTC passage
-              </Button>
+          {notice.sourceFamily === "NHO_NAVAREA_VIII" ? (
+            <IndianNoticeReview
+              notice={notice}
+              voyage={vessel}
+              relation={relation}
+              asOf={q.data?.asOf}
+              onChanged={invalidate}
+            />
+          ) : (
+            <>
               <p>
-                Explicit bridge passage → {vessel?.portCode}; cargo{" "}
-                {vessel?.cargo}. This is a declared fictional itinerary, not a
-                validated ocean route or tracked movement.
+                {q.data?.notices.length ?? 0} discovered notices ·{" "}
+                {q.data?.notices.filter(
+                  (n) => n.extractionStatus === "SUPPORTED",
+                ).length ?? 0}{" "}
+                extraction-supported notices. A supported parser does not
+                establish current applicability or observed closure.
               </p>
-              <label className="block">
-                Requested bridge passage (UTC){" "}
-                <input
-                  aria-label="Bridge passage UTC"
-                  type="datetime-local"
-                  value={passage}
-                  onChange={(e) => {
-                    setPassage(e.target.value);
-                    setConfirmed(false);
-                    setRequestId(crypto.randomUUID());
-                  }}
-                  className="bg-[var(--panel-2)] max-w-full"
-                />
-              </label>
-              <label className="block">
-                Assumed onward travel (h){" "}
-                <input
-                  aria-label="Bridge onward travel hours"
-                  type="number"
-                  min={24}
-                  max={720}
-                  value={hours}
-                  onChange={(e) => {
-                    setHours(Number(e.target.value));
-                    setConfirmed(false);
-                    setRequestId(crypto.randomUUID());
-                  }}
-                  className="bg-[var(--panel-2)] w-20"
-                />
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {(["loaM", "beamM", "draughtM", "airDraughtM"] as const).map(
-                  (key) => (
-                    <label key={key}>
-                      {
-                        {
-                          loaM: "Length",
-                          beamM: "Beam",
-                          draughtM: "Draught",
-                          airDraughtM: "Air draught",
-                        }[key]
-                      }{" "}
-                      (m){" "}
-                      <input
-                        aria-label={`Bridge declared ${key}`}
-                        type="number"
-                        min={0.1}
-                        value={dimensions[key]}
-                        onChange={(e) => {
-                          setDimensions((d) => ({
-                            ...d,
-                            [key]: Number(e.target.value),
-                          }));
+              <details open className="border border-[var(--line)] p-2 my-2">
+                <summary>
+                  Review queue · {rows.length} event/voyage relations
+                </summary>
+                <p>
+                  Heuristic review priority uses declared exposure, source
+                  status and time to declared passage. It is not a disruption
+                  probability.
+                </p>
+                <div className="max-h-64 overflow-auto">
+                  {rows.slice(0, limit).map((r) => (
+                    <div
+                      key={`${r.noticeId}-${r.vesselId}`}
+                      className="border-t border-[var(--line)] py-2"
+                    >
+                      <button
+                        className="underline text-left"
+                        onClick={() => {
+                          setNoticeId(r.noticeId);
+                          setVesselId(r.vesselId);
                           setConfirmed(false);
                         }}
-                        className="bg-[var(--panel-2)] w-16"
-                      />
-                    </label>
-                  ),
-                )}
-              </div>
-              <label className="flex gap-2">
-                <input
-                  type="checkbox"
-                  checked={confirmed}
-                  onChange={(e) => setConfirmed(e.target.checked)}
-                />
-                I declare this passage needs an opening, is not emergency
-                transit, and confirm {zone ?? "the unavailable local zone"} as
-                the geographic local-zone assumption. Actual water level,
-                clearance, route suitability and opening are unverified.
-              </label>
-              <Button
-                size="sm"
-                disabled={!confirmed || !passage || !zone || save.isPending}
-                onClick={() => save.mutate()}
-              >
-                Save bridge passage for this call
-              </Button>
+                      >
+                        #{r.priority.rank} · {r.title} → {r.vesselName}
+                      </button>
+                      <p>
+                        {r.status} · source {r.sourceValidity ?? r.sourceStatus}{" "}
+                        ·{" "}
+                        {r.calculable
+                          ? "Conditional comparison available"
+                          : "No numerical action"}
+                      </p>
+                      <p>{r.reason}</p>
+                      <p>{r.calculationReason}</p>
+                      <p>
+                        Passage {formatUtc(r.passageAt ?? null)} · missing{" "}
+                        {r.missingInputs.join(", ") ||
+                          "none for this matching rule"}
+                        .
+                      </p>
+                      <details>
+                        <summary>Matching and priority evidence</summary>
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all">
+                          {JSON.stringify(r, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
+                  ))}
+                </div>
+                {rows.length > limit ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLimit((n) => n + 30)}
+                  >
+                    Show next 30 relations
+                  </Button>
+                ) : null}
+              </details>
               <p>
-                Call{" "}
-                {vessel?.operationalEpisode?.id ??
-                  "Created on first declaration"}
-                . Saving an ETA or evidence revision keeps this call.
+                {notice.noticeRef} · {notice.title} · {notice.sourceStatus} /{" "}
+                {notice.status ?? "UNAVAILABLE"}
               </p>
-              {plan?.sourceFamily === "NAVCEN_MSI" ? (
-                <p>
-                  Saved bridge request {formatUtc(plan.passageAt)} · assumed
-                  onward travel {plan.postPassageHours} h.
+              {notice.extractionMode === "HISTORICAL_EXTRACTION_REPLAY" ? (
+                <p role="status">
+                  Historical extraction replay from a retained original. Source
+                  first received{" "}
+                  {formatUtc(notice.sourceFirstReceivedAt ?? null)}; this
+                  extraction available {formatUtc(notice.availableAt ?? null)}.
+                  Current source is unavailable; new numerical actions are
+                  blocked.
                 </p>
               ) : null}
-              <Button
-                size="sm"
-                disabled={!relation?.calculable || compare.isPending}
-                onClick={() => compare.mutate()}
-              >
-                Compare selected restriction passage windows
-              </Button>
-              <details>
-                <summary>
-                  Start a distinct next call without resetting this visitor
-                </summary>
-                <label className="flex gap-2">
-                  <input
-                    type="checkbox"
-                    checked={newCall}
-                    onChange={(e) => setNewCall(e.target.checked)}
-                  />
-                  This is a genuinely new call, not an ETA edit or evidence
-                  refresh. Prior approvals and advisories remain saved.
-                </label>
+              <p>
+                Extraction {notice.extractionStatus ?? "UNSUPPORTED"} ·{" "}
+                {notice.reason ?? "Reviewed source semantics"}.{" "}
+                {relation?.calculationReason}
+              </p>
+              {canPropose && notice.areaId ? (
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={!newCall || !passage || nextCall.isPending}
-                  onClick={() => nextCall.mutate()}
+                  disabled={lead.isPending}
+                  onClick={() => lead.mutate()}
                 >
-                  Create distinct next call
+                  Mark possible passage; needs confirmation
                 </Button>
+              ) : null}
+              {lead.isSuccess ? (
+                <p role="status">
+                  Possible passage recorded as a review lead. No confirmed
+                  route, applicability, delay or change to the current arrival
+                  is asserted.
+                </p>
+              ) : null}
+              <p>{notice.restriction ?? notice.reason}</p>
+              <p>{notice.unaffectedAlternative}</p>
+              <p>
+                Provider created {formatUtc(notice.providerCreatedAt ?? null)} ·
+                modified {formatUtc(notice.providerModifiedAt ?? null)}.
+                Publication instant unverified; extraction/revision available{" "}
+                {formatUtc(notice.availableAt ?? null)} · checked{" "}
+                {formatUtc(notice.checkedAt)}.
+              </p>
+              {notice.windows.map((w) => (
+                <p key={w.start}>
+                  Closed-position interval {w.localDate} {w.localStart}–
+                  {w.localEnd}. UTC planning interval {formatUtc(w.start)}–
+                  {formatUtc(w.end)}. {w.timeZoneBasis}.{" "}
+                  {Date.parse(w.end) <= Date.now()
+                    ? "Elapsed published window; actual occurrence remains unverified."
+                    : "Scheduled window; actual access is unconfirmed."}
+                </p>
+              ))}
+              <p>{notice.confirmation}</p>
+              <p>{q.data?.meaning}</p>
+              <a
+                className="underline"
+                href={notice.source}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Official original GeoJSON
+              </a>{" "}
+              {notice.responseSha256 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={original.isPending}
+                  onClick={() => original.mutate()}
+                >
+                  Retained hash-verified original
+                </Button>
+              ) : null}
+              {notice.coordinates ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => focusAsset(notice)}
+                >
+                  Show bridge constraint on original map
+                </Button>
+              ) : null}
+              <details>
+                <summary>Inspect literal authority wording and hash</summary>
+                <p className="whitespace-pre-wrap">{notice.originalWording}</p>
+                <p className="break-all">{notice.responseSha256}</p>
               </details>
-            </fieldset>
-          ) : null}
-          <details>
-            <summary>
-              Supported families, geography and source-use limits
-            </summary>
-            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all">
-              {JSON.stringify(q.data?.sourceRegistry, null, 2)}
-            </pre>
-          </details>
+              {canPropose && notice.areaId && notice.windows.length > 0 ? (
+                <fieldset className="border border-[var(--line)] p-2 space-y-2">
+                  <legend>
+                    Declare ordinary fictional passage requiring a bridge
+                    opening
+                  </legend>
+                  <label className="block">
+                    Voyage{" "}
+                    <select
+                      aria-label="Bridge restriction voyage"
+                      value={vesselId}
+                      onChange={(e) => {
+                        setVesselId(e.target.value);
+                        setConfirmed(false);
+                        setNewCall(false);
+                        setRequestId(crypto.randomUUID());
+                      }}
+                      className="bg-[var(--panel-2)]"
+                    >
+                      {q.data?.voyages.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name} · {v.portCode}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!nextWindow}
+                    onClick={() => {
+                      if (!nextWindow) return;
+                      setPassage(nextWindow.start.slice(0, 16));
+                      setConfirmed(false);
+                      setRequestId(crypto.randomUUID());
+                    }}
+                  >
+                    Use next restriction start as requested UTC passage
+                  </Button>
+                  <p>
+                    Explicit bridge passage → {vessel?.portCode}; cargo{" "}
+                    {vessel?.cargo}. This is a declared fictional itinerary, not
+                    a validated ocean route or tracked movement.
+                  </p>
+                  <label className="block">
+                    Requested bridge passage (UTC){" "}
+                    <input
+                      aria-label="Bridge passage UTC"
+                      type="datetime-local"
+                      value={passage}
+                      onChange={(e) => {
+                        setPassage(e.target.value);
+                        setConfirmed(false);
+                        setRequestId(crypto.randomUUID());
+                      }}
+                      className="bg-[var(--panel-2)] max-w-full"
+                    />
+                  </label>
+                  <label className="block">
+                    Assumed onward travel (h){" "}
+                    <input
+                      aria-label="Bridge onward travel hours"
+                      type="number"
+                      min={24}
+                      max={720}
+                      value={hours}
+                      onChange={(e) => {
+                        setHours(Number(e.target.value));
+                        setConfirmed(false);
+                        setRequestId(crypto.randomUUID());
+                      }}
+                      className="bg-[var(--panel-2)] w-20"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {(
+                      ["loaM", "beamM", "draughtM", "airDraughtM"] as const
+                    ).map((key) => (
+                      <label key={key}>
+                        {
+                          {
+                            loaM: "Length",
+                            beamM: "Beam",
+                            draughtM: "Draught",
+                            airDraughtM: "Air draught",
+                          }[key]
+                        }{" "}
+                        (m){" "}
+                        <input
+                          aria-label={`Bridge declared ${key}`}
+                          type="number"
+                          min={0.1}
+                          value={dimensions[key]}
+                          onChange={(e) => {
+                            setDimensions((d) => ({
+                              ...d,
+                              [key]: Number(e.target.value),
+                            }));
+                            setConfirmed(false);
+                          }}
+                          className="bg-[var(--panel-2)] w-16"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <label className="flex gap-2">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(e) => setConfirmed(e.target.checked)}
+                    />
+                    I declare this passage needs an opening, is not emergency
+                    transit, and confirm {zone ?? "the unavailable local zone"}{" "}
+                    as the geographic local-zone assumption. Actual water level,
+                    clearance, route suitability and opening are unverified.
+                  </label>
+                  <Button
+                    size="sm"
+                    disabled={!confirmed || !passage || !zone || save.isPending}
+                    onClick={() => save.mutate()}
+                  >
+                    Save bridge passage for this call
+                  </Button>
+                  <p>
+                    Call{" "}
+                    {vessel?.operationalEpisode?.id ??
+                      "Created on first declaration"}
+                    . Saving an ETA or evidence revision keeps this call.
+                  </p>
+                  {plan?.sourceFamily === "NAVCEN_MSI" ? (
+                    <p>
+                      Saved bridge request {formatUtc(plan.passageAt)} · assumed
+                      onward travel {plan.postPassageHours} h.
+                    </p>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    disabled={!relation?.calculable || compare.isPending}
+                    onClick={() => compare.mutate()}
+                  >
+                    Compare selected restriction passage windows
+                  </Button>
+                  <details>
+                    <summary>
+                      Start a distinct next call without resetting this visitor
+                    </summary>
+                    <label className="flex gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newCall}
+                        onChange={(e) => setNewCall(e.target.checked)}
+                      />
+                      This is a genuinely new call, not an ETA edit or evidence
+                      refresh. Prior approvals and advisories remain saved.
+                    </label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!newCall || !passage || nextCall.isPending}
+                      onClick={() => nextCall.mutate()}
+                    >
+                      Create distinct next call
+                    </Button>
+                  </details>
+                </fieldset>
+              ) : null}
+              <details>
+                <summary>
+                  Supported families, geography and source-use limits
+                </summary>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all">
+                  {JSON.stringify(q.data?.sourceRegistry, null, 2)}
+                </pre>
+              </details>
+            </>
+          )}
         </>
       ) : (
-        <p>
-          No source events available. Collection failure or an empty product
-          does not establish non-occurrence.
-        </p>
+        <div className="space-y-2">
+          <p>
+            {noticeId
+              ? "This exact source identity is unavailable in the current retained view. No other source event was substituted."
+              : "No source events available. Collection failure or an empty product does not establish non-occurrence."}
+          </p>
+          {noticeId && q.data ? (
+            <Button size="sm" variant="outline" onClick={() => setNoticeId("")}>
+              Clear unavailable source selection
+            </Button>
+          ) : null}
+        </div>
       )}
       {save.isError || compare.isError || nextCall.isError || lead.isError ? (
         <p role="alert">

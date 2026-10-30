@@ -69,6 +69,7 @@ def _response_digests(basis):
         originals = [claim, *[row for row in _rows(claim.get("inputs")) if isinstance(row, dict)]]
         found = [row.get("responseSha256") for row in originals if row.get("responseSha256")]
         values.extend(found or [None])
+    values.extend(_mapping(binding).get("originalSha256") for binding in _rows(basis.get("sourceReviewBindings")))
     return values
 
 
@@ -232,8 +233,16 @@ def evaluate_freshness(problem, world, *, as_of, clock_mode="LIVE", retained=Non
             add("CONSUMED_FEEDBACK_CHANGED", "A consumed claim verification, relevant vintage or actually applied policy changed; unrelated counts are excluded.", "feedbackConsumption")
         elif check.get("status") != "CURRENT":
             add("CONSUMED_FEEDBACK_UNAVAILABLE", "Consumer-bound feedback could not be checked from retained source/evidence records.", "feedbackConsumption", "UNKNOWN")
+    source_changes = []
+    if basis.get("sourceReviewBindings"):
+        from src.portwatch_os.intelligence.indian_review import assess
+        try:
+            source_changes = assess(basis["sourceReviewBindings"], world, retained.get("indianNotices", []), at=now)
+            for finding in source_changes: add(finding["code"],finding["text"],finding["basis"])
+        except (ValueError,TypeError,KeyError,AttributeError):
+            add("INDIAN_REVIEW_BASIS_UNAVAILABLE","The consumed Indian-source binding cannot be verified.","sourceReviewBindings","UNKNOWN")
     status = "REASSESSMENT" if any(r["status"] == "REASSESSMENT" for r in reasons) else "UNKNOWN" if reasons else "CURRENT"
-    return {"policyVersion": POLICY, "status": status, "reasons": reasons, "checkedAt": now.isoformat()}
+    return {"policyVersion": POLICY, "status": status, "reasons": reasons, "sourceChanges":source_changes,"checkedAt": now.isoformat()}
 
 
 class _ReadOnlyFeedback:
@@ -267,7 +276,7 @@ def collect_retained_dependencies(problems, *, environment_root, public_feedback
         found = False
         # Legacy shared public data may sit next to its configured ledger.
         paths = [base / folder / (digest + ".response") for base in (root, db_path.parent)
-                 for folder in ("archive", "operational_notices", "shared_feedback")]
+                 for folder in ("archive", "operational_notices", "shared_feedback", "indian_notices")]
         for path in dict.fromkeys(paths):
             try:
                 if path.is_file():
@@ -288,6 +297,10 @@ def collect_retained_dependencies(problems, *, environment_root, public_feedback
             return {"_unavailable": True}
 
     bases = [_basis(problem) for problem in problems if isinstance(problem, dict)]
+    if any(b.get("sourceReviewBindings") for b in bases):
+        from src.portwatch_os.intelligence.indian_notices import retained as indian_retained
+        try: result["indianNotices"] = indian_retained(root=root/"indian_notices",as_of=now)["notices"]
+        except (ValueError,TypeError,KeyError,AttributeError): result["indianNotices"] = []
     if any(b.get("kind") == "NOTICE_RESTRICTION" for b in bases):
         nav = read_json("navcen-catalogue-latest.json")
         notices = nav.get("notices") if isinstance(nav.get("notices"), list) else []

@@ -77,10 +77,12 @@ class DemoStore:
         with self.connect() as db:
             row = self.row(db, token)
         role = row["role"]
+        selected_port = json.loads(row["world"]).get("portCode", "INNSA")
+        if selected_port not in ("INNSA", "INPRT", "INMAA"): selected_port = "INNSA"
         return {"mode": "demo", "demoId": row["id"], "issuedAt": row["issued"], "expiresAt": row["expires"],
             "user": {"id": "demo-"+LABELS[role].lower(), "email": LABELS[role].lower()+"@portwatch.demo", "displayName": LABELS[role]+" demonstrator", "role": role,
-                "organisation": "PortWatch Demo Shipping" if role in ROLES[:2] else "Demo JNPA planning desk", "companyId": "portwatch-demo-shipping" if role in ROLES[:2] else None,
-                "portCode": "INNSA" if role == "PORT_AUTHORITY" else None, "vesselIds": ["PWD-001"] if role == "VESSEL_OPERATOR" else []}}
+                "organisation": "PortWatch Demo Shipping" if role in ROLES[:2] else "Demo Paradip planning desk" if selected_port == "INPRT" else "Demo JNPA planning desk", "companyId": "portwatch-demo-shipping" if role in ROLES[:2] else None,
+                "portCode": selected_port if role == "PORT_AUTHORITY" else None, "vesselIds": ["PWD-001"] if role == "VESSEL_OPERATOR" else []}}
 
     def read(self, token):
         with self.connect() as db:

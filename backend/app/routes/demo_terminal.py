@@ -27,7 +27,7 @@ async def sandbox(request: Request, credential=Depends(token)):
             if user["role"] == "VESSEL_OPERATOR" and payload.get("vesselId") and payload["vesselId"] not in user["vesselIds"]:
                 raise HTTPException(403, "This bridge demo is assigned PWD-001")
             if user["role"] == "PORT_AUTHORITY" and payload.get("portCode") and payload["portCode"] != world["portCode"]:
-                raise HTTPException(403, "This port demo is scoped to JNPA")
+                raise HTTPException(403, "This port demo is scoped to the selected port in this visitor's world")
     scoped = bind(session, world, store)
     mutation_lock = None
     if request.method == "POST":

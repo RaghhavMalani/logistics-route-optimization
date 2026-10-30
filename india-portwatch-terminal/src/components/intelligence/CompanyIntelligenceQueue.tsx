@@ -97,6 +97,26 @@ function TriageCard({
           : "No pending role action identified"}
       </p>
       <p>Evidence: {row.freshness.status.replaceAll("_", " ")}</p>
+      {row.sourceReviews?.length ? (
+        <div className="space-y-2 border-l-2 border-[var(--line-strong)] pl-2">
+          <strong>Separate source review · Company</strong>
+          <p>
+            The advisory workflow still belongs to the next role shown above.
+          </p>
+          {row.sourceReviews.map((review) => (
+            <p key={review.noticeId}>
+              <a
+                className="underline"
+                href={`/company/global-eye#${reviewHash(review.noticeId, row.vessel.id)}`}
+                onClick={onOpen}
+              >
+                Inspect {review.title}
+              </a>{" "}
+              · {review.sourceStatus}. {review.reason}
+            </p>
+          ))}
+        </div>
+      ) : null}
       {row.deadline ? (
         <p>
           {row.deadline.kind.replaceAll("_", " ")}: {formatUtc(row.deadline.at)}{" "}
@@ -145,6 +165,43 @@ function TriageCard({
             <p key={`fresh-${reason.code}-${index}`}>
               {reason.text} Basis: {reason.basis}
             </p>
+          ))}
+          {row.freshness.sourceChanges?.map((change) => (
+            <section
+              key={`${change.noticeId}-${change.code}`}
+              className="space-y-2 border border-[var(--line)] p-2"
+              aria-label="Consumed source changes"
+            >
+              <strong>
+                {change.noticeId} · {change.code.replaceAll("_", " ")}
+              </strong>
+              <p>{change.text}</p>
+              <p>
+                Consumed revision {change.consumedRevisionId ?? "unavailable"} →
+                retained revision {change.currentRevisionId ?? "unavailable"}.
+              </p>
+              <p>
+                First availability{" "}
+                {formatUtc(change.consumedAvailableAt ?? null)} →{" "}
+                {formatUtc(change.currentAvailableAt ?? null)}.
+              </p>
+              <dl>
+                {change.changes.map((field, index) => (
+                  <div key={`${field.field}-${index}`} className="mt-2">
+                    <dt className="font-semibold">{field.field}</dt>
+                    <dd>
+                      Consumed: {JSON.stringify(field.before) ?? "Unavailable"}
+                    </dd>
+                    <dd>
+                      Retained: {JSON.stringify(field.after) ?? "Unavailable"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p>
+                {change.unknown} {change.nextAction}
+              </p>
+            </section>
           ))}
           <p>
             Company comparison: {current.decisionId ?? "not established"};
