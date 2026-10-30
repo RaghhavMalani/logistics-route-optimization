@@ -12,6 +12,7 @@ import { ChevronDown, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { useMapPanelAccess } from "./MapPanelAccess";
 
 export function FloatPanel({
   title,
@@ -42,6 +43,7 @@ export function FloatPanel({
   testId?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const mapPanels = useMapPanelAccess();
 
   return (
     <section
@@ -51,11 +53,12 @@ export function FloatPanel({
         "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-[3px]",
         "border border-[var(--line-strong)] bg-[var(--panel)]/95 backdrop-blur-[3px]",
         "shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
+        mapPanels?.mobile && "ml-auto max-w-[calc(100vw-64px)]",
         className,
       )}
     >
       {title ? (
-        <header className="flex h-[26px] shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-2)]/85 px-2">
+        <header className="flex h-[26px] shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-2)]/85 px-2 max-[700px]:h-auto max-[700px]:min-h-10 max-[700px]:flex-wrap max-[700px]:py-1">
           {collapsible ? (
             /* The whole header is the control when a panel folds: a bare
                chevron has no accessible name, and "the thing you click to open
@@ -86,6 +89,28 @@ export function FloatPanel({
             </span>
           ) : null}
           {actions}
+          {mapPanels?.mobile && !collapsible ? (
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2"
+                onClick={(event) =>
+                  mapPanels.open("layers", event.currentTarget)
+                }
+              >
+                Layers and filters
+              </button>
+              <button
+                type="button"
+                className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2"
+                onClick={(event) =>
+                  mapPanels.open("timeline", event.currentTarget)
+                }
+              >
+                Timeline controls
+              </button>
+            </div>
+          ) : null}
           {onClose ? (
             <button
               type="button"
@@ -235,6 +260,7 @@ export function Chip({
       type="button"
       title={title}
       disabled={disabled}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-[2px] text-[10px] transition-colors",

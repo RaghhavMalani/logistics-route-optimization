@@ -28,6 +28,7 @@ import {
 } from "@/components/app/traffic-context";
 import type { WeatherTimeline } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
+import { MobileMapPanel, useMapPanelAccess } from "./MapPanelAccess";
 
 function clockLabel(ms: number): string {
   const date = new Date(ms);
@@ -67,6 +68,7 @@ export function TimeTransport({
 }) {
   const { clock } = useTraffic();
   const state = useClockState();
+  const access = useMapPanelAccess();
 
   const maxHours = state.maxOffsetHours;
   const peak = Math.max(0.001, ...timeline.meanImpact);
@@ -79,11 +81,12 @@ export function TimeTransport({
       )
     : -1;
 
-  return (
+  const controls = (
     <div
       className={cn(
         "pointer-events-auto flex items-center gap-3 rounded-[3px] border border-[var(--line-strong)]",
         "bg-[var(--panel)]/95 px-2.5 py-1.5 backdrop-blur-[3px] shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
+        access?.mobile && "flex-wrap",
         className,
       )}
       data-testid="time-transport"
@@ -244,5 +247,12 @@ export function TimeTransport({
         </span>
       ) : null}
     </div>
+  );
+  return access?.mobile ? (
+    <MobileMapPanel panel="timeline" title="Timeline controls">
+      {controls}
+    </MobileMapPanel>
+  ) : (
+    controls
   );
 }

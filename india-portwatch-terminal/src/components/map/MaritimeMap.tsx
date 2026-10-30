@@ -26,6 +26,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import { useTraffic } from "@/components/app/traffic-context";
+import { MapPanelAccess } from "@/components/command/MapPanelAccess";
 import type { VesselFix } from "@/lib/maritime/traffic-types";
 import type { WeatherFrame } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
@@ -934,7 +935,7 @@ export function MaritimeMap({
         </button>
       </div>
 
-      {overlay}
+      <MapPanelAccess>{overlay}</MapPanelAccess>
 
       {!ready && !failed ? (
         <div className="absolute inset-0 grid place-items-center bg-[#061520]">

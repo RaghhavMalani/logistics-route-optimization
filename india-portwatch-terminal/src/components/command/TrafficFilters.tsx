@@ -29,6 +29,7 @@ import { formatAge, formatInstant } from "@/components/fabric/signal-format";
 import { Pill } from "@/components/kit/primitives";
 import { Chip, FloatPanel, PanelSection } from "./panels";
 import type { WorkspaceMap } from "./useWorkspaceMap";
+import { MobileMapPanel, useMapPanelAccess } from "./MapPanelAccess";
 
 const LAYER_LABELS: Array<{ key: LayerKey; label: string }> = [
   { key: "traffic", label: "Vessel traffic" },
@@ -55,18 +56,10 @@ export function TrafficFilters({
   defaultOpen?: boolean;
 }) {
   const [showFields, setShowFields] = useState(false);
+  const access = useMapPanelAccess();
 
-  return (
-    <FloatPanel
-      title="Layers and filters"
-      note={
-        workspace.filterActive ? <Pill tone="warn">filtered</Pill> : undefined
-      }
-      collapsible
-      defaultOpen={defaultOpen}
-      width={216}
-      className={cn("max-h-[calc(100%-16px)]", className)}
-    >
+  const controls = (
+    <>
       <PanelSection
         title="Vessel class"
         right={
@@ -185,6 +178,26 @@ export function TrafficFilters({
           ))}
         </div>
       </PanelSection>
+    </>
+  );
+  if (access?.mobile)
+    return (
+      <MobileMapPanel panel="layers" title="Layers and filters">
+        {controls}
+      </MobileMapPanel>
+    );
+  return (
+    <FloatPanel
+      title="Layers and filters"
+      note={
+        workspace.filterActive ? <Pill tone="warn">filtered</Pill> : undefined
+      }
+      collapsible
+      defaultOpen={defaultOpen}
+      width={216}
+      className={cn("max-h-[calc(100%-16px)]", className)}
+    >
+      {controls}
     </FloatPanel>
   );
 }
