@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
 import { PassagePlanInputs } from "./PassagePlanInputs";
@@ -30,12 +30,17 @@ export function CurrentInputControl({
   open: controlledOpen,
   onOpenChange,
   hideLauncher = false,
+  initialVesselId,
+  sourceComparison,
 }: {
   onDecision: (problem: DecisionProblem) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /** The workspace provides an in-flow action while an inspector occupies this control space. */
   hideLauncher?: boolean;
+  /** Explicit queue/inspector target; no vessel-name or latest-record inference. */
+  initialVesselId?: string | null;
+  sourceComparison?: DecisionProblem | null;
 }) {
   const { session, identityHeaders } = useAuth();
   const [localOpen, setLocalOpen] = useState(false);
@@ -51,6 +56,30 @@ export function CurrentInputControl({
   );
   const [cargoCommitment, setCargoCommitment] =
     useState<CargoCommitmentDeclaration | null>(null);
+  const preparedForOpen = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      preparedForOpen.current = false;
+      return;
+    }
+    if (preparedForOpen.current) return;
+    preparedForOpen.current = true;
+    const target = initialVesselId ?? sourceComparison?.subject.id;
+    if (target) setVesselId(target);
+    const frozen = sourceComparison?.evidence.currentEnvironment as
+      import("@/services/current-inputs").FrozenEnvironment | undefined;
+    if (sourceComparison?.subject.id === target && frozen) {
+      setArrival(frozen.plannedArrival);
+      setGust(frozen.assumptions.maxGustKn);
+      setVisibility(frozen.assumptions.minVisibilityM);
+      setPassagePlan(frozen.passagePlan ?? null);
+      setCargoCommitment(frozen.cargoCommitment ?? null);
+    } else if (target) {
+      setArrival("");
+      setPassagePlan(null);
+      setCargoCommitment(null);
+    }
+  }, [open, initialVesselId, sourceComparison]);
   const fleet = useCompanyFleet();
   const vessel = fleet.data?.vessels.find((v) => v.vessel_id === vesselId);
   const port = vessel?.destination_port ?? "INNSA";
@@ -83,14 +112,16 @@ export function CurrentInputControl({
     enabled: session?.mode === "demo" && open,
     refetchInterval: 10000,
   });
-  const predecessor = [...(saved.data?.problems ?? [])]
-    .filter(
-      (p) =>
-        p.evidence.currentEnvironment &&
-        p.actor.role === "SHIPPING_COMPANY" &&
-        p.subject.id === vesselId,
-    )
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+  const predecessor =
+    (sourceComparison?.subject.id === vesselId ? sourceComparison : null) ??
+    [...(saved.data?.problems ?? [])]
+      .filter(
+        (p) =>
+          p.evidence.currentEnvironment &&
+          p.actor.role === "SHIPPING_COMPANY" &&
+          p.subject.id === vesselId,
+      )
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
   const resume = useMutation({
     mutationFn: (id: string) =>
       getJson<DecisionProblem>(`/decisions/problems/${id}`, identityHeaders),

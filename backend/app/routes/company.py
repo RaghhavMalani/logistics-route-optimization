@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.portwatch_os.fleet.company import (
     COMPANY_DISCLAIMER,
@@ -35,6 +35,42 @@ from src.portwatch_os.ledger.store import get_ledger
 from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
+
+
+@router.get("/company/decision-triage")
+async def fleet_decision_triage(request: Request):
+    """Read-only Company projection; mounted by the existing demo read allowlist."""
+    import asyncio
+    import sqlite3
+    from starlette.concurrency import run_in_threadpool
+    from backend.app.identity import current_identity
+    from backend.app.routes.demo_terminal import _mutation_locks, get_demo_store
+    from backend.app.services.fleet_triage import retained_snapshot, project_snapshot
+    from src.portwatch_os.sandbox import current_sandbox
+    from src.portwatch_os.clock import get_clock
+    scoped, who = current_sandbox.get(), current_identity.get()
+    if scoped is None or who is None or who.role != "SHIPPING_COMPANY":
+        raise HTTPException(403, "The fleet worklist belongs to the authenticated Company's isolated visitor world")
+    if request.query_params:
+        raise HTTPException(400, "The fleet worklist reads the authenticated visitor's whole fleet; caller-supplied scope identifiers are not accepted")
+    credential = request.headers.get("authorization", "").partition(" ")[2]
+    key = str(scoped.root)
+    mutation_lock = _mutation_locks.get(key)
+    if mutation_lock is None:
+        mutation_lock = asyncio.Lock()
+        _mutation_locks[key] = mutation_lock
+    try:
+        async with mutation_lock:
+            # wall-clock: actual receipt age and workflow deadlines; traffic replay is separate.
+            as_of = wall_now()
+            snapshot, consistent = await run_in_threadpool(retained_snapshot,
+                scoped, get_demo_store(), credential, who)
+            return await run_in_threadpool(project_snapshot, snapshot,
+                as_of=as_of, clock_mode=get_clock().state.mode, consistent=consistent)
+    except (OSError, sqlite3.DatabaseError, ValueError) as exc:
+        # Do not expose private archive paths or return a reassuring empty
+        # fleet when its durable basis is unavailable.
+        raise HTTPException(503, "Retained fleet state is unavailable or updating; refresh to inspect the current basis") from exc
 
 #: Anchor for the demo fleet's ETAs. Read from the pipeline's forecast origin so
 #: the fleet screen agrees with the port state beside it and a screenshot is

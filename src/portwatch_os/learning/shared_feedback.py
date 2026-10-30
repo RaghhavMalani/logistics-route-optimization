@@ -112,6 +112,9 @@ def evidence(store, body):
 
 def retained_original_status(store, record):
     """Public original qualification, with no paths exposed in the response."""
+    reader = getattr(store, "retained_original_status", None)
+    if callable(reader):
+        return reader(record)
     from pathlib import Path
     digest = record.get('responseSha256')
     if not isinstance(digest,str) or len(digest)!=64 or any(c not in '0123456789abcdef' for c in digest):

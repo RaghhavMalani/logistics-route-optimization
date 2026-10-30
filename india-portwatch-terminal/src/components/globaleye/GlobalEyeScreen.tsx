@@ -66,6 +66,8 @@ import { EvidenceDrawer } from "./EvidenceDrawer";
 import { useCascadeReveal } from "./useCascadeReveal";
 import { GlobalIntelligenceControl } from "@/components/intelligence/GlobalIntelligenceControl";
 import { CurrentInputControl } from "@/components/intelligence/CurrentInputControl";
+import { FleetReviewLinkControl } from "@/components/intelligence/FleetReviewLinkControl";
+import type { DecisionProblem } from "@/types/decisions";
 
 export type GlobalEyeScope = "national" | "company" | "port";
 
@@ -144,6 +146,41 @@ export function GlobalEyeScreen({
   const decision = useDecision(world.decisionId);
   const decisionOpen = Boolean(world.decisionId);
   const [currentInputsOpen, setCurrentInputsOpen] = useState(false);
+  const [fleetLinked, setFleetLinked] = useState(false);
+  const selectFleetMapVessel = workspace.setSelectedVesselId;
+  const selectFleetVessel = world.selectVessel;
+  const selectFleetPort = world.selectPort;
+  const openFleetPlan = world.openDecision;
+  const openFleetDecision = useCallback(
+    (problem: DecisionProblem, optionId: string) => {
+      selectFleetMapVessel(problem.subject.id);
+      selectFleetVessel(problem.subject.id);
+      selectFleetPort(
+        (
+          problem.evidence.currentEnvironment as
+            { portCode?: string } | undefined
+        )?.portCode ?? null,
+      );
+      openFleetPlan(problem.decisionId, optionId, true);
+      setFleetLinked(true);
+    },
+    [selectFleetMapVessel, selectFleetVessel, selectFleetPort, openFleetPlan],
+  );
+  const openFleetInputs = useCallback(
+    (vesselId: string) => {
+      selectFleetMapVessel(vesselId);
+      selectFleetVessel(vesselId);
+      openFleetPlan(null);
+      setCurrentInputsOpen(true);
+      setFleetLinked(true);
+    },
+    [selectFleetMapVessel, selectFleetVessel, openFleetPlan],
+  );
+  const leaveFleetLink = useCallback(() => {
+    openFleetPlan(null);
+    setCurrentInputsOpen(false);
+    setFleetLinked(false);
+  }, [openFleetPlan]);
   // These controls share the inspector's map space. The weather action moves
   // into the inspector while it is open rather than floating over its results.
   const inspectorOpen = Boolean(
@@ -369,6 +406,12 @@ export function GlobalEyeScreen({
   return (
     <div className="absolute inset-0">
       <h1 className="sr-only">{title}</h1>
+      <FleetReviewLinkControl
+        enabled={scope === "company" && session?.mode === "demo"}
+        onDecision={openFleetDecision}
+        onInputs={openFleetInputs}
+        onLeave={leaveFleetLink}
+      />
       <GlobalIntelligenceControl
         hideLauncher={inspectorOpen}
         onDecision={
@@ -404,6 +447,8 @@ export function GlobalEyeScreen({
           open={currentInputsOpen}
           onOpenChange={setCurrentInputsOpen}
           hideLauncher={inspectorOpen}
+          initialVesselId={world.vesselId}
+          sourceComparison={decision.data}
           onDecision={(problem) => {
             world.selectVessel(problem.subject.id);
             world.openDecision(
@@ -543,9 +588,29 @@ export function GlobalEyeScreen({
                   className="pointer-events-auto min-h-0 flex-1"
                   scroll={false}
                   testId="decision-float"
-                  onClose={() => world.openDecision(null)}
+                  onClose={() => {
+                    world.openDecision(null);
+                    if (fleetLinked) {
+                      window.location.hash = "";
+                      setFleetLinked(false);
+                    }
+                  }}
                   footer="Every figure is a measure the engine produced on that option's branch; unavailable means unavailable."
                 >
+                  {fleetLinked ? (
+                    <div className="shrink-0 border-b border-[var(--line)] px-2 py-2 text-xs">
+                      <a
+                        href="/company/overview#fleet-queue"
+                        className="underline focus-visible:outline focus-visible:outline-2"
+                      >
+                        Return to fleet review queue
+                      </a>
+                      <p>
+                        Exact retained comparison; the highlighted option does
+                        not change server triage.
+                      </p>
+                    </div>
+                  ) : null}
                   {decision.data ? (
                     <DecisionPanel
                       problem={decision.data}

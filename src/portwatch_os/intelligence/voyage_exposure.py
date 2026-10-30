@@ -6,7 +6,7 @@ passage. Route proximity is a confirmation lead, not navigational clearance.
 import math
 from datetime import timedelta
 
-from src.portwatch_os.intelligence.current_environment import instant
+from src.portwatch_os.intelligence.timestamps import instant
 
 CONFIRMED = "CONFIRMED_DECLARED_EXPOSURE"
 POSSIBLE = "POSSIBLE_EXPOSURE"

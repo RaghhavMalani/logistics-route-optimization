@@ -125,6 +125,8 @@ export interface User {
 }
 
 export interface Session {
+  /** Existing server-owned isolated visitor identifier; absent on older adapters. */
+  demoId?: string;
   user: User;
   mode: AuthMode;
   issuedAt: string;
