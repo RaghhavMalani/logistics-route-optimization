@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getJson } from "./api";
+import { contextMetricSchema, contextRuleSchema } from "./port-context";
 
 const passageSchema = z
   .object({
@@ -270,6 +271,19 @@ export const fleetTriageSchema = z
             }),
           )
           .optional(),
+        portContext: z
+          .object({
+            sourceFamily: z.string(),
+            status: z.string(),
+            reportDate: z.string().nullish(),
+            revisionId: z.string().nullish(),
+            metric: contextMetricSchema.nullish(),
+            rule: contextRuleSchema.nullish(),
+            reviewRequired: z.boolean(),
+            responsibleRole: z.string().nullish(),
+            reason: z.string(),
+          })
+          .nullish(),
         deadline: z
           .object({
             at: z.string(),

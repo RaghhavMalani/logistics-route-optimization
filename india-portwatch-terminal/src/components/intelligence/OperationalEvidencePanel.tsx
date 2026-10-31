@@ -361,12 +361,21 @@ export function OperationalEvidencePanel() {
             size="sm"
             variant="outline"
             disabled={
-              !product.originalHashVerified || !record || original.isPending
+              !product.originalHashVerified ||
+              !record ||
+              original.isPending ||
+              product.portCode === "INPRT"
             }
             onClick={() => original.mutate()}
           >
             Download retained original
           </Button>
+          {product.portCode === "INPRT" && (
+            <p>
+              Paradip original retained for audit; follow the publisher source.
+              Full-document redistribution is disabled.
+            </p>
+          )}
           <label className="block">
             Visitor voyage{" "}
             <select

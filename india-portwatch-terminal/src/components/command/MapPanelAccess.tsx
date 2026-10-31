@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { DemonstrationBadge } from "@/components/intelligence/DemonstrationScenarios";
 
 type Panel = "layers" | "timeline";
 type Access = {
@@ -47,7 +48,12 @@ export function MapPanelAccess({ children }: { children: ReactNode }) {
     () => ({ mobile, active, open, close, returnFocus }),
     [mobile, active, open, close, returnFocus],
   );
-  return <MapPanels.Provider value={value}>{children}</MapPanels.Provider>;
+  return (
+    <MapPanels.Provider value={value}>
+      {children}
+      <DemonstrationBadge />
+    </MapPanels.Provider>
+  );
 }
 
 export function useMapPanelAccess() {

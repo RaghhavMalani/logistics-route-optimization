@@ -3,6 +3,11 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
 import { PassagePlanInputs } from "./PassagePlanInputs";
 import { CargoCommitmentInputs } from "./CargoCommitmentInputs";
+import { PortContextChoices } from "./PortOperationalContext";
+import type {
+  PortContextSelection,
+  FrozenPortContext,
+} from "@/services/port-context";
 import {
   IndianSourceReviewChoices,
   type IndianReviewSelection,
@@ -65,6 +70,9 @@ export function CurrentInputControl({
     [],
   );
   const preparedForOpen = useRef(false);
+  const [portContextReviews, setPortContextReviews] = useState<
+    PortContextSelection[]
+  >([]);
   useEffect(() => {
     if (!open) {
       preparedForOpen.current = false;
@@ -73,6 +81,7 @@ export function CurrentInputControl({
     if (preparedForOpen.current) return;
     preparedForOpen.current = true;
     setSourceReviews([]);
+    setPortContextReviews([]);
     const target = initialVesselId ?? sourceComparison?.subject.id;
     if (target) setVesselId(target);
     const frozen = sourceComparison?.evidence.currentEnvironment as
@@ -143,7 +152,7 @@ export function CurrentInputControl({
     mutationFn: (id: string) =>
       postJson<DecisionProblem>(
         `/decisions/problems/${id}/refresh`,
-        (passagePlan || sourceReviews.length) &&
+        (passagePlan || sourceReviews.length || portContextReviews.length) &&
           saved.data?.problems.some(
             (p) => p.decisionId === id && p.subject.id === vesselId,
           )
@@ -155,6 +164,7 @@ export function CurrentInputControl({
                 ...(passagePlan ? { passagePlan } : {}),
                 ...(cargoCommitment ? { cargoCommitment } : {}),
                 ...(sourceReviews.length ? { sourceReviews } : {}),
+                ...(portContextReviews.length ? { portContextReviews } : {}),
               },
             }
           : {},
@@ -466,6 +476,18 @@ export function CurrentInputControl({
                     value={sourceReviews}
                     onChange={setSourceReviews}
                   />
+                  <PortContextChoices
+                    vesselId={vesselId}
+                    previous={
+                      (
+                        predecessor?.evidence.currentEnvironment as
+                          | { portContextBindings?: FrozenPortContext[] }
+                          | undefined
+                      )?.portContextBindings
+                    }
+                    value={portContextReviews}
+                    onChange={setPortContextReviews}
+                  />
                   <Button
                     size="sm"
                     disabled={!selected || create.isPending}
@@ -486,6 +508,9 @@ export function CurrentInputControl({
                             ...(passagePlan ? { passagePlan } : {}),
                             ...(cargoCommitment ? { cargoCommitment } : {}),
                             ...(sourceReviews.length ? { sourceReviews } : {}),
+                            ...(portContextReviews.length
+                              ? { portContextReviews }
+                              : {}),
                           },
                         },
                         {

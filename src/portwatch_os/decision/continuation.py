@@ -87,6 +87,13 @@ def require_current(problem):
         if not reason and env.get("cargoCommitment"):
             from .passage_cargo_integration import require_cargo_current
             reason = require_cargo_current(env, scoped)
+    if not reason and env.get('evidenceKind')=='SOFTWARE_LIFECYCLE_FIXTURE':
+        import hashlib,re
+        sha=env.get('responseSha256')
+        try:
+            if not scoped or not isinstance(sha,str) or not re.fullmatch('[0-9a-f]{64}',sha):raise ValueError('Fixture identity unavailable')
+            if hashlib.sha256((scoped.root/'scenario_evidence'/(sha+'.response')).read_bytes()).hexdigest()!=sha:raise ValueError('Fixture hash mismatch')
+        except (OSError,ValueError):reason='Frozen software fixture original is missing or corrupt; do not approve a reconstructed substitute'
     if not reason and env.get('feedbackConsumption'):
         from src.portwatch_os.learning import intelligence_reconciliation as collector
         from src.portwatch_os.learning.shared_feedback import require_consumption
@@ -117,6 +124,20 @@ def require_current(problem):
                 if findings: reason = findings[0]['text']
             except (ValueError, TypeError, KeyError, AttributeError):
                 reason = 'Consumed Indian-source metadata cannot be verified; inspect the preserved comparison and explicitly review refreshed inputs'
+    if not reason and env.get('portContextBindings'):
+        from src.portwatch_os.intelligence import port_context_review
+        try:
+            from src.portwatch_os.intelligence.public_port_context import root_path as port_source_root
+            import re,hashlib
+            for binding in env['portContextBindings']:
+                if binding.get('evidenceKind')=='SOFTWARE_LIFECYCLE_FIXTURE':continue
+                sha=binding.get('originalSha256')
+                if not isinstance(sha,str) or not re.fullmatch('[0-9a-f]{64}',sha):raise ValueError('Original identity missing')
+                if hashlib.sha256((port_source_root()/'evidence'/(sha+'.pdf')).read_bytes()).hexdigest()!=sha:raise ValueError('Original hash mismatch')
+            findings = port_context_review.assess(env['portContextBindings'],scoped.world,port_context_review.view(scoped.world,operation_at),at=operation_at)
+            if findings: reason=findings[0]['text']
+        except (ValueError,TypeError,KeyError,AttributeError,OSError):
+            reason='Consumed daily port context cannot be verified; explicit refreshed review is required'
     if reason:
         raise HTTPException(409, reason + " Company can explicitly refresh to a linked successor; this comparison and its approvals remain saved.")
 

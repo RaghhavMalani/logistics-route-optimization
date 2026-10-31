@@ -70,6 +70,7 @@ def _response_digests(basis):
         found = [row.get("responseSha256") for row in originals if row.get("responseSha256")]
         values.extend(found or [None])
     values.extend(_mapping(binding).get("originalSha256") for binding in _rows(basis.get("sourceReviewBindings")))
+    values.extend(b.get('originalSha256') for b in _rows(basis.get('portContextBindings')) if isinstance(b,dict) and b.get('evidenceKind')!='SOFTWARE_LIFECYCLE_FIXTURE')
     return values
 
 
@@ -241,6 +242,15 @@ def evaluate_freshness(problem, world, *, as_of, clock_mode="LIVE", retained=Non
             for finding in source_changes: add(finding["code"],finding["text"],finding["basis"])
         except (ValueError,TypeError,KeyError,AttributeError):
             add("INDIAN_REVIEW_BASIS_UNAVAILABLE","The consumed Indian-source binding cannot be verified.","sourceReviewBindings","UNKNOWN")
+    if basis.get('portContextBindings'):
+        from src.portwatch_os.intelligence import port_context_review
+        try:
+            current = world.get('illustrativeInputs',{}).get('portContext') or retained.get('portContext',{})
+            findings = port_context_review.assess(basis['portContextBindings'],world,current,at=now)
+            source_changes.extend(findings)
+            for finding in findings:add(finding['code'],finding['text'],finding['basis'])
+        except (ValueError,TypeError,KeyError,AttributeError):
+            add('PORT_CONTEXT_UNVERIFIABLE','Consumed daily port context cannot be verified.','portContextBindings','UNKNOWN')
     status = "REASSESSMENT" if any(r["status"] == "REASSESSMENT" for r in reasons) else "UNKNOWN" if reasons else "CURRENT"
     return {"policyVersion": POLICY, "status": status, "reasons": reasons, "sourceChanges":source_changes,"checkedAt": now.isoformat()}
 
@@ -277,6 +287,11 @@ def collect_retained_dependencies(problems, *, environment_root, public_feedback
         # Legacy shared public data may sit next to its configured ledger.
         paths = [base / folder / (digest + ".response") for base in (root, db_path.parent)
                  for folder in ("archive", "operational_notices", "shared_feedback", "indian_notices")]
+        from src.portwatch_os.intelligence.public_port_context import root_path as public_port_root
+        paths.append(public_port_root()/'evidence'/(digest+'.pdf'))
+        from src.portwatch_os.sandbox import current_sandbox
+        scoped=current_sandbox.get()
+        if scoped:paths.append(scoped.root/'scenario_evidence'/(digest+'.response'))
         for path in dict.fromkeys(paths):
             try:
                 if path.is_file():
@@ -297,6 +312,10 @@ def collect_retained_dependencies(problems, *, environment_root, public_feedback
             return {"_unavailable": True}
 
     bases = [_basis(problem) for problem in problems if isinstance(problem, dict)]
+    if any(b.get('portContextBindings') for b in bases):
+        from src.portwatch_os.intelligence.public_port_context import retained as port_context_retained
+        try:result['portContext']=port_context_retained(as_of=now)
+        except (ValueError,TypeError,KeyError,OSError,sqlite3.Error):result['portContext']={}
     if any(b.get("sourceReviewBindings") for b in bases):
         from src.portwatch_os.intelligence.indian_notices import retained as indian_retained
         try: result["indianNotices"] = indian_retained(root=root/"indian_notices",as_of=now)["notices"]

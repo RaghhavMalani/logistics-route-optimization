@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { formatUtc } from "@/components/kit/primitives";
 import type { DecisionProblem } from "@/types/decisions";
 import { OperationalNoticePanel } from "./OperationalNoticePanel";
+import { PortOperationalContext } from "./PortOperationalContext";
+import { reviewSelection } from "@/services/rolling-intelligence";
 import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
 import { NavigationRestrictionPanel } from "./NavigationRestrictionPanel";
 import { IntelligenceReviewTasks } from "./IntelligenceReviewTasks";
 import { OperationalEvidencePanel } from "./OperationalEvidencePanel";
+import { DemonstrationScenarios } from "./DemonstrationScenarios";
 
 interface Signal {
   id?: string;
@@ -52,7 +55,9 @@ export function ShippingIntelligencePanel({
   const { identityHeaders, session } = useAuth();
   const client = useQueryClient();
   const [selected, setSelected] = useState("");
-  const [vesselId, setVesselId] = useState("");
+  const [vesselId, setVesselId] = useState(
+    () => reviewSelection().vesselId || "",
+  );
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [digest, setDigest] = useState<string | null>(null);
   const raw = useQuery({
@@ -120,8 +125,13 @@ export function ShippingIntelligencePanel({
       className="mt-3 border border-[var(--line)] p-3 text-[11px]"
       data-testid="shipping-intelligence"
     >
+      <DemonstrationScenarios onDecision={onDecision} />
       <SharedFeedbackPanel
         onDecision={onDecision}
+        vesselId={vesselId}
+        onVesselChange={setVesselId}
+      />
+      <PortOperationalContext
         vesselId={vesselId}
         onVesselChange={setVesselId}
       />

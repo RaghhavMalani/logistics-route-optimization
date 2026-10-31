@@ -213,6 +213,10 @@ def project_snapshot(snapshot, *, as_of: datetime, clock_mode, consistent):
     try: indian = retained.get('indianNotices') if 'indianNotices' in retained else indian_retained(root=environment_root/'indian_notices',as_of=as_of)['notices']
     except (ValueError,TypeError,KeyError,AttributeError): indian=[]
     annotate_worklist(result,world,decisions,indian,at=as_of)
+    from src.portwatch_os.intelligence import port_context_review
+    port_context=port_context_review.view(world,as_of)
+    port_context_review.annotate(result,world,decisions,port_context,at=as_of)
+    result['portContextCoverage']={k:port_context.get(k) for k in ('sourceFamily','status','reportDate','revisionId','reason')}
     leads, lead_coverage = cached_source_leads(world, environment_root, as_of)
     result.update(sourceLeads=leads, sourceLeadCoverage=lead_coverage)
     result["coverage"]["malformedRetainedRecords"] = len(snapshot["malformed"])

@@ -30,6 +30,8 @@ def company_for(world):
         vessel.name = row["name"]
         vessel.lat, vessel.lon = row["lat"], row["lon"]
         vessel.lane_code, vessel.destination_port = row["laneCode"], row["portCode"]
+        if row.get('serviceSpeedKn') is not None:
+            vessel.service_speed_kn = row['serviceSpeedKn']
         vessel.hours_to_chokepoint = {"SUEZ" if row["laneCode"] == "EUR_IND" else "HORMUZ": row["hoursToRisk"]}
         shift = 0
         proposal = world.get("terminalProposal") or world.get("proposal")

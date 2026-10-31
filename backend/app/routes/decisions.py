@@ -290,6 +290,8 @@ def create_problem(
         reviewed_sources = {r['noticeId'] for r in source_reviews}
         if not required_sources.issubset(reviewed_sources):
             raise HTTPException(409,'Explicitly review the current revision/status of every consumed Indian-source identity; a successor cannot silently discard that basis.')
+        if connected_basis(predecessor).get('portContextBindings') and not payload['currentArrival'].get('portContextReviews'):
+            raise HTTPException(409,'Explicitly review the consumed daily port context and operator criterion; a successor cannot silently discard it.')
         try:
             successor_key = hashlib.sha256(json.dumps({
                 "vesselId": payload.get("vesselId"), "currentArrival": payload["currentArrival"],

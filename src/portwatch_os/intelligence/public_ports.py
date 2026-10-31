@@ -350,6 +350,7 @@ class PublicPilot:
           CREATE TABLE IF NOT EXISTS cohorts(id TEXT PRIMARY KEY,port TEXT,created TEXT,body TEXT);
           CREATE TABLE IF NOT EXISTS cohort_cases(cohort TEXT,case_id TEXT PRIMARY KEY,at TEXT);
           CREATE TABLE IF NOT EXISTS collections(id TEXT PRIMARY KEY,port TEXT,at TEXT,body TEXT);
+          CREATE TABLE IF NOT EXISTS operational_contexts(snapshot TEXT,parser TEXT,at TEXT,body TEXT,PRIMARY KEY(snapshot,parser));
         """)
         self.db.commit()
 
@@ -513,7 +514,19 @@ class PublicPilot:
                 if get_clock().state.mode != LIVE:
                     raise ValueError("Clock changed during collection; document was not imported")
                 # wall-clock: collection receipt is the real present, never the replay anchor.
-                results.append(self.import_pdf(port, kind, url, payload, collected=wall_now(), actor=actor))
+                imported = self.import_pdf(port, kind, url, payload, collected=wall_now(), actor=actor)
+                if port == 'INPRT':
+                    from .public_port_context import extract, PARSER
+                    try:
+                        context = extract(payload)
+                        # wall-clock: a supplemental context interpretation becomes available after extraction; prospective cases and original receipts are unchanged.
+                        context_at = wall_now()
+                        with self.lock, self.db:
+                            self.db.execute('INSERT OR IGNORE INTO operational_contexts VALUES(?,?,?,?)',
+                                (imported['snapshotId'], PARSER, stamp(context_at), json.dumps(context)))
+                    except ValueError:
+                        imported = {**imported, 'contextStatus':'UNSUPPORTED_LAYOUT_OR_SCOPE'}
+                results.append(imported)
             except Exception as exc:
                 errors.append(f"{url}: {str(exc)[:250]}")
         with self.lock, self.db:

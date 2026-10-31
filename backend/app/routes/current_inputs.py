@@ -24,6 +24,11 @@ def current(portCode: str = Query("INNSA")):
     public_mode()
     port = port_registry.resolve(portCode)
     if port is None: raise HTTPException(404,"Port is not registered")
+    scoped = current_sandbox.get()
+    fixture = scoped.world.get('illustrativeInputs', {}).get('forecast') if scoped and scoped.world.get('demoScenario') else None
+    if fixture and fixture.get('portCode') == port.locode:
+        result = copy.deepcopy(fixture); result.pop('fixtureOriginal', None)
+        return result
     if get_clock().state.mode != LIVE:
         return {"status":"HISTORICAL_UNAVAILABLE","portCode":port.locode,"sources":{},"hourly":[],"daily":[],"regionalHazards":[]}
     result = bundle(port)
@@ -264,6 +269,8 @@ def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
             **({"cargoCommitment":copy.deepcopy(env["cargoCommitment"])} if env.get("cargoCommitment") else {})}
         if env.get('sourceReviewBindings') and override is None:
             raise HTTPException(409,'Refresh requires explicit review of the current Indian-source revision in the input editor; the approved predecessor remains saved.')
+        if env.get('portContextBindings') and override is None:
+            raise HTTPException(409,'Explicitly review the current daily port metric and operator criterion in the input editor before creating a successor.')
         if env.get("passagePlan"):
             # Frozen assumptions stay inspectable, but an expired position or
             # declaration cannot silently turn a passage refresh into the older

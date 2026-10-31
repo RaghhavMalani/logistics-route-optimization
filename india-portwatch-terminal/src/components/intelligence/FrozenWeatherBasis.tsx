@@ -14,11 +14,16 @@ export function FrozenWeatherBasis({
       data-testid="frozen-weather-basis"
     >
       <strong className="text-[var(--text)]">
-        Frozen current-weather basis · {evidence.portCode}
+        {evidence.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+          ? "Frozen SOFTWARE forecast fixture"
+          : "Frozen current-weather basis"}{" "}
+        · {evidence.portCode}
       </strong>
       <p>
-        Available {formatUtc(evidence.availableAt)}. Provider issue time
-        unavailable; forecast, not a station observation.
+        Available {formatUtc(evidence.availableAt)}.{" "}
+        {evidence.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+          ? "Illustrative voyage and hourly source assumptions; not a provider forecast, measurement or actual port event."
+          : "Provider issue time unavailable; forecast, not a station observation."}
       </p>
       <p>
         Consumed hour {formatUtc(first?.validAt)}: gust{" "}

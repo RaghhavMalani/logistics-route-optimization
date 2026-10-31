@@ -251,6 +251,7 @@ export interface CurrentHour {
   wave_height: number | null;
 }
 export interface FrozenEnvironment {
+  evidenceKind?: string;
   evidenceVersion?: string;
   evidenceId: string;
   snapshotId: string;

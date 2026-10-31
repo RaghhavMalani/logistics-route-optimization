@@ -97,6 +97,37 @@ function TriageCard({
           : "No pending role action identified"}
       </p>
       <p>Evidence: {row.freshness.status.replaceAll("_", " ")}</p>
+      {row.portContext ? (
+        <details className="border-l-2 border-[var(--line)] pl-2">
+          <summary>
+            Paradip destination context · {row.portContext.status}
+            {row.portContext.reviewRequired ? " · Company source review" : ""}
+          </summary>
+          <p>
+            {row.portContext.reportDate ?? "Report date unavailable"}.{" "}
+            {row.portContext.reason}
+          </p>
+          {row.portContext.metric ? (
+            <p>
+              {row.portContext.metric.id}:{" "}
+              {row.portContext.metric.value ?? "Unavailable"}{" "}
+              {row.portContext.metric.unit} ·{" "}
+              {row.portContext.metric.eligibility}. Operator review threshold ≥{" "}
+              {row.portContext.rule?.threshold ?? "not declared"}.
+            </p>
+          ) : null}
+          <a
+            className="underline"
+            href={`/company/global-eye#intelligence-review?vesselId=${encodeURIComponent(row.vessel.id)}`}
+          >
+            Inspect daily port context and audit
+          </a>
+          <p>
+            This source-review responsibility is separate from the workflow next
+            role.
+          </p>
+        </details>
+      ) : null}
       {row.sourceReviews?.length ? (
         <div className="space-y-2 border-l-2 border-[var(--line-strong)] pl-2">
           <strong>Separate source review · Company</strong>

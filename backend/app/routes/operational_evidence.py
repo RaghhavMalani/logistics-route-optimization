@@ -32,6 +32,8 @@ def original(product: str, port_code: str = Query(..., alias="portCode"),
              snapshot_id: str | None = Query(None, alias="snapshotId"),
              receipt_id: str | None = Query(None, alias="receiptId")):
     scoped_world()
+    if product=='PUBLIC_PORT_PDF' and port_code=='INPRT':
+        raise HTTPException(403,'Paradip originals remain in the audit archive. Use attributed metadata and the issuer link; full-document redistribution is not enabled.')
     # wall-clock: originals are readable only after actual backend receipt.
     now = wall_now()
     try:
