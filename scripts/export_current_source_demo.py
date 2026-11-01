@@ -1,6 +1,6 @@
 """Package an actual successful local capture; never synthesize footage."""
 from pathlib import Path
-import argparse,json,hashlib,shutil,html
+import argparse,json,hashlib,shutil,subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
 CAPTIONS={
@@ -23,7 +23,45 @@ def clock(value):
     ms=round(value*1000);return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02}.{ms%1000:03}'
 
 
-def export(capture):
+def edit_video(capture, final, data, plan_path, ffmpeg):
+    """Remove recorded idle/loading intervals; retain original speed and UI pixels."""
+    if not ffmpeg or not Path(ffmpeg).is_file():
+        raise ValueError('An explicit local ffmpeg executable is required for an edit')
+    plan=json.loads(plan_path.read_text(encoding='utf8'))
+    clips=plan['clips'];previous=0;elapsed=0;scenes=[];cuts=[]
+    required={'intro','source','triage','S06','S07','S10','S12','S17','S16','S03','S25','mobile','scope'}
+    if not required.issubset({clip['sceneId'] for clip in clips}):
+        raise ValueError('The edit cannot omit a required result/refusal/workflow scene')
+    directory=capture/'edited-clips';directory.mkdir(exist_ok=True)
+    original_scenes={scene['id']:scene for scene in data['scenes']}
+    with (directory/'encoding.log').open('w',encoding='utf8') as log:
+        for i,clip in enumerate(clips):
+            start=float(clip['sourceStart']);end=float(clip['sourceEnd'])
+            if not 0<=previous<=start<end<=data['durationSeconds']+1:
+                raise ValueError('Cuts must retain chronological order and actual source coverage')
+            previous=end
+            output=directory/f'clip-{i:02}.mp4'
+            subprocess.run([str(ffmpeg),'-hide_banner','-y','-ss',str(start),'-i',str(capture/'portwatch-demonstration.webm'),'-t',str(end-start),'-an','-vf','fps=25,format=yuv420p','-c:v','libx264','-preset','veryfast','-crf','20','-threads','2','-movflags','+faststart',str(output)],check=True,stdout=log,stderr=log)
+            scene=dict(original_scenes[clip['sceneId']]);scene['startSeconds']=round(elapsed,3)
+            scene['title']=clip.get('title',scene['title']);scene['captionOverride']=clip.get('captions')
+            scenes.append(scene)
+            cuts.append({**clip,'outputStart':round(elapsed,3),'outputEnd':round(elapsed+end-start,3)})
+            elapsed+=end-start
+            print(f'Encoded {i+1}/{len(clips)}: {scene["title"]}',flush=True)
+        if not 360<=elapsed<=480:
+            raise ValueError('Final edit must be between six and eight minutes')
+        (directory/'concat.txt').write_text(''.join(f"file 'clip-{i:02}.mp4'\n" for i in range(len(clips))),encoding='utf8')
+        subprocess.run([str(ffmpeg),'-hide_banner','-y','-f','concat','-safe','1','-i','concat.txt','-c','copy','-movflags','+faststart',str(final/'portwatch-demonstration.mp4')],cwd=directory,check=True,stdout=log,stderr=log)
+    data['rawCaptureDurationSeconds']=data['durationSeconds'];data['rawCaptureScenes']=data['scenes']
+    data['rawCaptureFrames']=data.pop('frames',[])
+    data['scenes']=scenes;data['durationSeconds']=round(elapsed,3)
+    data['recordingEdit']={'operation':'Chronological trims of idle/loading time only; original playback speed; no invented UI pixels/results.','planSha256':hashlib.sha256(plan_path.read_bytes()).hexdigest(),'clips':cuts}
+    data['encoding']={'container':'MP4','videoCodec':'H.264 / libx264','pixelFormat':'yuv420p','frameRate':25,'audio':None,'tool':'Portable FFmpeg n8.1 in ignored work storage; no global installation or PATH change.','toolArchiveSha256':'29f1f119545c5998b52a1e1a23c08fbf1bd4f851e380a718c5b71386125f259a'}
+    shutil.copyfile(plan_path,final/'edit-plan.json')
+    return 'portwatch-demonstration.mp4','video/mp4'
+
+
+def export(capture,edit_plan=None,ffmpeg=None):
     capture=capture.resolve();allowed=(ROOT/'work/current-source-demo/video').resolve()
     if not capture.is_relative_to(allowed):raise ValueError('Use only the dedicated local capture directory')
     data=json.loads((capture/'manifest.json').read_text(encoding='utf8'))
@@ -31,8 +69,13 @@ def export(capture):
     final=allowed/'final';final.mkdir(parents=True,exist_ok=True)
     source=capture/'portwatch-demonstration.webm'
     if not source.is_file() or source.stat().st_size<10000:raise ValueError('Actual playable recording required')
-    shutil.copyfile(source,final/source.name)
-    shutil.copyfile(capture/'intro.png',final/'poster.png')
+    if edit_plan:
+        video_name,video_type=edit_video(capture,final,data,edit_plan,ffmpeg)
+    else:
+        shutil.copyfile(source,final/source.name);video_name=source.name;video_type='video/webm'
+        data['encoding']={'container':'WebM','videoCodec':'VP8','audio':None,'fallbackReason':'Bounded installed-encoder inspection found PNG and libvpx VP8; H.264/AAC unavailable.'}
+    # A retained source-scene frame is readable even if the first capture frame was loading.
+    shutil.copyfile(capture/'source.png',final/'poster.png')
     audit=capture/'official-context-audit.json'
     official=json.loads(audit.read_text(encoding='utf8'))['context'] if audit.exists() else data.get('officialContext',{})
     working=next((m for m in official.get('metrics',[]) if m['id']=='WORKING_LISTED_ROWS'),{})
@@ -42,7 +85,7 @@ def export(capture):
     for i,scene in enumerate(scenes):
         start=scene['startSeconds'];end=scenes[i+1]['startSeconds'] if i+1<len(scenes) else duration
         chapters.append(clock(start)+' '+scene['id']+' — '+scene['title'])
-        words=CAPTIONS[scene['id']]
+        words=scene.pop('captionOverride',None) or CAPTIONS[scene['id']]
         for j,text in enumerate(words):
             a=start+(end-start)*j/len(words);b=start+(end-start)*(j+1)/len(words)-.05
             vtt += [f'{clock(a)} --> {clock(max(a+.1,b))}',text,'']
@@ -57,13 +100,14 @@ def export(capture):
             data['manifestProcessingNote']='Official context is taken from the frozen audit downloaded in the real-source scene; the last viewed software context is retained separately. Raw capture manifest is preserved.'
         data['officialContext']=original['context']
         data['officialContextAuditSha256']=hashlib.sha256(audit.read_bytes()).hexdigest()
-    data['encoding']={'container':'WebM','videoCodec':'VP8','audio':None,'fallbackReason':'Bounded installed-encoder inspection found PNG and libvpx VP8; H.264/AAC unavailable. No software installed.'}
-    data['deliverySha256']={name:hashlib.sha256((final/name).read_bytes()).hexdigest() for name in ['portwatch-demonstration.webm','poster.png','captions.vtt','chapters.txt']}
+    data['deliverySha256']={name:hashlib.sha256((final/name).read_bytes()).hexdigest() for name in [video_name,'poster.png','captions.vtt','chapters.txt']}
     (final/'manifest.json').write_text(json.dumps(data,indent=2),encoding='utf8')
-    (final/'player.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PortWatch local demonstration</title><style>body{margin:0;background:#0b141d;color:#d9e6ef;font:16px system-ui}main{max-width:1920px;margin:auto}video{width:100%;max-height:90vh}p{margin:12px}</style><main><video controls preload="metadata" poster="poster.png"><source src="portwatch-demonstration.webm" type="video/webm"><track kind="captions" src="captions.vtt" srclang="en" label="English" default></video><p>Actual local UI recording. Official source freshness shown at capture; voyage/source presets and outcomes are illustrative. Silent recording with captions.</p></main></html>''',encoding='utf8')
+    player='''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PortWatch local demonstration</title><style>body{margin:0;background:#0b141d;color:#d9e6ef;font:16px system-ui}main{max-width:1920px;margin:auto}video{width:100%;max-height:90vh}p{margin:12px}</style><main><video controls preload="metadata" poster="poster.png"><source src="VIDEO_NAME" type="VIDEO_TYPE"><track kind="captions" src="captions.vtt" srclang="en" label="English" default></video><p>Actual local UI recording. Official source freshness shown at capture; voyage/source presets and outcomes are illustrative. Silent recording with captions.</p></main></html>'''
+    (final/'player.html').write_text(player.replace('VIDEO_NAME',video_name).replace('VIDEO_TYPE',video_type),encoding='utf8')
     print(final)
     print(f'Capture duration {duration:.1f} s; inspect playable metadata and sampled frames before delivery.')
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('capture',type=Path);export(p.parse_args().capture)
+    p=argparse.ArgumentParser();p.add_argument('capture',type=Path);p.add_argument('--edit-plan',type=Path);p.add_argument('--ffmpeg',type=Path)
+    args=p.parse_args();export(args.capture,args.edit_plan,args.ffmpeg)

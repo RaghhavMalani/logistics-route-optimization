@@ -92,7 +92,7 @@ try{
   if(workflowOnly){await navigate(base+'/login');await click(page.getByRole('button',{name:'Company demo',exact:true}));await page.waitForURL('**/company/overview',{waitUntil:'domcontentloaded'});}
   else {
   scene('intro','Restored Company map and four workspaces','Original interface, simulated traffic');
-  await navigate(base+'/login');await click(page.getByRole('button',{name:'Company demo',exact:true}));await page.waitForURL('**/company/overview',{waitUntil:'domcontentloaded'});await shot('intro');await until(25);
+  await navigate(base+'/login');await click(page.getByRole('button',{name:'Company demo',exact:true}));await page.waitForURL('**/company/overview',{waitUntil:'domcontentloaded'});await page.getByTestId('fleet-command-panel').waitFor();await page.waitForTimeout(2000);await shot('intro');await until(25);
   scene('source','Official Paradip receipt and capture-time freshness','Actual retained authority metadata; fictional destination declaration');
   await intelligence();const source=page.getByTestId('port-operational-context');await source.waitFor();await source.scrollIntoViewIfNeeded();await page.waitForTimeout(1500);await shot('source');
   await click(source.getByText('Original, interpretation and display scope',{exact:true}));
@@ -110,7 +110,7 @@ try{
   scene('S16','Cargo fit and connected human workflow','Explicit software hourly fixture, cargo and voyage declarations');const journey=await inspectBoundJourney();await shot('cargo-fit');await reviewAndApprove(page.getByTestId('decision-panel'));await shot('company-approved');
   const before=manifest.references.find(r=>r.scenarioId==='S16-source-reviewed-successor');
   if(process.argv.includes('--restart-backend')){
-    execFileSync(process.env.PWSH||'pwsh',['-NoProfile','-File',path.join(root,'scripts/restart_local_demo_backend.ps1')],{cwd:root,stdio:'ignore',timeout:30000});
+    execFileSync(process.env.PWSH||'pwsh',['-NoProfile','-File',path.join(root,'scripts/restart_local_demo_backend.ps1')],{cwd:root,stdio:'ignore',timeout:180000});
     let alive=false;manifest.restartWaitStarted=seconds();for(let n=0;n<180;n++){await page.waitForTimeout(1000);try{const r=await fetch('http://127.0.0.1:8817/api/demo/session',{signal:AbortSignal.timeout(2000),headers:{Connection:'close'}});if(r.status<500){alive=true;break;}}catch{}}manifest.restartReadyAt=seconds();
     if(!alive)throw Error('Dedicated backend did not recover');manifest.actualBackendRestart=true;
   }
