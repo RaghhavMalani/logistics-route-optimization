@@ -80,6 +80,10 @@ export type PortContextSelection = {
   acknowledged: true;
 };
 export type FrozenPortContext = {
+  evidenceKind?: string;
+  sourceFamily?: string;
+  originalSha256?: string | null;
+  policyVersion?: string;
   revisionId: string;
   reportDate: string;
   metric: z.infer<typeof contextMetricSchema>;

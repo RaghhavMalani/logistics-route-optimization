@@ -8,9 +8,9 @@ PortWatch connects dated operational information to a declared voyage, compares 
 
 ## Official Indian source and fleet review
 
-The official Paradip traffic catalogue supplied this retained report. Inspect the product date, explicit working-section snapshot, unknown publication time, first receipt, later checks and original hash. The working section lists nineteen rows, including completed or departed entries. That is not active berth occupancy or available capacity. The anchorage categories have a separate date-only scope; we do not assign the working section's clock to them.
+The official Paradip traffic catalogue supplied this retained report. Inspect the product date, explicit working-section snapshot, unknown publication time, first receipt, later checks and original hash. The working section lists twenty-two named rows, including completed or departed entries. That is not active berth occupancy or available capacity. The anchorage categories have a separate date-only scope; we do not assign the working section's clock to them.
 
-This product was current-eligible during the actual morning qualification. At this later capture it has passed the fixed thirty-six-hour bound, and the application correctly says latest available. Refreshing the same PDF cannot make its operational information newer. The rule shown here is an explicitly acknowledged operator review criterion, not an authority forecast. The fictional owned hull is associated by declared destination, not name-matched to an authority vessel. No report count becomes hours of waiting.
+The November 1 product qualifies under the unchanged freshness policy at capture. Earlier October 30 evidence remains retained and aged; refreshing the same old PDF could not make it newer. Working rows can repeat across berths and do not count unique vessels. The rule shown here is an explicitly acknowledged operator review criterion, not an authority forecast. The fictional owned hull is associated by declared destination, not name-matched to an authority vessel. No report count becomes hours of waiting.
 
 The existing fleet queue preserves the current call, workflow stage and next responsible role. Source review is separate. Unconsumed or unrelated context does not silently change an approved plan. The exact consumed metric, product revision and rule are retained for future reassessment.
 
@@ -30,7 +30,7 @@ The required cargo example uses declared capacity, cutoff and schematic handling
 
 ## Human workflow and recovery
 
-Company marks the comparison reviewed and explicitly approves the selected action. A backend restart retains its frozen inputs, option and approval. The scoped Port desk then reviews the same proposal. It preserves the Company's choice and issues through the existing advisory register. The Vessel desk sees the issued advisory, acknowledges it and accepts it. Acceptance does not navigate a real vessel or book cargo.
+The current official report metric and operator criterion are explicitly acknowledged in the existing editor and frozen into a linked successor. Source context creates a review reason; the illustrative weather/passage inputs supply the numerical comparison. Company marks the comparison reviewed and explicitly approves the selected action. A backend restart retains its frozen inputs, option and approval. The scoped Port desk then reviews the same proposal. It preserves the Company's choice and issues through the existing advisory register. The Vessel desk sees the issued advisory, acknowledges it and accepts it. Acceptance does not navigate a real vessel or book cargo.
 
 Only afterward can the Port reproduce the labeled simulated outcome from those frozen assumptions. It is simulation evidence, not an independent observed target, real port execution or measured saving. Previous evidence and approvals stay inspectable; retries must not create extra advisories or outcomes.
 

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getJson } from "./api";
 import type { WeatherSignal } from "@/types/portwatch";
 import type { FinancialEvaluation } from "@/types/decisions";
+import type { FrozenPortContext } from "./port-context";
 
 export interface PassageConsumption {
   referenceSpeedKn: number;
@@ -252,6 +253,7 @@ export interface CurrentHour {
 }
 export interface FrozenEnvironment {
   evidenceKind?: string;
+  portContextBindings?: FrozenPortContext[];
   evidenceVersion?: string;
   evidenceId: string;
   snapshotId: string;

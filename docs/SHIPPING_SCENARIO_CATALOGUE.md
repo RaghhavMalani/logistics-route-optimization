@@ -10,7 +10,7 @@ The catalogue covers decision types and refusals, not all emergencies or operati
 
 Reroute S06–S08 uses existing `routes_for` geometry, branch constraints and strategic evaluation. It is **not connected to the port-approach advisory journey** in this milestone; no route is represented as approved navigation, and no map line alone proves safety. S16 supplies the connected Company → Port → Vessel → simulated outcome example.
 
-Real public report: Paradip October 30 working snapshot was current-eligible when collected/qualified on October 31 morning; it is LATEST_AVAILABLE at later capture time. S01 is a REAL_SOURCE_CONTEXT inspection, while its optional passage calculation uses explicitly labeled software weather. A current report does not make a fictional hull real. See CURRENT_INDIAN_OPERATIONAL_SOURCE.md.
+Real public report: the November 1 Paradip receipt is CURRENT_ELIGIBLE at its actual 07:44Z check under the unchanged policy. Older October 30 evidence stays retained and aged. S01 inspects actual context; optional passage calculations use explicitly labeled software weather. The S16 recording explicitly freezes the current WORKING_LISTED_ROWS metric and operator criterion into a linked successor carried through the role workflow.
 
 Exact references below are sanitized **software validation** examples from the running API tests; video-run references are separately in the local recording manifest. No session tokens, private namespace paths or authority vessel identifiers are included.
 

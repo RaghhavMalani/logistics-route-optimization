@@ -5,7 +5,7 @@ import argparse,json,hashlib,shutil,html
 ROOT=Path(__file__).resolve().parents[1]
 CAPTIONS={
 'intro':['PortWatch: restored Company, Port, Vessel and Admin workspaces.','Traffic is simulated; activity-data age and weather freshness are separate.'],
-'source':['Actual Paradip Port Authority report; product time is separate from receipt time.','The working section lists 19 rows, including completed/departed entries. It is not available berth capacity.','Qualified during the morning collection; LATEST_AVAILABLE at this later capture. Refreshing old bytes cannot restore freshness.','The anchorage section is date-only. Counts are not individual waiting hours.','An acknowledged operator review rule associates the fictional owned voyage by destination.'],
+'source':[],  # Filled from the actual source-scene audit, never an assumed report date/count.
 'triage':['The existing queue keeps one row per owned current call.','Source-review responsibility is separate from the workflow stage and next role. No silent plan adoption.'],
 'S06':['ILLUSTRATIVE Suez assumption; unrelated to the routine Paradip report.','Existing strategic engine: computed primary and alternative geometry, distance and timing.','An inspectable detour is not certified navigation or an approved route. This preset is not in the port-approach advisory chain.','Stress-horizon uncertainty can favor keeping the current plan or waiting for more information.'],
 'S07':['ILLUSTRATIVE counterexample: the hull is already inside the exposed water.','Rerouting is unavailable after the commitment point. No teleport or invented branch.'],
@@ -26,13 +26,18 @@ def clock(value):
 def export(capture):
     capture=capture.resolve();allowed=(ROOT/'work/current-source-demo/video').resolve()
     if not capture.is_relative_to(allowed):raise ValueError('Use only the dedicated local capture directory')
-    data=json.loads((capture/'manifest.json').read_text())
+    data=json.loads((capture/'manifest.json').read_text(encoding='utf8'))
     if data.get('result')!='PASS':raise ValueError('A failed capture is not a finished demonstration')
     final=allowed/'final';final.mkdir(parents=True,exist_ok=True)
     source=capture/'portwatch-demonstration.webm'
     if not source.is_file() or source.stat().st_size<10000:raise ValueError('Actual playable recording required')
     shutil.copyfile(source,final/source.name)
     shutil.copyfile(capture/'intro.png',final/'poster.png')
+    audit=capture/'official-context-audit.json'
+    official=json.loads(audit.read_text(encoding='utf8'))['context'] if audit.exists() else data.get('officialContext',{})
+    working=next((m for m in official.get('metrics',[]) if m['id']=='WORKING_LISTED_ROWS'),{})
+    CAPTIONS['source']=['Actual Paradip Port Authority report; product time is separate from receipt time.',f"Report {official.get('reportDate','unavailable')}: {working.get('value','unavailable')} named working-section rows. Rows can repeat across berths; not unique vessels or available capacity.",f"Capture-time status: {official.get('status','unavailable')}; working section: {working.get('eligibility','unavailable')}. Fixed age/check rules govern consumption.",'Anchorage has its own date-only scope. Counts are not individual waiting hours.','An acknowledged operator criterion associates the fictional owned call by declared destination.']
+    CAPTIONS['S16'][0]='Official report context is explicitly reviewed and frozen with this ILLUSTRATIVE weather, passage and cargo comparison.'
     scenes=data['scenes'];duration=data['durationSeconds'];vtt=['WEBVTT',''];chapters=[]
     for i,scene in enumerate(scenes):
         start=scene['startSeconds'];end=scenes[i+1]['startSeconds'] if i+1<len(scenes) else duration
@@ -46,7 +51,7 @@ def export(capture):
     data['rawCaptureManifestSha256']=hashlib.sha256((capture/'manifest.json').read_bytes()).hexdigest()
     audit=capture/'official-context-audit.json'
     if audit.exists():
-        original=json.loads(audit.read_text())
+        original=json.loads(audit.read_text(encoding='utf8'))
         if (data.get('officialContext') or {}).get('evidenceKind')=='SOFTWARE_LIFECYCLE_FIXTURE':
             data['lastIllustrativeContext']=data['officialContext']
             data['manifestProcessingNote']='Official context is taken from the frozen audit downloaded in the real-source scene; the last viewed software context is retained separately. Raw capture manifest is preserved.'

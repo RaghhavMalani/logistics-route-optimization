@@ -152,6 +152,46 @@ export function FrozenWeatherBasis({
         Evidence {evidence.evidenceId} · snapshot {evidence.snapshotId}
       </p>
       <p>{evidence.meaning}</p>
+      {evidence.portContextBindings?.map((binding) => (
+        <details
+          key={binding.revisionId}
+          className="border-t border-[var(--line)] pt-2"
+          data-testid="frozen-port-context"
+        >
+          <summary className="cursor-pointer font-medium">
+            Reviewed port context · {binding.reportDate} ·{" "}
+            {binding.metric.value ?? "unavailable"} {binding.metric.unit}
+          </summary>
+          <p>
+            {binding.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+              ? "SOFTWARE source fixture"
+              : "Official public report context"}{" "}
+            · {binding.rule.portCode} · {binding.metric.id.replaceAll("_", " ")}
+            .
+          </p>
+          <p>
+            Company operator criterion: reported rows ≥ {binding.rule.threshold}
+            . {binding.rule.basis}.
+          </p>
+          <p>
+            {binding.metric.asOf
+              ? `Section snapshot ${formatUtc(binding.metric.asOf)}; timezone assumed Asia/Kolkata.`
+              : `Section date ${binding.metric.dateScope?.date ?? "unknown"}; no observation/publication instant is invented.`}{" "}
+            Context available {formatUtc(binding.availableAt)}.
+          </p>
+          <p>
+            {binding.metric.meaning} This reviewed context changes no numerical
+            weather, passage, cargo or cost calculation.
+          </p>
+          <p className="break-all">
+            Revision {binding.revisionId} · original SHA-256{" "}
+            {binding.originalSha256 ??
+              "software fixture; no authority original"}{" "}
+            · policy {binding.policyVersion ?? "retained in the source binding"}
+            .
+          </p>
+        </details>
+      ))}
     </div>
   );
 }

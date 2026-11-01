@@ -6,7 +6,13 @@ if (-not (Test-Path -LiteralPath $taskRun)) { throw 'Prepare the documented isol
 $taskSocket=Get-NetTCPConnection -LocalPort 8817 -State Listen -ErrorAction SilentlyContinue
 if ($taskSocket) {
   $taskProcess=Get-CimInstance Win32_Process -Filter "ProcessId=$($taskSocket.OwningProcess)"
-  if ($taskProcess.CommandLine -notmatch 'uvicorn backend.app.main:app --host 127.0.0.1 --port 8817') {throw 'Port 8817 is not the designated QA backend.'}
+  $taskParent=Get-CimInstance Win32_Process -Filter "ProcessId=$($taskProcess.ParentProcessId)"
+  $taskCommand=$taskProcess.CommandLine.Replace([char]47,[char]92)
+  $taskExpected=(Join-Path $taskRoot 'scripts/local_demo_backend.py').Replace([char]47,[char]92)
+  $taskRunExpected=$taskRun.Replace([char]47,[char]92)
+  $taskParentCommand=if($taskParent){$taskParent.CommandLine.Replace([char]47,[char]92)}else{''}
+  $taskOwned=($taskCommand -match [regex]::Escape($taskExpected)) -and ($taskParentCommand -match [regex]::Escape($taskRunExpected))
+  if (-not $taskOwned) {throw 'Port 8817 is not the designated QA backend.'}
   Stop-Process -Id $taskProcess.ProcessId -ErrorAction Stop
 }
 $taskShell=(Get-Process -Id $PID).Path
