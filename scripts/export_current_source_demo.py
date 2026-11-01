@@ -1,6 +1,7 @@
 """Package an actual successful local capture; never synthesize footage."""
 from pathlib import Path
 import argparse,json,hashlib,shutil,subprocess
+from datetime import datetime,timezone
 
 ROOT=Path(__file__).resolve().parents[1]
 CAPTIONS={
@@ -24,7 +25,7 @@ def clock(value):
 
 
 def edit_video(capture, final, data, plan_path, ffmpeg):
-    """Remove recorded idle/loading intervals; retain original speed and UI pixels."""
+    """Trim real footage and optionally hold a retained frame for reading."""
     if not ffmpeg or not Path(ffmpeg).is_file():
         raise ValueError('An explicit local ffmpeg executable is required for an edit')
     plan=json.loads(plan_path.read_text(encoding='utf8'))
@@ -45,16 +46,25 @@ def edit_video(capture, final, data, plan_path, ffmpeg):
             if origin.get('result')!='PASS':raise ValueError('Failed supplementary footage is not deliverable')
             if not 0<=previous.get(take,0)<=start<end<=origin['durationSeconds']+1:
                 raise ValueError('Cuts must retain chronological order and actual source coverage')
+            hold=float(clip.get('readingHoldSeconds',0))
+            if not 0<=hold<=12:raise ValueError('Reading holds must be explicit and bounded')
             previous[take]=end
             if take!=capture.name:
                 supplements[take]={'baseCommit':origin['baseCommit'],'captureAt':origin['captureAt'],'basis':origin['basis'],'references':origin['references'],'sourceFiles':origin['sourceFiles'],'manifestSha256':hashlib.sha256((take_dir/'manifest.json').read_bytes()).hexdigest()}
             output=directory/f'clip-{i:02}.mp4'
-            subprocess.run([str(ffmpeg),'-hide_banner','-y','-ss',str(start),'-i',str(take_dir/'portwatch-demonstration.webm'),'-t',str(end-start),'-an','-vf','fps=25,format=yuv420p','-c:v','libx264','-preset','veryfast','-crf','20','-threads','2','-movflags','+faststart',str(output)],check=True,stdout=log,stderr=log)
+            filters=f'trim=duration={end-start},setpts=PTS-STARTPTS,fps=25,format=yuv420p'
+            if clip.get('viewportCrop'):
+                crop=clip['viewportCrop'];width=int(crop['width']);height=int(crop['height'])
+                if clip['sceneId']!='mobile' or not 1<=width<=1920 or not 1<=height<=1080:
+                    raise ValueError('Only the actual mobile viewport may be isolated from capture padding')
+                filters+=f',crop={width}:{height}:0:0,scale=-2:1080,pad=1920:1080:(ow-iw)/2:0:color=0x0b141d'
+            if hold:filters+=f',tpad=stop_mode=clone:stop_duration={hold}'
+            subprocess.run([str(ffmpeg),'-hide_banner','-y','-ss',str(start),'-i',str(take_dir/'portwatch-demonstration.webm'),'-t',str(end-start+hold),'-an','-vf',filters,'-c:v','libx264','-preset','veryfast','-crf','18','-threads','2','-movflags','+faststart',str(output)],check=True,stdout=log,stderr=log)
             scene=dict(original_scenes[clip['sceneId']]);scene['startSeconds']=round(elapsed,3)
             scene['title']=clip.get('title',scene['title']);scene['basis']=clip.get('basis',scene['basis']);scene['captionOverride']=clip.get('captions')
             scenes.append(scene)
-            cuts.append({**clip,'outputStart':round(elapsed,3),'outputEnd':round(elapsed+end-start,3)})
-            elapsed+=end-start
+            cuts.append({**clip,'outputStart':round(elapsed,3),'outputEnd':round(elapsed+end-start+hold,3)})
+            elapsed+=end-start+hold
             print(f'Encoded {i+1}/{len(clips)}: {scene["title"]}',flush=True)
         if not 360<=elapsed<=480:
             raise ValueError('Final edit must be between six and eight minutes')
@@ -64,7 +74,7 @@ def edit_video(capture, final, data, plan_path, ffmpeg):
     data['rawCaptureFrames']=data.pop('frames',[])
     data['scenes']=scenes;data['durationSeconds']=round(elapsed,3)
     data['supplementalTakes']=supplements
-    data['recordingEdit']={'operation':'Chronological trims of idle/loading time only; original playback speed; no invented UI pixels/results.','planSha256':hashlib.sha256(plan_path.read_bytes()).hexdigest(),'clips':cuts}
+    data['recordingEdit']={'operation':'Chronological trims within each take. Explicit reading holds clone only the actual final frame; clocks pause during those labelled holds. Active actions remain at original speed; no invented UI pixels/results. The complete mobile viewport is enlarged and centred after removing recorder padding. The cargo insert is a separate declared example, not a new identity for the main advisory.','planSha256':hashlib.sha256(plan_path.read_bytes()).hexdigest(),'clips':cuts}
     data['encoding']={'container':'MP4','videoCodec':'H.264 / libx264','pixelFormat':'yuv420p','frameRate':25,'audio':None,'tool':'Portable FFmpeg n8.1 in ignored work storage; no global installation or PATH change.','toolArchiveSha256':'29f1f119545c5998b52a1e1a23c08fbf1bd4f851e380a718c5b71386125f259a'}
     shutil.copyfile(plan_path,final/'edit-plan.json')
     return 'portwatch-demonstration.mp4','video/mp4'
@@ -75,6 +85,7 @@ def export(capture,edit_plan=None,ffmpeg=None):
     if not capture.is_relative_to(allowed):raise ValueError('Use only the dedicated local capture directory')
     data=json.loads((capture/'manifest.json').read_text(encoding='utf8'))
     if data.get('result')!='PASS':raise ValueError('A failed capture is not a finished demonstration')
+    data['exporterSourceSha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     final=allowed/'final';final.mkdir(parents=True,exist_ok=True)
     source=capture/'portwatch-demonstration.webm'
     if not source.is_file() or source.stat().st_size<10000:raise ValueError('Actual playable recording required')
@@ -101,6 +112,7 @@ def export(capture,edit_plan=None,ffmpeg=None):
     (final/'captions.vtt').write_text('\n'.join(vtt),encoding='utf8')
     (final/'chapters.txt').write_text('\n'.join(chapters)+'\n',encoding='utf8')
     data['rawCaptureManifestSha256']=hashlib.sha256((capture/'manifest.json').read_bytes()).hexdigest()
+    data['exportedAt']=datetime.now(timezone.utc).isoformat()
     audit=capture/'official-context-audit.json'
     if audit.exists():
         original=json.loads(audit.read_text(encoding='utf8'))
@@ -111,7 +123,7 @@ def export(capture,edit_plan=None,ffmpeg=None):
         data['officialContextAuditSha256']=hashlib.sha256(audit.read_bytes()).hexdigest()
     data['deliverySha256']={name:hashlib.sha256((final/name).read_bytes()).hexdigest() for name in [video_name,'poster.png','captions.vtt','chapters.txt']}
     (final/'manifest.json').write_text(json.dumps(data,indent=2),encoding='utf8')
-    player='''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PortWatch local demonstration</title><style>body{margin:0;background:#0b141d;color:#d9e6ef;font:16px system-ui}main{max-width:1920px;margin:auto}video{width:100%;max-height:90vh}p{margin:12px}</style><main><video controls preload="metadata" poster="poster.png"><source src="VIDEO_NAME" type="VIDEO_TYPE"><track kind="captions" src="captions.vtt" srclang="en" label="English" default></video><p>Actual local UI recording. Official source freshness shown at capture; voyage/source presets and outcomes are illustrative. Silent recording with captions.</p></main></html>'''
+    player='''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>PortWatch local demonstration</title><style>body{margin:0;background:#0b141d;color:#d9e6ef;font:16px system-ui}main{max-width:1920px;margin:auto}video{width:100%;max-height:90vh}video::cue{font-size:22px;color:#fff;background:rgba(0,0,0,.85)}p{margin:12px}</style><main><video controls preload="metadata" poster="poster.png"><source src="VIDEO_NAME" type="VIDEO_TYPE"><track kind="captions" src="captions.vtt" srclang="en" label="English" default></video><p>Actual local UI recording. Official source freshness shown at capture; voyage/source presets and outcomes are illustrative. Silent recording with captions.</p></main></html>'''
     (final/'player.html').write_text(player.replace('VIDEO_NAME',video_name).replace('VIDEO_TYPE',video_type),encoding='utf8')
     print(final)
     print(f'Capture duration {duration:.1f} s; inspect playable metadata and sampled frames before delivery.')
