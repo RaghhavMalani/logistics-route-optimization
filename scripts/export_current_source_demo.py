@@ -28,7 +28,7 @@ def edit_video(capture, final, data, plan_path, ffmpeg):
     if not ffmpeg or not Path(ffmpeg).is_file():
         raise ValueError('An explicit local ffmpeg executable is required for an edit')
     plan=json.loads(plan_path.read_text(encoding='utf8'))
-    clips=plan['clips'];previous=0;elapsed=0;scenes=[];cuts=[]
+    clips=plan['clips'];previous={};elapsed=0;scenes=[];cuts=[];supplements={}
     required={'intro','source','triage','S06','S07','S10','S12','S17','S16','S03','S25','mobile','scope'}
     if not required.issubset({clip['sceneId'] for clip in clips}):
         raise ValueError('The edit cannot omit a required result/refusal/workflow scene')
@@ -37,13 +37,21 @@ def edit_video(capture, final, data, plan_path, ffmpeg):
     with (directory/'encoding.log').open('w',encoding='utf8') as log:
         for i,clip in enumerate(clips):
             start=float(clip['sourceStart']);end=float(clip['sourceEnd'])
-            if not 0<=previous<=start<end<=data['durationSeconds']+1:
+            take=clip.get('sourceTake',capture.name)
+            take_dir=(capture.parent/take).resolve()
+            if take_dir.parent!=capture.parent or not take_dir.is_dir():
+                raise ValueError('Supplemental footage must be another dedicated local take')
+            origin=data if take==capture.name else json.loads((take_dir/'manifest.json').read_text(encoding='utf8'))
+            if origin.get('result')!='PASS':raise ValueError('Failed supplementary footage is not deliverable')
+            if not 0<=previous.get(take,0)<=start<end<=origin['durationSeconds']+1:
                 raise ValueError('Cuts must retain chronological order and actual source coverage')
-            previous=end
+            previous[take]=end
+            if take!=capture.name:
+                supplements[take]={'baseCommit':origin['baseCommit'],'captureAt':origin['captureAt'],'basis':origin['basis'],'references':origin['references'],'sourceFiles':origin['sourceFiles'],'manifestSha256':hashlib.sha256((take_dir/'manifest.json').read_bytes()).hexdigest()}
             output=directory/f'clip-{i:02}.mp4'
-            subprocess.run([str(ffmpeg),'-hide_banner','-y','-ss',str(start),'-i',str(capture/'portwatch-demonstration.webm'),'-t',str(end-start),'-an','-vf','fps=25,format=yuv420p','-c:v','libx264','-preset','veryfast','-crf','20','-threads','2','-movflags','+faststart',str(output)],check=True,stdout=log,stderr=log)
+            subprocess.run([str(ffmpeg),'-hide_banner','-y','-ss',str(start),'-i',str(take_dir/'portwatch-demonstration.webm'),'-t',str(end-start),'-an','-vf','fps=25,format=yuv420p','-c:v','libx264','-preset','veryfast','-crf','20','-threads','2','-movflags','+faststart',str(output)],check=True,stdout=log,stderr=log)
             scene=dict(original_scenes[clip['sceneId']]);scene['startSeconds']=round(elapsed,3)
-            scene['title']=clip.get('title',scene['title']);scene['captionOverride']=clip.get('captions')
+            scene['title']=clip.get('title',scene['title']);scene['basis']=clip.get('basis',scene['basis']);scene['captionOverride']=clip.get('captions')
             scenes.append(scene)
             cuts.append({**clip,'outputStart':round(elapsed,3),'outputEnd':round(elapsed+end-start,3)})
             elapsed+=end-start
@@ -55,6 +63,7 @@ def edit_video(capture, final, data, plan_path, ffmpeg):
     data['rawCaptureDurationSeconds']=data['durationSeconds'];data['rawCaptureScenes']=data['scenes']
     data['rawCaptureFrames']=data.pop('frames',[])
     data['scenes']=scenes;data['durationSeconds']=round(elapsed,3)
+    data['supplementalTakes']=supplements
     data['recordingEdit']={'operation':'Chronological trims of idle/loading time only; original playback speed; no invented UI pixels/results.','planSha256':hashlib.sha256(plan_path.read_bytes()).hexdigest(),'clips':cuts}
     data['encoding']={'container':'MP4','videoCodec':'H.264 / libx264','pixelFormat':'yuv420p','frameRate':25,'audio':None,'tool':'Portable FFmpeg n8.1 in ignored work storage; no global installation or PATH change.','toolArchiveSha256':'29f1f119545c5998b52a1e1a23c08fbf1bd4f851e380a718c5b71386125f259a'}
     shutil.copyfile(plan_path,final/'edit-plan.json')
