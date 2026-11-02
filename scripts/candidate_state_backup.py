@@ -4,8 +4,10 @@ No active database is copied as a raw file. Concurrent writes make this attempt
 unaccepted; callers retry in a quiet window. Nothing is deleted or restored over.
 """
 from pathlib import Path
-import hashlib,json,os,shutil,sqlite3
+import hashlib,json,os,re,shutil,sqlite3
 from uuid import uuid4
+
+_STATUS={'status':'DISABLED'}
 
 
 def _files(root):
@@ -80,6 +82,42 @@ def backup_and_verify(root):
         return folder,report
     finally:
         for connection,_ in databases.values():connection.close()
+
+
+def run_once(root,request_id):
+    """Private idempotent receipt; run before the serving process/collectors."""
+    if not re.fullmatch(r'[a-f0-9]{32}',request_id):raise ValueError('Invalid candidate backup request')
+    root=Path(root).resolve();receipt=root/'backups'/'requests'/(request_id+'.json')
+    if receipt.is_file():
+        result=json.loads(receipt.read_text())
+        if result.get('status')!='RESTORE_VERIFIED' or result.get('requestId')!=request_id:raise ValueError('Invalid retained backup receipt')
+        # Do not accept a receipt after the referenced backup was removed/changed.
+        manifest=root/result['manifest']
+        if not manifest.resolve().is_relative_to(root/'backups') or manifest.is_symlink() or _sha(manifest)!=result['manifestSha256']:raise ValueError('Retained backup manifest changed')
+        return result
+    folder,report=backup_and_verify(root)
+    result={'status':'RESTORE_VERIFIED','requestId':request_id,'manifest':(folder/'manifest.json').relative_to(root).as_posix(),
+        'manifestSha256':_sha(folder/'manifest.json'),'files':len(report['files']),'sqliteDatabases':report['sqliteDatabases'],
+        'applicationSha':os.getenv('PORTWATCH_RELEASE_SHA','UNKNOWN')}
+    receipt.parent.mkdir(parents=True,exist_ok=True)
+    temporary=receipt.with_suffix('.tmp');temporary.write_text(json.dumps(result,indent=2));temporary.replace(receipt)
+    return result
+
+
+def configured_backup():
+    global _STATUS
+    request_id=os.getenv('PORTWATCH_CANDIDATE_BACKUP_REQUEST')
+    if not request_id:
+        _STATUS={'status':'DISABLED'};return _STATUS
+    if not os.getenv('PORTWATCH_RELEASE_ENVIRONMENT','').startswith('integrated-preview-') or Path(os.getenv('PORTWATCH_STATE_DIR','')).resolve()!=Path('/app/state'):
+        raise ValueError('Startup backup refuses non-candidate environments or volumes')
+    result=run_once('/app/state',request_id)
+    # Aggregate proof only. No private record IDs, paths, contents or keys.
+    _STATUS={k:result[k] for k in ('status','requestId','manifestSha256','files','sqliteDatabases','applicationSha')}
+    return dict(_STATUS)
+
+
+def status():return dict(_STATUS)
 
 
 def main():

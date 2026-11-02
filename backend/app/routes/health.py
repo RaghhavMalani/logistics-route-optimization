@@ -220,6 +220,8 @@ def health_check() -> dict:
             "unavailable": provenance.get("unavailable", []),
         },
     }
+    from scripts.candidate_state_backup import status as candidate_backup_status
+    payload['candidateBackup']=candidate_backup_status()
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
     if scoped is not None:

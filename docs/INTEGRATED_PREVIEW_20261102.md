@@ -124,6 +124,18 @@ semantics, overwrites a live store or restores into an old volume. A concurrent
 write invalidates that attempt; retry in a quiet window. Backups contain private
 state and must never be committed, published or used as public seeds.
 
+The existing account has no configured SSH key, so the initial SSH attempt did
+not execute a command. No SSH credential or account access was added. For this
+release set a fresh 32-character lowercase hexadecimal
+`PORTWATCH_CANDIDATE_BACKUP_REQUEST` on the candidate only. Startup runs the same
+backup/isolated restore check after idempotent seed import and before collectors
+or HTTP requests. A durable request receipt makes subsequent boots idempotent;
+the same request does not create more copies. It verifies the retained manifest
+hash before accepting a repeated receipt. A non-candidate marker/path, malformed
+request or failed restoration prevents startup. `/api/health.candidateBackup`
+reports aggregate proof without private record IDs, paths, contents or keys.
+This adds no public backup mutation endpoint, account key or scheduler.
+
 The 5 GB volume is finite. Retain frozen evidence, source revisions, prospective
 cases and approvals. No automatic purge of them is enabled. Disposable process
 logs remain outside the evidence stores. Inspect volume usage with Railway
@@ -157,6 +169,47 @@ Do not mark pending checks passed or substitute local screenshots for hosted tes
 
 Deployment IDs, commit, package/seed hashes, verified frontend URL, resource
 measurements and final acceptance evidence will be appended after execution.
+
+## Initial candidate acceptance, before the backup follow-up
+
+Source `82756d5b7fe533603549768b9cff64fcd5a81661` was pushed and exported cleanly.
+Railway deployment `87042b15-5397-42b0-a63c-5f86647a2bd1` and Vercel Preview
+`dpl_49fSk4BMmcWqk7LLhs8j61raCM7d` served that revision. Direct and same-origin
+health matched the source manifest hash
+`66e9bef2aa0c095d217635b2069ce1106be536377cd8121876f84d89eccff94c`
+(579 source files, thirteen retained runtime caches). The seed manifest hash is
+`d00aa539dbbe96fb18777b24fb0c65e48fa59602d918969f56aeb5c6f9cb1587`.
+Vercel had no aliases assigned and no production target. This is an initial
+candidate, not a production promotion or the final backup-enabled build.
+
+The unmocked hosted UI passed 21 behavior checks and the complete 127.1-second
+normal-login commercial/shadow/advisory recording, including a provider-recorded
+restart. A separate genuine-current-forecast API comparison
+`dec-arrival-29d14d60808dc2706a56` retained source
+`719e6294a3652d18866c9e6ffd5ac530ca8e09cd039ed587f71112beb6a5e421`, then
+recovered across another real restart and completed Port/Vessel workflow as
+`ADV-INNSA-015972E390`. Frozen audit bytes and three original downloads matched;
+handoff/outcome retries were idempotent and another visitor was refused access.
+This is a fictional voyage driven by a genuine forecast, followed by a simulated
+outcome; no realized saving is established. The reported provider issue time was
+unavailable and stayed null. Actual source receipt was retained separately.
+
+Early browser-role harness attempts used obsolete assumptions about server-rendered
+login markup and uppercase traffic DOM text; current roles are hydrated and the
+visible uppercase label is styled text. A recorder attempt separately hit a DOM
+replacement between explicit scrolling and clicking. Normal locator clicking and
+the actual rendered text contract resolved these harness failures; no forced click,
+response substitution or application authentication relaxation was used. One role
+attempt overlapped the deliberately requested restart and saw its brief 502.
+Final role entry must be checked after restart completion.
+
+The 30-minute startup/test observation window ending 13:23:20 UTC measured average
+CPU 0.112 vCPU (peak 1.143), current/peak RAM 786.4 MB, and current volume use
+217.7 MB (peak 235.2 MB) of 5000 MB. These are short-run samples, including idle
+time and active demonstration visitors, not steady-state estimates or a monthly
+price. Startup and scheduled weather/public-source receipts are distinct from
+long-running unattended availability. The new backup's additional disk use must
+be measured after it runs.
 
 References: [Railway environments](https://docs.railway.com/environments),
 [healthchecks](https://docs.railway.com/deployments/healthchecks),

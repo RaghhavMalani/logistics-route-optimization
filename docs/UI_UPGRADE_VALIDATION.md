@@ -10,11 +10,13 @@ is tracked in `INTEGRATED_PREVIEW_20261102.md`. Generated evidence is ignored.
 |---|---|---|
 | Commercial accounting/API, public-source truth, all thirteen fictional commercial templates, world clock and clock boundaries | 61 passed | `work/ui-visual-upgrade-20261101/reviewed61-final.log` |
 | Existing current-weather, official port-context, AIS ingestion and recorder regressions | 57 passed | `work/ui-visual-upgrade-20261101/existing-final.log` |
-| Final bounded jobs, commercial API/shadow, image-source proof, backup/restore, release identity and clock boundaries | 45 passed | `work/ui-visual-upgrade-20261101/hosted-release-tests.log` |
+| Bounded jobs, commercial API/shadow, image-source proof, backup/restore, release identity and clock boundaries | 45 passed | `work/ui-visual-upgrade-20261101/hosted-release-tests.log` |
+| Final candidate one-shot backup/receipt refusal plus the preceding release subset | 47 passed | `work/hosted-preview-20261102/startup-backup-tests.log` |
 | Public-only seed integrity, import/idempotency, quarantine and privacy boundaries | 9 passed | `work/ui-visual-upgrade-20261101/seed-release-tests.log` |
 
-The first two runs cover non-overlapping test files. The third overlaps the
-commercial and clock files and is reported separately, never added to their total.
+The first two runs cover non-overlapping test files. The 45/47-test release runs
+overlap commercial/clock files and one another and are reported separately,
+never added to their total.
 Earlier interrupted or incorrectly configured attempts are not added. One attempt
 omitted the repository's PDF dependency directory. The weather unit test now
 explicitly aligns world and receipt clocks; a frozen receipt alone must not make

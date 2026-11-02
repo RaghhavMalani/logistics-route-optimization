@@ -87,6 +87,11 @@ async def lifespan(_: FastAPI):
     from src.portwatch_os.learning.public_evidence_seed import import_configured_seed
     app.state.public_evidence_import = import_configured_seed()
     log.info("public evidence seed: %s", app.state.public_evidence_import["status"])
+    # Candidate-only one-shot recovery proof. Runs before all writers/listeners;
+    # no SSH key, public mutation endpoint or duplicate worker is introduced.
+    from scripts.candidate_state_backup import configured_backup
+    app.state.candidate_backup=configured_backup()
+    log.info("candidate backup: %s", app.state.candidate_backup)
     start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
