@@ -1,5 +1,9 @@
 # Isolated Railway Hobby preview — 2 November 2026
 
+The final URL, deployed source, cancellation/recovery results and preservation
+proof are recorded in [verified acceptance](INTEGRATED_PREVIEW_ACCEPTANCE_20261102.md).
+The preparation and intermediate-candidate history below is retained for review.
+
 This is the release procedure for the restored interface, public-source profile
 and Company-private commercial/shadow capability. Production promotion is not
 authorized. Deployment results must be recorded separately from local checks.
@@ -167,8 +171,8 @@ Hash-check original/audit downloads and replay filtering. Test the candidate-onl
 backup/restore and compare production/legacy preservation fingerprints afterward.
 Do not mark pending checks passed or substitute local screenshots for hosted tests.
 
-Deployment IDs, commit, package/seed hashes, verified frontend URL, resource
-measurements and final acceptance evidence will be appended after execution.
+Final deployment IDs, source/package/seed hashes, frontend URL, resource
+measurements and acceptance evidence are in the linked final acceptance report.
 
 ## Initial candidate acceptance, before the backup follow-up
 
@@ -221,8 +225,8 @@ test holds a calculation open, requests cancellation through that same adapter,
 and requires both a cancellation response and retained CANCELLED result within
 bounded time. The corrected release subset passes **48 tests**. Earlier hosted
 workloads completed before their queued cancel request; they are not reported as
-successful cancellations. Final hosted cancellation must be repeated on the
-corrected deployment before acceptance.
+successful cancellations. Final hosted cancellation and durable recovery passed
+on the corrected deployment, as recorded in the linked acceptance report.
 
 The 30-minute startup/test observation window ending 13:23:20 UTC measured average
 CPU 0.112 vCPU (peak 1.143), current/peak RAM 786.4 MB, and current volume use
