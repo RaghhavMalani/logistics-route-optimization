@@ -146,3 +146,29 @@ JS bytes, 278,748 gzip bytes, including its intentional lazy renderer. Measured
 desktop tour CLS is **0** with the local preloaded fonts and head-linked CSS.
 This is a browser PerformanceObserver measurement, not a claimed Lighthouse
 score or a hosted latency benchmark.
+
+## Verified anonymous tour checkpoint
+
+Verified at **2026-11-02 20:36 UTC**, 3 November 02:06 Asia/Kolkata:
+[public tour](https://india-portwatch-epvtb6k88-flash2404s-projects.vercel.app/tour).
+Vercel deployment `dpl_4BQXSkSmYe3DVw3uaioif6FrNU9s` is READY, Preview
+(`target=null`), has no assigned aliases and carries frontend source
+`858865d77ece7bfec0a26da6d2e2c4e73f388ae6`, fingerprint
+`af68d2aa482d6beefa1bbaff82aa94a261382c7d2f4434aee7e1ae739370570a`.
+[PR #7](https://github.com/RaghhavMalani/logistics-route-optimization/pull/7)
+targets the integration branch, not main.
+
+Eight hosted tour cases passed without retries at 1366px and 390px, in fresh
+anonymous browser contexts with no hosting bypass. HTML, release JSON, local
+font and same-origin health returned 200 with the expected content types. The
+source-products operational endpoint correctly returned application JSON 401
+without a verified session; this is not Vercel protection or a site outage.
+
+This is deliberately a **frontend-only tour checkpoint**. Its existing
+isolated API remains verified `a80a42768e84ebced9a08bdee16feca918dd7fd7`,
+service `c7dfe1db-2fd0-4c24-8a59-dde1d34239c2`, environment
+`678352b2-e032-4c0c-b900-60f68fa3562f`, deployment
+`cc20087c-805a-4e6e-ad0c-b15b9454765d`. Direct and proxied release identities
+match. No backend restart, collector update or production promotion occurred.
+The complete theme/capability release still requires a new documented unified
+source revision and final role/workflow/recovery acceptance.
