@@ -5,6 +5,7 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -139,13 +140,22 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const isTour = useRouterState({
+    select: (state) =>
+      state.location.pathname === "/tour" ||
+      state.location.pathname === "/tour/",
+  });
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <WorldProvider>
-          <Outlet />
-        </WorldProvider>
-      </AuthProvider>
+      {isTour ? (
+        <Outlet />
+      ) : (
+        <AuthProvider>
+          <WorldProvider>
+            <Outlet />
+          </WorldProvider>
+        </AuthProvider>
+      )}
     </QueryClientProvider>
   );
 }

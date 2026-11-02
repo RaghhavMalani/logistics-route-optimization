@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
 import { AUTH_MODE, DEMO_ROSTER } from "@/auth/adapters";
@@ -83,7 +83,14 @@ function ChartPlate() {
       ))}
 
       <circle cx={260} cy={300} r={3} fill="#2b6a86" />
-      <circle cx={260} cy={300} r={9} fill="none" stroke="#2b6a86" strokeWidth="0.9" />
+      <circle
+        cx={260}
+        cy={300}
+        r={9}
+        fill="none"
+        stroke="#2b6a86"
+        strokeWidth="0.9"
+      />
 
       {/* Depth-contour motif — chart furniture, carrying no measurement. */}
       {[0, 1, 2].map((index) => (
@@ -95,7 +102,6 @@ function ChartPlate() {
           strokeWidth="0.8"
         />
       ))}
-
     </svg>
   );
 }
@@ -106,7 +112,9 @@ function LoginScreen() {
   const search = Route.useSearch();
   const health = useHealth();
 
-  const [email, setEmail] = useState(mode === "demo" ? "admin@portwatch.demo" : "");
+  const [email, setEmail] = useState(
+    mode === "demo" ? "admin@portwatch.demo" : "",
+  );
   const [password, setPassword] = useState(mode === "demo" ? "portwatch" : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +150,11 @@ function LoginScreen() {
     }
   };
 
-  const serviceTone = health.isError ? "crit" : health.isLoading ? "neutral" : "ok";
+  const serviceTone = health.isError
+    ? "crit"
+    : health.isLoading
+      ? "neutral"
+      : "ok";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
@@ -157,8 +169,17 @@ function LoginScreen() {
         <div className="relative flex h-full flex-col justify-between p-10">
           <div className="flex items-center gap-3">
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
-              <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.4" />
-              <path d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z" fill="var(--info)" opacity="0.85" />
+              <path
+                d="M12 2 L21 12 L12 22 L3 12 Z"
+                fill="none"
+                stroke="var(--info)"
+                strokeWidth="1.4"
+              />
+              <path
+                d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
+                fill="var(--info)"
+                opacity="0.85"
+              />
             </svg>
             <span className="text-[15px] font-semibold tracking-[0.08em] text-[var(--text)]">
               INDIA PORTWATCH
@@ -170,16 +191,18 @@ function LoginScreen() {
               Predictive maritime operations intelligence for Indian ports.
             </p>
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-[var(--text-3)]">
-              Satellite-AIS port activity, marine weather and maritime events, resolved
-              into a ten-day forecast with calibrated uncertainty and a bounded
-              operational instruction per port.
+              Satellite-AIS port activity, marine weather and maritime events,
+              resolved into a ten-day forecast with calibrated uncertainty and a
+              bounded operational instruction per port.
             </p>
           </div>
 
           {/* The first two describe *this run*, so they appear only when the
               service answered; the last two describe the system either way. */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-3)]">
-            {health.data?.ports != null ? <span>{health.data.ports} ports</span> : null}
+            {health.data?.ports != null ? (
+              <span>{health.data.ports} ports</span>
+            ) : null}
             {health.data?.horizonDays != null ? (
               <span>{health.data.horizonDays}-day horizon</span>
             ) : null}
@@ -195,14 +218,27 @@ function LoginScreen() {
           <div className="lg:hidden">
             <div className="mb-6 flex items-center gap-2.5">
               <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
-                <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.4" />
-                <path d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z" fill="var(--info)" opacity="0.85" />
+                <path
+                  d="M12 2 L21 12 L12 22 L3 12 Z"
+                  fill="none"
+                  stroke="var(--info)"
+                  strokeWidth="1.4"
+                />
+                <path
+                  d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
+                  fill="var(--info)"
+                  opacity="0.85"
+                />
               </svg>
-              <span className="text-[13px] font-semibold tracking-[0.07em]">INDIA PORTWATCH</span>
+              <span className="text-[13px] font-semibold tracking-[0.07em]">
+                INDIA PORTWATCH
+              </span>
             </div>
           </div>
 
-          <h1 className="text-[15px] font-semibold text-[var(--text)]">Secure sign-in</h1>
+          <h1 className="text-[15px] font-semibold text-[var(--text)]">
+            Secure sign-in
+          </h1>
           <p className="mt-1 text-[12px] text-[var(--text-3)]">
             Operations terminal · access is scoped to your role.
           </p>
@@ -210,11 +246,27 @@ function LoginScreen() {
           <div className="mt-4 border-y border-[var(--line)] py-3">
             <div className="eyebrow mb-2">Explore a fictional demo</div>
             <div className="grid grid-cols-2 gap-2">
-              {ROLES.map((role) => <Button key={role} disabled={busy} onClick={() => void openDemo(role)}>
-                {({ SHIPPING_COMPANY: "Company", VESSEL_OPERATOR: "Vessel", PORT_AUTHORITY: "Port", NATIONAL_ADMIN: "Admin" })[role]} demo
-              </Button>)}
+              {ROLES.map((role) => (
+                <Button
+                  key={role}
+                  disabled={busy}
+                  onClick={() => void openDemo(role)}
+                >
+                  {
+                    {
+                      SHIPPING_COMPANY: "Company",
+                      VESSEL_OPERATOR: "Vessel",
+                      PORT_AUTHORITY: "Port",
+                      NATIONAL_ADMIN: "Admin",
+                    }[role]
+                  }{" "}
+                  demo
+                </Button>
+              ))}
             </div>
-            <p className="mt-2 text-[10.5px] text-[var(--text-3)]">Your own sandbox, with the original maps and workflows.</p>
+            <p className="mt-2 text-[10.5px] text-[var(--text-3)]">
+              Your own sandbox, with the original maps and workflows.
+            </p>
           </div>
           <form className="mt-4 flex flex-col gap-3.5" onSubmit={submit}>
             <label className="flex flex-col gap-1.5">
@@ -256,7 +308,12 @@ function LoginScreen() {
               </div>
             ) : null}
 
-            <Button type="submit" variant="primary" disabled={busy} className="mt-1 py-2">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={busy}
+              className="mt-1 py-2"
+            >
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
@@ -265,7 +322,9 @@ function LoginScreen() {
             <div className="mt-6 border-t border-[var(--line)] pt-4">
               <div className="mb-2 flex items-center gap-2">
                 <Pill tone="unc">Demo environment</Pill>
-                <span className="text-[10.5px] text-[var(--text-3)]">password: portwatch</span>
+                <span className="text-[10.5px] text-[var(--text-3)]">
+                  password: portwatch
+                </span>
               </div>
               <div className="flex flex-col divide-y divide-[var(--line)]/70 overflow-hidden rounded-[2px] border border-[var(--line)]">
                 {DEMO_ROSTER.map((account) => (
@@ -304,6 +363,12 @@ function LoginScreen() {
           ) : null}
 
           {/* ----------------------------------------------- system footer -- */}
+          <Link
+            to="/tour"
+            className="mt-5 inline-block text-[12px] text-[var(--text-2)] underline underline-offset-4"
+          >
+            Take the tour →
+          </Link>
           <div className="mt-7 border-t border-[var(--line)] pt-3.5">
             <div className="eyebrow mb-2">Environment</div>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[11px]">
@@ -324,7 +389,9 @@ function LoginScreen() {
                 {health.data?.model ?? "—"}
               </dd>
               <dt className="text-[var(--text-3)]">Auth mode</dt>
-              <dd className="num text-right text-[var(--text-2)]">{AUTH_MODE}</dd>
+              <dd className="num text-right text-[var(--text-2)]">
+                {AUTH_MODE}
+              </dd>
             </dl>
           </div>
         </div>

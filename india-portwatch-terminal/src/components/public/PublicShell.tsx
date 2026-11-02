@@ -23,6 +23,7 @@ export function PublicShell({
           PortWatch <small>Shipping intelligence</small>
         </Link>
         <nav aria-label="Public navigation">
+          <Link to="/tour">Take the tour</Link>
           <Link
             to="/explore"
             aria-current={section === "explore" ? "page" : undefined}
