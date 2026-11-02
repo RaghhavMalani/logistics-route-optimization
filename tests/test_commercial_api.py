@@ -24,6 +24,41 @@ def test_all_explicit_examples_have_valid_typed_declarations(tmp_path,monkeypatc
         assert model.decisionId==decision_id and model.basis.kind=='SIMULATION'
 
 
+def test_same_visitor_can_cancel_while_calculation_owns_mutation_lock(tmp_path,monkeypatch):
+    import asyncio
+    import threading
+    import uuid
+    import httpx
+    from backend.app.routes import commercial
+    store,client,token,headers,problem,payload,_=study(tmp_path,monkeypatch)
+    payload=copy.deepcopy(payload)
+    payload['simulation']['seed']+=1
+    payload['jobId']=str(uuid.uuid4())
+    entered,release=threading.Event(),threading.Event()
+    original=commercial.simulate
+    def controlled(*args,checkpoint,**kwargs):
+        entered.set()
+        while not release.wait(.01):checkpoint()
+        return original(*args,checkpoint=checkpoint,**kwargs)
+    monkeypatch.setattr(commercial,'simulate',controlled)
+    async def verify():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=client.app),base_url='http://testserver') as api:
+            pending=asyncio.create_task(api.post(BASE+'/commercial/evaluate',headers=headers,json=payload))
+            try:
+                assert await asyncio.to_thread(entered.wait,2),'Study did not start'
+                response=await asyncio.wait_for(api.post(BASE+'/commercial/jobs/'+payload['jobId']+'/cancel',headers=headers,json={}),2)
+                assert response.status_code==200,response.text
+                assert response.json()['status']=='CANCELLATION_REQUESTED'
+                computed=await asyncio.wait_for(pending,2)
+                assert computed.status_code==409
+                retained=await api.get(BASE+'/commercial/jobs/'+payload['jobId'],headers=headers)
+                assert retained.json()['status']=='CANCELLED'
+            finally:
+                release.set()
+                if not pending.done():await asyncio.wait_for(pending,2)
+    asyncio.run(verify())
+
+
 def study(tmp_path,monkeypatch):
     store,client=setup(tmp_path,monkeypatch)
     session=store.create('SHIPPING_COMPANY');token=session['accessToken'];headers={'Authorization':'Bearer '+token}

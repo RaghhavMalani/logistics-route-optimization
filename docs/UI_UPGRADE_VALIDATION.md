@@ -12,9 +12,10 @@ is tracked in `INTEGRATED_PREVIEW_20261102.md`. Generated evidence is ignored.
 | Existing current-weather, official port-context, AIS ingestion and recorder regressions | 57 passed | `work/ui-visual-upgrade-20261101/existing-final.log` |
 | Bounded jobs, commercial API/shadow, image-source proof, backup/restore, release identity and clock boundaries | 45 passed | `work/ui-visual-upgrade-20261101/hosted-release-tests.log` |
 | Final candidate one-shot backup/receipt refusal plus the preceding release subset | 47 passed | `work/hosted-preview-20261102/startup-backup-tests.log` |
+| Same-visitor concurrent cancellation through the real demo adapter plus release subset | 48 passed | `work/hosted-preview-20261102/cancel-adapter-tests.log` |
 | Public-only seed integrity, import/idempotency, quarantine and privacy boundaries | 9 passed | `work/ui-visual-upgrade-20261101/seed-release-tests.log` |
 
-The first two runs cover non-overlapping test files. The 45/47-test release runs
+The first two runs cover non-overlapping test files. The 45/47/48-test release runs
 overlap commercial/clock files and one another and are reported separately,
 never added to their total.
 Earlier interrupted or incorrectly configured attempts are not added. One attempt

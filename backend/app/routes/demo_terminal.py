@@ -30,7 +30,11 @@ async def sandbox(request: Request, credential=Depends(token)):
                 raise HTTPException(403, "This port demo is scoped to the selected port in this visitor's world")
     scoped = bind(session, world, store)
     mutation_lock = None
-    if request.method == "POST":
+    # Cancellation only signals the already owned in-flight control; it does not
+    # mutate the visitor world. Waiting for that world's calculation lock would
+    # make cancellation impossible until the study had already completed.
+    cancel_control = getattr(request.scope.get('route'), 'name', None) == 'demo_terminal_cancel_job'
+    if request.method == "POST" and not cancel_control:
         key = str(scoped.root)
         mutation_lock = _mutation_locks.get(key)
         if mutation_lock is None:

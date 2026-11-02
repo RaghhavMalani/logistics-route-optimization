@@ -203,6 +203,27 @@ response substitution or application authentication relaxation was used. One rol
 attempt overlapped the deliberately requested restart and saw its brief 502.
 Final role entry must be checked after restart completion.
 
+The backup-enabled candidate subsequently passed all eight role/viewport tests,
+21 browser checks, the 106.1-second normal UI journey with another real provider
+restart, and sixteen additional protocol checks. Those checks preserved the
+pre-upgrade comparison, approval history, as-of audit bytes and source originals;
+they also refused other visitors, wrong roles, oversized studies and future or
+replayed current-only sources. Backup proof covered 1748 files and 41 SQLite
+databases, manifest
+`bb9291a06dd8f5de21be8afcebe82a4b0267186600f7e5d4da1e3168d1f41e60`.
+
+Hosted cancellation testing then identified a genuine adapter problem: all demo
+POSTs shared the visitor mutation lock, so cancellation queued behind the study
+it needed to stop. The narrow correction exempts only the internally named,
+authenticated job-cancel route. Its existing Company/ownership checks remain
+mandatory; other world mutations retain their lock. A concurrent ASGI regression
+test holds a calculation open, requests cancellation through that same adapter,
+and requires both a cancellation response and retained CANCELLED result within
+bounded time. The corrected release subset passes **48 tests**. Earlier hosted
+workloads completed before their queued cancel request; they are not reported as
+successful cancellations. Final hosted cancellation must be repeated on the
+corrected deployment before acceptance.
+
 The 30-minute startup/test observation window ending 13:23:20 UTC measured average
 CPU 0.112 vCPU (peak 1.143), current/peak RAM 786.4 MB, and current volume use
 217.7 MB (peak 235.2 MB) of 5000 MB. These are short-run samples, including idle
