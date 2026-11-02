@@ -772,6 +772,7 @@ def handoff_problem(
             evidence={"decisionId": decision_id, "optionId": option.option_id,
                       **({"approvedAction": approved_action} if approved_action else {}),
                       **({"intelligenceBasis" if problem.evidence.get("intelligenceBasis") else "currentEnvironment":connected_basis(problem)} if connected_basis(problem) else {}),
+                      **({"commercialReview":problem.evidence["commercialReview"]} if problem.evidence.get("commercialReview") else {}),
                       **{k: m.value for k, m in (option.evaluation.objectives.items() if option.evaluation else [])
                          if m.available}},
             critic_verdict=(option.critic or {}).get("verdict"),

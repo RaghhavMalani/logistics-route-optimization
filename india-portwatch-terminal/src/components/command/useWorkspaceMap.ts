@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useClockState, useTraffic } from "@/components/app/traffic-context";
+import { usePublicAis } from "@/services/public-ais";
 import type {
   MapBounds,
   MapFocus,
@@ -584,14 +585,21 @@ export function useWorkspaceMap(
   // Observed AIS is polled only while the server says the source is observed;
   // a replay deployment asks once and stops.
   const fabricHealth = useSignalHealth("DEMO");
-  const trafficMode = fabricHealth.data?.traffic.mode ?? null;
+  const { dataView } = useTraffic();
+  const publicAis = usePublicAis(dataView === "provider");
+  const trafficMode =
+    dataView === "provider"
+      ? (publicAis.data?.traffic.mode ?? null)
+      : (fabricHealth.data?.traffic.mode ?? null);
   const observedQuery = useObservedTracks(
     "DEMO",
     trafficMode === "LIVE_AIS" || trafficMode === "AIS_STALE",
   );
   const observedTracks =
     trafficMode === "LIVE_AIS" || trafficMode === "AIS_STALE"
-      ? (observedQuery.data ?? null)
+      ? dataView === "provider"
+        ? (publicAis.data ?? null)
+        : (observedQuery.data ?? null)
       : null;
 
   const data = useMemo(

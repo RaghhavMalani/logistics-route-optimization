@@ -10,13 +10,19 @@ on stale data, the UI says so.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
+from uuid import uuid4
 
 from fastapi import APIRouter
 
 from backend.app.services import cache_service as cache
 from src.portwatch_os.clock import get_clock, wall_now
+from src.portwatch_os.deployment_artifact import current as source_artifact
 
 router = APIRouter()
+# Wall-clock: actual process/module start, never a forecast or observation time.
+_PROCESS_START = wall_now().isoformat()
+_PROCESS_BOOT = str(uuid4())
 
 #: Intelligence older than this is reported as stale rather than live.
 LIVE_BUDGET_SECONDS = 30 * 60
@@ -170,6 +176,8 @@ def health_check() -> dict:
         "status": "ok" if artefacts["forecast"] and stores["ok"] else "degraded",
         "service": "india-portwatch-backend",
         "release": release_identity(),
+        "artifact": source_artifact(),
+        "runtime": {"bootId": _PROCESS_BOOT, "startedAt": _PROCESS_START, "pid": os.getpid()},
         "serverTimeUtc": now.isoformat(),
         # The world's own clock: LIVE reads the wall; a replay, mission or
         # scenario reads its anchor and says how far from the wall it sits.

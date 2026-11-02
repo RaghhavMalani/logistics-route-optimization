@@ -27,6 +27,13 @@ data/cache/*
 !data/cache/news_bundle.json
 !data/cache/port_state.json
 !data/cache/forecast_by_port.json
+!data/cache/model_pipeline.json
+!data/cache/regime_by_port.json
+!data/cache/decision_by_port.json
+!data/cache/benchmark.json
+!data/cache/vessels.json
+!data/cache/fleet.json
+!data/cache/weather_intelligence.json
 !data/cache/live_status.json
 !data/cache/weather_by_port.json
 !data/cache/current_environment/

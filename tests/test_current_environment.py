@@ -16,6 +16,7 @@ def response():
 def test_raw_forecast_receipt_archived_without_inventing_issue_or_observation(tmp_path,monkeypatch):
     monkeypatch.setattr(env,"ROOT",tmp_path)
     monkeypatch.setattr(env,"wall_now",lambda:AT)
+    monkeypatch.setattr(env,"world_now",lambda:AT)
     raw=json.dumps(response()).encode()
     provider=Mock(content=raw);provider.json.return_value=response()
     get=Mock(return_value=provider);monkeypatch.setattr(env.requests,"get",get)

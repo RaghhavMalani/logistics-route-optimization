@@ -75,7 +75,7 @@ export type GlobalEyeScope = "national" | "company" | "port";
 const PROJECTION_OFFSETS = [0, 3, 6, 12, 24, 48, 72] as const;
 
 /** Room for the action rail on the left and the decision panel on the right. */
-const DECISION_PADDING = { top: 56, bottom: 72, left: 372, right: 412 };
+const DECISION_PADDING = { top: 56, bottom: 110, left: 64, right: 452 };
 
 export function GlobalEyeScreen({
   scope,
@@ -147,6 +147,18 @@ export function GlobalEyeScreen({
   const decisionOpen = Boolean(world.decisionId);
   const [currentInputsOpen, setCurrentInputsOpen] = useState(false);
   const [fleetLinked, setFleetLinked] = useState(false);
+  const [railExpanded, setRailExpanded] = useState(true);
+  useEffect(() => {
+    const inspect = (event: Event) => {
+      if ((event as CustomEvent<boolean>).detail) setRailExpanded(false);
+    };
+    window.addEventListener("portwatch:inspector-visibility", inspect);
+    return () =>
+      window.removeEventListener("portwatch:inspector-visibility", inspect);
+  }, []);
+  useEffect(() => {
+    if (decisionOpen || evidenceOpen) setRailExpanded(false);
+  }, [decisionOpen, evidenceOpen]);
   const selectFleetMapVessel = workspace.setSelectedVesselId;
   const selectFleetVessel = world.selectVessel;
   const selectFleetPort = world.selectPort;
@@ -508,7 +520,20 @@ export function GlobalEyeScreen({
               height pushes the register out of the column entirely. The rail
               scrolls inside its cap instead.
             */}
-            <div className="pointer-events-none absolute bottom-[184px] left-2.5 top-2.5 z-20 flex w-[300px] flex-col gap-2 overflow-hidden">
+            <button
+              type="button"
+              className="pw-rail-toggle pointer-events-auto"
+              aria-expanded={railExpanded}
+              onClick={() => setRailExpanded(!railExpanded)}
+            >
+              {railExpanded
+                ? "Hide action queue"
+                : `Action queue · ${attention.data?.actionable ?? 0}`}
+            </button>
+            <div
+              hidden={!railExpanded}
+              className="pw-action-rail pointer-events-none absolute bottom-[184px] left-2.5 top-14 z-20 flex w-[300px] flex-col gap-2 overflow-hidden"
+            >
               <FloatPanel
                 title="Action required"
                 note={
@@ -581,7 +606,7 @@ export function GlobalEyeScreen({
 
             {/* ------------------------------------------------- decision -- */}
             {decisionOpen ? (
-              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] max-w-[calc(100%_-_20px)] flex-col">
+              <div className="pw-map-inspector pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] max-w-[calc(100%_-_20px)] flex-col">
                 <FloatPanel
                   title="Decision"
                   note={<span className="num">{world.decisionId}</span>}
@@ -619,6 +644,17 @@ export function GlobalEyeScreen({
                       onSelectOption={world.selectDecisionOption}
                       onToggleCompare={world.setDecisionCompare}
                       canHandoff={canHandoff}
+                      onNewComparison={
+                        scope === "company"
+                          ? (problem) =>
+                              openFleetDecision(
+                                problem,
+                                problem.recommendation?.optionId ??
+                                  problem.baselineOptionId ??
+                                  problem.options[0].optionId,
+                              )
+                          : undefined
+                      }
                       onRecompute={recompute}
                       recomputing={createDecision.isPending}
                       onEditCurrentInputs={

@@ -22,12 +22,13 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, ArrowUpRight, Ship } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Link } from "@tanstack/react-router";
 
 import { useWorkspace } from "@/auth/AuthProvider";
 import { AgentConsole } from "@/components/agent/AgentConsole";
+import { CompanyIntelligenceQueue } from "@/components/intelligence/CompanyIntelligenceQueue";
 import { useFixes } from "@/components/app/traffic-context";
 import {
   MaritimeSearch,
@@ -111,6 +112,7 @@ function ActionRow({
       type="button"
       onClick={onSelect}
       data-testid="action-required-row"
+      data-owned-vessel={row.vesselId}
       className={cn(
         "block w-full border-b border-[var(--line)]/60 px-2 py-1.5 text-left transition-colors last:border-0",
         selected ? "bg-[var(--panel-3)]" : "hover:bg-[var(--panel-2)]",
@@ -178,6 +180,25 @@ function FleetCommand() {
   const [horizon, setHorizon] = useState(72);
   const risk = useCompanyRisk(companyId, horizon);
   const [selectedVessel, setSelectedVessel] = useState<string | null>(null);
+  const previousSelection = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedVessel) {
+      previousSelection.current = selectedVessel;
+      document
+        .querySelector<HTMLElement>(
+          '.pw-selected-vessel [aria-label="Close panel"]',
+        )
+        ?.focus();
+    } else if (previousSelection.current) {
+      const id = previousSelection.current;
+      const taskFrame = requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLElement>(`[data-owned-vessel="${CSS.escape(id)}"]`)
+          ?.focus(),
+      );
+      return () => cancelAnimationFrame(taskFrame);
+    }
+  }, [selectedVessel]);
   const [tab, setTab] = useState<"action" | "fleet" | "ports">("action");
   const fixes = useFixes(1);
 
@@ -286,7 +307,8 @@ function FleetCommand() {
             </div>
 
             {/* --------------------------------------------------- right -- */}
-            <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
+            <div className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
+              <CompanyIntelligenceQueue />
               <ObservedSelection
                 workspace={workspace}
                 className="min-h-0 flex-1"
@@ -301,7 +323,18 @@ function FleetCommand() {
                 className="min-h-0 flex-1"
                 scroll
                 testId="fleet-command-panel"
-                footer={fleet.data?.disclaimer}
+                collapsible
+                defaultOpen={!selected}
+                collapseWhen={Boolean(selected)}
+                mapControls
+                footer={
+                  fleet.data?.disclaimer ? (
+                    <details>
+                      <summary>Fleet data and scope</summary>
+                      <p className="mt-2">{fleet.data.disclaimer}</p>
+                    </details>
+                  ) : undefined
+                }
               >
                 <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
                   <span className="eyebrow text-[10px]">Horizon</span>
@@ -524,10 +557,10 @@ function FleetCommand() {
                   title={selected.name}
                   note={<span className="num">{selected.vessel_id}</span>}
                   onClose={() => setSelectedVessel(null)}
-                  className="max-h-[300px] shrink-0"
+                  className="pw-selected-vessel max-h-[360px] shrink-0"
                 >
                   <PanelSection title="Particulars">
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10.5px]">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[.8125rem]">
                       {(
                         [
                           ["Class", selected.vessel_class],

@@ -25,7 +25,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { createTrafficSource, type OwnedVesselSeed } from "@/lib/maritime/traffic-source";
+import {
+  createTrafficSource,
+  type OwnedVesselSeed,
+} from "@/lib/maritime/traffic-source";
 import type { TrafficSource, VesselFix } from "@/lib/maritime/traffic-types";
 import { useEnrichedPorts, useFleet, useHealth } from "@/services/hooks";
 import { useAuth } from "@/auth/AuthProvider";
@@ -80,7 +83,10 @@ export interface TrafficClock {
   reset(): void;
 }
 
-function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } {
+function createClock(epoch: number): {
+  clock: TrafficClock;
+  store: ClockStore;
+} {
   const store: ClockStore = {
     at: epoch,
     epoch,
@@ -122,7 +128,8 @@ function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } 
     setWeatherPlaying: (next) => {
       store.weatherPlaying = next;
       // Restarting from the end would sit on a still frame, so wrap first.
-      if (next && store.offsetHours >= store.maxOffsetHours) store.offsetHours = 0;
+      if (next && store.offsetHours >= store.maxOffsetHours)
+        store.offsetHours = 0;
       emit();
     },
     setMaxOffsetHours: (next) => {
@@ -149,6 +156,8 @@ function createClock(epoch: number): { clock: TrafficClock; store: ClockStore } 
 /* --------------------------------------------------------------- context -- */
 
 export interface TrafficContextValue {
+  dataView: "provider" | "scenario";
+  setDataView: (view: "provider" | "scenario") => void;
   source: TrafficSource;
   clock: TrafficClock;
   /** Every vessel resolved to an instant. Cached per instant. */
@@ -169,21 +178,33 @@ function resolveEpoch(origin: string | null | undefined): number {
 }
 
 export function TrafficProvider({ children }: { children: ReactNode }) {
+  const [dataView, setDataView] = useState<"provider" | "scenario">("scenario");
   const { session } = useAuth();
   const { ports, query: portsQuery } = useEnrichedPorts();
   const health = useHealth();
   const fleet = useFleet();
 
-  const epoch = resolveEpoch(health.data?.trafficEpoch ?? health.data?.forecastOrigin ?? ports[0]?.observedAt);
+  const epoch = resolveEpoch(
+    health.data?.trafficEpoch ??
+      health.data?.forecastOrigin ??
+      ports[0]?.observedAt,
+  );
 
-  const clockRef = useRef<{ clock: TrafficClock; store: ClockStore } | null>(null);
+  const clockRef = useRef<{ clock: TrafficClock; store: ClockStore } | null>(
+    null,
+  );
   if (!clockRef.current) clockRef.current = createClock(epoch);
 
   // Re-anchor after health resolves, including a new visitor demo generation.
   const anchored = useRef(false);
   useEffect(() => {
     const state = clockRef.current;
-    if (!state || !health.data || (anchored.current && state.store.epoch === epoch)) return;
+    if (
+      !state ||
+      !health.data ||
+      (anchored.current && state.store.epoch === epoch)
+    )
+      return;
     anchored.current = true;
     state.store.epoch = epoch;
     state.store.at = epoch;
@@ -214,6 +235,7 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
   const source = useMemo(
     () =>
       createTrafficSource({
+        view: dataView,
         demo: session?.mode === "demo",
         ports,
         epoch,
@@ -222,10 +244,13 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
         // starving the software renderer the browser suite runs on.
         oceanFleet: 250,
       }),
-    [epoch, owned, ports, session?.mode],
+    [epoch, owned, ports, session?.mode, dataView],
   );
   useEffect(() => {
-    const reset = () => { anchored.current = false; clockRef.current?.clock.reset(); };
+    const reset = () => {
+      anchored.current = false;
+      clockRef.current?.clock.reset();
+    };
     window.addEventListener("portwatch:demo-reset", reset);
     return () => window.removeEventListener("portwatch:demo-reset", reset);
   }, []);
@@ -251,7 +276,8 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
         // The forecast cursor runs on its own clock. Tying it to the replay
         // rate would make a 240x traffic replay skip the whole forecast in a
         // frame, which is the opposite of what the control is for.
-        const next = state.store.offsetHours + (delta / 1000) * WEATHER_PLAY_RATE;
+        const next =
+          state.store.offsetHours + (delta / 1000) * WEATHER_PLAY_RATE;
         if (next >= state.store.maxOffsetHours) {
           // Loop rather than stop: an animation that halts on the last frame
           // looks broken, and the operator has a pause button.
@@ -287,25 +313,33 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
     [source],
   );
 
-  const fixAt = useCallback((id: string, at: number) => source.fix(id, at), [source]);
+  const fixAt = useCallback(
+    (id: string, at: number) => source.fix(id, at),
+    [source],
+  );
 
   const value = useMemo<TrafficContextValue>(
     () => ({
       source,
+      dataView,
+      setDataView,
       clock: clockRef.current!.clock,
       fixesAt,
       fixAt,
       ready: portsQuery.isSuccess,
     }),
-    [fixAt, fixesAt, portsQuery.isSuccess, source],
+    [fixAt, fixesAt, portsQuery.isSuccess, source, dataView],
   );
 
-  return <TrafficContext.Provider value={value}>{children}</TrafficContext.Provider>;
+  return (
+    <TrafficContext.Provider value={value}>{children}</TrafficContext.Provider>
+  );
 }
 
 export function useTraffic(): TrafficContextValue {
   const value = useContext(TrafficContext);
-  if (!value) throw new Error("useTraffic must be used inside a TrafficProvider");
+  if (!value)
+    throw new Error("useTraffic must be used inside a TrafficProvider");
   return value;
 }
 

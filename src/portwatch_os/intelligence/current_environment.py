@@ -147,6 +147,9 @@ def refresh(kind, port, *, force=False):
                     "request": params, "responseSha256": hashlib.sha256(response.content).hexdigest(),
                     "timeBasis": "Forecast issue time unavailable; response receipt is availability. Hazard event/publication clocks are retained per item.",
                     "rights": "Open-Meteo non-commercial API / CC BY 4.0" if kind != "hazards" else "GDACS public alert feed; linked source notices apply."}
+        if previous.get('responseSha256') == snapshot['responseSha256'] and previous.get('availableAt'):
+            snapshot['availableAt']=previous['availableAt']
+        snapshot['lastSuccessfulCheckAt']=at.isoformat()
         snapshot["snapshotId"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
         with LOCK:
             ROOT.mkdir(parents=True, exist_ok=True)
@@ -208,6 +211,11 @@ def map_signals():
             "forwardLoad": None, "advisory": "Hourly public forecast, not a station observation or congestion forecast input.",
             "dataSource": "Open-Meteo independently refreshed surface/marine forecasts"})
     return signals
+
+
+def retained_bundle(port):
+    """Projection/decision adapter: no provider request or feedback-ledger write."""
+    return bundle(port,allow_fetch=False)
 
 
 def ensure_current():

@@ -312,10 +312,10 @@ function DataSources() {
         size="sm"
         items={[
           {
-            label: "Legacy status readiness",
-            value: `${(readiness * 100).toFixed(0)}%`,
-            tone: readiness >= 0.8 ? "ok" : readiness >= 0.5 ? "warn" : "crit",
-            note: `${Object.keys(provenance.data?.sources ?? {}).length} legacy sources · heuristic, not accuracy`,
+            label: "Source products in scope",
+            value: Object.keys(provenance.data?.sources ?? {}).length,
+            tone: "info",
+            note: "Recorded product states below; inspect receipt and coverage",
           },
           {
             label: "Live",

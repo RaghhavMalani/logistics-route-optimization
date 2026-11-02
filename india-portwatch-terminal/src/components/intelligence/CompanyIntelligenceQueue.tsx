@@ -16,7 +16,6 @@ import {
   Dialog,
   DialogClose,
   DialogDescription,
-  DialogOverlay,
   DialogPortal,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -59,7 +58,7 @@ function TriageCard({
   return (
     <article
       className={`min-w-0 space-y-2 rounded border border-[var(--line)] p-3 [overflow-wrap:anywhere] ${selected ? "bg-[var(--panel-2)]" : ""}`}
-      data-testid="fleet-triage-row"
+      data-testid="fleet-triage-detail"
       data-row-id={row.id}
       data-selected={selected}
     >
@@ -294,6 +293,8 @@ export function CompanyIntelligenceQueue() {
   const [filter, setFilter] = useState<FleetTriageCategory | "ALL">("ALL");
   const [page, setPage] = useState(0);
   const [selectedRow, setSelectedRow] = useState("");
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const [restored, setRestored] = useState(false);
   const queries = useQueryClient();
   const q = useQuery({
@@ -314,6 +315,7 @@ export function CompanyIntelligenceQueue() {
         filter?: string;
         page?: number;
         selectedRow?: string;
+        search?: string;
       } | null;
       setOpen(Boolean(saved?.open) || window.location.hash === "#fleet-queue");
       setFilter(
@@ -330,22 +332,32 @@ export function CompanyIntelligenceQueue() {
       setSelectedRow(
         typeof saved?.selectedRow === "string" ? saved.selectedRow : "",
       );
+      setSearch(
+        typeof saved?.search === "string" ? saved.search.slice(0, 100) : "",
+      );
     } catch {
       /* Blocked storage only loses UI context, never decision records. */
     }
     setRestored(true);
   }, [storageKey]);
   useEffect(() => {
+    const openFromLink = () => {
+      if (window.location.hash === "#fleet-queue") setOpen(true);
+    };
+    window.addEventListener("hashchange", openFromLink);
+    return () => window.removeEventListener("hashchange", openFromLink);
+  }, []);
+  useEffect(() => {
     if (!restored) return;
     try {
       sessionStorage.setItem(
         storageKey,
-        JSON.stringify({ open, filter, page, selectedRow }),
+        JSON.stringify({ open, filter, page, selectedRow, search }),
       );
     } catch {
       /* Optional view preference. */
     }
-  }, [storageKey, open, filter, page, selectedRow, restored]);
+  }, [storageKey, open, filter, page, selectedRow, search, restored]);
   useEffect(() => {
     const refresh = () => {
       void queries.invalidateQueries({
@@ -362,25 +374,62 @@ export function CompanyIntelligenceQueue() {
   }, [queries, visitorKey]);
   if (!visible) return null;
   const rows = q.data?.rows ?? [];
-  const filtered =
-    filter === "ALL"
-      ? rows
-      : rows.filter((row) => row.primaryCategory === filter);
+  const term = search.trim().toLocaleLowerCase();
+  const filtered = rows.filter(
+    (row) =>
+      (filter === "ALL" || row.primaryCategory === filter) &&
+      (!term ||
+        `${row.vessel.name} ${row.destinationPort ?? ""} ${row.reasons.map((reason) => reason.text).join(" ")}`
+          .toLocaleLowerCase()
+          .includes(term)),
+  );
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const displayedPage = Math.min(page, pages - 1);
   const shown = filtered.slice(
     displayedPage * PAGE_SIZE,
     (displayedPage + 1) * PAGE_SIZE,
   );
+  const selected = shown.find((row) => row.id === selectedRow) ?? shown[0];
+  const remember = (row: FleetDecisionRow) => {
+    setSelectedRow(row.id);
+    try {
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          open: true,
+          filter,
+          search,
+          page: displayedPage,
+          selectedRow: row.id,
+        }),
+      );
+    } catch {
+      /* Optional view state; canonical decisions stay server-owned. */
+    }
+  };
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen && window.location.hash === "#fleet-queue") {
+          window.history.replaceState(
+            window.history.state,
+            "",
+            window.location.pathname + window.location.search,
+          );
+        }
+      }}
+      modal={false}
+    >
       <section
-        className="pointer-events-auto absolute bottom-[190px] right-3 z-30 max-w-[calc(100%-24px)]"
+        className="pointer-events-auto shrink-0"
         aria-label="Company fleet review queue"
       >
         <Button
           size="sm"
           variant="outline"
+          className="min-h-10 w-full justify-between"
           data-fleet-triage-trigger
           aria-expanded={open}
           onClick={() => setOpen(true)}
@@ -391,13 +440,15 @@ export function CompanyIntelligenceQueue() {
             : q.data
               ? `${q.data.coverage.ownedVoyages} voyages`
               : "unavailable"}
+          <span aria-hidden>↗</span>
         </Button>
       </section>
       <DialogPortal>
-        <DialogOverlay className="z-[100]" />
         <DialogPrimitive.Content
-          className="pointer-events-auto fixed inset-x-[4vw] top-[6vh] bottom-[6vh] z-[101] flex min-w-0 flex-col rounded border border-[var(--line-strong)] bg-[var(--panel)] text-xs shadow-2xl [overflow-wrap:anywhere]"
+          className="pw-worklist pointer-events-auto"
+          data-expanded={expanded}
           data-testid="company-fleet-triage"
+          onInteractOutside={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             document
@@ -409,140 +460,209 @@ export function CompanyIntelligenceQueue() {
               ? document.querySelector<HTMLElement>(
                   `[data-row-id="${CSS.escape(selectedRow)}"] [data-testid="fleet-triage-action"]`,
                 )
-              : null;
+              : document.querySelector<HTMLElement>(
+                  'input[aria-label="Search fleet review"]',
+                );
             if (target) {
               event.preventDefault();
               target.focus();
             }
           }}
         >
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line)] p-3">
-            <div className="min-w-0">
-              <DialogTitle className="text-sm">
-                Fleet decision review
-              </DialogTitle>
+          <header className="pw-worklist-header">
+            <div className="min-w-0 flex-1">
+              <DialogTitle>Fleet decision review</DialogTitle>
               <DialogDescription>
-                Current-call plans, evidence and the next responsible role.
-                Read-only review order; no probability, loss estimate or
-                automatic approval.
+                Current plans, specific review reasons and the next responsible
+                role.
               </DialogDescription>
             </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? "Compact review" : "Expand review"}
+            </Button>
             <DialogClose asChild>
-              <Button size="sm" variant="ghost" className="shrink-0">
+              <Button size="sm" variant="ghost">
                 Close fleet review
               </Button>
             </DialogClose>
+          </header>
+          <div className="pw-worklist-toolbar">
+            <input
+              type="search"
+              aria-label="Search fleet review"
+              placeholder="Search vessel, port or reason"
+              value={search}
+              maxLength={100}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(0);
+              }}
+            />
+            <select
+              aria-label="Fleet review category"
+              value={filter}
+              onChange={(event) => {
+                setFilter(event.target.value as typeof filter);
+                setPage(0);
+              }}
+            >
+              <option value="ALL">
+                All current voyages ({q.data?.coverage.ownedVoyages ?? "—"})
+              </option>
+              {FLEET_TRIAGE_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {LABELS[category]} ({q.data?.counts[category] ?? "—"})
+                </option>
+              ))}
+            </select>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={q.isFetching}
+              onClick={() => void q.refetch()}
+            >
+              Refresh retained state
+            </Button>
           </div>
-          <div
-            className="min-h-0 space-y-3 overflow-y-auto p-3"
-            data-testid="fleet-triage-scroll"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="min-w-0">
-                Show{" "}
-                <select
-                  className="max-w-full rounded border border-[var(--line)] bg-[var(--panel-2)] p-1"
-                  aria-label="Fleet review category"
-                  value={filter}
-                  onChange={(event) => {
-                    setFilter(event.target.value as typeof filter);
-                    setPage(0);
-                  }}
-                >
-                  <option value="ALL">All current voyages</option>
-                  {FLEET_TRIAGE_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {LABELS[category]} ({q.data?.counts[category] ?? "—"})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={q.isFetching}
-                onClick={() => void q.refetch()}
-              >
-                Refresh retained state
-              </Button>
-            </div>
-            {q.isPending ? (
-              <p role="status">Reading retained fleet and workflow records…</p>
-            ) : null}
-            {q.isFetching && q.data ? (
-              <p role="status">
-                Refreshing retained state. Results below remain the previous
-                projection from {formatUtc(q.data.asOf)}.
-              </p>
-            ) : null}
-            {q.isError ? (
-              <p role="alert">
-                Fleet projection unavailable: {q.error.message}
-                {q.data
-                  ? ` Retaining the previous results from ${formatUtc(q.data.asOf)}; they are not newly verified.`
-                  : " No fleet-clear conclusion is available."}
-              </p>
-            ) : null}
-            {q.data ? (
-              <>
-                <p>
-                  Projected {formatUtc(q.data.asOf)} ·{" "}
-                  {q.data.coverage.ownedVoyages} owned voyages ·{" "}
-                  {q.data.coverage.currentCalls} identified current calls ·{" "}
+          {q.isPending ? (
+            <p className="p-3" role="status">
+              Reading retained fleet and workflow records…
+            </p>
+          ) : null}
+          {q.isFetching && q.data ? (
+            <p className="px-4 py-2 text-xs" role="status">
+              Refreshing retained state. Previous projection:{" "}
+              {formatUtc(q.data.asOf)}.
+            </p>
+          ) : null}
+          {q.isError ? (
+            <p className="px-4 py-2 text-xs" role="alert">
+              Fleet projection unavailable: {q.error.message}
+              {q.data
+                ? ` Retaining the previous results from ${formatUtc(q.data.asOf)}; they are not newly verified.`
+                : " No fleet-clear conclusion is available."}
+            </p>
+          ) : null}
+          {q.data ? (
+            <>
+              <div className="pw-worklist-coverage border-b border-[var(--line)] px-4 py-2">
+                <span>{q.data.coverage.ownedVoyages} owned voyages</span>
+                <span>
                   {q.data.coverage.assessedCurrentPlans} assessed current plans
-                  · {q.data.coverage.retainedComparisons} retained comparisons
-                  inspected.
-                </p>
+                </span>
+                <span>
+                  {q.data.coverage.retainedComparisons} retained comparisons
+                  inspected
+                </span>
                 {!q.data.coverage.snapshotConsistent ? (
-                  <p role="status">
-                    Linked records are updating or incomplete. Inspect the
-                    reported basis; this is not a clear-fleet result.
-                  </p>
+                  <span role="status">
+                    Linked records are updating or incomplete; no clear-fleet
+                    conclusion.
+                  </span>
                 ) : null}
-                <p className="text-[var(--text-2)]">
-                  Category counts cover the full owned fleet; each voyage
-                  appears once. A card can carry additional overlapping reasons.
-                  Policy {q.data.policyVersion}.
-                </p>
-                <p>
+              </div>
+              <div
+                className="pw-worklist-layout"
+                data-testid="fleet-triage-scroll"
+              >
+                <div
+                  className="pw-worklist-list"
+                  aria-label="Current voyage review list"
+                >
+                  <div className="pw-fleet-columns" aria-hidden>
+                    <span>Voyage / current plan</span>
+                    <span>Review reason / timing</span>
+                    <span>Next role</span>
+                  </div>
+                  {shown.map((row) => (
+                    <button
+                      type="button"
+                      key={row.id}
+                      className="pw-fleet-row"
+                      data-testid="fleet-triage-row"
+                      data-row-id={row.id}
+                      data-selected={selected?.id === row.id}
+                      aria-pressed={selected?.id === row.id}
+                      aria-label={`Inspect review for ${row.vessel.name}`}
+                      onClick={() => remember(row)}
+                    >
+                      <span>
+                        <strong>{row.vessel.name}</strong>
+                        <small>
+                          → {row.destinationPort ?? "Destination unknown"}
+                        </small>
+                        <small>
+                          {row.currentPlan.basis === "BASELINE_NOT_APPROVED"
+                            ? "Baseline · not approved"
+                            : row.currentPlan.basis === "APPROVED"
+                              ? "Approved current plan"
+                              : row.currentPlan.basis === "AMBIGUOUS"
+                                ? "Conflicting current plans"
+                                : "No saved current plan"}
+                        </small>
+                      </span>
+                      <span>
+                        {row.reasons[0]?.text ?? "Assessment basis unavailable"}
+                        <small>{LABELS[row.primaryCategory]}</small>
+                        {row.cargo?.slackHours != null ? (
+                          <small>
+                            Cutoff slack {signedHours(row.cargo.slackHours)}
+                          </small>
+                        ) : row.deadline ? (
+                          <small>
+                            {signedHours(row.deadline.hoursRemaining)} remaining
+                          </small>
+                        ) : (
+                          <small>Applicable action deadline unknown.</small>
+                        )}
+                      </span>
+                      <span>
+                        {row.workflow.nextRole
+                          ? (ROLE_LABELS[row.workflow.nextRole] ??
+                            row.workflow.nextRole)
+                          : "No pending role"}
+                        <small>{row.workflow.stage.replaceAll("_", " ")}</small>
+                      </span>
+                    </button>
+                  ))}
+                  {!shown.length ? (
+                    <p className="p-4 text-sm">
+                      No retained rows in this filter. Unassessed voyages remain
+                      in All current voyages; no safe-route or readiness
+                      conclusion follows.
+                    </p>
+                  ) : null}
+                </div>
+                <aside
+                  className="pw-worklist-detail"
+                  aria-label="Selected voyage review"
+                >
+                  {selected ? (
+                    <TriageCard
+                      row={selected}
+                      selected
+                      onOpen={() => remember(selected)}
+                    />
+                  ) : (
+                    <p className="p-4 text-sm text-[var(--text-3)]">
+                      Select a voyage to inspect its exact plan, evidence and
+                      permitted action.
+                    </p>
+                  )}
+                </aside>
+              </div>
+              <footer className="pw-worklist-footer">
+                <span className="mr-auto">
                   Showing {shown.length ? displayedPage * PAGE_SIZE + 1 : 0}–
                   {Math.min((displayedPage + 1) * PAGE_SIZE, filtered.length)}{" "}
                   of {filtered.length} voyages in this filter.
-                </p>
-                <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-                  {shown.map((row) => (
-                    <TriageCard
-                      key={row.id}
-                      row={row}
-                      selected={selectedRow === row.id}
-                      onOpen={() => {
-                        setSelectedRow(row.id);
-                        try {
-                          sessionStorage.setItem(
-                            storageKey,
-                            JSON.stringify({
-                              open: true,
-                              filter,
-                              page: displayedPage,
-                              selectedRow: row.id,
-                            }),
-                          );
-                        } catch {
-                          /* Optional view context. */
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
-                {!filtered.length ? (
-                  <p>
-                    No retained rows in this filter. Unassessed voyages and
-                    missing coverage remain visible in All current voyages; no
-                    safe-route or readiness conclusion follows.
-                  </p>
-                ) : null}
+                </span>
                 <div
-                  className="flex flex-wrap items-center gap-2"
+                  className="flex items-center gap-2"
                   aria-label="Fleet review pages"
                 >
                   <Button
@@ -554,7 +674,7 @@ export function CompanyIntelligenceQueue() {
                     Previous page
                   </Button>
                   <span>
-                    Page {displayedPage + 1} of {pages}
+                    {displayedPage + 1} / {pages}
                   </span>
                   <Button
                     size="sm"
@@ -565,49 +685,47 @@ export function CompanyIntelligenceQueue() {
                     Next page
                   </Button>
                 </div>
-                <details>
+                <details className="w-full">
                   <summary className="cursor-pointer">
-                    Retained source leads · separate from current-plan triage
+                    Coverage, policy and separate source leads
                   </summary>
-                  <div className="mt-2 space-y-2">
+                  <div className="max-h-40 overflow-y-auto py-2">
+                    <p>
+                      Projected {formatUtc(q.data.asOf)} ·{" "}
+                      {q.data.coverage.currentCalls} identified current calls.
+                      Category counts cover the full owned fleet; each voyage
+                      appears once. Policy {q.data.policyVersion}. Read-only
+                      order; no probability, loss estimate or automatic
+                      approval.
+                    </p>
                     <p>
                       {q.data.sourceLeadCoverage?.reason ??
-                        "Source leads have independent coverage. They do not establish route crossings or calculated delay."}
+                        "Source leads have independent coverage; they do not establish route crossings or calculated delay."}
                     </p>
-                    <p>
-                      {q.data.sourceLeads?.length ?? 0} retained relations;
-                      heuristic lead priority is not combined with cargo slack
-                      or money.
-                    </p>
-                    {q.data.sourceLeads?.map((lead) => (
-                      <div
-                        key={`${lead.noticeId}-${lead.vesselId}`}
-                        className="border-t border-[var(--line)] py-2"
-                      >
+                    {(q.data.sourceLeads ?? []).map((lead) => (
+                      <p key={`${lead.noticeId}-${lead.vesselId}`}>
                         <a
                           className="underline"
                           href={`/company/global-eye#${reviewHash(lead.noticeId, lead.vesselId)}`}
                         >
                           {lead.vesselName} · {lead.title}
-                        </a>
-                        <p>
-                          {lead.status} · source{" "}
-                          {lead.sourceValidity ?? lead.sourceStatus} ·{" "}
-                          {lead.calculationReason}
-                        </p>
-                      </div>
+                        </a>{" "}
+                        · {lead.status} · source{" "}
+                        {lead.sourceValidity ?? lead.sourceStatus} ·{" "}
+                        {lead.calculationReason}
+                      </p>
                     ))}
                     <a
-                      href="/company/global-eye#intelligence-review"
                       className="underline"
+                      href="/company/global-eye#intelligence-review"
                     >
                       Inspect all discovered events and voyage relations
                     </a>
                   </div>
                 </details>
-              </>
-            ) : null}
-          </div>
+              </footer>
+            </>
+          ) : null}
         </DialogPrimitive.Content>
       </DialogPortal>
     </Dialog>

@@ -7,7 +7,7 @@ from src.utils import port_registry
 from src.portwatch_os.clock import get_clock, LIVE, wall_now
 from src.portwatch_os.sandbox import current_sandbox
 from src.portwatch_os.decision.continuation import connected_basis
-from src.portwatch_os.intelligence.current_environment import bundle, map_signals, instant, ensure_current, retain_feedback
+from src.portwatch_os.intelligence.current_environment import retained_bundle as bundle, map_signals, instant
 
 router = APIRouter()
 
@@ -20,27 +20,24 @@ def public_mode():
 
 
 @router.get("/intelligence/current")
-def current(portCode: str = Query("INNSA")):
+def current(portCode: str = Query("INNSA"), view: str = Query("scenario", pattern="^(provider|scenario)$")):
     public_mode()
     port = port_registry.resolve(portCode)
     if port is None: raise HTTPException(404,"Port is not registered")
     scoped = current_sandbox.get()
-    fixture = scoped.world.get('illustrativeInputs', {}).get('forecast') if scoped and scoped.world.get('demoScenario') else None
+    fixture = scoped.world.get('illustrativeInputs', {}).get('forecast') if view == 'scenario' and scoped and scoped.world.get('demoScenario') else None
     if fixture and fixture.get('portCode') == port.locode:
         result = copy.deepcopy(fixture); result.pop('fixtureOriginal', None)
         return result
     if get_clock().state.mode != LIVE:
         return {"status":"HISTORICAL_UNAVAILABLE","portCode":port.locode,"sources":{},"hourly":[],"daily":[],"regionalHazards":[]}
-    result = bundle(port)
-    retain_feedback(port)
-    return result
+    return bundle(port)
 
 
 @router.get("/weather/current-map")
 def weather_map():
     public_mode()
     if get_clock().state.mode != LIVE: return []
-    ensure_current()
     return map_signals()
 
 
@@ -264,7 +261,7 @@ def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
                            "feedbackClaimIds":[i["claim"]["id"] for i in env.get("feedbackConsumption",{}).get("inputs",[])]})
     else:
         inputs = copy.deepcopy(override) if override is not None else {
-            "plannedArrival":env["plannedArrival"], **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")},
+            "plannedArrival":env["plannedArrival"], "inputView":env.get('inputView','scenario'), **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")},
             **({"passagePlan":copy.deepcopy(env["passagePlan"])} if env.get("passagePlan") else {}),
             **({"cargoCommitment":copy.deepcopy(env["cargoCommitment"])} if env.get("cargoCommitment") else {})}
         if env.get('sourceReviewBindings') and override is None:

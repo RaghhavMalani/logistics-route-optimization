@@ -7,7 +7,7 @@ Critic, ledger, human review and advisory boundary carry the result.
 from datetime import timedelta
 import hashlib
 import json
-from src.portwatch_os.intelligence.current_environment import bundle, instant, finite
+from src.portwatch_os.intelligence.current_environment import retained_bundle as bundle, instant, finite
 from src.portwatch_os.intelligence.operational_quality import freeze_activity_context
 from src.portwatch_os.decision.model import (
     DecisionProblem, DecisionOption, DecisionEvaluation, DecisionObjective,
@@ -21,7 +21,9 @@ def build_arrival_problem(vessel, request, actor, state, at):
     port = port_registry.resolve(vessel.destination_port)
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
-    fixture = (scoped.world.get('illustrativeInputs', {}).get('forecast') if scoped and scoped.world.get('demoScenario') else None)
+    if request.get('inputView', 'scenario') not in ('provider', 'scenario'):
+        raise ValueError('Choose a provider-backed or explicit scenario input view')
+    fixture = (scoped.world.get('illustrativeInputs', {}).get('forecast') if request.get('inputView') != 'provider' and scoped and scoped.world.get('demoScenario') else None)
     data = fixture if fixture and fixture.get('portCode') == port.locode else bundle(port)
     source = data["sources"]["surface"]
     if source["status"] != "CURRENT" and not (fixture and source['status']=='SIMULATED'):
@@ -45,7 +47,7 @@ def build_arrival_problem(vessel, request, actor, state, at):
         raise ValueError("No two consecutive clear forecast hours in the next 48h; no bounded arrival alternative")
     safe_at = max(planned, instant(rows[index]["validAt"]))
     wait = (safe_at-planned).total_seconds()/3600
-    frozen = {"evidenceVersion": "current-weather-approach-v2", "portCode": port.locode,
+    frozen = {"evidenceVersion": "current-weather-approach-v2", "inputView": request.get('inputView','scenario'), "portCode": port.locode,
         "voyageId": vessel.vessel_id, "source": source["source"],
         "snapshotId": source["snapshotId"], "responseSha256": source["responseSha256"],
         "issuedAt": source["issuedAt"], "observedAt": None, "availableAt": source["availableAt"],

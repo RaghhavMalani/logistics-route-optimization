@@ -35,6 +35,7 @@ import type {
 } from "@/types/decisions";
 
 import { DecisionTimeline } from "./DecisionTimeline";
+import { CommercialReview } from "./CommercialReview";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
@@ -50,7 +51,14 @@ import {
 import type { FrozenEnvironment } from "@/services/current-inputs";
 
 type Tab =
-  "options" | "robust" | "frontier" | "timeline" | "money" | "why" | "workflow";
+  | "options"
+  | "robust"
+  | "frontier"
+  | "timeline"
+  | "money"
+  | "why"
+  | "workflow"
+  | "business";
 
 const VERDICT_TONE: Record<CriticVerdict, Tone> = {
   PASS: "ok",
@@ -151,6 +159,7 @@ export function DecisionPanel({
   onToggleCompare,
   onClose,
   onEditCurrentInputs,
+  onNewComparison,
   canHandoff = false,
   onRecompute,
   recomputing = false,
@@ -164,6 +173,7 @@ export function DecisionPanel({
   onClose?: () => void;
   /** Open the existing input editor without a floating control over the inspector. */
   onEditCurrentInputs?: () => void;
+  onNewComparison?: (problem: DecisionProblem) => void;
   /** Whether the signed-in actor may hand an approved option into the advisory boundary. */
   canHandoff?: boolean;
   /** Re-run the decision priced with scenario assumptions; absent, the Money tab offers no form. */
@@ -172,9 +182,16 @@ export function DecisionPanel({
   /** Fewer tabs, for a replay or a twin sidebar. */
   compact?: boolean;
 }) {
-  const { identityHeaders } = useAuth();
+  const { identityHeaders, session } = useAuth();
   const workflow = useDecisionWorkflow(identityHeaders);
   const [tab, setTab] = useState<Tab>("options");
+  useEffect(() => {
+    document
+      .querySelector<HTMLElement>(
+        `[data-testid="decision-panel"][data-decision="${CSS.escape(problem.decisionId)}"]`,
+      )
+      ?.focus();
+  }, [problem.decisionId]);
   // The first two objectives every feasible option is measured on, in the
   // engine's frontier order: a chart over an axis half the options lack
   // would open on an apology.
@@ -241,12 +258,16 @@ export function DecisionPanel({
     <div
       ref={rootRef}
       data-testid="decision-panel"
+      tabIndex={-1}
+      role="region"
+      aria-label="Decision comparison"
       data-decision={problem.decisionId}
+      data-passage={Boolean(currentWeather?.passageComparison)}
       data-layout={stacked ? "stacked" : "table"}
-      className="flex min-h-0 flex-1 flex-col"
+      className="pw-decision-panel flex min-h-0 flex-1 flex-col"
     >
       {/* ------------------------------------------------------- header -- */}
-      <div className="border-b border-[var(--line)] px-2 py-1.5">
+      <div className="pw-decision-header border-b border-[var(--line)] px-2 py-1.5">
         <div className="flex items-center gap-1.5">
           <Pill
             tone={
@@ -318,7 +339,14 @@ export function DecisionPanel({
         </p>
       </div>
 
-      {problem.evidence.currentEnvironment ? (
+      {currentWeather?.passageComparison ? (
+        <p className="pw-mixed-basis">
+          {currentWeather.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+            ? "Software forecast fixture"
+            : "Provider forecast"}{" "}
+          + declared voyage · modeled approach, demo review
+        </p>
+      ) : problem.evidence.currentEnvironment ? (
         <p className="px-2 py-1 text-xs">
           {currentWeather?.passageComparison ? (
             <>
@@ -402,6 +430,11 @@ export function DecisionPanel({
                   { value: "frontier", label: "Frontier" },
                   { value: "timeline", label: "Timeline" },
                   { value: "money", label: "Money" },
+                  ...(onNewComparison &&
+                  currentWeather?.passageComparison &&
+                  session?.user.role === "SHIPPING_COMPANY"
+                    ? [{ value: "business" as const, label: "Business" }]
+                    : []),
                   { value: "why", label: "Why" },
                   { value: "workflow", label: "Decide" },
                 ]
@@ -410,6 +443,13 @@ export function DecisionPanel({
       </div>
 
       <div key={tab} className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "business" && onNewComparison ? (
+          <CommercialReview
+            key={problem.decisionId}
+            problem={problem}
+            onSuccessor={onNewComparison}
+          />
+        ) : null}
         {currentWeather &&
         !currentWeather.passageComparison &&
         tab === "options" ? (
@@ -435,7 +475,6 @@ export function DecisionPanel({
                 evidence={currentWeather}
                 selectedOptionId={selectedOptionId}
                 onSelectOption={onSelectOption}
-                onContinue={() => setTab("workflow")}
               />
               <details className="min-w-0 border-t border-[var(--line)] px-2 py-2 text-xs [overflow-wrap:anywhere]">
                 <summary className="cursor-pointer font-medium">
@@ -804,6 +843,17 @@ export function DecisionPanel({
           />
         ) : null}
       </div>
+      {tab === "options" && currentWeather?.passageComparison ? (
+        <div className="pw-next-action shrink-0">
+          <button
+            type="button"
+            onClick={() => setTab("workflow")}
+            className="w-full rounded border px-3 py-2"
+          >
+            Continue to Decide
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

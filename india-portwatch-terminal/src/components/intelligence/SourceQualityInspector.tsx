@@ -122,7 +122,7 @@ export function SourceQualityInspector({
           {source.status.replace("_", " ")}
         </Pill>
       }
-      className="h-full min-h-0 rounded-none border-x-0 border-t-0"
+      className="pw-source-quality h-full min-h-0 rounded-none border-x-0 border-t-0"
       bodyClassName="overflow-x-hidden"
       scroll
       testId="source-quality-inspector"

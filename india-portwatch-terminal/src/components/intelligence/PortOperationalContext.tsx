@@ -11,6 +11,13 @@ import {
 } from "@/services/port-context";
 import { fleetReviewHash } from "@/services/rolling-intelligence";
 
+const METRIC_LABELS: Record<string, string> = {
+  WORKING_LISTED_ROWS: "Working-list rows",
+  ANCHORAGE_LISTED_ROWS: "Anchorage rows",
+  ANCHORAGE_READY_ROWS: "Ready at anchorage",
+  ANCHORAGE_NOT_READY_ROWS: "Not ready at anchorage",
+};
+
 export function PortOperationalContext({
   vesselId,
   onVesselChange,
@@ -82,7 +89,7 @@ export function PortOperationalContext({
   return (
     <details
       open
-      className="my-3 space-y-3 border border-[var(--line)] p-3 text-xs [overflow-wrap:anywhere]"
+      className="pw-evidence-section my-1 [overflow-wrap:anywhere]"
       data-testid="port-operational-context"
     >
       <summary className="cursor-pointer font-semibold">
@@ -106,52 +113,108 @@ export function PortOperationalContext({
       ) : null}
       {context ? (
         <>
-          <p className="font-semibold">
-            Paradip Port Authority · {context.status}
-            {context.evidenceKind ? ` · ${context.evidenceKind}` : ""}
-          </p>
-          <p>{context.reason}</p>
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
-            <dt>Report date</dt>
-            <dd>{context.reportDate ?? "Unavailable"} · date only</dd>
-            <dt>Prior-day traffic</dt>
-            <dd>{context.priorDayTrafficDate ?? "Unavailable"}</dd>
-            <dt>Publication</dt>
-            <dd>Unknown; no midnight release assumed</dd>
-            <dt>Original first receipt</dt>
-            <dd>{formatUtc(context.firstReceivedAt ?? null)}</dd>
-            <dt>Context available</dt>
-            <dd>{formatUtc(context.availableAt ?? null)}</dd>
-            <dt>Last successful check</dt>
-            <dd>{formatUtc(context.lastSuccessfulCheckAt ?? null)}</dd>
-          </dl>
-          {context.metrics.map((m) => (
-            <section
-              key={m.id}
-              className="space-y-1 border-t border-[var(--line)] pt-2"
+          <div className="pw-source-heading">
+            <div>
+              <h3>Paradip daily port context</h3>
+              <p>
+                {context.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+                  ? "Software fixture · not authority observations"
+                  : "Paradip Port Authority · INPRT"}
+              </p>
+            </div>
+            <span
+              className="pw-source-status"
+              data-current={context.status === "CURRENT_ELIGIBLE"}
             >
-              <strong>
-                {m.id.replaceAll("_", " ")}: {m.value ?? "Unavailable"} {m.unit}
-              </strong>
-              <p>
-                {m.eligibility} · {m.section} · page {m.pages.join(", ")}
-              </p>
-              <p>
-                {m.asOf
-                  ? `Snapshot ${formatUtc(m.asOf)} · timezone assumed Asia/Kolkata`
-                  : `As-of ${m.dateScope?.date ?? "unknown"}, date only; the working-section clock does not apply.`}
-              </p>
-              <p>{m.meaning}</p>
-            </section>
-          ))}
-          <p>
-            Destination association is context. A fictional owned hull is not
-            matched to a real report ship. No individual waiting forecast, live
-            AIS, closure, berth reservation, clearance or numerical benefit
-            follows.
+              {context.status}
+            </span>
+          </div>
+          <p className="mb-3 text-[var(--text-2)]">{context.reason}</p>
+          <div className="pw-source-clocks">
+            <div>
+              <span>Product date · date only</span>
+              <strong>{context.reportDate ?? "Unavailable"}</strong>
+            </div>
+            <div>
+              <span>Working-section snapshot</span>
+              <time>
+                {formatUtc(
+                  context.metrics.find((m) => m.id === "WORKING_LISTED_ROWS")
+                    ?.asOf ?? null,
+                )}
+              </time>
+            </div>
+            <div>
+              <span>Original first receipt</span>
+              <time>{formatUtc(context.firstReceivedAt ?? null)}</time>
+            </div>
+            <div>
+              <span>Last successful check</span>
+              <time>{formatUtc(context.lastSuccessfulCheckAt ?? null)}</time>
+            </div>
+          </div>
+          <div
+            className="pw-source-metrics"
+            aria-label="Reported rows, not active ships or capacity"
+          >
+            {context.metrics.map((m) => (
+              <section
+                key={m.id}
+                className="pw-source-metric"
+                data-metric={m.id}
+              >
+                <h4>{METRIC_LABELS[m.id] ?? m.id.replaceAll("_", " ")}</h4>
+                <div className="pw-source-value">
+                  {m.value ?? "Unavailable"}
+                </div>
+                <p className="pw-source-unit">{m.unit}</p>
+                <p>{m.eligibility}</p>
+                {!m.asOf ? (
+                  <p>{m.dateScope?.date ?? "Unknown date"} · date only</p>
+                ) : null}
+              </section>
+            ))}
+          </div>
+          <p className="pw-source-limit">
+            Listed rows, including repeated or completed entries, are not active
+            ships or available berths. Anchorage counts do not predict an
+            individual wait.
           </p>
-          <details>
+          <details className="pw-source-detail">
             <summary>Original, interpretation and display scope</summary>
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 py-2">
+              <dt>Prior-day traffic</dt>
+              <dd>{context.priorDayTrafficDate ?? "Unavailable"}</dd>
+              <dt>Publication</dt>
+              <dd>Unknown; no midnight release assumed</dd>
+              <dt>Context available</dt>
+              <dd>{formatUtc(context.availableAt ?? null)}</dd>
+            </dl>
+            {context.metrics.map((m) => (
+              <section
+                key={m.id}
+                className="border-t border-[var(--line)] py-2"
+              >
+                <strong>
+                  {m.id.replaceAll("_", " ")}: {m.value ?? "Unavailable"}{" "}
+                  {m.unit}
+                </strong>
+                <p>
+                  {m.section} · page {m.pages.join(", ")}. {m.meaning}
+                </p>
+                <p>
+                  {m.asOf
+                    ? `Snapshot ${formatUtc(m.asOf)} · timezone assumed Asia/Kolkata`
+                    : `As-of ${m.dateScope?.date ?? "unknown"}, date only; the working-section clock does not apply.`}
+                </p>
+              </section>
+            ))}
+            <p>
+              Destination association is context. A fictional owned hull is not
+              matched to a real report ship. No individual waiting forecast,
+              live AIS, closure, berth reservation, clearance or numerical
+              benefit follows.
+            </p>
             <p>
               Snapshot {context.snapshotId ?? "Unavailable"}; revision{" "}
               {context.revisionId ?? "Unavailable"}; SHA-256{" "}
@@ -164,7 +227,7 @@ export function PortOperationalContext({
             </p>
             <p>{context.scheduledSections}</p>
           </details>
-          <div className="flex flex-wrap gap-2">
+          <div className="pw-source-actions">
             {context.source ? (
               <a
                 className="underline"

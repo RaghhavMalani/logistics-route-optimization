@@ -106,7 +106,7 @@ export function RecommendationBody({
         const before = modifiedFrom?.[key];
         const changed = before !== undefined && before !== value;
         return (
-          <div key={key} className="flex items-baseline justify-between gap-3">
+          <div key={key} className="pw-recommendation-row">
             <dt className="text-[10.5px] text-[var(--text-3)]">
               {humanise(key)}
             </dt>
@@ -116,7 +116,16 @@ export function RecommendationBody({
                   {String(before)}
                 </span>
               ) : null}
-              <span className="num">{formatValue(value)}</span>
+              {value !== null && typeof value === "object" ? (
+                <details>
+                  <summary>
+                    Inspect retained {humanise(key).toLowerCase()}
+                  </summary>
+                  <pre>{JSON.stringify(value, null, 2)}</pre>
+                </details>
+              ) : (
+                <span className="num">{formatValue(value)}</span>
+              )}
             </dd>
           </div>
         );
@@ -360,12 +369,10 @@ export function AdvisoryCard({
   onToggle?: () => void;
 }) {
   return (
-    <article
-      data-testid="advisory-card"
-      className="border-b border-[var(--line)] last:border-0"
-    >
+    <article data-testid="advisory-card" className="pw-advisory-card">
       <button
         type="button"
+        aria-expanded={expanded}
         onClick={onToggle}
         className="flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-[var(--panel-2)]"
       >
@@ -404,90 +411,102 @@ export function AdvisoryCard({
       </button>
 
       {expanded ? (
-        <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-2 py-2">
-          <section>
-            <h4 className="eyebrow text-[10px]">Recommendation</h4>
-            <div className="mt-1">
-              <RecommendationBody
-                recommendation={advisory.recommendation}
-                modifiedFrom={advisory.modifiedFrom}
-              />
-            </div>
-            {advisory.modifiedFrom ? (
-              <p className="mt-1 text-[10.5px] leading-snug text-[var(--unc)]">
-                A controller changed this before issuing it. The original is
-                struck through above.
-              </p>
-            ) : null}
-          </section>
-
-          <section>
-            <h4 className="eyebrow text-[10px]">Reason</h4>
-            <p className="mt-1 text-[10.5px] leading-snug text-[var(--text-2)]">
-              {advisory.reason}
-            </p>
-          </section>
-
-          {Object.keys(advisory.evidence).length ? (
-            <section>
-              <h4 className="eyebrow text-[10px]">Evidence</h4>
-              <div className="mt-1">
-                {advisory.evidence.intelligenceBasis ? (
-                  <FrozenIntelligenceBasis
-                    evidence={
-                      advisory.evidence.intelligenceBasis as IntelligenceBasis
-                    }
+        <div className="pw-advisory-body border-t border-[var(--line)]">
+          <div
+            className="pw-lifecycle"
+            aria-label="Retained advisory lifecycle"
+          >
+            <span>Demo advisory</span>
+            <span data-current="true">{advisoryLabel(advisory.state)}</span>
+            <span>{advisory.advisoryId}</span>
+          </div>
+          <div className="pw-advisory-layout">
+            <div className="pw-advisory-main space-y-4">
+              <section>
+                <h4 className="eyebrow text-[10px]">Recommendation</h4>
+                <div className="mt-1">
+                  <RecommendationBody
+                    recommendation={advisory.recommendation}
+                    modifiedFrom={advisory.modifiedFrom}
                   />
+                </div>
+                {advisory.modifiedFrom ? (
+                  <p className="mt-1 text-[10.5px] leading-snug text-[var(--unc)]">
+                    A controller changed this before issuing it. The original is
+                    struck through above.
+                  </p>
                 ) : null}
-                {advisory.evidence.currentEnvironment ? (
-                  <FrozenWeatherBasis
-                    evidence={
-                      advisory.evidence.currentEnvironment as FrozenEnvironment
-                    }
-                  />
-                ) : null}
-                <RecommendationBody
-                  recommendation={Object.fromEntries(
-                    Object.entries(advisory.evidence).filter(
-                      ([key]) =>
-                        key !== "currentEnvironment" &&
-                        key !== "intelligenceBasis",
-                    ),
-                  )}
-                />
-              </div>
-            </section>
-          ) : null}
+              </section>
 
-          {advisory.criticReasons.length ? (
-            <section>
-              <h4 className="eyebrow text-[10px]">Critic</h4>
-              <ul className="mt-1 space-y-0.5">
-                {advisory.criticReasons.map((entry) => (
-                  <li
-                    key={entry}
-                    className="text-[10.5px] leading-snug text-[var(--text-3)]"
-                  >
-                    {entry}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+              <section>
+                <h4 className="eyebrow text-[10px]">Reason</h4>
+                <p className="mt-1 text-[var(--text-2)]">{advisory.reason}</p>
+              </section>
 
-          <section>
-            <h4 className="eyebrow text-[10px]">Audit trail</h4>
-            <div className="mt-1">
-              <AuditTrail advisory={advisory} />
+              {Object.keys(advisory.evidence).length ? (
+                <details>
+                  <summary>
+                    Frozen evidence, calculation and original sources
+                  </summary>
+                  <div className="mt-1">
+                    {advisory.evidence.intelligenceBasis ? (
+                      <FrozenIntelligenceBasis
+                        evidence={
+                          advisory.evidence
+                            .intelligenceBasis as IntelligenceBasis
+                        }
+                      />
+                    ) : null}
+                    {advisory.evidence.currentEnvironment ? (
+                      <FrozenWeatherBasis
+                        evidence={
+                          advisory.evidence
+                            .currentEnvironment as FrozenEnvironment
+                        }
+                      />
+                    ) : null}
+                    <RecommendationBody
+                      recommendation={Object.fromEntries(
+                        Object.entries(advisory.evidence).filter(
+                          ([key]) =>
+                            key !== "currentEnvironment" &&
+                            key !== "intelligenceBasis",
+                        ),
+                      )}
+                    />
+                  </div>
+                </details>
+              ) : null}
+
+              {advisory.criticReasons.length ? (
+                <section>
+                  <h4 className="eyebrow text-[10px]">Critic</h4>
+                  <ul className="mt-1 space-y-0.5">
+                    {advisory.criticReasons.map((entry) => (
+                      <li
+                        key={entry}
+                        className="text-[10.5px] leading-snug text-[var(--text-3)]"
+                      >
+                        {entry}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </div>
-          </section>
-
-          <section>
-            <h4 className="eyebrow text-[10px]">Action</h4>
-            <div className="mt-1">
-              <AdvisoryActions advisory={advisory} headers={headers} />
-            </div>
-          </section>
+            <aside className="pw-advisory-aside">
+              <section className="pw-advisory-actions">
+                <h4>Permitted next action</h4>
+                <AdvisoryActions advisory={advisory} headers={headers} />
+              </section>
+              <section>
+                <h4 className="eyebrow text-[10px]">Audit trail</h4>
+                <div className="mt-1">
+                  <AuditTrail advisory={advisory} />
+                </div>
+              </section>
+            </aside>
+          </div>
         </div>
       ) : null}
     </article>

@@ -44,6 +44,7 @@ export interface CreateDecisionPayload {
   bunchArrivals?: number;
   cameraPlanning?: { evidenceId: string; berthId: string; holdHours: number };
   currentArrival?: {
+    inputView?: "provider" | "scenario";
     plannedArrival: string;
     maxGustKn: number;
     minVisibilityM: number;

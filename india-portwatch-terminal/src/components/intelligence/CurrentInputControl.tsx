@@ -58,6 +58,9 @@ export function CurrentInputControl({
   const setOpen = onOpenChange ?? setLocalOpen;
   const initiatingControl = useRef<HTMLElement | null>(null);
   const [vesselId, setVesselId] = useState("PWD-001");
+  const [inputView, setInputView] = useState<"provider" | "scenario">(
+    "provider",
+  );
   const [arrival, setArrival] = useState("");
   const [gust, setGust] = useState(15);
   const [visibility, setVisibility] = useState(5000);
@@ -92,6 +95,11 @@ export function CurrentInputControl({
       setVisibility(frozen.assumptions.minVisibilityM);
       setPassagePlan(frozen.passagePlan ?? null);
       setCargoCommitment(frozen.cargoCommitment ?? null);
+      setInputView(
+        frozen.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+          ? "scenario"
+          : "provider",
+      );
     } else if (target) {
       setArrival("");
       setPassagePlan(null);
@@ -102,10 +110,10 @@ export function CurrentInputControl({
   const vessel = fleet.data?.vessels.find((v) => v.vessel_id === vesselId);
   const port = vessel?.destination_port ?? "INNSA";
   const inputs = useQuery({
-    queryKey: ["current-environment", port],
+    queryKey: ["current-environment", port, inputView],
     queryFn: ({ signal }) =>
       getJson<CurrentEnvironment>(
-        `/intelligence/current?portCode=${port}`,
+        `/intelligence/current?portCode=${port}&view=${inputView}`,
         identityHeaders,
         { signal, timeoutMs: 60000 },
       ),
@@ -158,6 +166,7 @@ export function CurrentInputControl({
           )
           ? {
               currentArrival: {
+                inputView,
                 plannedArrival: selected,
                 maxGustKn: gust,
                 minVisibilityM: visibility,
@@ -239,6 +248,31 @@ export function CurrentInputControl({
               and operating limits below are fictional demo assumptions; this
               does not establish an observed closure.
             </DialogDescription>
+            <fieldset className="pw-source-view">
+              <legend>Planning input view</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="input-view"
+                  checked={inputView === "provider"}
+                  onChange={() => setInputView("provider")}
+                />{" "}
+                Use current provider data
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="input-view"
+                  checked={inputView === "scenario"}
+                  onChange={() => setInputView("scenario")}
+                />{" "}
+                Explicit scenario fixtures
+              </label>
+              <p>
+                Changing this view reads sources only. Your fictional voyage,
+                saved comparisons and approvals remain retained.
+              </p>
+            </fieldset>
             {(saved.data?.problems ?? [])
               .filter(
                 (p) =>
@@ -318,7 +352,7 @@ export function CurrentInputControl({
                 variant="outline"
                 onClick={() => void inputs.refetch()}
               >
-                Check current sources
+                Read retained sources
               </Button>
             </div>
             {inputs.isPending ? (
@@ -502,6 +536,7 @@ export function CurrentInputControl({
                               }
                             : {}),
                           currentArrival: {
+                            inputView,
                             plannedArrival: selected,
                             maxGustKn: gust,
                             minVisibilityM: visibility,

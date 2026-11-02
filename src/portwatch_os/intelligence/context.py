@@ -27,6 +27,17 @@ def economic_context(cache_dir: Path) -> list[dict]:
             quote["shippingConnection"] += "; historical publication vintages unavailable"
             result.append(quote)
             continue
+        if key in ('usd_inr','brent'):
+            from src.portwatch_os.intelligence.free_sources import public_product
+            public=public_product('fred_fx' if key=='usd_inr' else 'fred_brent')
+            if public.get('rows'):
+                rows=public['rows'];last=rows[-1];previous=rows[-2]['value'] if len(rows)>1 else None
+                quote.update(value=last['value'],observedAt=last['date'],status=public['freshness'],
+                    changePct=100*(last['value']/previous-1) if previous else None,
+                    firstAvailableAt=public['firstAvailableAt'],lastSuccessfulCheckAt=public['lastSuccessfulCheckAt'],
+                    sha256=public['sha256'],timePrecision='DATE_ONLY',origin='OFFICIAL_REPORT')
+                result.append(quote)
+                continue
         try:
             frame = pd.read_csv(io.StringIO(path.read_text(encoding="utf-8")))
             frame.columns = ["date", "value"]
@@ -39,7 +50,7 @@ def economic_context(cache_dir: Path) -> list[dict]:
                 previous = frame.iloc[-2]["value"] if len(frame) > 1 else None
                 age = (world_now()-last["date"].to_pydatetime()).total_seconds()/3600
                 budget = 24*60 if key == "india_cpi" else 24*7
-                quote.update(value=float(last["value"]), observedAt=last["date"].isoformat(),
+                quote.update(value=float(last["value"]), observedAt=last["date"].date().isoformat(),
                              ageHours=round(age, 1), status="CACHED" if age <= budget else "STALE",
                              changePct=100*(float(last["value"])/float(previous)-1) if previous else None)
         except (OSError, ValueError, pd.errors.ParserError):

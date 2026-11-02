@@ -936,6 +936,14 @@ export function MaritimeMap({
       </div>
 
       <MapPanelAccess>{overlay}</MapPanelAccess>
+      <a
+        className="pw-map-attribution"
+        href="https://www.naturalearthdata.com/about/terms-of-use/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Basemap: Natural Earth · non-navigational
+      </a>
 
       {!ready && !failed ? (
         <div className="absolute inset-0 grid place-items-center bg-[#061520]">

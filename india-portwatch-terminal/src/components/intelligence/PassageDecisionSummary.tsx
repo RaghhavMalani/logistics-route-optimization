@@ -64,13 +64,11 @@ export function PassageDecisionSummary({
   evidence,
   selectedOptionId,
   onSelectOption,
-  onContinue,
 }: {
   problem: DecisionProblem;
   evidence: FrozenEnvironment;
   selectedOptionId: string | null;
   onSelectOption: (optionId: string) => void;
-  onContinue: () => void;
 }) {
   const comparison = evidence.passageComparison;
   if (!comparison) return null;
@@ -160,7 +158,7 @@ export function PassageDecisionSummary({
   ];
   if (evidence.cargoCommitment && cargo) {
     rows.splice(
-      1,
+      4,
       0,
       {
         label: "Cargo connection",
@@ -187,16 +185,13 @@ export function PassageDecisionSummary({
     <section
       data-testid="passage-decision-summary"
       data-selected-option={selectedOptionId ?? ""}
-      className="min-w-0 space-y-2 px-2 py-2 text-xs leading-relaxed text-[var(--text-2)] [overflow-wrap:anywhere]"
+      className="pw-comparison min-w-0 space-y-2 text-[var(--text-2)] [overflow-wrap:anywhere]"
       aria-label="Declared passage decision summary"
     >
       <p role="status" className="font-medium text-[var(--text)]">
         {passageRecommendationText(problem)}
       </p>
-      <div
-        className="grid grid-cols-2 gap-1"
-        aria-label="Choose the plan for review"
-      >
+      <div className="pw-plan-choices" aria-label="Choose the plan for review">
         {comparison.options.map((option) => {
           const action = problem.options.find(
             (row) => row.optionId === option.optionId,
@@ -218,12 +213,18 @@ export function PassageDecisionSummary({
               onClick={() => onSelectOption(option.optionId)}
               className="min-h-9 rounded border border-[var(--line-strong)] px-2 py-1 text-left aria-pressed:border-[var(--info)] aria-pressed:bg-[var(--info-dim)] hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-75"
             >
-              {isBaseline ? "Select current plan" : `Select ${option.label}`}
-              {option.optionId === selectedOptionId ? " · selected" : ""}
+              <span className="pw-plan-kicker">
+                {isBaseline ? "Current plan" : "Alternative"}
+              </span>
+              {isBaseline ? "Current declared passage" : option.label}
+              {option.optionId === selectedOptionId ? (
+                <span className="block text-[var(--info)]">
+                  Selected for review
+                </span>
+              ) : null}
               {option.optionId === problem.recommendation?.optionId
                 ? " · recommended"
                 : ""}
-              {!feasible ? " · unavailable for approval" : ""}
               {!feasible ? (
                 <span className="block text-[var(--crit)]">
                   {option.status}:{" "}
@@ -244,12 +245,9 @@ export function PassageDecisionSummary({
         })}
       </div>
       {sameClear ? (
-        <p className="text-[var(--text)]">
-          Same conditional clear-approach time. No earlier delivery is
-          established.
-          {cargo
-            ? " With the same downstream assumptions, cargo readiness and cutoff slack are also unchanged."
-            : ""}
+        <p className="pw-comparison-note text-[var(--text)]">
+          Same clear approach. Reduced assumed anchorage waiting does not
+          establish earlier delivery.
         </p>
       ) : null}
       {evidence.cargoCommitment ? (
@@ -259,9 +257,8 @@ export function PassageDecisionSummary({
           {evidence.cargoCommitment.mustMeet
             ? "Declared must-meet connection."
             : "Context only; passage ranking unchanged."}{" "}
-          Full stage arithmetic, capacities and later-sailing proposals are in
-          Full passage schedule and evidence. No booking or final delivery is
-          established.
+          No booking or final delivery is established. Inspect full stage
+          arithmetic in the evidence disclosure.
         </p>
       ) : null}
       <table
@@ -289,16 +286,25 @@ export function PassageDecisionSummary({
                       ? "Selected alternative"
                       : "Alternative"}
                 </span>
-                <span className="block font-normal">
+                <span className="sr-only">
                   {option?.label ?? "Unavailable in saved record"}
                 </span>
                 {option ? (
                   <>
                     <Pill
                       className="block max-w-full whitespace-normal"
-                      tone={option.status === "FEASIBLE" ? "ok" : "crit"}
+                      tone={
+                        option.status === "FEASIBLE" &&
+                        problem.options.find(
+                          (action) => action.optionId === option.optionId,
+                        )?.status === "FEASIBLE"
+                          ? "ok"
+                          : "crit"
+                      }
                     >
-                      {option.status}
+                      {problem.options.find(
+                        (action) => action.optionId === option.optionId,
+                      )?.status ?? option.status}
                     </Pill>
                     {option.reason ? (
                       <p className="font-normal text-[var(--crit)]">
@@ -326,13 +332,6 @@ export function PassageDecisionSummary({
           ))}
         </tbody>
       </table>
-      <button
-        type="button"
-        onClick={onContinue}
-        className="min-h-9 w-full rounded border border-[var(--line-strong)] px-2 py-1 font-medium text-[var(--text)] hover:bg-[var(--surface-2)]"
-      >
-        Continue to Decide
-      </button>
       <p>
         Operator-declared passage. {comparison.geometryBasis}. Port-approach
         weather only; clearance, berth confirmation and whole-route safety are

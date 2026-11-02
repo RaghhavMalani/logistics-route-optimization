@@ -10,7 +10,7 @@ export function FrozenWeatherBasis({
   const first = evidence.consumedForecasts[0];
   return (
     <div
-      className="min-w-0 space-y-1 border-b border-[var(--line)] px-2 py-2 text-xs text-[var(--text-2)] [overflow-wrap:anywhere]"
+      className="pw-structured-evidence min-w-0 space-y-1 border-b border-[var(--line)] [overflow-wrap:anywhere]"
       data-testid="frozen-weather-basis"
     >
       <strong className="text-[var(--text)]">

@@ -22,7 +22,12 @@ export function Page({
   className?: string;
 }) {
   return (
-    <div className={cn("flex h-full min-h-0 flex-col bg-[var(--bg)]", className)}>
+    <div
+      className={cn(
+        "pw-page flex h-full min-h-0 flex-col bg-[var(--bg)]",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -40,7 +45,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex h-[46px] shrink-0 items-center gap-4 border-b border-[var(--line)] bg-[var(--panel)] px-4">
+    <header className="pw-page-header flex h-[46px] shrink-0 items-center gap-4 border-b border-[var(--line)] bg-[var(--panel)] px-4">
       <div className="flex min-w-0 items-baseline gap-3">
         <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em] text-[var(--text)]">
           {title}
@@ -57,7 +62,9 @@ export function PageHeader({
         </div>
       ) : null}
       {actions ? (
-        <div className={cn("flex shrink-0 items-center gap-2", !meta && "ml-auto")}>
+        <div
+          className={cn("flex shrink-0 items-center gap-2", !meta && "ml-auto")}
+        >
           {actions}
         </div>
       ) : null}
@@ -78,7 +85,7 @@ export function PageBody({
   return (
     <div
       className={cn(
-        "min-h-0 flex-1 overflow-auto",
+        "pw-page-body min-h-0 flex-1 overflow-auto",
         padded && "p-3",
         className,
       )}
@@ -113,7 +120,10 @@ export function Panel({
   return (
     <section
       data-testid={testId}
-      className={cn("panel flex min-h-0 min-w-0 flex-col overflow-hidden", className)}
+      className={cn(
+        "pw-panel panel flex min-h-0 min-w-0 flex-col overflow-hidden",
+        className,
+      )}
     >
       {title ? (
         <div className="panel-head">
@@ -150,10 +160,16 @@ export function Section({
   className?: string;
 }) {
   return (
-    <div className={cn("border-b border-[var(--line)] last:border-0", className)}>
+    <div
+      className={cn("border-b border-[var(--line)] last:border-0", className)}
+    >
       <div className="flex h-[26px] items-center justify-between gap-2 px-3">
         <span className="eyebrow truncate">{title}</span>
-        {right ? <span className="shrink-0 text-[10px] text-[var(--text-3)]">{right}</span> : null}
+        {right ? (
+          <span className="shrink-0 text-[10px] text-[var(--text-3)]">
+            {right}
+          </span>
+        ) : null}
       </div>
       <div className="px-3 pb-3">{children}</div>
     </div>
@@ -189,7 +205,10 @@ export function StatStrip({
       style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
     >
       {items.map((item) => (
-        <div key={item.label} className={cn("min-w-0", size === "lg" ? "px-4 py-2.5" : "px-3 py-2")}>
+        <div
+          key={item.label}
+          className={cn("min-w-0", size === "lg" ? "px-4 py-2.5" : "px-3 py-2")}
+        >
           <div className="eyebrow truncate">{item.label}</div>
           <div className="mt-1 flex items-baseline gap-1">
             <span
@@ -199,11 +218,15 @@ export function StatStrip({
               {item.value}
             </span>
             {item.unit ? (
-              <span className="text-[11px] text-[var(--text-3)]">{item.unit}</span>
+              <span className="text-[11px] text-[var(--text-3)]">
+                {item.unit}
+              </span>
             ) : null}
           </div>
           {item.note ? (
-            <div className="mt-0.5 truncate text-[11px] text-[var(--text-3)]">{item.note}</div>
+            <div className="mt-0.5 truncate text-[11px] text-[var(--text-3)]">
+              {item.note}
+            </div>
           ) : null}
         </div>
       ))}
@@ -212,28 +235,34 @@ export function StatStrip({
 }
 
 /** A compact figure for use inside a panel body. */
-export function Stat({
-  label,
-  value,
-  unit,
-  tone,
-  note,
-}: StatItem) {
+export function Stat({ label, value, unit, tone, note }: StatItem) {
   return (
     <div className="min-w-0">
       <div className="eyebrow truncate">{label}</div>
       <div className="mt-0.5 flex items-baseline gap-1">
-        <span className={cn("metric-lg", tone && TONE_TEXT[tone])}>{value}</span>
-        {unit ? <span className="text-[11px] text-[var(--text-3)]">{unit}</span> : null}
+        <span className={cn("metric-lg", tone && TONE_TEXT[tone])}>
+          {value}
+        </span>
+        {unit ? (
+          <span className="text-[11px] text-[var(--text-3)]">{unit}</span>
+        ) : null}
       </div>
-      {note ? <div className="truncate text-[11px] text-[var(--text-3)]">{note}</div> : null}
+      {note ? (
+        <div className="truncate text-[11px] text-[var(--text-3)]">{note}</div>
+      ) : null}
     </div>
   );
 }
 
 /* --------------------------------------------------------------- toolbar -- */
 
-export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
+export function Toolbar({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
@@ -313,7 +342,11 @@ export function SelectControl({
         )}
       >
         {options.map((option) => (
-          <option key={option.value} value={option.value} className="bg-[var(--panel-2)]">
+          <option
+            key={option.value}
+            value={option.value}
+            className="bg-[var(--panel-2)]"
+          >
             {option.label}
           </option>
         ))}

@@ -490,8 +490,58 @@ def get_client() -> AisStreamClient:
     global _CLIENT
     with _CLIENT_LOCK:
         if _CLIENT is None:
-            _CLIENT = AisStreamClient(on_observation=_fuse, recorder=_recorder_from_env())
+            boxes=None
+            configured=os.getenv('PORTWATCH_AIS_BOUNDING_BOXES')
+            if configured:
+                boxes=json.loads(configured)
+                if not isinstance(boxes,list) or not 1<=len(boxes)<=3: raise ValueError('Use one to three bounded AIS regions')
+                for box in boxes:
+                    if len(box)!=2 or any(len(p)!=2 for p in box): raise ValueError('AIS corners require latitude/longitude pairs')
+                    if any(not -90<=p[0]<=90 or not -180<=p[1]<=180 for p in box) or abs(box[0][0]-box[1][0])>10 or abs(box[0][1]-box[1][1])>10: raise ValueError('Local AIS regions must span at most ten degrees')
+            _CLIENT = AisStreamClient(on_observation=_fuse, recorder=_recorder_from_env(),bounding_boxes=boxes)
         return _CLIENT
+
+
+def public_observations(*,now=None,limit=500):
+    """Reviewed public-only DTO from this process's provider track store.
+
+    Deliberately separate from get_client's visitor-private simulation seam.
+    No fusion, identity resolver, fleet store, recorder path or key is exposed.
+    Reading this function never creates or starts a client.
+    """
+    import hashlib
+    moment=now or world_now()
+    client=_CLIENT
+    if client is None:
+        return {'generatedAt':moment.isoformat(),'count':0,'tracks':[],
+            'traffic':{'mode':UNAVAILABLE,'providerId':'aisstream','statement':'No running AIS provider. Configure an authorized server-side key and start the local provider profile.',
+                'health':None,'vessels':None,'availability':{'status':'UNAVAILABLE'}},'origin':'TRANSPONDER_OBSERVATION','freshness':'UNAVAILABLE','replayOf':None}
+    traffic=client.traffic_source(now=moment,replay_chosen=False)
+    replay=('ais-recording:'+hashlib.sha256(client.status.replay_of.encode()).hexdigest()) if client.status.replay_of else None
+    tracks=[]
+    if traffic['mode'] in (LIVE_AIS,AIS_STALE) or replay:
+        for track in client.store.tracks()[:limit]:
+            row=track.to_dict(now=moment,history=30)
+            if row['latest']:
+                fix=row['latest'];known=fix['provenance'].get('source_time_known',False)
+                fix['orderingTimestamp']=fix['sourceTimestamp']
+                if not known: fix['sourceTimestamp']=None
+                fix['rawRef']='ais-observation:'+hashlib.sha256(fix['rawRef'].encode()).hexdigest()
+                fix['provenance']={'source_time_known':known,'sourceTimeMeaning':'AISStream metadata timestamp, not an exact reconstructed transponder emission time' if known else 'Receipt used for ordering; full provider/transponder UTC unavailable'}
+            tracks.append(row)
+    if replay:
+        traffic['mode']=AIS_STALE
+        traffic['statement']='Recorded AIS observations; historical replay, never a current live stream.'
+    # Health is an explicit allowlist; transport error strings may echo credentials.
+    health=traffic.get('health') or {}
+    traffic['health']={key:health.get(key) for key in ('health','connectedAt','lastMessageAt','lastGoodObservationAt','lastGoodAgeSeconds','reconnectAttempts','messagesSeen','messagesConsumed','messagesRejected','coverage')}
+    traffic['health']['replayOf']=replay
+    traffic['replayOf']=replay
+    traffic['availability']={'status':'AVAILABLE' if tracks else 'UNAVAILABLE'}
+    traffic['regions']=client.bounding_boxes
+    return {'generatedAt':moment.isoformat(),'count':len(tracks),'tracks':tracks,'traffic':traffic,
+        'origin':'TRANSPONDER_OBSERVATION','freshness':'HISTORICAL' if replay else 'CURRENT' if traffic['mode']==LIVE_AIS else 'STALE' if tracks else 'CONNECTING' if client.status.health==CONNECTING else 'UNAVAILABLE',
+        'replayOf':replay,'limit':limit,'meaning':'Public transponder claims only. No fleet ownership, completeness or certified position is inferred.'}
 
 
 #: Where raw envelopes are appended, when set. Bounded in memory regardless.

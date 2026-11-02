@@ -19,6 +19,7 @@ from backend.app.routes import (
     agents,
     auth,
     company,
+    commercial,
     decisions,
     demo,
     demo_terminal,
@@ -74,6 +75,8 @@ async def lifespan(_: FastAPI):
     throttling = opt_out_of_power_throttling()
     app.state.power_throttling = throttling
     log.info("power throttling opt-out: %s (%s)", throttling["applied"], throttling["reason"])
+    from src.portwatch_os.deployment_artifact import current as verify_image_source
+    app.state.source_artifact=verify_image_source()
     mode, source, problem = resolve_mode(None)
     if problem:
         log.warning("licence mode %s by default: %s", mode, problem)
@@ -300,6 +303,7 @@ app.include_router(world.router, prefix="/api")
 # The decision intelligence engine, its financial twin and the historical
 # missions that score it. All deterministic; all on the world above.
 app.include_router(decisions.router, prefix="/api")
+app.include_router(commercial.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
 app.include_router(missions.router, prefix="/api")
 

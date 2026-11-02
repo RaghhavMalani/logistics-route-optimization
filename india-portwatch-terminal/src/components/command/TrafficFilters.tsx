@@ -10,6 +10,8 @@
  */
 
 import { useState } from "react";
+import { useTraffic } from "@/components/app/traffic-context";
+import { usePublicAis } from "@/services/public-ais";
 
 import type { LayerKey } from "@/components/map/basemap";
 import { legendStops } from "@/components/map/weather-layers";
@@ -57,9 +59,48 @@ export function TrafficFilters({
 }) {
   const [showFields, setShowFields] = useState(false);
   const access = useMapPanelAccess();
+  const { dataView, setDataView } = useTraffic();
+  const publicAis = usePublicAis(dataView === "provider");
 
   const controls = (
     <>
+      <PanelSection title="Chart traffic basis">
+        <fieldset className="pw-chart-basis">
+          <legend className="sr-only">Choose a traffic view</legend>
+          <label>
+            <input
+              type="radio"
+              name="chart-traffic-view"
+              checked={dataView === "scenario"}
+              onChange={() => setDataView("scenario")}
+            />{" "}
+            Scenario · simulated ships
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="chart-traffic-view"
+              checked={dataView === "provider"}
+              onChange={() => setDataView("provider")}
+            />{" "}
+            Provider · transponder observations
+          </label>
+        </fieldset>
+        {dataView === "provider" ? (
+          <p className="pw-meta" role="status">
+            {publicAis.isError
+              ? "Public AIS unavailable; no generated substitute."
+              : publicAis.data
+                ? `${publicAis.data.freshness} · ${publicAis.data.count} retained observations. ${publicAis.data.traffic.statement}`
+                : "Connecting to retained public AIS status; no observations yet."}
+          </p>
+        ) : (
+          <p className="pw-meta">
+            Fictional demo fleet and generated traffic; not observed AIS. Public
+            weather/report context is separate.
+          </p>
+        )}
+      </PanelSection>
       <PanelSection
         title="Vessel class"
         right={
@@ -255,7 +296,7 @@ export function EnvironmentLegend({
             derived
           </Pill>
         ) : (
-          <Pill tone="ok">observed</Pill>
+          <Pill tone="unc">origin unknown</Pill>
         )}
       </div>
 
@@ -313,7 +354,7 @@ export function EnvironmentLegend({
           Storm cell
           {storms ? <span className="num">{storms}</span> : null}
         </span>
-        <span className="num">{covered} stations</span>
+        <span className="num">{covered} port grid points</span>
       </div>
 
       {workspace.layers.seastate ? (

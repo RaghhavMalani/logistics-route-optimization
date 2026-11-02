@@ -15,6 +15,7 @@ import { createReplaySource, type OwnedVesselSeed } from "./replay";
 import type { TrafficSource, TrafficSourceInfo } from "./traffic-types";
 
 export interface TrafficConfig {
+  view?: "provider" | "scenario";
   ports: PortSnapshot[];
   epoch: number;
   owned?: OwnedVesselSeed[];
@@ -57,6 +58,9 @@ export function configuredProvider(): string | null {
 }
 
 export function createTrafficSource(config: TrafficConfig): TrafficSource {
+  // Public provider observations use the separate scoped read DTO / observed
+  // layer. This view never falls through to generated replay when absent.
+  if (config.view === "provider") return unavailableSource(config.epoch);
   const provider = configuredProvider();
 
   if (provider && !config.demo) {

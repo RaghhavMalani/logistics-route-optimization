@@ -50,6 +50,8 @@ def require_current(problem):
     from src.portwatch_os.intelligence.current_environment import instant
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
+    from src.portwatch_os.decision.commercial import require_commercial_current
+    require_commercial_current(problem,scoped)
     env = connected_basis(problem)
     reason = None
     # wall-clock: continuation is a live-only approval action against actual receipt expiry.

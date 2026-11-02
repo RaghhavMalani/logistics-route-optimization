@@ -58,7 +58,9 @@ def _read_json_optional(path: Path, default: Any) -> Any:
 def artefact_age_seconds(path: Path) -> int | None:
     if not os.path.exists(path):
         return None
-    modified = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    from src.portwatch_os.deployment_artifact import retained_cache_time
+    retained=retained_cache_time(path)
+    modified = datetime.fromtimestamp(retained if retained is not None else path.stat().st_mtime, tz=timezone.utc)
     # wall-clock: how old a file is on disk is a fact about the real present
     return max(0, int((wall_now() - modified).total_seconds()))
 

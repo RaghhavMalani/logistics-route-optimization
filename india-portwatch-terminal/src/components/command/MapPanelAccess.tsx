@@ -82,7 +82,7 @@ export function MobileMapPanel({
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/60" />
         <Dialog.Content
           data-testid={`mobile-map-${panel}`}
-          className="fixed inset-x-3 top-[8vh] bottom-[8vh] z-[101] flex min-w-0 flex-col rounded border border-[var(--line-strong)] bg-[var(--panel)] text-sm shadow-2xl"
+          className="pw-mobile-panel fixed inset-x-3 top-[8vh] bottom-[8vh] z-[101] flex min-w-0 flex-col rounded border border-[var(--line-strong)] bg-[var(--panel)] text-sm shadow-2xl"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             access.returnFocus();

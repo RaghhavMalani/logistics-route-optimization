@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./styles/operations.css";
 
 /**
  * India PortWatch — operations design system.
@@ -19,7 +20,9 @@
 
 @theme inline {
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono:
+    "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
 
   --radius-sm: 2px;
   --radius-md: 3px;
@@ -83,17 +86,20 @@
   /* ---------------------------------------------------------- surfaces -- */
   --bg: #071017;
   --bg-deep: #050c12;
-  --panel: #0e1821;
-  --panel-2: #101c26;
-  --panel-3: #14212c;
-  --panel-4: #1a2a36;
+  --panel: #0e1923;
+  --panel-2: #13222e;
+  --panel-3: #192c3a;
+  --panel-4: #21394a;
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+  --surface-3: var(--panel-3);
   --line: #1b2b38;
   --line-strong: #294050;
 
   /* ------------------------------------------------------------- text --- */
-  --text: #dde7ee;
-  --text-2: #9cb0c0;
-  --text-3: #6a8093;
+  --text: #e4edf4;
+  --text-2: #a9bfce;
+  --text-3: #7f9aac;
 
   /* ----------------------------------------------------------- status --- */
   --ok: #56b28d;
@@ -110,12 +116,12 @@
 
   /* ---------------------------------------------------------- geometry -- */
   --radius: 3px;
-  --nav-w: 196px;
-  --nav-w-compact: 46px;
+  --nav-w: 188px;
+  --nav-w-compact: 52px;
   /* Chrome is deliberately thin: this is a map product, and every pixel the
      shell keeps is a pixel of ocean the operator does not get. */
-  --topbar-h: 38px;
-  --status-h: 24px;
+  --topbar-h: 3.25rem;
+  --status-h: 1.75rem;
 
   /* map palette — a working nautical chart, not a satellite photograph */
   --sea: #061520;
@@ -150,8 +156,10 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow: hidden;
@@ -183,8 +191,8 @@
   }
 
   :focus-visible {
-    outline: 1px solid var(--info);
-    outline-offset: 1px;
+    outline: 2px solid var(--info);
+    outline-offset: 3px;
   }
 
   input,
@@ -334,7 +342,6 @@
     animation: none;
   }
 }
-
 
 /* ------------------------------------------------------------- scrubber -- */
 
