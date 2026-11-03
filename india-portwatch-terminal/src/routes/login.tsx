@@ -1,3 +1,5 @@
+import { BrandMark } from "@/components/miniature/BrandMark";
+import ports from "@/components/miniature/ports.generated.json";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useState, type FormEvent } from "react";
 
@@ -6,7 +8,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { PublicOnly } from "@/auth/guards";
 import { ROLE_PROFILE, ROLES, isRoleAllowed, type Role } from "@/auth/types";
 import { Button } from "@/components/kit/layout";
-import { Pill, formatUtc } from "@/components/kit/primitives";
+import { Pill } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +18,7 @@ interface LoginSearch {
 }
 
 export const Route = createFileRoute("/login")({
+  head: () => ({ meta: [{ title: "PortWatch X — Sign in" }] }),
   validateSearch: (search: Record<string, unknown>): LoginSearch =>
     typeof search.next === "string" ? { next: search.next } : {},
   component: () => (
@@ -84,6 +87,17 @@ function LoginScreen() {
       ? "Checking"
       : "Reachable";
 
+  const forecast = health.isError ? undefined : health.data;
+  const originAt = Date.parse(forecast?.forecastOrigin ?? "");
+  const originStatus = {
+    LIVE: "Current", CACHED_LIVE: "Cached", STALE: "Stale",
+    SYNTHETIC: "Synthetic", UNAVAILABLE: "Unavailable",
+  }[forecast?.forecastOriginStatus ?? "UNAVAILABLE"];
+  const targets = {
+    CURRENT_HORIZON: "Current horizon", PARTIAL_HORIZON: "Partial horizon",
+    EXPIRED: "Expired", UNAVAILABLE: "Unavailable",
+  }[forecast?.targetStatus ?? "UNAVAILABLE"];
+
   return (
     <div className="fixed inset-0 grid grid-cols-1 bg-[var(--bg)] lg:grid-cols-[1fr_minmax(420px,520px)]">
       {/* ------------------------------------------------------------ left -- */}
@@ -92,24 +106,7 @@ function LoginScreen() {
           <LoginMiniature />
         </Suspense>
         <div className="relative flex h-full flex-col justify-between p-10">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
-              <path
-                d="M12 2 L21 12 L12 22 L3 12 Z"
-                fill="none"
-                stroke="var(--info)"
-                strokeWidth="1.4"
-              />
-              <path
-                d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
-                fill="var(--info)"
-                opacity="0.85"
-              />
-            </svg>
-            <span className="text-[15px] font-semibold tracking-[0.08em] text-[var(--text)]">
-              PORTWATCH X
-            </span>
-          </div>
+          <div><BrandMark /></div>
 
           <div className="max-w-[410px] self-start border border-[var(--line)] bg-[var(--map-overlay)] p-5 shadow-[var(--shadow-floating)]">
             <p className="text-[17px] leading-snug text-[var(--text)]">
@@ -122,44 +119,14 @@ function LoginScreen() {
             </p>
           </div>
 
-          {/* The first two describe *this run*, so they appear only when the
-              service answered; the last two describe the system either way. */}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-3)]">
-            {health.data?.ports != null ? (
-              <span>{health.data.ports} ports</span>
-            ) : null}
-            {health.data?.horizonDays != null ? (
-              <span>{health.data.horizonDays}-day horizon</span>
-            ) : null}
-            <span>q10 / q50 / q90</span>
-            <span>Walk-forward validated</span>
-          </div>
+          <div />
         </div>
       </section>
 
       {/* ----------------------------------------------------------- right -- */}
       <section className="flex min-h-0 flex-col overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
         <div className="m-auto w-full max-w-[380px]">
-          <div className="lg:hidden">
-            <div className="mb-6 flex items-center gap-2.5">
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
-                <path
-                  d="M12 2 L21 12 L12 22 L3 12 Z"
-                  fill="none"
-                  stroke="var(--info)"
-                  strokeWidth="1.4"
-                />
-                <path
-                  d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
-                  fill="var(--info)"
-                  opacity="0.85"
-                />
-              </svg>
-              <span className="text-[13px] font-semibold tracking-[0.07em]">
-                PORTWATCH X
-              </span>
-            </div>
-          </div>
+          <div className="mb-6 lg:hidden"><BrandMark /></div>
 
           <h1 className="text-[15px] font-semibold text-[var(--text)]">
             Secure sign-in
@@ -307,7 +274,18 @@ function LoginScreen() {
               </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">
-                {formatUtc(health.data?.forecastOrigin ?? null)}
+                {Number.isFinite(originAt)
+                  ? `${new Date(originAt).toISOString().slice(0, 16).replace("T", " ")}Z · ${originStatus ?? "Unknown"}`
+                  : "Unavailable"}
+              </dd>
+              <dt className="text-[var(--text-3)]">Forecast targets</dt>
+              <dd className="num text-right text-[var(--text-2)]">
+                {targets}{forecast?.targetThrough && targets !== "Unavailable" ? ` · through ${forecast.targetThrough}` : ""}
+              </dd>
+              <dt className="text-[var(--text-3)]">Port coverage</dt>
+              <dd className="num text-right text-[var(--text-2)]">
+                {ports.length} registered
+                {forecast?.ports != null ? ` · ${forecast.ports} in forecast export` : ""}
               </dd>
               <dt className="text-[var(--text-3)]">Model</dt>
               <dd className="num text-right text-[var(--text-2)]">

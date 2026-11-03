@@ -4,7 +4,7 @@ export const Route = createFileRoute("/explore")({
   component: PublicWorkspace,
   head: () => ({
     meta: [
-      { title: "Explore shipping intelligence | PortWatch" },
+      { title: "PortWatch X — Explore" },
       {
         name: "description",
         content:

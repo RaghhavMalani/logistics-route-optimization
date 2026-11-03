@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/miniature/BrandMark";
 /**
  * The application shell: one thin top strip, one icon rail, one status line.
  *
@@ -134,24 +135,7 @@ function Menu({
 
 function Brand() {
   return (
-    <div className="pw-brand flex items-center gap-2">
-      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
-        <path
-          d="M12 2 L21 12 L12 22 L3 12 Z"
-          fill="none"
-          stroke="var(--info)"
-          strokeWidth="1.6"
-        />
-        <path
-          d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
-          fill="var(--info)"
-          opacity="0.85"
-        />
-      </svg>
-      <span className="text-[12px] font-semibold tracking-[0.05em] text-[var(--text)]">
-        INDIA PORTWATCH
-      </span>
-    </div>
+    <div className="pw-brand"><BrandMark /></div>
   );
 }
 
@@ -599,6 +583,12 @@ function WorldClockChip() {
 
 function Chrome({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(true);
+  const { role, profile } = useWorkspace();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const pageTitle = activeNavItem(NAVIGATION[role], pathname)?.label ?? profile.label;
+  useEffect(() => {
+    document.title = `PortWatch X — ${pageTitle}`;
+  }, [pageTitle]);
 
   // The rail costs horizontal pixels the chart wants. It opens on the widest
   // screens and stays as icons everywhere else; the labels are one click away.

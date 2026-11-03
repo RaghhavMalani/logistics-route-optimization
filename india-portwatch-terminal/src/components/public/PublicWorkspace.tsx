@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/miniature/BrandMark";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -259,10 +260,7 @@ export function PublicWorkspace({ embedded = false }: { embedded?: boolean }) {
       </a>
       <header className="workspace-header">
         <Link to="/explore" className="workspace-brand">
-          ↗{" "}
-          <strong>
-            PortWatch <span>X</span>
-          </strong>
+          <BrandMark />
           <small>Global shipping intelligence</small>
         </Link>
         <nav aria-label="Public navigation">

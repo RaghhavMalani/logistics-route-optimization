@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/miniature/BrandMark";
 import {
   lazy,
   Suspense,
@@ -151,7 +152,7 @@ export default function TourPage() {
           }}
           aria-label="PortWatch X, back to start"
         >
-          PortWatch <i>X</i>
+          <BrandMark />
         </a>
         <nav aria-label="Project">
           <Link to="/explore">Global intelligence</Link>

@@ -87,14 +87,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       meta: [
         { charSet: "utf-8" },
         { name: "viewport", content: "width=device-width, initial-scale=1" },
-        { title: "India PortWatch — Maritime Operations Intelligence" },
+        { title: "PortWatch X — Maritime Operations Intelligence" },
         {
           name: "description",
           content:
             "Predictive maritime digital twin and operations intelligence for Indian ports: national command radar, port digital twin, vessel routing, forecasting and provenance.",
         },
-        { name: "author", content: "India PortWatch" },
-        { property: "og:title", content: "India PortWatch" },
+        { name: "author", content: "PortWatch X" },
+        { property: "og:title", content: "PortWatch X" },
         {
           property: "og:description",
           content:

@@ -20,7 +20,8 @@ export function createMiniatureMaterials() {
     ballast: mat(COLORS.ballast),
     rail: mat(COLORS.rail),
     glass: mat(COLORS.glass, { roughness: 0.5 }),
-    sea: mat(COLORS.modelSea, { roughness: 0.6 }),
+    // A chart-like water plane keeps its slate colour in both miniature cameras.
+    sea: new T.MeshBasicMaterial({ color: COLORS.modelSea }),
     tree1: mat(COLORS.tree1, { flatShading: true }),
     tree2: mat(COLORS.tree2, { flatShading: true }),
     hill: mat(COLORS.hill, { flatShading: true }),

@@ -1,0 +1,80 @@
+[
+  {
+    "code": "INIXY",
+    "name": "Deendayal (Kandla)",
+    "lat": 23.02,
+    "lon": 70.22
+  },
+  {
+    "code": "INMUN",
+    "name": "Mundra",
+    "lat": 22.74,
+    "lon": 69.7
+  },
+  {
+    "code": "INNSA",
+    "name": "JNPA / Nhava Sheva",
+    "lat": 18.95,
+    "lon": 72.95
+  },
+  {
+    "code": "INBOM",
+    "name": "Mumbai",
+    "lat": 18.96,
+    "lon": 72.84
+  },
+  {
+    "code": "INMRM",
+    "name": "Mormugao",
+    "lat": 15.4,
+    "lon": 73.8
+  },
+  {
+    "code": "INNML",
+    "name": "New Mangalore",
+    "lat": 12.92,
+    "lon": 74.8
+  },
+  {
+    "code": "INCOK",
+    "name": "Cochin (Vallarpadam)",
+    "lat": 9.97,
+    "lon": 76.27
+  },
+  {
+    "code": "INTUT",
+    "name": "V.O. Chidambaranar (Tuticorin)",
+    "lat": 8.75,
+    "lon": 78.2
+  },
+  {
+    "code": "INMAA",
+    "name": "Chennai",
+    "lat": 13.1,
+    "lon": 80.3
+  },
+  {
+    "code": "INENR",
+    "name": "Kamarajar (Ennore)",
+    "lat": 13.25,
+    "lon": 80.33
+  },
+  {
+    "code": "INVTZ",
+    "name": "Visakhapatnam",
+    "lat": 17.69,
+    "lon": 83.22
+  },
+  {
+    "code": "INPRT",
+    "name": "Paradip",
+    "lat": 20.26,
+    "lon": 86.67
+  },
+  {
+    "code": "INCCU",
+    "name": "Kolkata / Haldia",
+    "lat": 22.55,
+    "lon": 88.31
+  }
+]

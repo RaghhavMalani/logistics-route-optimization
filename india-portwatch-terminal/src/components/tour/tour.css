@@ -55,26 +55,7 @@
   border-bottom: 1px solid var(--line);
 }
 .pw-tour .mark {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  background: var(--signal-deep);
-  color: var(--on-signal);
   text-decoration: none;
-  padding: 6px 10px 5px;
-  font-weight: 760;
-  font-stretch: 82%;
-  letter-spacing: 0.01em;
-  font-size: 17px;
-  line-height: 1;
-}
-.pw-tour .mark i {
-  font-style: normal;
-  font-weight: 500;
-  font-stretch: 100%;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  opacity: 0.9;
 }
 .pw-tour .bar nav {
   display: flex;
