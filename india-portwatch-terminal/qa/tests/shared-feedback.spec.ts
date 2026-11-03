@@ -379,6 +379,7 @@ async function openFeedback(context: BrowserContext, page: Page) {
   await page
     .getByRole("button", { name: "Global intelligence", exact: true })
     .click();
+  await page.getByRole("tab", { name: "Learning", exact: true }).click();
   const panel = page.getByTestId("shared-feedback");
   await panel.locator(":scope > summary").click();
   await expect(panel.getByTestId("economic-result")).toBeVisible();
@@ -491,6 +492,9 @@ test("news exact assessment keeps applicability, lineage and owned voyage connec
     .click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0]).toMatchObject({ claimId: NEWS.id, vesselId: "PWD-002" });
+  await noOverflow(news);
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.getByText("News, economic signals and source-review tasks", { exact: true }).click();
   const tasks = page.getByTestId("intelligence-review-tasks");
   await tasks.locator(":scope > summary").click();
   await tasks.getByText(/PENDING_VERIFICATION ·/).click();
@@ -498,7 +502,6 @@ test("news exact assessment keeps applicability, lineage and owned voyage connec
     "Consumed source changed",
   );
   await expect(tasks).toContainText("zero real operational targets");
-  await noOverflow(news);
 });
 
 test("earlier as-of views hide later outcomes and confirmation while keeping exact pending reasons", async ({

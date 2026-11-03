@@ -32,7 +32,6 @@ import { TimeTransport } from "@/components/command/TimeTransport";
 import { EnvironmentLegend } from "@/components/command/TrafficFilters";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { Pill } from "@/components/kit/primitives";
-import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { cascadeLayers } from "@/lib/maritime/cascade-layers";
 import { cn } from "@/lib/utils";
@@ -398,19 +397,6 @@ export function GlobalEyeScreen({
     }
   }, [world.vesselId, world.portCode, world.chokepoint, affected, workspace]);
 
-  if (cascades.isLoading || cascades.isError) {
-    return (
-      <ScreenFallback
-        title={title}
-        context={<span>World events and their maritime consequence</span>}
-        isLoading={cascades.isLoading}
-        error={cascades.error}
-        retry={() => void cascades.refetch()}
-        label="Propagating world consequence"
-      />
-    );
-  }
-
   const totals = cascade.data?.totals ?? {};
   const selectedCascade = cascade.data;
   const lensDefinition = LENS_DEFINITIONS[lens];
@@ -576,11 +562,32 @@ export function GlobalEyeScreen({
               {/* ------------------------------------------- world events -- */}
               <FloatPanel
                 title="Live consequence"
-                note={<span className="num">{live.length}</span>}
+                note={
+                  <span className="num">
+                    {cascades.isError
+                      ? "Unavailable"
+                      : cascades.isLoading
+                        ? "Checking"
+                        : live.length}
+                  </span>
+                }
                 testId="cascade-register"
                 className="pointer-events-auto min-h-[168px] flex-1"
               >
-                {live.length === 0 ? (
+                {cascades.isError ? (
+                  <div role="status" className="space-y-2 p-2 text-xs">
+                    <p>Shipping consequence feed unavailable.</p>
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => void cascades.refetch()}
+                    >
+                      Retry consequence feed
+                    </button>
+                  </div>
+                ) : cascades.isLoading ? (
+                  <EmptyNote>Propagating world consequence…</EmptyNote>
+                ) : live.length === 0 ? (
                   <EmptyNote>
                     No event in the register propagates consequence at this
                     instant. Scrub back toward now to see live events.

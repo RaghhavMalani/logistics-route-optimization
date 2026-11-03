@@ -248,6 +248,19 @@ function IntelligenceContents({
         className="pw-section-tabs"
         role="tablist"
         aria-label="Intelligence view"
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          const tabs = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+          );
+          const index = tabs.findIndex((tab) => tab === event.target);
+          if (index < 0) return;
+          event.preventDefault();
+          const direction = event.key === "ArrowRight" ? 1 : -1;
+          const next = tabs[(index + direction + tabs.length) % tabs.length];
+          next?.focus();
+          next?.click();
+        }}
       >
         {(
           [
@@ -343,9 +356,19 @@ function IntelligenceContents({
           </Suspense>
         ) : null}
         {context.isError ? (
-          <p className="text-xs">
-            Context unavailable. The original map remains available.
-          </p>
+          <div className="space-y-2 text-xs">
+            <p role="alert">
+              Context unavailable. The original map remains available.{" "}
+              {context.error.message}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void context.refetch()}
+            >
+              Retry connection
+            </Button>
+          </div>
         ) : null}
         <div className="grid gap-3 mt-3 lg:grid-cols-2">
           <section className="border border-[var(--line)] p-3">

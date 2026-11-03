@@ -13,6 +13,7 @@ import {
 import { createBundledCableSource } from "gods-eye-view/layers/submarine-cables/source";
 import { useFixes, useTraffic } from "@/components/app/traffic-context";
 import { getJson } from "@/services/api";
+import { formatUtc } from "@/components/kit/primitives";
 import type { IntelligenceContext } from "@/services/intelligence";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import {
@@ -63,6 +64,7 @@ export default function ConnectedGodsEye({
   const trafficLabel = source.info.label;
   const [ready, setReady] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const [quakeReceipt, setQuakeReceipt] = useState<string | null>(null);
   const latest = useRef({ onPort, onEvent, onVessel });
   latest.current = { onPort, onEvent, onVessel };
   const satellites = useMemo(
@@ -153,15 +155,23 @@ export default function ConnectedGodsEye({
       createData({ defer }) {
         const v = viewer.current!;
         const source = createUsgsEarthquakeSource({
-          fetchImpl: async (_input, init) =>
-            new Response(
-              JSON.stringify(
-                await getJson("/intelligence/earthquakes", undefined, {
-                  signal: init?.signal as AbortSignal | undefined,
-                }),
-              ),
-              { status: 200, headers: { "Content-Type": "application/json" } },
-            ),
+          fetchImpl: async (_input, init) => {
+            const payload = await getJson<GeoJSON.FeatureCollection & {
+              portwatch?: { status?: string; fetchedAt?: string };
+            }>("/intelligence/earthquakes", undefined, {
+              signal: init?.signal as AbortSignal | undefined,
+            });
+            const receipt = payload.portwatch;
+            if (!stopped && Array.isArray(payload.features)) {
+              setQuakeReceipt(
+                `${payload.features.length} USGS events · ${receipt?.status ?? "status unknown"} snapshot · retrieved ${formatUtc(receipt?.fetchedAt)}`,
+              );
+            }
+            return new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          },
         });
         quakes.current = createEarthquakesLayer({
           source,
@@ -362,6 +372,7 @@ export default function ConnectedGodsEye({
       <p className="absolute top-2 left-2 bg-[var(--panel)]/90 p-1 text-[10px]">
         God’s Eye View · MIT · original traffic provider · {fixes.length}{" "}
         vessels · {trafficLabel}
+        {quake && quakeReceipt ? <span className="block">{quakeReceipt}</span> : null}
       </p>
     </div>
   );
