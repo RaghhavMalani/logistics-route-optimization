@@ -117,6 +117,6 @@ def test_changed_proposal_requires_new_review_and_bridge_assignment_is_enforced(
     advisory = client.post("/api/demo/advisories", headers=headers, json={}).json()
     store.switch(session["accessToken"], "VESSEL_OPERATOR")
     assert store.read(session["accessToken"])["selectedVessel"] == "PWD-001"
-    assert client.post(f"/api/demo/advisories/{advisory['id']}/ack", headers=headers, json={}).status_code == 403
+    assert client.post(f"/api/demo/advisories/{advisory['id']}/ack", headers=headers, json={}).status_code == 404
     assert client.post("/api/demo/scenario", headers=headers, json={"vesselId":"PWD-002"}).status_code == 404
     client.close()

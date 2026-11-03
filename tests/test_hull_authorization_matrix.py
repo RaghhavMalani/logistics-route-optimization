@@ -92,6 +92,10 @@ def test_demo_company_and_port_only_receive_their_hulls(tmp_path, monkeypatch):
     token = store.create("SHIPPING_COMPANY")["accessToken"]
     headers = {"Authorization": "Bearer " + token}
 
+    store.switch(token, "NATIONAL_ADMIN")
+    comparison = client.post("/api/demo/scenario", headers=headers, json={"vesselId": "PWD-002"}).json()
+    option = comparison["result"]["options"][0]["optionId"]
+
     def populate(world):
         world["fleet"][1].update(operatorOrganisation="Other Demo Carrier", portCode="INMAA")
         world["fleet"][2].update(portCode="INMAA")
@@ -109,4 +113,17 @@ def test_demo_company_and_port_only_receive_their_hulls(tmp_path, monkeypatch):
         assert detail.status_code == (200 if "PWD-002" in allowed else 404)
         workspace = client.get("/api/demo/workspace", headers=headers).json()["world"]
         assert {row["id"] for row in workspace["fleet"]} == allowed
+
+    # A comparison made in a broader role must not widen a later action.
+    store.switch(token, "SHIPPING_COMPANY")
+    response = client.post("/api/demo/proposal", headers=headers, json={
+        "comparisonId": comparison["id"], "optionId": option,
+    })
+    assert response.status_code == 404
+    store.switch(token, "PORT_AUTHORITY")
+    response = client.post("/api/demo/port-scenario", headers=headers, json={})
+    assert response.status_code == 200
+    assert response.json()["vesselIds"] == ["PWD-001"]
+    assert "PWD-002" not in response.text
+    assert "PWD-003" not in response.text
     client.close()
