@@ -69,6 +69,18 @@ export function DemonstrationScenarios({
   if (session?.mode !== "demo" || session.user.role !== "SHIPPING_COMPANY")
     return null;
   const chosen = q.data?.scenarios.find((s) => s.id === id);
+  const examples = [
+    ["S06", "Compare a reroute"],
+    ["S15", "Check missing weather"],
+    ["S16", "Rehearse a cargo handoff"],
+  ].filter(([code]) =>
+    q.data?.scenarios.some((scenario) => scenario.id === code),
+  );
+  function choose(code: string) {
+    setId(code);
+    setAck(false);
+    select.reset();
+  }
   const result = select.data;
   function exportResult() {
     const url = URL.createObjectURL(
@@ -81,29 +93,47 @@ export function DemonstrationScenarios({
     URL.revokeObjectURL(url);
   }
   return (
-    <details
-      className="mb-3 border border-[var(--line)] p-3"
+    <section
+      aria-label="Shipping demonstrations"
+      className="pw-company-scenarios"
       data-testid="demonstration-scenarios"
     >
-      <summary className="cursor-pointer">
-        Shipping demonstrations · explicit fictional inputs
-      </summary>
+      <p className="pw-company-scenario-kicker">Isolated demo</p>
+      <h3>Shipping scenarios</h3>
       <p className="my-2">
-        Presets begin a distinct owned demo call. Earlier evidence is retained.
-        The ordinary engines calculate the results; no real closure, booking,
-        observed outcome or safety benefit is asserted.
+        Start a fictional voyage and compare its options. Saved evidence stays
+        available, and scenario results stay outside real archives and scoring.
       </p>
+      {q.isPending ? (
+        <p role="status">Loading the scenario catalogue…</p>
+      ) : null}
+      {examples.length ? (
+        <div
+          className="pw-company-scenario-examples"
+          aria-label="Suggested scenarios"
+        >
+          {examples.map(([code, label]) => (
+            <Button
+              key={code}
+              size="sm"
+              variant="outline"
+              aria-pressed={id === code}
+              disabled={select.isPending}
+              onClick={() => choose(code)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       <label className="block">
-        Scenario{" "}
+        All scenarios{" "}
         <select
           aria-label="Shipping demonstration scenario"
           className="block w-full bg-[var(--panel)] p-2"
           value={id}
-          onChange={(e) => {
-            setId(e.target.value);
-            setAck(false);
-            select.reset();
-          }}
+          disabled={q.isPending || q.isError || select.isPending}
+          onChange={(e) => choose(e.target.value)}
         >
           <option value="">Select a scenario</option>
           {q.data?.scenarios.map((s) => (
@@ -124,17 +154,23 @@ export function DemonstrationScenarios({
           checked={ack}
           onChange={(e) => setAck(e.target.checked)}
         />
-        I explicitly select fictional voyage/source assumptions in my isolated
-        DEMO world. No source fixture enters real archives or scoring.
+        Use these fictional inputs in my isolated demo.
       </label>
       <Button
         size="sm"
         disabled={!id || !ack || select.isPending}
         onClick={() => select.mutate()}
       >
-        Calculate selected demonstration
+        {select.isPending ? "Calculating…" : "Calculate selected demonstration"}
       </Button>
-      {q.error && <p role="alert">{q.error.message}</p>}
+      {q.isError ? (
+        <div>
+          <p role="alert">Scenario catalogue unavailable.</p>
+          <Button variant="outline" size="sm" onClick={() => void q.refetch()}>
+            Retry catalogue
+          </Button>
+        </div>
+      ) : null}
       {select.error && <p role="alert">{select.error.message}</p>}
       {result && (
         <div className="mt-3 border-t border-[var(--line)] pt-2">
@@ -172,7 +208,7 @@ export function DemonstrationScenarios({
           )}
         </div>
       )}
-    </details>
+    </section>
   );
 }
 
@@ -192,7 +228,7 @@ export function DemonstrationBadge() {
   if (!q.data?.selection) return null;
   return (
     <div
-      className="pointer-events-none absolute left-3 top-12 z-20 max-w-[75%] rounded border border-amber-500/60 bg-[var(--panel)] px-2 py-1 text-[10px] text-amber-200"
+      className="pointer-events-none absolute left-3 top-12 z-20 max-w-[75%] rounded border border-amber-500/60 bg-[var(--panel)] px-2 py-1 text-[10px] font-semibold text-[var(--text)]"
       data-testid="illustrative-scenario-badge"
     >
       {q.data.selection.id} · ILLUSTRATIVE INPUTS · fictional call, not observed

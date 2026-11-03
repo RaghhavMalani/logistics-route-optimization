@@ -25,6 +25,7 @@ import { AlertTriangle, ArrowUpRight, Ship } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Link } from "@tanstack/react-router";
+import { useAuth } from "@/auth/AuthProvider";
 
 import { useWorkspace } from "@/auth/AuthProvider";
 import { AgentConsole } from "@/components/agent/AgentConsole";
@@ -202,7 +203,7 @@ function FleetCommand() {
   const [tab, setTab] = useState<"action" | "fleet" | "ports">("action");
   const fixes = useFixes(1);
 
-  const vessels = fleet.data?.vessels ?? [];
+  const vessels = useMemo(() => fleet.data?.vessels ?? [], [fleet.data]);
   const actionRequired = risk.data?.actionRequired ?? [];
   const monitorOnly = risk.data?.monitorOnly ?? [];
 
@@ -238,6 +239,7 @@ function FleetCommand() {
   // Hoisted above the loading early-return. Called from inside the JSX it sat
   // after that return, so the loading render and the loaded render disagreed on
   // how many hooks had run.
+  const { session } = useAuth();
   const ownedIds = useMemo(
     () => new Set(fixes.filter((fix) => fix.owned).map((fix) => fix.id)),
     [fixes],
@@ -308,6 +310,20 @@ function FleetCommand() {
 
             {/* --------------------------------------------------- right -- */}
             <div className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
+              <nav
+                className="pw-company-overview-actions"
+                aria-label="Fleet planning tools"
+              >
+                <Link to="/company/global-eye">Fleet intelligence</Link>
+                {session?.mode === "demo" ? (
+                  <Link
+                    to="/company/global-eye"
+                    hash="intelligence-review-scenarios"
+                  >
+                    Scenarios
+                  </Link>
+                ) : null}
+              </nav>
               <CompanyIntelligenceQueue />
               <ObservedSelection
                 workspace={workspace}
@@ -317,7 +333,11 @@ function FleetCommand() {
                 title={fleet.data?.companyName ?? "Fleet"}
                 note={
                   <span className="num">
-                    {risk.data?.vesselsExposed ?? 0}/{vessels.length} exposed
+                    {risk.data
+                      ? `${risk.data.vesselsExposed}/${vessels.length} exposed`
+                      : risk.isError
+                        ? "Exposure unavailable"
+                        : "Checking exposure"}
                   </span>
                 }
                 className="min-h-0 flex-1"
