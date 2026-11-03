@@ -9,6 +9,7 @@ route here.
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
@@ -35,6 +36,25 @@ from src.portwatch_os.ledger.store import get_ledger
 from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
+
+_OPERATIONAL_HULL_FIELDS = frozenset({"vessel_id", "name", "imo", "vessel_class", "loa_m", "beam_m",
+                                      "draught_m", "service_speed_kn", "flag", "origin_port",
+                                      "destination_port", "lane_code", "laneName", "eta",
+                                      "hours_to_chokepoint", "position_source", "lat", "lon"})
+
+
+def configured_fleet() -> bool:
+    return bool(os.getenv("PORTWATCH_FLEET_PROVIDER"))
+
+
+def _fleet_row(vessel):
+    from backend.app.identity import current_identity
+
+    row = vessel.to_dict()
+    identity = current_identity.get()
+    if identity and identity.verified and identity.role in ("VESSEL_OPERATOR", "PORT_AUTHORITY"):
+        return {key: value for key, value in row.items() if key in _OPERATIONAL_HULL_FIELDS}
+    return row
 
 
 @router.get("/company/decision-triage")
@@ -101,12 +121,32 @@ def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile
         from backend.app.services.demo_terminal import company_for
         return company_for(scoped.world)
     provider_path = os.getenv("PORTWATCH_FLEET_PROVIDER")
-    if provider_path and os.path.exists(provider_path):
+    if provider_path:
+        from backend.app.identity import current_identity, may_see_vessel
+
+        identity = current_identity.get()
+        if identity is None or not identity.verified:
+            return None
         try:
             stamp = os.path.getmtime(provider_path)
         except OSError:
-            stamp = None
-        return _from_provider_file(company_id, provider_path, stamp)
+            return None
+        profile = _from_provider_file(company_id, provider_path, stamp)
+        if profile is None or identity.is_admin:
+            return profile
+        vessels = [
+            vessel for vessel in profile.vessels
+            if may_see_vessel(
+                identity, vessel_id=vessel.vessel_id,
+                operator_organisation=profile.company_id,
+                destination_port=vessel.destination_port,
+            )
+        ]
+        if identity.role == "SHIPPING_COMPANY" and identity.organisation and (
+            identity.organisation.strip().casefold() == profile.company_id.strip().casefold()
+        ):
+            return profile
+        return replace(profile, home_ports=[], vessels=vessels) if vessels else None
 
     if company_id and company_id != DEMO_COMPANY_ID:
         return None
@@ -150,6 +190,8 @@ def _epoch_ms() -> int:
 def _require(company_id: Optional[str]) -> CompanyProfile:
     profile = resolve_company(company_id)
     if profile is None:
+        if configured_fleet():
+            raise HTTPException(404, "Fleet is unavailable in this workspace")
         raise HTTPException(
             status_code=404,
             detail=(
@@ -189,7 +231,7 @@ def _events():
 @router.get("/company")
 def company_profile(company_id: Optional[str] = None) -> Dict[str, Any]:
     profile = _require(company_id)
-    return profile.to_dict()
+    return {**profile.to_dict(), "vessels": [_fleet_row(v) for v in profile.vessels]}
 
 
 @router.get("/company/fleet")
@@ -201,7 +243,7 @@ def company_fleet(company_id: Optional[str] = None) -> Dict[str, Any]:
         "verified": profile.verified,
         "positionSource": profile.position_source,
         "disclaimer": profile.disclaimer,
-        "vessels": [v.to_dict() for v in profile.vessels],
+        "vessels": [_fleet_row(v) for v in profile.vessels],
         "lanes": [
             {"code": lane.code, "name": lane.name,
              "chokepoints": list(lane.chokepoints),
@@ -308,7 +350,7 @@ def company_vessel(vessel_id: str, company_id: Optional[str] = None) -> Dict[str
 
     lane = TRADE_LANES.get(vessel.lane_code or "")
     return {
-        "vessel": vessel.to_dict(),
+        "vessel": _fleet_row(vessel),
         "companyId": profile.company_id,
         "companyName": profile.name,
         "lane": (
@@ -388,7 +430,11 @@ def company_cargo(
     from backend.app.routes.port_twin import build_state_for
     from src.portwatch_os.cargo.model import CARGO_DISCLAIMER, demo_manifest, zones_from_state
     from src.portwatch_os.cargo.optimizer import opportunities
+    from backend.app.identity import current_identity
 
+    identity = current_identity.get()
+    if configured_fleet() and identity and identity.verified and identity.role not in ("SHIPPING_COMPANY", "NATIONAL_ADMIN"):
+        raise HTTPException(403, "Carrier cargo planning requires Company scope")
     profile = _require(company_id)
     state = build_state_for(port_code)
     manifest = [s for s in demo_manifest(port_code) if s.inbound_vessel_id]

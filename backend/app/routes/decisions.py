@@ -25,7 +25,9 @@ from typing import Any, Dict, List, Optional
 from src.portwatch_os.decision.continuation import connected_basis
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
-from backend.app.identity import Identity, identity_from_headers, may_see_decision, resolve_role
+from backend.app.identity import (
+    Identity, current_identity, identity_from_headers, may_see_decision, resolve_role, verified_scope_key,
+)
 from backend.app.routes.world import _at, _event_or_404, _mode, _scope, _world_build
 from src.portwatch_os.decision.actions import CATALOGUE, SHIFT_ARRIVAL_SLOT
 from src.portwatch_os.decision.critic import DecisionCritic
@@ -338,13 +340,19 @@ def create_problem(
 
 
 def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProblem:
+    from backend.app.routes.company import configured_fleet, resolve_company
+
     vessel_id = str(payload.get("vesselId") or "").strip()
     if not vessel_id:
         raise HTTPException(status_code=400, detail="vesselId is required for a vessel decision")
+    identity = current_identity.get()
+    if configured_fleet() and identity and identity.verified:
+        profile = resolve_company(payload.get("companyId"))
+        if profile is None or profile.vessel(vessel_id) is None:
+            raise HTTPException(404, "Voyage is unavailable in this workspace")
     if payload.get("currentArrival") is not None:
         from src.portwatch_os.sandbox import current_sandbox
         from src.portwatch_os.clock import get_clock, LIVE
-        from backend.app.routes.company import resolve_company
         from src.portwatch_os.decision.current_arrival import build_arrival_problem
         if current_sandbox.get() is None:
             raise HTTPException(403,"The current approach comparison is an isolated demo capability")
@@ -381,7 +389,7 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
             raise HTTPException(status_code=400, detail=f"vessel assumption {name} must be positive")
         attributes[str(name)] = number
     if branch_id:
-        held = get_registry().get(str(branch_id))
+        held = get_registry().get(str(branch_id), owner=verified_scope_key())
         if held is None:
             raise HTTPException(status_code=404, detail=f"no branch {branch_id}")
         seeds = dict(held.seeds)
@@ -469,7 +477,7 @@ def _port_problem(engine, payload, actor, moment, basis, mode, header_port) -> D
 
 
 def _cargo_problem(engine, payload, actor, moment, basis, mode, header_port) -> DecisionProblem:
-    from backend.app.routes.company import resolve_company
+    from backend.app.routes.company import configured_fleet, resolve_company
     from backend.app.routes.port_twin import build_state_for
     from src.portwatch_os.cargo.model import demo_manifest, zones_from_state
     from src.portwatch_os.fleet.company import capacities_for
@@ -477,6 +485,9 @@ def _cargo_problem(engine, payload, actor, moment, basis, mode, header_port) -> 
     port_code = str(payload.get("portCode") or header_port or "").strip().upper()
     if not port_code:
         raise HTTPException(status_code=400, detail="portCode is required for a cargo decision")
+    identity = current_identity.get()
+    if configured_fleet() and identity and identity.verified and identity.role not in ("SHIPPING_COMPANY", "NATIONAL_ADMIN"):
+        raise HTTPException(403, "Carrier cargo planning requires Company scope")
     profile = resolve_company(payload.get("companyId"))
     if profile is None:
         raise HTTPException(status_code=404, detail="no company account to read capacities from")

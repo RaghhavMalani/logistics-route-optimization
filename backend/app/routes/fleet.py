@@ -35,4 +35,16 @@ def fleet() -> list[dict]:
                  "recommendation": "Fictional itinerary; compare options before proposing a change.",
                  "originDate": scoped.world["epoch"], "source": "SIMULATED_TRAFFIC"}
                 for v in vessels]
-    return cache.get_fleet()
+    from backend.app.routes.company import configured_fleet, resolve_company
+    if not configured_fleet():
+        return cache.get_fleet()
+    profile = resolve_company()
+    if profile is None:
+        return []
+    allowed = set(profile.vessel_ids())
+    fields = {"id", "name", "intendedPortCode", "originPortCode", "recommendedPortCode",
+              "oneWay", "reroute", "intendedArrivalDay", "bestArrivalDay", "etaDeltaHours",
+              "riskDelta", "portWaitDeltaHours", "bufferHours", "diversionKm", "originDate", "source"}
+    return [{key: value for key, value in row.items()
+             if key in fields and (value is None or isinstance(value, (str, int, float, bool)))}
+            for row in cache.get_fleet() if row.get("id") in allowed]

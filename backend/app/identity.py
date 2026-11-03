@@ -9,6 +9,7 @@ verified session. Authentication uses wall time independently of replay.
 
 from __future__ import annotations
 
+import json
 import os
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -31,6 +32,14 @@ REQUIRED = "required"
 VERIFIED = "verified"
 IDENTITY_MODES: Tuple[str, ...] = (ASSERTED, REQUIRED, VERIFIED)
 current_identity: ContextVar[Optional["Identity"]] = ContextVar("verified_identity", default=None)
+
+
+def verified_scope_key() -> Optional[str]:
+    identity = current_identity.get()
+    if identity is None or not identity.verified:
+        return None
+    return json.dumps([identity.actor, identity.role, identity.organisation, identity.port_code,
+                       sorted(identity.port_codes), sorted(identity.vessel_ids)], separators=(",", ":"))
 
 
 def identity_mode() -> str:
@@ -155,6 +164,22 @@ def require_verified() -> Identity:
 
 def _same(a: Optional[str], b: Optional[str]) -> bool:
     return bool(a) and bool(b) and a.strip().casefold() == b.strip().casefold()
+
+
+def may_see_vessel(identity: Optional[Identity], *, vessel_id: str,
+                   operator_organisation: str, destination_port: Optional[str]) -> bool:
+    """Authorize a configured hull using verified server-owned membership."""
+    if identity is None or not identity.verified:
+        return False
+    if identity.is_admin:
+        return True
+    if identity.role == SHIPPING_COMPANY:
+        return _same(identity.organisation, operator_organisation)
+    if identity.role == VESSEL_OPERATOR:
+        return _same(identity.organisation, operator_organisation) and vessel_id in identity.vessel_ids
+    if identity.role == PORT_AUTHORITY:
+        return bool(destination_port) and destination_port in (*identity.port_codes, identity.port_code)
+    return False
 
 
 def may_see_decision(identity: Identity, actor: dict, subject: dict, domain: str) -> bool:
