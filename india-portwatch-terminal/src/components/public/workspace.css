@@ -35,7 +35,7 @@
   outline: 2px solid var(--ws-accent);
 }
 .public-workspace a {
-  color: #a9dfd0;
+  color: var(--text-2);
   text-decoration: none;
 }
 .public-workspace a:hover {
@@ -44,13 +44,13 @@
 .public-workspace button {
   cursor: pointer;
   border: 1px solid var(--ws-line);
-  background: #172834;
+  background: var(--panel-2);
   border-radius: 3px;
   padding: 9px 12px;
   text-align: left;
 }
 .public-workspace button:hover {
-  background: #203747;
+  background: var(--panel-2);
 }
 .public-workspace button:disabled {
   opacity: 0.5;
@@ -59,15 +59,15 @@
 .public-workspace input:not([type="checkbox"]):not([type="range"]),
 .public-workspace select {
   width: 100%;
-  border: 1px solid #354b5b;
-  background: #0c1924;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
   border-radius: 3px;
   padding: 8px;
   margin-top: 5px;
   min-height: 38px;
 }
 .public-workspace input[type="checkbox"] {
-  accent-color: #efba72;
+  accent-color: var(--signal-ink);
   width: 16px;
   height: 16px;
 }
@@ -102,7 +102,7 @@
   top: -60px;
   left: 16px;
   padding: 12px;
-  background: #172834;
+  background: var(--panel-2);
   z-index: 100;
 }
 .workspace-skip:focus {
@@ -115,7 +115,7 @@
   align-items: center;
   padding: 0 24px;
   border-bottom: 1px solid var(--ws-line);
-  background: #0e1b25;
+  background: var(--panel);
 }
 .workspace-header .workspace-brand {
   display: flex;
@@ -225,7 +225,7 @@
   margin: 0 0 9px;
   display: block;
   padding: 11px;
-  background: #102330;
+  background: var(--panel);
 }
 .workspace-alerts > button strong {
   display: block;
@@ -241,7 +241,7 @@
 .workspace-alerts > button.selected,
 .workspace-option-list > button.selected {
   border-color: var(--ws-accent);
-  background: #28312e;
+  background: var(--panel-2);
 }
 .workspace-port-list > button {
   width: 100%;
@@ -253,13 +253,13 @@
   font-size: 12px;
 }
 .workspace-port-list > button[aria-pressed="true"] {
-  border-color: #74b5a3;
+  border-color: var(--line-strong);
 }
 .workspace-scene {
   position: relative;
   min-width: 0;
   overflow: hidden;
-  background: #08131d;
+  background: var(--panel);
 }
 .workspace-scene .intel-globe {
   position: absolute;
@@ -313,7 +313,7 @@
 }
 .workspace-scene-heading p {
   max-width: 440px;
-  color: #c3d4df;
+  color: var(--text-2);
 }
 .workspace-loading,
 .workspace-scene .intel-scene-message {
@@ -324,7 +324,7 @@
   right: 12%;
   text-align: center;
   padding: 22px;
-  background: #122330ef;
+  background: var(--map-overlay);
   border: 1px solid var(--ws-line);
 }
 .workspace-scene-legend {
@@ -337,7 +337,7 @@
   flex-wrap: wrap;
   pointer-events: none;
   font-size: 10px;
-  color: #a7bdcd;
+  color: var(--text-2);
   z-index: 2;
 }
 .workspace-scene-legend i {
@@ -346,7 +346,7 @@
   height: 6px;
   margin-right: 5px;
   border-radius: 50%;
-  background: #8bd5c2;
+  background: var(--ok-dim);
 }
 .workspace-scene-legend i.amber {
   background: var(--ws-accent);
@@ -358,9 +358,9 @@
   bottom: 174px;
 }
 .workspace-scene-actions button {
-  background: #e6b571;
-  color: #111e29;
-  border-color: #e6b571;
+  background: var(--panel-3);
+  color: var(--text);
+  border-color: var(--signal-ink);
   font-weight: 600;
 }
 .workspace-scene-actions p {
@@ -376,10 +376,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 5px 16px;
-  border: 1px solid #354959;
+  border: 1px solid var(--line-strong);
   border-radius: 4px;
   padding: 12px 16px;
-  background: #11212fee;
+  background: var(--map-overlay);
   backdrop-filter: blur(8px);
 }
 .workspace-time > span {
@@ -495,10 +495,10 @@
 }
 .public-workspace .workspace-primary {
   width: 100%;
-  background: #e6b571;
-  color: #13212a;
+  background: var(--panel-3);
+  color: var(--text);
   font-weight: 600;
-  border-color: #e6b571;
+  border-color: var(--signal-ink);
   text-align: center;
   margin-top: 10px;
 }
@@ -635,7 +635,7 @@
     border: 0;
     border-radius: 0;
     text-align: center;
-    background: #111e29;
+    background: var(--panel);
     font-size: 12px;
     color: var(--ws-muted);
   }
@@ -702,7 +702,7 @@
   right: 24px;
   bottom: 195px;
   font-size: 11px !important;
-  background: #132531e8 !important;
+  background: var(--map-overlay) !important;
 }
 /* Scene occupies the whole workspace. Panels are inspectable overlays. */
 @media (min-width: 801px) {
@@ -742,8 +742,8 @@
     bottom: 10px;
     width: 302px;
     z-index: 7;
-    border: 1px solid #304959;
-    background: #0e1d27f5;
+    border: 1px solid var(--line-strong);
+    background: var(--map-overlay);
   }
   .workspace-rail {
     display: none;
@@ -753,8 +753,8 @@
     bottom: 100px;
     width: 285px;
     z-index: 8;
-    border: 1px solid #304959;
-    background: #0e1d27f5;
+    border: 1px solid var(--line-strong);
+    background: var(--map-overlay);
     padding: 12px;
   }
   [data-signals-open="true"] .workspace-rail {
@@ -787,7 +787,7 @@
     font-size: 11px;
     max-width: 460px;
     margin-top: 4px;
-    background: #0b1c26db;
+    background: var(--map-overlay);
     padding: 3px 6px;
   }
   .workspace-scene-legend {
@@ -803,9 +803,9 @@
   }
   .workspace-scene-actions button {
     padding: 6px 9px;
-    background: #243d4b;
-    color: #dbe7ed;
-    border-color: #4f6b7b;
+    background: var(--panel-2);
+    color: var(--text);
+    border-color: var(--line-strong);
     font-size: 11px;
   }
   .workspace-scene-actions p {
@@ -894,11 +894,11 @@
   top: 100px;
   left: 12px;
   max-width: 450px;
-  background: #30291be8;
-  border: 1px solid #8a6b38;
+  background: var(--map-overlay);
+  border: 1px solid var(--line-strong);
   padding: 9px;
   font-size: 11px;
-  color: #e7d7b9;
+  color: var(--warn);
 }
 .workspace-embedded > .workspace-header {
   display: none;

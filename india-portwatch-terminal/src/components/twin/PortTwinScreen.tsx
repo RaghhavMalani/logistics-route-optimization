@@ -50,7 +50,7 @@ import {
   OVERLAYS,
   type TwinOverlay,
   type TwinSelection,
-} from "./PortTwinScene";
+} from "./twin-presentation";
 
 /** Three is 1.1 MB. It loads when this screen does, and not before. */
 const PortTwinScene = lazy(() =>
@@ -63,7 +63,7 @@ const HORIZONS = [0, 2, 6, 12, 24] as const;
 
 function SceneFallback({ label }: { label: string }) {
   return (
-    <div className="grid h-full w-full place-items-center bg-[#061420]">
+    <div className="grid h-full w-full place-items-center bg-[var(--bg)]">
       <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[var(--text-3)]">
         <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
         {label}
@@ -240,7 +240,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 className="h-[6px] w-[76px] rounded-[1px]"
                 style={{
                   background:
-                    "linear-gradient(90deg,#3f8f6b 0%,#c9a13a 50%,#c2564a 100%)",
+                    "linear-gradient(90deg,var(--ok) 0%,var(--warn) 50%,var(--crit) 100%)",
                 }}
               />
               <span className="text-[10px] text-[var(--text-3)]">high</span>

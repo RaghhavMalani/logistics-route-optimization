@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 import { useEffect, useRef, useState } from "react";
 import * as Cesium from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
@@ -66,7 +67,7 @@ const color = (value: string) => Cesium.Color.fromCssColorString(value);
 const glyph = (shape: string, fill: string) =>
   "data:image/svg+xml;charset=utf-8," +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="32" viewBox="0 0 28 32"><path d="${shape}" fill="${fill}" stroke="#071923" stroke-width="2"/></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="32" viewBox="0 0 28 32"><path d="${shape}" fill="${fill}" stroke=COLORS.sea stroke-width="2"/></svg>`,
   );
 
 export default function IntelligenceGlobe({
@@ -192,8 +193,10 @@ export default function IntelligenceGlobe({
         viewer.scene.globe.show = true;
         viewer.scene.globe.enableLighting = false;
         viewer.scene.globe.showGroundAtmosphere = false;
-        viewer.scene.globe.baseColor = color("#071923");
-        viewer.scene.backgroundColor = color("#07131c");
+        viewer.scene.globe.baseColor = color(COLORS.sea);
+        viewer.scene.backgroundColor = color(COLORS.paper);
+        if (viewer.scene.skyBox) viewer.scene.skyBox.show = false;
+        if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = false;
         viewer.scene.requestRenderMode = true;
         viewer.targetFrameRate = 30;
         defer(
@@ -291,9 +294,9 @@ export default function IntelligenceGlobe({
     const label = (text: string, selected: boolean, max = 1_700_000) => ({
       text,
       font: "12px sans-serif",
-      fillColor: color("#c6dbe7"),
+      fillColor: color(COLORS.text),
       showBackground: true,
-      backgroundColor: color("#091a24").withAlpha(0.85),
+      backgroundColor: color(COLORS.panel).withAlpha(0.85),
       pixelOffset: new Cesium.Cartesian2(12, -16),
       distanceDisplayCondition: new Cesium.DistanceDisplayCondition(
         0,
@@ -311,8 +314,8 @@ export default function IntelligenceGlobe({
         ),
         point: {
           pixelSize: p.code === portCode ? 12 : 6,
-          color: color(affectedPorts.includes(p.code) ? "#e5b45d" : "#80c4d5"),
-          outlineColor: color("#071923"),
+          color: color(affectedPorts.includes(p.code) ? COLORS.warn : COLORS.info),
+          outlineColor: color(COLORS.sea),
           outlineWidth: 2,
         },
         label: label(p.code.slice(2), p.code === portCode),
@@ -329,7 +332,7 @@ export default function IntelligenceGlobe({
             1000,
           ),
           billboard: {
-            image: glyph("M14 3L25 16L14 29L3 16Z", "#e5b45d"),
+            image: glyph("M14 3L25 16L14 29L3 16Z", COLORS.warn),
             width: e.eventId === eventId ? 20 : 11,
             height: e.eventId === eventId ? 22 : 13,
           },
@@ -348,9 +351,9 @@ export default function IntelligenceGlobe({
             arcType: Cesium.ArcType.GEODESIC,
             material: r.rejected
               ? new Cesium.PolylineDashMaterialProperty({
-                  color: color("#d05a4c"),
+                  color: color(COLORS.crit),
                 })
-              : color(r.selected ? "#efbc61" : "#4c9fcb").withAlpha(
+              : color(r.selected ? COLORS.action : COLORS.chart1).withAlpha(
                   r.selected ? 1 : 0.45,
                 ),
           },
@@ -363,7 +366,7 @@ export default function IntelligenceGlobe({
         billboard: {
           image: glyph(
             "M14 2L24 27L14 22L4 27Z",
-            ship.id === selectedVesselId ? "#ffcf73" : "#4c9fcb",
+            ship.id === selectedVesselId ? COLORS.action : COLORS.chart1,
           ),
           width: ship.id === selectedVesselId ? 24 : 16,
           height: ship.id === selectedVesselId ? 28 : 19,
@@ -383,7 +386,7 @@ export default function IntelligenceGlobe({
             m.kind === "weather"
               ? "M3 16Q8 6 14 16T25 16L25 23Q19 13 14 23T3 23Z"
               : "M14 3L25 25H3Z",
-            m.kind === "weather" ? "#719ed2" : "#ae94cc",
+            m.kind === "weather" ? COLORS.info : COLORS.unc,
           ),
           width: 13,
           height: 15,
@@ -399,7 +402,7 @@ export default function IntelligenceGlobe({
         name: c.name,
         position: Cesium.Cartesian3.fromDegrees(c.lon, c.lat, 300),
         billboard: {
-          image: glyph("M3 8H19V25H3ZM19 13L26 8V25L19 20Z", "#dbe5ec"),
+          image: glyph("M3 8H19V25H3ZM19 13L26 8V25L19 20Z", COLORS.modelInk),
           width: 13,
           height: 14,
         },

@@ -156,6 +156,8 @@ function createClock(epoch: number): {
 /* --------------------------------------------------------------- context -- */
 
 export interface TrafficContextValue {
+  colorByType: boolean;
+  setColorByType: (value: boolean) => void;
   dataView: "provider" | "scenario";
   setDataView: (view: "provider" | "scenario") => void;
   source: TrafficSource;
@@ -178,6 +180,7 @@ function resolveEpoch(origin: string | null | undefined): number {
 }
 
 export function TrafficProvider({ children }: { children: ReactNode }) {
+  const [colorByType, setColorByType] = useState(false);
   const [dataView, setDataView] = useState<"provider" | "scenario">("scenario");
   const { session } = useAuth();
   const { ports, query: portsQuery } = useEnrichedPorts();
@@ -323,12 +326,14 @@ export function TrafficProvider({ children }: { children: ReactNode }) {
       source,
       dataView,
       setDataView,
+      colorByType,
+      setColorByType,
       clock: clockRef.current!.clock,
       fixesAt,
       fixAt,
       ready: portsQuery.isSuccess,
     }),
-    [fixAt, fixesAt, portsQuery.isSuccess, source, dataView],
+    [fixAt, fixesAt, portsQuery.isSuccess, source, dataView, colorByType],
   );
 
   return (

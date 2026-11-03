@@ -1,8 +1,9 @@
 import * as T from "three";
+import { COLORS } from "./palette";
 /** Retuned for physically based r186; PCFSoftShadowMap was removed in r186. */
 export function createMiniatureLighting(scene: T.Scene, mobile: boolean) {
-  const hemi = new T.HemisphereLight(0xffffff, 0xc3cbc4, 3.3);
-  const sun = new T.DirectionalLight(0xfff6ea, 3.6);
+  const hemi = new T.HemisphereLight(COLORS.skyLight, COLORS.groundLight, 3.3);
+  const sun = new T.DirectionalLight(COLORS.sunWarm, 3.6);
   sun.castShadow = true;
   sun.shadow.mapSize.setScalar(mobile ? 1024 : 2048);
   sun.shadow.bias = -0.0004;

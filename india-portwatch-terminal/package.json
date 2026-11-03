@@ -8,7 +8,7 @@
     "build": "node qa/stop-preview.mjs && vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "node qa/sync-miniature-palette.mjs --check && eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:browser": "playwright test",

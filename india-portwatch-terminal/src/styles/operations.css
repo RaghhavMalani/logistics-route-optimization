@@ -7,7 +7,7 @@
 .pw-shell-header {
   gap: 1.25rem;
   padding-inline: 1rem;
-  box-shadow: 0 1px 0 #29405066;
+  box-shadow: 0 1px 0 var(--shadow-color);
   z-index: 50;
 }
 .pw-brand {
@@ -118,7 +118,7 @@
 }
 .pw-float-panel {
   border-radius: 6px;
-  box-shadow: 0 10px 32px #020b1280;
+  box-shadow: 0 10px 32px var(--shadow-color);
 }
 .pw-float-header {
   min-height: 2.5rem;
@@ -185,7 +185,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: 0 18px 48px #02080e80;
+  box-shadow: 0 18px 48px var(--shadow-color);
   outline: none;
 }
 .pw-dock[data-expanded="true"] {
@@ -304,7 +304,7 @@
 .pw-source-status[data-current="true"] {
   color: var(--ok);
   border-color: var(--ok-dim);
-  background: #16312966;
+  background: var(--ok-dim);
 }
 .pw-source-clocks {
   display: grid;
@@ -406,7 +406,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--panel);
-  box-shadow: 0 18px 48px #02080e90;
+  box-shadow: 0 18px 48px var(--shadow-color);
   outline: none;
 }
 .pw-worklist[data-expanded="true"] {
@@ -1036,7 +1036,7 @@
   background: var(--panel);
   color: var(--text-2);
   font-size: 0.75rem;
-  box-shadow: 0 4px 20px #020b1260;
+  box-shadow: 0 4px 20px var(--shadow-color);
 }
 .pw-action-rail[hidden] {
   display: none;
@@ -1357,7 +1357,7 @@
   left: 8px;
   z-index: 60;
   padding-inline: 4px;
-  background: #061520e8;
+  background: var(--map-overlay);
   font-size: 9px;
   line-height: 12px;
   color: var(--text-3);

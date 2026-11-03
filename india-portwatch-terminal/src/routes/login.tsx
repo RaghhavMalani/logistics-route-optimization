@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { lazy, Suspense, useState, type FormEvent } from "react";
 
 import { AUTH_MODE, DEMO_ROSTER } from "@/auth/adapters";
 import { useAuth } from "@/auth/AuthProvider";
@@ -25,86 +25,9 @@ export const Route = createFileRoute("/login")({
   ),
 });
 
-/**
- * A chart plate rather than an illustration: graticule, rhumb lines from a
- * compass rose, depth-contour furniture. It carries no measurement and claims
- * none -- it reads as the back of a navigation chart, which is the point.
- */
-function ChartPlate() {
-  const rhumb = Array.from({ length: 16 }, (_, i) => (i * 360) / 16);
-  return (
-    <svg
-      viewBox="0 0 600 600"
-      className="absolute inset-0 h-full w-full"
-      aria-hidden
-      preserveAspectRatio="xMidYMid slice"
-    >
-      <defs>
-        <radialGradient id="plate-vignette" cx="42%" cy="38%" r="72%">
-          <stop offset="0%" stopColor="#0d1c26" />
-          <stop offset="100%" stopColor="#060e14" />
-        </radialGradient>
-      </defs>
-      <rect width="600" height="600" fill="url(#plate-vignette)" />
-
-      {Array.from({ length: 13 }, (_, i) => i * 50).map((v) => (
-        <g key={v} stroke="#162a36" strokeWidth="0.6">
-          <line x1={v} y1="0" x2={v} y2="600" />
-          <line x1="0" y1={v} x2="600" y2={v} />
-        </g>
-      ))}
-
-      {rhumb.map((angle) => {
-        const rad = (angle * Math.PI) / 180;
-        return (
-          <line
-            key={angle}
-            x1={260}
-            y1={300}
-            x2={260 + Math.cos(rad) * 640}
-            y2={300 + Math.sin(rad) * 640}
-            stroke="#18303e"
-            strokeWidth={angle % 90 === 0 ? 0.9 : 0.5}
-          />
-        );
-      })}
-
-      {[70, 130, 200, 280].map((r) => (
-        <circle
-          key={r}
-          cx={260}
-          cy={300}
-          r={r}
-          fill="none"
-          stroke="#173040"
-          strokeWidth="0.6"
-          strokeDasharray={r % 2 === 0 ? "3 5" : undefined}
-        />
-      ))}
-
-      <circle cx={260} cy={300} r={3} fill="#2b6a86" />
-      <circle
-        cx={260}
-        cy={300}
-        r={9}
-        fill="none"
-        stroke="#2b6a86"
-        strokeWidth="0.9"
-      />
-
-      {/* Depth-contour motif — chart furniture, carrying no measurement. */}
-      {[0, 1, 2].map((index) => (
-        <path
-          key={index}
-          d={`M -20 ${430 + index * 54} C 120 ${390 + index * 54}, 220 ${470 + index * 54}, 340 ${412 + index * 54} S 540 ${360 + index * 54}, 640 ${400 + index * 54}`}
-          fill="none"
-          stroke="#152c39"
-          strokeWidth="0.8"
-        />
-      ))}
-    </svg>
-  );
-}
+const LoginMiniature = lazy(
+  () => import("@/components/miniature/LoginMiniature"),
+);
 
 function LoginScreen() {
   const { signIn, startDemo, mode, adapterDescription } = useAuth();
@@ -165,7 +88,9 @@ function LoginScreen() {
     <div className="fixed inset-0 grid grid-cols-1 bg-[var(--bg)] lg:grid-cols-[1fr_minmax(420px,520px)]">
       {/* ------------------------------------------------------------ left -- */}
       <section className="relative hidden overflow-hidden border-r border-[var(--line)] lg:block">
-        <ChartPlate />
+        <Suspense fallback={null}>
+          <LoginMiniature />
+        </Suspense>
         <div className="relative flex h-full flex-col justify-between p-10">
           <div className="flex items-center gap-3">
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
@@ -182,18 +107,18 @@ function LoginScreen() {
               />
             </svg>
             <span className="text-[15px] font-semibold tracking-[0.08em] text-[var(--text)]">
-              INDIA PORTWATCH
+              PORTWATCH X
             </span>
           </div>
 
-          <div className="max-w-[430px]">
+          <div className="max-w-[410px] self-start border border-[var(--line)] bg-[var(--map-overlay)] p-5 shadow-[var(--shadow-floating)]">
             <p className="text-[17px] leading-snug text-[var(--text)]">
-              Predictive maritime operations intelligence for Indian ports.
+              Maritime decisions for Indian ports.
             </p>
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-[var(--text-3)]">
-              Satellite-AIS port activity, marine weather and maritime events,
-              resolved into a ten-day forecast with calibrated uncertainty and a
-              bounded operational instruction per port.
+              Compare passage, berth and cargo plans with source-linked weather,
+              port activity and maritime intelligence. Data availability varies
+              by source.
             </p>
           </div>
 
@@ -213,8 +138,8 @@ function LoginScreen() {
       </section>
 
       {/* ----------------------------------------------------------- right -- */}
-      <section className="flex min-h-0 flex-col justify-center overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
-        <div className="mx-auto w-full max-w-[380px]">
+      <section className="flex min-h-0 flex-col overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
+        <div className="m-auto w-full max-w-[380px]">
           <div className="lg:hidden">
             <div className="mb-6 flex items-center gap-2.5">
               <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
@@ -231,7 +156,7 @@ function LoginScreen() {
                 />
               </svg>
               <span className="text-[13px] font-semibold tracking-[0.07em]">
-                INDIA PORTWATCH
+                PORTWATCH X
               </span>
             </div>
           </div>

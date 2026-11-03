@@ -1,3 +1,5 @@
+import { createMiniatureLighting } from "@/components/miniature/lighting";
+import { COLORS } from "@/components/miniature/palette";
 /**
  * The 3D port digital twin.
  *
@@ -25,28 +27,7 @@ import * as THREE from "three";
 
 import type { PortTwinState, TwinMetrics } from "@/types/portwatch-os";
 
-/** What the operator is colouring the scene by. */
-export type TwinOverlay =
-  | "utilisation"
-  | "dwell"
-  | "workload"
-  | "queue"
-  | "storage";
-
-export const OVERLAYS: Array<{ key: TwinOverlay; label: string; hint: string }> = [
-  { key: "utilisation", label: "Utilisation", hint: "Berth occupancy and yard fill" },
-  { key: "dwell", label: "Dwell", hint: "How long cargo has been sitting in each block" },
-  { key: "workload", label: "Crane workload", hint: "Working hours accrued per crane" },
-  { key: "queue", label: "Queue", hint: "Vessels waiting, and how long" },
-  { key: "storage", label: "Storage pressure", hint: "Yard and shed capacity headroom" },
-];
-
-export interface TwinSelection {
-  kind: "berth" | "yard" | "shed" | "crane" | "vessel" | "gate";
-  id: string;
-  label: string;
-  fields: Array<[string, string]>;
-}
+import type { TwinOverlay, TwinSelection } from "./twin-presentation";
 
 /* ------------------------------------------------------------------ ramp -- */
 
@@ -55,21 +36,21 @@ function pressureColour(value: number): THREE.Color {
   const v = Math.max(0, Math.min(1, value));
   if (v < 0.5) {
     return new THREE.Color().lerpColors(
-      new THREE.Color("#3f8f6b"),
-      new THREE.Color("#c9a13a"),
+      new THREE.Color(COLORS.ok),
+      new THREE.Color(COLORS.warn),
       v / 0.5,
     );
   }
   return new THREE.Color().lerpColors(
-    new THREE.Color("#c9a13a"),
-    new THREE.Color("#c2564a"),
+    new THREE.Color(COLORS.warn),
+    new THREE.Color(COLORS.crit),
     (v - 0.5) / 0.5,
   );
 }
 
-const WATER = new THREE.Color("#0a2733");
-const QUAY = new THREE.Color("#3d4750");
-const IDLE = new THREE.Color("#2f3d47");
+const WATER = new THREE.Color(COLORS.modelSea);
+const QUAY = new THREE.Color(COLORS.pave);
+const IDLE = new THREE.Color(COLORS.boxDark);
 
 /* ---------------------------------------------------------------- scene --- */
 
@@ -139,11 +120,11 @@ export function PortTwinScene({
     const height = mount.clientHeight || 500;
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(width, height);
-    renderer.setClearColor(new THREE.Color("#061420"));
+    renderer.setClearColor(new THREE.Color(COLORS.paper));
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x061420, 2200, 5200);
+    scene.fog = new THREE.Fog(COLORS.paper, 2200, 5200);
 
     const [extentX, extentY] = state.extentM;
 
@@ -191,13 +172,10 @@ export function PortTwinScene({
     );
     camera.lookAt(centreX, 0, centreZ);
 
-    scene.add(new THREE.AmbientLight(0xb8d4e4, 0.62));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.85);
-    sun.position.set(extentX * 0.4, 1600, -900);
-    scene.add(sun);
-    const fill = new THREE.DirectionalLight(0x6fa8c4, 0.35);
-    fill.position.set(-extentX * 0.3, 700, extentY);
-    scene.add(fill);
+    const lighting = createMiniatureLighting(scene, true);
+    lighting.sun.castShadow = false;
+    lighting.follow(new THREE.Vector3(centreX, 0, centreZ), extentX);
+    lighting.sun.intensity = 2.1;
 
     const pickables: Pickable[] = [];
     const disposables: Array<THREE.BufferGeometry | THREE.Material> = [];
@@ -238,7 +216,7 @@ export function PortTwinScene({
     // stops, and it is the reference every berth is read against.
     const edge = new THREE.Mesh(
       track(new THREE.BoxGeometry(spanX, 9, 5)),
-      track(new THREE.MeshStandardMaterial({ color: 0x7d8b96, roughness: 0.7 })),
+      track(new THREE.MeshStandardMaterial({ color: COLORS.modelWhite, roughness: 0.7 })),
     );
     edge.position.set(centreX, 5, -8);
     scene.add(edge);
@@ -247,7 +225,7 @@ export function PortTwinScene({
     // scale the eye can use.
     const bollard = track(new THREE.CylinderGeometry(3.5, 4.5, 11, 8));
     const bollardMaterial = track(
-      new THREE.MeshStandardMaterial({ color: 0x94a3ad, roughness: 0.6 }),
+      new THREE.MeshStandardMaterial({ color: COLORS.boxLight, roughness: 0.6 }),
     );
     for (const berth of state.berths) {
       for (const offset of [-berth.length_m * 0.35, 0, berth.length_m * 0.35]) {
@@ -295,7 +273,7 @@ export function PortTwinScene({
       if (berth.occupied_by) {
         const hull = new THREE.Mesh(
           track(new THREE.BoxGeometry(berth.length_m * 0.82, 30, 46)),
-          track(new THREE.MeshStandardMaterial({ color: 0x3d5c72, roughness: 0.65 })),
+          track(new THREE.MeshStandardMaterial({ color: COLORS.modelInk, roughness: 0.65 })),
         );
         hull.position.set(berth.x, 13, -42);
         scene.add(hull);
@@ -304,7 +282,7 @@ export function PortTwinScene({
         // glance where a bare hull reads as a barge.
         const boxGeometry = track(new THREE.BoxGeometry(24, 13, 13));
         const boxMaterial = track(
-          new THREE.MeshStandardMaterial({ color: 0x9a6f52, roughness: 0.85 }),
+          new THREE.MeshStandardMaterial({ color: COLORS.ballast, roughness: 0.85 }),
         );
         const bays = Math.max(3, Math.round(berth.length_m / 46));
         for (let bay = 0; bay < bays; bay += 1) {
@@ -321,7 +299,7 @@ export function PortTwinScene({
 
         const house = new THREE.Mesh(
           track(new THREE.BoxGeometry(34, 30, 40)),
-          track(new THREE.MeshStandardMaterial({ color: 0xa8c0cf, roughness: 0.55 })),
+          track(new THREE.MeshStandardMaterial({ color: COLORS.boxGrey, roughness: 0.55 })),
         );
         house.position.set(berth.x + berth.length_m * 0.32, 43, -42);
         scene.add(house);
@@ -332,7 +310,7 @@ export function PortTwinScene({
     for (const crane of state.cranes) {
       const group = new THREE.Group();
       const legMaterial = track(
-        new THREE.MeshStandardMaterial({ color: 0x8d9aa6, roughness: 0.6 }),
+        new THREE.MeshStandardMaterial({ color: COLORS.boxMid, roughness: 0.6 }),
       );
       for (const dx of [-16, 16]) {
         for (const dz of [-14, 14]) {
@@ -349,7 +327,7 @@ export function PortTwinScene({
       group.add(boom);
       const gantry = new THREE.Mesh(
         track(new THREE.BoxGeometry(40, 9, 34)),
-        track(new THREE.MeshStandardMaterial({ color: 0x6f7c88, roughness: 0.7 })),
+        track(new THREE.MeshStandardMaterial({ color: COLORS.rail, roughness: 0.7 })),
       );
       gantry.position.set(0, 84, 0);
       group.add(gantry);
@@ -411,7 +389,7 @@ export function PortTwinScene({
     for (const shed of state.sheds) {
       const mesh = new THREE.Mesh(
         track(new THREE.BoxGeometry(shed.width_m, 46, shed.depth_m)),
-        track(new THREE.MeshStandardMaterial({ color: 0x4c5b66, roughness: 0.9 })),
+        track(new THREE.MeshStandardMaterial({ color: COLORS.modelWhite, roughness: 0.9 })),
       );
       mesh.position.set(shed.x, 29, shed.y);
       mesh.userData.kind = "shed";
@@ -420,7 +398,7 @@ export function PortTwinScene({
 
       const roof = new THREE.Mesh(
         track(new THREE.ConeGeometry(shed.width_m * 0.62, 22, 4)),
-        track(new THREE.MeshStandardMaterial({ color: 0x5d6d79, roughness: 0.85 })),
+        track(new THREE.MeshStandardMaterial({ color: COLORS.panel3, roughness: 0.85 })),
       );
       roof.rotation.y = Math.PI / 4;
       roof.position.set(shed.x, 63, shed.y);
@@ -445,7 +423,7 @@ export function PortTwinScene({
     for (const gate of state.gates) {
       const mesh = new THREE.Mesh(
         track(new THREE.BoxGeometry(gate.lanes * 16, 22, 40)),
-        track(new THREE.MeshStandardMaterial({ color: 0x55636e, roughness: 0.9 })),
+        track(new THREE.MeshStandardMaterial({ color: COLORS.boxGrey, roughness: 0.9 })),
       );
       mesh.position.set(gate.x, 17, gate.y);
       scene.add(mesh);
@@ -465,7 +443,7 @@ export function PortTwinScene({
     }
 
     const vehicleMaterial = track(
-      new THREE.MeshStandardMaterial({ color: 0xd0a55c, roughness: 0.7 }),
+      new THREE.MeshStandardMaterial({ color: COLORS.warn, roughness: 0.7 }),
     );
     const vehicleGeometry = track(new THREE.BoxGeometry(18, 9, 9));
     for (const vehicle of state.vehicles) {
@@ -479,7 +457,7 @@ export function PortTwinScene({
     waiting.forEach((call, index) => {
       const hull = new THREE.Mesh(
         track(new THREE.BoxGeometry(call.loa_m * 0.72, 26, 38)),
-        track(new THREE.MeshStandardMaterial({ color: 0x7a5f52, roughness: 0.8 })),
+        track(new THREE.MeshStandardMaterial({ color: COLORS.ballast, roughness: 0.8 })),
       );
       // Ranked seaward in the order they will be served, so the anchorage
       // reads as a queue rather than as scatter. Far enough off the quay that
@@ -615,6 +593,7 @@ export function PortTwinScene({
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("mousemove", onMove);
       for (const item of disposables) item.dispose();
+      lighting.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) {
         mount.removeChild(renderer.domElement);
@@ -698,7 +677,7 @@ export function PortTwinScene({
         const material = child.material;
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
         material.color.copy(colour);
-        material.emissive.set(emphasised ? 0x2b6f9e : 0x000000);
+        material.emissive.set(emphasised ? COLORS.action : 0x000000);
         material.emissiveIntensity = emphasised ? 0.6 : 0;
         material.needsUpdate = true;
       });
@@ -707,7 +686,7 @@ export function PortTwinScene({
 
   if (failed) {
     return (
-      <div className="grid h-full w-full place-items-center bg-[#061420] p-6 text-center">
+      <div className="grid h-full w-full place-items-center bg-[var(--bg)] p-6 text-center">
         <div className="max-w-[380px]">
           <div className="mb-1 text-[12px] font-medium text-[var(--crit)]">
             3D renderer unavailable

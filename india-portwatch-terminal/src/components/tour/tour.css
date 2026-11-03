@@ -1,15 +1,9 @@
 .pw-tour {
-  --paper: #e7e9e5;
-  --card: #fbfbf8;
-  --ink: #16202a;
-  --ink-2: #4d5963;
-  --line: #cfd3cf;
-  --signal: #ee5a24;
-  --signal-deep: #c9461a;
-  --on-signal: #ffffff;
-  --font-display: "Archivo Miniature", "Helvetica Neue", Arial, sans-serif;
-  --font-mono:
-    "IBM Plex Mono Miniature", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --paper: var(--bg);
+  --card: var(--panel);
+  --ink: var(--text);
+  --ink-2: var(--text-2);
+  --font-display: var(--font-sans);
   --gutter-l: max(16px, env(safe-area-inset-left, 0px));
   --gutter-r: max(16px, env(safe-area-inset-right, 0px));
   color-scheme: light;
@@ -137,7 +131,7 @@
   width: min(440px, calc(100% - 48px));
   background: var(--card);
   border: 1px solid var(--line);
-  box-shadow: 0 18px 40px -24px rgba(22, 32, 42, 0.45);
+  box-shadow: 0 18px 40px -24px var(--shadow-color);
   padding: 22px 24px 20px;
   display: grid;
   gap: 12px;
@@ -347,7 +341,7 @@
   pointer-events: auto;
   box-shadow:
     0 0 0 1px var(--line),
-    0 6px 16px -6px rgba(22, 32, 42, 0.5);
+    0 6px 16px -6px var(--shadow-color);
   font: 400 18px/28px var(--font-mono);
   padding: 0;
   transition:
@@ -391,7 +385,7 @@
   padding: 12px 14px;
   display: grid;
   gap: 6px;
-  box-shadow: 0 16px 36px -18px rgba(22, 32, 42, 0.7);
+  box-shadow: 0 16px 36px -18px var(--shadow-color);
 }
 .pw-tour .pop b {
   font: 600 13.5px/1.25 var(--font-display);

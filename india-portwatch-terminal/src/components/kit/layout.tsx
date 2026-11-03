@@ -338,7 +338,7 @@ export function SelectControl({
         className={cn(
           "w-full appearance-none rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)]",
           "py-[4px] pl-2 pr-7 text-[12px] text-[var(--text)] outline-none",
-          "hover:border-[#35505f] focus:border-[var(--info)]",
+          "hover:border-[var(--line-strong)] focus:border-[var(--info)]",
         )}
       >
         {options.map((option) => (
@@ -393,9 +393,9 @@ export function Button({
         "inline-flex items-center justify-center gap-1.5 rounded-[2px] px-2.5 py-[5px]",
         "text-[11.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45",
         variant === "primary" &&
-          "bg-[var(--info)] text-[#04121b] hover:bg-[#5cb0dc]",
+          "bg-[var(--action)] text-[var(--on-signal)] hover:bg-[var(--signal-ink)]",
         variant === "default" &&
-          "border border-[var(--line-strong)] bg-[var(--panel-2)] text-[var(--text-2)] hover:border-[#35505f] hover:text-[var(--text)]",
+          "border border-[var(--line-strong)] bg-[var(--panel-2)] text-[var(--text-2)] hover:border-[var(--line-strong)] hover:text-[var(--text)]",
         variant === "ghost" && "text-[var(--text-3)] hover:text-[var(--text)]",
         className,
       )}
