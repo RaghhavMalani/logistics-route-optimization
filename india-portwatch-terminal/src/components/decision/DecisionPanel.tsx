@@ -801,7 +801,8 @@ export function DecisionPanel({
           <WorkflowView
             problem={problem}
             selected={selected}
-            canHandoff={canHandoff}
+            canHandoff={canHandoff && session?.user.canApprove !== false}
+            canApprove={session?.user.canApprove !== false}
             onReview={() =>
               workflow.transition.mutate({
                 decisionId: problem.decisionId,
@@ -1159,6 +1160,7 @@ function WorkflowView({
   problem,
   selected,
   canHandoff,
+  canApprove,
   onReview,
   onApprove,
   onDecline,
@@ -1171,6 +1173,7 @@ function WorkflowView({
   problem: DecisionProblem;
   selected: DecisionOption | null;
   canHandoff: boolean;
+  canApprove: boolean;
   onReview: () => void;
   onApprove: () => void;
   onDecline: () => void;
@@ -1245,7 +1248,9 @@ function WorkflowView({
         <div className="flex gap-1">
           <button
             type="button"
-            disabled={busy || !selected || selected.status !== "FEASIBLE"}
+            disabled={
+              busy || !canApprove || !selected || selected.status !== "FEASIBLE"
+            }
             onClick={onApprove}
             data-testid="decision-approve"
             className="flex-1 rounded bg-[var(--accent)] px-2 py-1 text-[10px] font-medium text-[var(--surface)] disabled:opacity-50"

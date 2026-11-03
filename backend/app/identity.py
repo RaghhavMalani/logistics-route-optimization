@@ -113,6 +113,7 @@ class Identity:
     vessel_ids: Tuple[str, ...] = field(default_factory=tuple)
     port_codes: Tuple[str, ...] = field(default_factory=tuple)
     verified: bool = False
+    can_approve: bool = True
 
     @property
     def is_admin(self) -> bool:
@@ -179,6 +180,8 @@ def may_see_decision(identity: Identity, actor: dict, subject: dict, domain: str
     if identity.role == SHIPPING_COMPANY:
         return held_role in (SHIPPING_COMPANY, VESSEL_OPERATOR) and _same(held_org, identity.organisation)
     if identity.role == VESSEL_OPERATOR:
+        if identity.verified:
+            return held_role == VESSEL_OPERATOR and subject_id in identity.vessel_ids
         if subject_id and subject_id in identity.vessel_ids:
             return True
         return held_role in (SHIPPING_COMPANY, VESSEL_OPERATOR) and _same(held_org, identity.organisation)

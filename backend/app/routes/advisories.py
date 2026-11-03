@@ -50,6 +50,26 @@ from src.portwatch_os.clock import world_now
 router = APIRouter()
 
 
+def _advisory_payload(advisory: Advisory, acting: Principal) -> dict:
+    from backend.app.identity import current_identity
+
+    payload = advisory.to_dict(for_recipient=acting.role == RECIPIENT)
+    identity = current_identity.get()
+    if identity and identity.verified and identity.role == "VESSEL_OPERATOR":
+        payload["evidence"] = {}
+        payload["predictionIds"] = []
+        payload["criticReasons"] = []
+        payload["decisionId"] = None
+        fields = {"approach", "action", "recommendedArrival", "approachClearAt", "requestedEntryAt",
+                  "requestedPassageAt", "earliestScheduledAccess", "actualEarliestPermittedAccess",
+                  "recommendedSpeedKn", "departureAt", "holdHours", "sailingHours", "anchorageWaitHours",
+                  "arrivalShiftHours", "scheduleShiftHours", "totalScheduleShiftHours", "totalElapsedHours",
+                  "basis"}
+        payload["recommendation"] = {key: value for key, value in advisory.recommendation.items()
+                                     if key in fields and (value is None or isinstance(value, (str, int, float, bool)))}
+    return payload
+
+
 def principal_from_request(
     actor: Optional[str],
     role: Optional[str],
@@ -69,6 +89,8 @@ def principal_from_request(
     if verified:
         actor, role, port_code = verified.actor, verified.role, verified.port_code
         organisation, vessel_ids = verified.organisation, ",".join(verified.vessel_ids)
+        if verified.verified and role == "VESSEL_OPERATOR":
+            organisation = None
     is_admin = False
     if not actor:
         raise HTTPException(
@@ -165,7 +187,7 @@ def list_advisories(
     )
     return {
         "advisories": [
-            a.to_dict(for_recipient=acting.role == RECIPIENT) for a in rows
+            _advisory_payload(a, acting) for a in rows
         ],
         "counts": store.counts(acting),
         "principal": acting.to_dict(),
@@ -195,7 +217,7 @@ def get_advisory(
         # 404 rather than 403: an unauthorised reader should not learn that an
         # advisory exists, only that they cannot address it.
         raise HTTPException(status_code=404, detail=f"no advisory {advisory_id}")
-    return advisory.to_dict(for_recipient=acting.role == RECIPIENT)
+    return _advisory_payload(advisory, acting)
 
 
 @router.post("/advisories")
@@ -486,7 +508,7 @@ def transition_advisory(
             if acting.role == ISSUER: acting.assert_may_issue(saved)
             else: acting.assert_may_respond(saved)
             if saved.state == target:
-                return saved.to_dict(for_recipient=acting.role == RECIPIENT)
+                return _advisory_payload(saved, acting)
             if target in ("issued", "accepted"):
                 from src.portwatch_os.decision.engine import get_engine
                 from src.portwatch_os.decision.continuation import require_current
@@ -503,7 +525,7 @@ def transition_advisory(
         raise HTTPException(status_code=409, detail=str(exc))
 
     _sync_decision(advisory)
-    return advisory.to_dict(for_recipient=acting.role == RECIPIENT)
+    return _advisory_payload(advisory, acting)
 
 
 @router.post("/advisories/{advisory_id}/modify")

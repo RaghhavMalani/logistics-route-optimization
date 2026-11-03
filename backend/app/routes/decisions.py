@@ -107,6 +107,15 @@ def _visible_or_403(problem: DecisionProblem, identity: Identity) -> DecisionPro
     return problem
 
 
+def _require_workflow_authority(problem: DecisionProblem, identity: Identity, *, approval=False):
+    if not identity.verified:
+        return
+    if identity.role != problem.actor.role and not identity.is_admin:
+        raise HTTPException(403, "Only the decision holder's workspace may move it")
+    if approval and not identity.can_approve:
+        raise HTTPException(403, "This account cannot approve or hand off decisions")
+
+
 def _domain_allowed_or_403(domain: str, identity: Identity) -> None:
     """Which domains a role may hold a decision in, from the action catalogue."""
     from src.portwatch_os.decision.actions import ADVISING_ACTORS, for_domain
@@ -602,8 +611,9 @@ def transition_problem(
     engine = get_engine()
     name = _require_actor_name(actor_name)
     target = str(payload.get("target") or "").upper()
-    held = _visible_or_403(_problem_or_404(engine, decision_id),
-                           _identity(role, actor_name, header_port, organisation, vessel_ids))
+    identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
+    held = _visible_or_403(_problem_or_404(engine, decision_id), identity)
+    _require_workflow_authority(held, identity, approval=target == APPROVED)
     current_revision = None
     from src.portwatch_os.decision.continuation import connected_basis
     environment = connected_basis(held)
@@ -704,8 +714,9 @@ def handoff_problem(
 
     engine = get_engine()
     name = _require_actor_name(actor_name)
-    problem = _visible_or_403(_problem_or_404(engine, decision_id),
-                              _identity(role, actor_name, header_port, organisation, None))
+    identity = _identity(role, actor_name, header_port, organisation, None)
+    problem = _visible_or_403(_problem_or_404(engine, decision_id), identity)
+    _require_workflow_authority(problem, identity, approval=True)
     if connected_basis(problem) and problem.evidence.get("advisories"):
         acting = principal_from_request(name, role, header_port, organisation, None)
         rows = [get_advisory_store().require(i) for i in problem.evidence["advisories"]]
@@ -920,8 +931,9 @@ def record_outcome(
     engine = get_engine()
     name = _require_actor_name(actor_name)
     held = _problem_or_404(engine, decision_id)
-    _visible_or_403(held,
-                    _identity(role, actor_name, header_port, organisation, vessel_ids))
+    identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
+    _visible_or_403(held, identity)
+    _require_workflow_authority(held, identity)
     if connected_basis(held):
         raise HTTPException(409,"This fictional weather comparison accepts only the labelled demo-outcome after advisory acceptance; it cannot resolve an observed forecast outcome")
     observed = payload.get("observed") or {}

@@ -71,7 +71,10 @@ export function TimeTransport({
   const access = useMapPanelAccess();
 
   const maxHours = state.maxOffsetHours;
-  const peak = Math.max(0.001, ...timeline.meanImpact);
+  const peak = Math.max(
+    0.001,
+    ...timeline.meanImpact.map((value) => value ?? 0),
+  );
   // Which bar in the impact strip the cursor is currently over, so the strip
   // reads as a position indicator rather than as decoration.
   const activeBar = timeline.meanImpact.length
@@ -195,11 +198,13 @@ export function TimeTransport({
               key={index}
               className={cn(
                 "flex-1 rounded-[1px] transition-colors",
-                index === activeBar
-                  ? "bg-[var(--info)]"
-                  : "bg-[var(--info)]/35",
+                value === null
+                  ? "invisible"
+                  : index === activeBar
+                    ? "bg-[var(--info)]"
+                    : "bg-[var(--info)]/35",
               )}
-              style={{ height: `${Math.max(8, (value / peak) * 100)}%` }}
+              style={{ height: `${Math.max(8, ((value ?? 0) / peak) * 100)}%` }}
             />
           ))}
         </div>

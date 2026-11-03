@@ -202,7 +202,8 @@ async def _identity_gate(request: Request, call_next):
                 user = verified["user"]
                 who = Identity(role=user["role"], actor=user["id"], port_code=user["portCode"],
                                port_codes=tuple(user["portCodes"]), organisation=user["organisation"],
-                               vessel_ids=tuple(user["vesselIds"]), verified=True)
+                               vessel_ids=tuple(user["vesselIds"]), verified=True,
+                               can_approve=user.get("canApprove", True) is True)
                 current_identity.set(who)
                 request.state.verified_session = verified
                 request.state.session_token = token

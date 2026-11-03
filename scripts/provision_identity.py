@@ -14,13 +14,15 @@ def main():
     parser.add_argument("--port", action="append", default=[], help="Registered port code; repeat for memberships")
     parser.add_argument("--organisation", default="")
     parser.add_argument("--vessel", action="append", default=[])
+    parser.add_argument("--viewer", action="store_true", help="Disable decision approval and handoff for this account")
     args = parser.parse_args()
     password = getpass("New password (12–256 characters): ")
     if password != getpass("Confirm password: "):
         parser.error("passwords differ")
     try:
         profile = get_auth_store().provision(args.email, password, role=args.role, display_name=args.name,
-                                            ports=tuple(args.port), organisation=args.organisation, vessel_ids=tuple(args.vessel))
+                                            ports=tuple(args.port), organisation=args.organisation, vessel_ids=tuple(args.vessel),
+                                            can_approve=not args.viewer)
     except ValueError as exc:
         parser.error(str(exc))
     print(f"Provisioned {profile['email']} as {profile['role']}; ports: {', '.join(profile['portCodes']) or 'none'}")

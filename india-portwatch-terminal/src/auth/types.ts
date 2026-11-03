@@ -122,6 +122,7 @@ export interface User {
   companyId: string | null;
   /** Vessels this identity may respond to advisories for. */
   vesselIds: string[];
+  canApprove?: boolean;
 }
 
 export interface Session {

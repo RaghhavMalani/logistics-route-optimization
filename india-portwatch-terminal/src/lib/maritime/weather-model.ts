@@ -172,7 +172,7 @@ export interface WeatherTimeline {
   /** Every instant the artefact carries a forecast value for. */
   steps: number[];
   /** National mean impact at each step, for the scrubber's own read-out. */
-  meanImpact: number[];
+  meanImpact: (number | null)[];
   frameAt(at: number): WeatherFrame;
   available: boolean;
   /** One sentence naming what the field is and how it was made. */
@@ -456,7 +456,7 @@ function buildHourlyTimeline(
       );
       return values.length
         ? values.reduce((sum, v) => sum + v, 0) / values.length
-        : 0;
+        : null;
     }),
     stripLabel: "Mean forecast gust (kn)",
     note: "Hourly Open-Meteo surface and offshore marine forecasts. Issue/observation times unavailable; receipt times retained separately. Rain is a complete UTC-day forecast total. Wind direction comes from the forecast. Coastal fields are spatial interpolation, not observations or whole-route coverage. Operational impact and storm probability are unavailable; October 2 activity keeps its original age.",
