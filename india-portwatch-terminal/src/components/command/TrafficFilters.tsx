@@ -118,7 +118,7 @@ export function TrafficFilters({
         }
       >
         <div className="flex flex-wrap gap-1">
-          {colorByType && Object.values(VESSEL_CLASSES).map((spec) => (
+          {Object.values(VESSEL_CLASSES).map((spec) => (
             <Chip
               key={spec.key}
               color={spec.color}
