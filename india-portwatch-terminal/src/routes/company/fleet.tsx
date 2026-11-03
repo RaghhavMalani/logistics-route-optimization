@@ -189,10 +189,12 @@ function CompanyFleetScreen() {
           </>
         }
       />
-      <PageBody>
+      <PageBody className="flex flex-col gap-3">
         <Panel
           title="Vessels"
           note={fleet.data?.positionSource}
+          className="min-h-48 flex-1"
+          scroll
           testId="company-fleet-table"
         >
           <DataTable<FleetVessel>
@@ -208,7 +210,7 @@ function CompanyFleetScreen() {
             }
           />
         </Panel>
-        <p className="mt-2 px-1 text-[10px] leading-relaxed text-[var(--text-3)]">
+        <p className="px-1 text-xs leading-relaxed text-[var(--text-3)]">
           {fleet.data?.disclaimer}
         </p>
       </PageBody>

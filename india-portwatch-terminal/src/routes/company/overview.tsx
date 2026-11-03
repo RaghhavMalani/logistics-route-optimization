@@ -33,7 +33,7 @@ import { AgentConsole } from "@/components/agent/AgentConsole";
 import { DemonstrationScenarios } from "@/components/intelligence/DemonstrationScenarios";
 import type { DecisionOption } from "@/types/decisions";
 import { CompanyIntelligenceQueue } from "@/components/intelligence/CompanyIntelligenceQueue";
-import { useFixes } from "@/components/app/traffic-context";
+import { useFixes, useTraffic } from "@/components/app/traffic-context";
 import {
   MaritimeSearch,
   type SearchHit,
@@ -180,6 +180,7 @@ function ActionRow({
 
 function FleetCommand() {
   const { companyId } = useWorkspace();
+  const { source: trafficSource } = useTraffic();
   const workspace = useWorkspaceMap({ layerOverrides: { routes: true } });
   const fleet = useCompanyFleet(companyId);
   const [horizon, setHorizon] = useState(72);
@@ -301,6 +302,11 @@ function FleetCommand() {
       }
     : routes;
   const health = workspace.health.data;
+  const activityStatus = (
+    ["live", "cached", "stale", "synthetic", "unavailable"] as const
+  ).find((status) =>
+    health?.sources[status]?.some((name) => name.startsWith("Port activity")),
+  );
   const forecastOrigin = health?.forecastOrigin
     ? formatUtc(health.forecastOrigin)
     : "origin unavailable";
@@ -400,15 +406,9 @@ function FleetCommand() {
                     : workspace.frame.stations.length
                       ? "retained map data"
                       : "unavailable"}{" "}
-                  · Activity {health?.intelligence ?? "unavailable"}
-                  {health?.cacheAgeSeconds != null
-                    ? ` (${Math.floor(health.cacheAgeSeconds / 3600)} h cache age)`
-                    : ""}{" "}
-                  ·{" "}
-                  {session?.mode === "demo"
-                    ? "Traffic simulated replay"
-                    : "See map traffic source"}{" "}
-                  · Congestion {congestionStatus} ({forecastOrigin})
+                  · Port activity {activityStatus ?? "status unavailable"} ·
+                  Traffic {trafficSource.info.label} · Congestion{" "}
+                  {congestionStatus} ({forecastOrigin})
                 </p>
               </div>
               {session?.mode === "demo" ? (
