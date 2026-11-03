@@ -215,7 +215,7 @@ export default function IntelligenceGlobe({
           }),
         );
         const base = await Cesium.SingleTileImageryProvider.fromUrl(
-          "/maps/nautical-world.png",
+          "/maps/miniature-world.png",
           {
             credit:
               "Natural Earth · operational styling · not a navigation chart",

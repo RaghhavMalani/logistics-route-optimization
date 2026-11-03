@@ -123,7 +123,7 @@ export default function ConnectedGodsEye({
         v.scene.backgroundColor = Cesium.Color.fromCssColorString(COLORS.paper);
         v.targetFrameRate = 30;
         const base = await Cesium.SingleTileImageryProvider.fromUrl(
-          "/maps/nautical-world.png",
+          "/maps/miniature-world.png",
           {
             credit:
               "Natural Earth · geographic context, not a navigation chart",
