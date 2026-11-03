@@ -80,10 +80,18 @@ def main():
     write(backend,target,content);records['backend'].append(row(target,content,kind='IMAGE_SOURCE_MANIFEST'))
     # Candidate configuration is local to this upload. The tracked config and
     # both existing deployments' rewrite destinations remain unchanged.
-    config_path='india-portwatch-terminal/vercel.json';config=json.loads((frontend/config_path).read_bytes())
+    config_path='india-portwatch-terminal/vercel.json'
+    config_input=config_path
+    programmatic_config='india-portwatch-terminal/vercel.mjs'
+    if (frontend/programmatic_config).is_file():
+        # Detached uploads have no Git ref. Materialize the reviewed base
+        # configuration with an explicit candidate rewrite for that upload.
+        config_input='india-portwatch-terminal/vercel.base.json'
+        (frontend/programmatic_config).unlink()
+    config=json.loads((frontend/config_input).read_bytes())
     prior=config['rewrites'][-1]['destination'];config['rewrites'][-1]['destination']=args.candidate_api+'/api/:path*'
     content=json.dumps(config,indent=2).encode();write(frontend,config_path,content)
-    records['frontend']=[r for r in records['frontend'] if r['path']!=config_path]
+    records['frontend']=[r for r in records['frontend'] if r['path'] not in (config_path,programmatic_config)]
     records['frontend'].append(row(config_path,content,kind='CANDIDATE_ONLY_REWRITE',originalDestination=prior))
     fingerprints={scope:hash_bytes(json.dumps(sorted(rows,key=lambda r:r['path']),sort_keys=True,separators=(',',':')).encode()) for scope,rows in records.items()}
     release={'applicationSha':sha,'sourceFingerprint':fingerprints['frontend'],'scope':'INTEGRATED_PREVIEW_ONLY','backend':args.candidate_api}
