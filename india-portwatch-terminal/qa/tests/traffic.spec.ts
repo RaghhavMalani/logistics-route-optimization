@@ -240,7 +240,8 @@ test("weather is on by default and states what it is", async ({ context, page })
   const legend = page.getByTestId("environment-legend");
   await expect(legend.getByText("Environment")).toBeVisible();
   await expect(legend.getByText("rain · wind · severe")).toBeVisible();
-  await expect(legend.getByText("observed").first()).toBeVisible();
+  // The retained grid fixture does not qualify as a direct observation.
+  await expect(legend.getByText("origin unknown", { exact: true })).toBeVisible();
   await expect(legend.getByText(/modelled/).first()).toBeVisible();
 });
 
