@@ -344,12 +344,12 @@ export async function horizontalOverflow(page: Page): Promise<number> {
 
 /** `test` with the API replayed for every case. */
 export const test = base.extend<{ recorder: Recorder }>({
-  context: async ({ context }, use) => {
+  context: async ({ context }, provide) => {
     await mockApi(context);
-    await use(context);
+    await provide(context);
   },
-  recorder: async ({ page }, use) => {
-    await use(record(page));
+  recorder: async ({ page }, provide) => {
+    await provide(record(page));
   },
 });
 
