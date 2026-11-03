@@ -113,44 +113,35 @@ def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile
     of the process, so the fleet clock drifted away from the port state shown
     beside it.
     """
+    from backend.app.identity import current_identity, may_see_vessel
     from src.portwatch_os.sandbox import current_sandbox
+    identity = current_identity.get()
     scoped = current_sandbox.get()
     if scoped is not None:
         if company_id and company_id != DEMO_COMPANY_ID:
             raise HTTPException(404, "Company is outside this fictional demo")
-        from backend.app.services.demo_terminal import company_for
-        return company_for(scoped.world)
+        from backend.app.services.demo_terminal import company_for, demo_hulls
+        return company_for(scoped.world, allowed_ids={row["id"] for row in demo_hulls(scoped.world, identity)})
+    if identity is None or not identity.verified:
+        return None
     provider_path = os.getenv("PORTWATCH_FLEET_PROVIDER")
     if provider_path:
-        from backend.app.identity import current_identity, may_see_vessel
-
-        identity = current_identity.get()
-        if identity is None or not identity.verified:
-            return None
         try:
             stamp = os.path.getmtime(provider_path)
         except OSError:
             return None
         profile = _from_provider_file(company_id, provider_path, stamp)
-        if profile is None or identity.is_admin:
-            return profile
-        vessels = [
-            vessel for vessel in profile.vessels
-            if may_see_vessel(
-                identity, vessel_id=vessel.vessel_id,
-                operator_organisation=profile.company_id,
-                destination_port=vessel.destination_port,
-            )
-        ]
-        if identity.role == "SHIPPING_COMPANY" and identity.organisation and (
-            identity.organisation.strip().casefold() == profile.company_id.strip().casefold()
-        ):
-            return profile
-        return replace(profile, home_ports=[], vessels=vessels) if vessels else None
-
-    if company_id and company_id != DEMO_COMPANY_ID:
-        return None
-    return _demo_at(_epoch_ms())
+    else:
+        profile = _demo_at(_epoch_ms()) if company_id in (None, DEMO_COMPANY_ID) else None
+    if profile is None or identity.is_admin:
+        return profile
+    vessels = [vessel for vessel in profile.vessels if may_see_vessel(identity, {
+        "id": vessel.vessel_id, "operatorOrganisation": profile.company_id,
+        "destinationPort": vessel.destination_port,
+    })]
+    if identity.role == "SHIPPING_COMPANY" and may_see_vessel(identity, {"operatorOrganisation": profile.company_id}):
+        return profile
+    return replace(profile, home_ports=[], vessels=vessels) if vessels else None
 
 
 @lru_cache(maxsize=4)
@@ -324,11 +315,11 @@ def company_risk(
 
 @router.get("/company/vessels/{vessel_id}")
 def company_vessel(vessel_id: str, company_id: Optional[str] = None) -> Dict[str, Any]:
-    profile = _require(company_id)
-    vessel = profile.vessel(vessel_id)
+    profile = resolve_company(company_id)
+    vessel = profile.vessel(vessel_id) if profile is not None else None
     if vessel is None:
         raise HTTPException(
-            status_code=404, detail=f"{vessel_id} is not in the {profile.name} fleet"
+            status_code=404, detail="Voyage is unavailable in this workspace"
         )
 
     events = _events()

@@ -6,6 +6,7 @@ import math
 import re
 from fastapi import APIRouter, Body, HTTPException
 from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from backend.app.routes.shipping_intelligence import scoped_world
 from src.portwatch_os.clock import wall_now, world_now, get_clock
 from src.portwatch_os.intelligence import operational_notices as notices
@@ -27,7 +28,7 @@ def company():
 def listing():
     scoped=scoped_world();notice=notices.refresh()
     rows=[{'id':v['id'],'name':v['name'],'laneCode':v['laneCode'],'portCode':v['portCode'],
-        'cargo':v['cargo'],'declaredPassage':v.get('declaredPassage')} for v in scoped.world['fleet']]
+        'cargo':v['cargo'],'declaredPassage':v.get('declaredPassage')} for v in demo_hulls(scoped.world)]
     return {'notices':[notice],'voyages':rows,
         'meaning':'Authority facts and operator-declared future voyage plans are separate. No broad lane match establishes lock exposure.'}
 

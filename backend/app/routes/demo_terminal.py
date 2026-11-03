@@ -6,7 +6,7 @@ Authentication/admin collection/private camera endpoints are never mounted.
 """
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.routing import APIRoute
-from backend.app.identity import Identity, current_identity
+from backend.app.identity import current_identity
 from backend.app.routes.demo import token
 from backend.app.services.demo_store import get_demo_store
 from backend.app.services.demo_terminal import bind
@@ -43,8 +43,8 @@ async def sandbox(request: Request, credential=Depends(token)):
         await mutation_lock.acquire()
         scoped.world = store.read(credential)
     scoped.save_world = lambda change: store.update(credential, change)
-    who = Identity(role=user["role"], actor=user["id"], port_code=user["portCode"],
-                   organisation=user["organisation"], vessel_ids=tuple(user["vesselIds"]), verified=False)
+    from backend.app.services.demo_terminal import demo_principal
+    who = demo_principal(user)
     headers = [(k, v) for k, v in request.scope["headers"] if not k.lower().startswith(b"x-portwatch-")]
     for key, value in {"role": who.role, "actor": who.actor, "port": who.port_code,
                        "org": who.organisation, "vessels": ",".join(who.vessel_ids)}.items():

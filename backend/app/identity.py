@@ -13,7 +13,7 @@ import json
 import os
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Mapping, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -163,22 +163,22 @@ def require_verified() -> Identity:
 
 
 def _same(a: Optional[str], b: Optional[str]) -> bool:
-    return bool(a) and bool(b) and a.strip().casefold() == b.strip().casefold()
+    left = (a or "").strip().casefold()
+    return bool(left) and left == (b or "").strip().casefold()
 
 
-def may_see_vessel(identity: Optional[Identity], *, vessel_id: str,
-                   operator_organisation: str, destination_port: Optional[str]) -> bool:
-    """Authorize a configured hull using verified server-owned membership."""
+def may_see_vessel(identity: Optional[Identity], vessel: Mapping[str, Optional[str]]) -> bool:
+    """Authorize a hull from canonical ID, operator organisation and destination."""
     if identity is None or not identity.verified:
         return False
     if identity.is_admin:
         return True
     if identity.role == SHIPPING_COMPANY:
-        return _same(identity.organisation, operator_organisation)
+        return _same(identity.organisation, vessel.get("operatorOrganisation"))
     if identity.role == VESSEL_OPERATOR:
-        return _same(identity.organisation, operator_organisation) and vessel_id in identity.vessel_ids
+        return vessel.get("id") in identity.vessel_ids
     if identity.role == PORT_AUTHORITY:
-        return bool(destination_port) and destination_port in (*identity.port_codes, identity.port_code)
+        return _same(identity.port_code, vessel.get("destinationPort"))
     return False
 
 
@@ -223,6 +223,7 @@ __all__ = [
     "identity_from_headers",
     "identity_mode",
     "may_see_decision",
+    "may_see_vessel",
     "require_roles",
     "require_verified",
     "resolve_role",

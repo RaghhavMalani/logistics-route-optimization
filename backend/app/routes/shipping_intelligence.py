@@ -3,6 +3,7 @@ import hashlib
 import json
 from fastapi import APIRouter, Body, HTTPException
 from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from src.portwatch_os.sandbox import current_sandbox
 from src.portwatch_os.clock import wall_now, get_clock, LIVE
 from src.portwatch_os.intelligence.shipping_signals import signals_for, ROOT
@@ -19,10 +20,7 @@ def scoped_world():
 @router.get("/intelligence/shipping-signals")
 def signals():
     world=scoped_world().world
-    who=current_identity.get()
-    if who.role=='VESSEL_OPERATOR':
-        world={**world,'fleet':[v for v in world['fleet'] if v['id'] in who.vessel_ids]}
-    return signals_for(world)
+    return signals_for({**world,'fleet':demo_hulls(world)})
 
 
 @router.get("/intelligence/shipping-evidence/{digest}")
@@ -39,7 +37,7 @@ def source_evidence(digest:str):
     raise HTTPException(404,"Original source response unavailable")
 
 def _owned_vessel(scoped, vessel_id):
-    row = next((v for v in scoped.world["fleet"] if v["id"] == vessel_id), None)
+    row = next((v for v in demo_hulls(scoped.world) if v["id"] == vessel_id), None)
     if not row:
         raise HTTPException(404, "Vessel not owned by this visitor")
     return row

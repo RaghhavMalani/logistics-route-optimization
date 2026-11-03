@@ -140,6 +140,8 @@ def retained_snapshot(scoped, store, credential, identity):
             raise ValueError("The authenticated Company does not own this visitor fleet")
         if world.get("epoch") != scoped.world.get("epoch"):
             raise ValueError("The visitor world was reset while reading; refresh the worklist")
+        from backend.app.services.demo_terminal import demo_hulls
+        world = {**world, "fleet": demo_hulls(world, identity)}
         decisions, malformed = _decisions(scoped.root, world, identity)
         advisories = _advisories(scoped.root, world, {d["decisionId"] for d in decisions})
         return {"world": world, "decisions": sorted(decisions, key=lambda d: d["decisionId"]),

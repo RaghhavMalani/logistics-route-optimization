@@ -1,6 +1,7 @@
 """Scoped daily context; reads never instantiate writable PublicPilot."""
 from fastapi import APIRouter,Body,HTTPException,Query
 from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from backend.app.routes.shipping_intelligence import scoped_world
 from backend.app.routes.operational_notices import company
 from src.portwatch_os.clock import world_now,wall_now
@@ -15,8 +16,8 @@ router=APIRouter()
 
 @router.get('/intelligence/port-context')
 def listing(vesselId:str=Query(None)):
-    scoped=scoped_world();who=current_identity.get()
-    vessels=[v for v in scoped.world['fleet'] if (who.role!='VESSEL_OPERATOR' or v['id'] in who.vessel_ids) and (who.role!='PORT_AUTHORITY' or v['portCode']==who.port_code)]
+    scoped=scoped_world()
+    vessels=demo_hulls(scoped.world)
     if vesselId and not any(v['id']==vesselId for v in vessels):raise HTTPException(404,'Owned voyage unavailable')
     at=world_now();data=review.view(scoped.world,at)
     return {'context':data,'voyages':[{'id':v['id'],'name':v['name'],'portCode':v['portCode'],'episodeId':(v.get('operationalEpisode') or {}).get('id'),'rule':review.rule_for(scoped.world,v['id'])} for v in vessels],

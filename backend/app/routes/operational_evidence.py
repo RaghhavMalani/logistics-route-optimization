@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
-from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from backend.app.routes.shipping_intelligence import scoped_world
 from src.portwatch_os.clock import wall_now
 from src.portwatch_os.intelligence import operational_feed as feed
@@ -14,12 +14,7 @@ router = APIRouter()
 def operational_evidence():
     # wall-clock: live-source availability and age use actual collection time, never visitor scenario time.
     scoped, now = scoped_world(), wall_now()
-    who = current_identity.get()
-    fleet = scoped.world["fleet"]
-    if who.role == "VESSEL_OPERATOR":
-        fleet = [v for v in fleet if v["id"] in who.vessel_ids]
-    if who.role == "PORT_AUTHORITY":
-        fleet = [v for v in fleet if v["portCode"] == who.port_code]
+    fleet = demo_hulls(scoped.world)
     from src.portwatch_os.intelligence.oceans_x import qualification_status
     return {"contractVersion": feed.VERSION, "asOf": feed.stamp(now), "products": feed.latest_products(now),
         "voyages": [{"id": v["id"], "name": v.get("name") or v["id"], "portCode": v["portCode"]} for v in fleet],

@@ -82,9 +82,8 @@ def listing():
     from src.portwatch_os.intelligence.current_environment import ROOT
     from src.portwatch_os.intelligence.notice_catalogue import retained, exposure_rows
     catalogue=retained(ROOT, query_at)
-    from backend.app.identity import current_identity
-    who=current_identity.get()
-    vessels=[v for v in scoped.world['fleet'] if who.role!='VESSEL_OPERATOR' or v['id'] in who.vessel_ids]
+    from backend.app.services.demo_terminal import demo_hulls
+    vessels=demo_hulls(scoped.world)
     return {**catalogue, 'voyages':[
         {k:v.get(k) for k in ('id','name','laneCode','portCode','cargo','declaredPassage','declaredPassages','possibleAssetIds','operationalEpisode')}
         for v in vessels], 'asOf':query_at.isoformat(), 'exposureQueue':exposure_rows(catalogue.get('notices',[]),vessels,query_at),

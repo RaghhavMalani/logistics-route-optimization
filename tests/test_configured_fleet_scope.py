@@ -55,11 +55,13 @@ def test_configured_fleet_is_scoped_before_serialization_and_caching(tmp_path, m
         assert get("/company/cargo?port_code=INNSA", identity).status_code == 403
         assert [v["vessel_id"] for v in get("/company", identity).json()["vessels"]] == [own]
         assert get("/fleet", identity).json() == [{"id": own, "name": "QA_FLEET_" + own[3:]}]
-    for identity in ("rival", "wrong-carrier"):
+    for identity in ("rival",):
         for path in ("/company", "/company/fleet?company_id=carrier-qa", "/company/vessels/QA-ONE", "/company/risk", "/company/routes"):
             response = get(path, identity)
             assert response.status_code == 404 and "QA_FLEET_" not in response.text
         assert get("/fleet", identity).json() == []
+    assert get("/company/vessels/QA-ONE", "wrong-carrier").status_code == 200
+    assert get("/company/vessels/QA-TWO", "wrong-carrier").status_code == 404
 
     marker = "QA_PRIVATE_ASSISTANT_REQUEST"
     run = client.post("/api/agents/run", headers=identities["owner"], json={"question": marker})

@@ -62,8 +62,10 @@ def build_state_for(port_code: str) -> PortState:
     scoped = current_sandbox.get()
     if scoped is not None and port_code.upper() == scoped.world["portCode"]:
         from backend.app.routes.demo import twin_state
-        state = twin_state(scoped.world)
-        owned = {v["id"] for v in scoped.world["fleet"]}
+        from backend.app.services.demo_terminal import demo_hulls
+        hulls = demo_hulls(scoped.world)
+        state = twin_state({**scoped.world, "fleet": hulls})
+        owned = {v["id"] for v in hulls}
         for call in state.calls:
             if call.vessel_id in owned:
                 call.call_id = call.vessel_id

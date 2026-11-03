@@ -95,10 +95,27 @@ def _identity(role: Optional[str], actor: Optional[str], port_code: Optional[str
     return identity_from_headers(role, actor, port_code, organisation, vessel_ids)
 
 
+def _visible_hull_subject(identity: Identity, subject: dict) -> bool:
+    if subject.get("type") != "vessel":
+        return True
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is None:
+        return True
+    from backend.app.services.demo_terminal import demo_hulls
+    return any(row["id"] == subject.get("id") for row in demo_hulls(scoped.world, identity))
+
+
+def _visible_decision(identity: Identity, actor: dict, subject: dict, domain: str) -> bool:
+    return _visible_hull_subject(identity, subject) and may_see_decision(identity, actor, subject, domain)
+
+
 def _visible_or_403(problem: DecisionProblem, identity: Identity) -> DecisionProblem:
     """A decision is read and moved only by the people it belongs to."""
-    if not may_see_decision(identity, problem.actor.to_dict(),
-                            {"type": problem.subject_type, "id": problem.subject_id}, problem.domain):
+    subject = {"type": problem.subject_type, "id": problem.subject_id}
+    if not _visible_hull_subject(identity, subject):
+        raise HTTPException(404, "Decision unavailable")
+    if not may_see_decision(identity, problem.actor.to_dict(), subject, problem.domain):
         raise HTTPException(
             status_code=403,
             detail=f"decision {problem.decision_id} is held by {problem.actor.role}"
@@ -340,18 +357,18 @@ def create_problem(
 
 
 def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProblem:
-    from backend.app.routes.company import configured_fleet, resolve_company
+    from backend.app.routes.company import resolve_company
+    from src.portwatch_os.sandbox import current_sandbox
 
     vessel_id = str(payload.get("vesselId") or "").strip()
     if not vessel_id:
         raise HTTPException(status_code=400, detail="vesselId is required for a vessel decision")
     identity = current_identity.get()
-    if configured_fleet() and identity and identity.verified:
+    if current_sandbox.get() is not None or (identity and identity.verified):
         profile = resolve_company(payload.get("companyId"))
         if profile is None or profile.vessel(vessel_id) is None:
             raise HTTPException(404, "Voyage is unavailable in this workspace")
     if payload.get("currentArrival") is not None:
-        from src.portwatch_os.sandbox import current_sandbox
         from src.portwatch_os.clock import get_clock, LIVE
         from src.portwatch_os.decision.current_arrival import build_arrival_problem
         if current_sandbox.get() is None:
@@ -558,7 +575,7 @@ def list_problems(
     identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
     engine = get_engine()
     rows = [p.to_dict(include_options=False) for p in engine.all()
-            if may_see_decision(identity, p.actor.to_dict(), {"type": p.subject_type, "id": p.subject_id}, p.domain)]
+            if _visible_decision(identity, p.actor.to_dict(), {"type": p.subject_type, "id": p.subject_id}, p.domain)]
     rows.reverse()
     held = {r["decisionId"] for r in rows} | {p.decision_id for p in engine.all()}
     restored = 0
@@ -568,7 +585,7 @@ def list_problems(
         # and never reads a body to do it. This process's own problems are
         # in the ledger too: they are asked for on top and skipped.
         def visible(actor: Dict[str, Any], subject: Dict[str, Any], domain: str) -> bool:
-            return may_see_decision(identity, actor, subject, domain)
+            return _visible_decision(identity, actor, subject, domain)
 
         for problem_id in engine.ledger.visible_decision_problem_ids(visible, limit=limit + len(held)):
             if len(rows) >= limit:
@@ -576,7 +593,7 @@ def list_problems(
             if problem_id in held:
                 continue
             body = _from_ledger(engine, problem_id) or {}
-            if not may_see_decision(identity, body.get("actor") or {}, body.get("subject") or {}, str(body.get("domain") or "")):
+            if not _visible_decision(identity, body.get("actor") or {}, body.get("subject") or {}, str(body.get("domain") or "")):
                 continue
             body.pop("options", None)
             rows.append(body)
@@ -602,7 +619,10 @@ def get_problem(
     restored = _from_ledger(engine, decision_id)
     if restored is None:
         raise HTTPException(status_code=404, detail=f"no decision {decision_id} in this process or its ledger")
-    if not may_see_decision(identity, restored.get("actor") or {}, restored.get("subject") or {},
+    subject = restored.get("subject") or {}
+    if not _visible_hull_subject(identity, subject):
+        raise HTTPException(404, "Decision unavailable")
+    if not may_see_decision(identity, restored.get("actor") or {}, subject,
                             str(restored.get("domain") or "")):
         raise HTTPException(status_code=403, detail=f"decision {decision_id} is not held by {identity.role}")
     return restored

@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from backend.app.services.demo_store import get_demo_store, ROLES, seed_world, utc_now
+from backend.app.services.demo_terminal import demo_hulls, demo_principal
 from backend.app.services import public_workspace
 
 router = APIRouter(prefix="/demo")
@@ -77,9 +78,22 @@ def twin_state(world):
 
 @router.get("/workspace")
 def workspace(credential=Depends(token)):
-    world = get_demo_store().read(credential)
+    store = get_demo_store()
+    session = store.session(credential)
+    source = store.read(credential)
+    who = demo_principal(session["user"])
+    fleet = demo_hulls(source, who)
+    allowed = {row["id"] for row in fleet}
+    world = {key: source[key] for key in ("version", "epoch", "meaning", "organisation", "portCode", "event")}
+    world.update(fleet=fleet, selectedVessel=source["selectedVessel"] if source["selectedVessel"] in allowed else None,
+                 comparisons=[row for row in source["comparisons"] if row["vesselId"] in allowed],
+                 proposal=source["proposal"] if (source["proposal"] or {}).get("vesselId") in allowed else None,
+                 advisories=[row for row in source["advisories"] if row["proposal"]["vesselId"] in allowed],
+                 portComparison=source["portComparison"] if who.role in ("PORT_AUTHORITY", "NATIONAL_ADMIN") else None)
+    if (source.get("terminalProposal") or {}).get("vesselId") in allowed:
+        world["terminalProposal"] = source["terminalProposal"]
     scene = public_workspace.workspace()
-    return {"session": get_demo_store().session(credential), "world": world, "scene": scene,
+    return {"session": session, "world": world, "scene": scene,
         "twin": twin_state(world).to_dict(), "scope": "Only this visitor's demo namespace; public evidence retains real receipt clocks."}
 
 
@@ -90,8 +104,9 @@ class Selection(BaseModel):
 @router.post("/selection")
 def select(body: Selection, credential=Depends(token)):
     def change(world):
-        if get_demo_store().session(credential)["user"]["role"] == "VESSEL_OPERATOR" and body.vesselId != "PWD-001":
-            raise HTTPException(403, "This bridge demo is assigned PWD-001")
+        who = demo_principal(get_demo_store().session(credential)["user"])
+        if not any(row["id"] == body.vesselId for row in demo_hulls(world, who)):
+            raise HTTPException(404, "Voyage is unavailable in this workspace")
         world["selectedVessel"] = body.vesselId
         return {"selectedVessel": body.vesselId}
     return get_demo_store().update(credential, change)
@@ -107,12 +122,12 @@ class Scenario(Selection):
 @router.post("/scenario")
 def compare(body: Scenario, credential=Depends(token)):
     def change(world):
-        role = get_demo_store().session(credential)["user"]["role"]
-        if role == "VESSEL_OPERATOR" and body.vesselId != "PWD-001":
-            raise HTTPException(403, "This bridge demo is assigned PWD-001")
+        who = demo_principal(get_demo_store().session(credential)["user"])
+        vessel = next((row for row in demo_hulls(world, who) if row["id"] == body.vesselId), None)
+        if vessel is None:
+            raise HTTPException(404, "Voyage is unavailable in this workspace")
         if len(world["comparisons"]) >= 30:
             raise HTTPException(409, "Demo comparison limit reached; reset your sandbox")
-        vessel = next(v for v in world["fleet"] if v["id"] == body.vesselId)
         result = public_workspace.simulate(lane_code=vessel["laneCode"], port_code=vessel["portCode"], hours_to_risk=body.hoursToRisk,
             speed=body.speedKn, closure_hours=body.closureHours, severity=1, wave_m=body.waveM, charter_day=30000, bunker_price=650, fuel_burn=45)
         item = {"id": secrets.token_hex(12), "vesselId": vessel["id"], "recordedAt": utc_now().isoformat(), "result": result}

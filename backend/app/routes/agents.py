@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
-from backend.app.identity import verified_scope_key
+from backend.app.identity import current_identity, verified_scope_key
 from src.portwatch_os.agents.orchestrator import INTENTS, AgentRun, CommandAgent
 from src.portwatch_os.agents.portwatch_tools import build_registry
 from src.portwatch_os.agents.tools import ACCESS_LEVELS, EXECUTE, PROPOSE, ToolScope
@@ -41,8 +41,10 @@ def command_agent() -> CommandAgent:
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
     if scoped is not None:
-        from backend.app.services.demo_terminal import company_for
-        return scoped.resource("agents", lambda: CommandAgent(build_registry(company=company_for(scoped.world))))
+        from backend.app.services.demo_terminal import company_for, demo_hulls
+        hulls = sorted(row["id"] for row in demo_hulls(scoped.world))
+        return scoped.resource(f"agents:{hulls!r}", lambda: CommandAgent(
+            build_registry(company=company_for(scoped.world, allowed_ids=hulls))))
     global _COMMAND
     if _COMMAND is None:
         _COMMAND = CommandAgent(build_registry())
@@ -53,6 +55,17 @@ def _runs():
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
     return scoped.resource("agent-runs", OrderedDict) if scoped is not None else _RUNS
+
+
+def _run_scope_key() -> Optional[str]:
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    identity = current_identity.get()
+    if scoped is not None and identity is not None:
+        from backend.app.services.demo_terminal import demo_hulls
+        hulls = sorted(row["id"] for row in demo_hulls(scoped.world))
+        return f"demo:{identity.role}:{identity.port_code}:{hulls!r}"
+    return verified_scope_key()
 
 
 @router.get("/agents")
@@ -168,7 +181,7 @@ def run_agent(
 
     with _LOCK:
         runs = _runs()
-        runs[(verified_scope_key(), run.run_id)] = run
+        runs[(_run_scope_key(), run.run_id)] = run
         while len(runs) > MAX_RUNS:
             runs.popitem(last=False)
 
@@ -178,7 +191,7 @@ def run_agent(
 @router.get("/agents/runs")
 def list_runs(limit: int = Query(20, ge=1, le=64)) -> Dict[str, Any]:
     with _LOCK:
-        owner = verified_scope_key()
+        owner = _run_scope_key()
         visible = [run for (actor, _), run in _runs().items() if actor == owner]
         runs = visible[-limit:]
     return {
@@ -200,7 +213,7 @@ def list_runs(limit: int = Query(20, ge=1, le=64)) -> Dict[str, Any]:
 @router.get("/agents/runs/{run_id}")
 def get_run(run_id: str, include_results: bool = False) -> Dict[str, Any]:
     with _LOCK:
-        run = _runs().get((verified_scope_key(), run_id))
+        run = _runs().get((_run_scope_key(), run_id))
     if run is None:
         raise HTTPException(
             status_code=404,
