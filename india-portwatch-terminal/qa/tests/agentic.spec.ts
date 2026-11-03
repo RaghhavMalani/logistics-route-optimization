@@ -109,28 +109,27 @@ test.describe("Global Eye", () => {
 
     await expect(page.getByTestId("cascade-register")).toBeVisible();
     const rows = page.getByTestId("cascade-row");
-    expect(await rows.count()).toBeGreaterThan(0);
+    await expect(rows.first()).toBeVisible();
 
     await rows.first().click();
     await expect(page.getByTestId("cascade-headline")).toBeVisible();
 
     // Every hop of the chain, read off the consequence the chart drew.
-    const hops = await page.evaluate(() => {
-      const registry = (window as unknown as {
-        __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-      }).__portwatchSources;
-      const features = registry?.cascade?.features ?? [];
-      return {
-        lanes: features.filter(
-          (f) => (f.properties as Record<string, unknown>)?.part === "lane",
-        ).length,
-        rings: features.filter(
-          (f) => (f.properties as Record<string, unknown>)?.part === "ring",
-        ).length,
-      };
-    });
-    expect(hops.lanes).toBeGreaterThan(0);
-    expect(hops.rings).toBeGreaterThan(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const registry = (
+            window as unknown as {
+              __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+            }
+          ).__portwatchSources;
+          const features = registry?.cascade?.features ?? [];
+          return ["lane", "ring"].map((part) =>
+            features.some((feature) => feature.properties?.part === part),
+          );
+        }),
+      )
+      .toEqual([true, true]);
 
     expect(recorder.pageErrors).toEqual([]);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);

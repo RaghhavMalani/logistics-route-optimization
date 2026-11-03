@@ -147,7 +147,7 @@ test.describe("advisory workflow", () => {
     await expect(page.getByText("Awaiting response").first()).toBeVisible();
   });
 
-  test("the API states that identity is asserted rather than verified", async ({
+  test("legacy advisory evidence retains its asserted identity label", async ({
     context,
     page,
   }) => {
@@ -159,7 +159,10 @@ test.describe("advisory workflow", () => {
 });
 
 test.describe("sign-in", () => {
-  test("a signed-in operator is moved off the sign-in screen", async ({ context, page }) => {
+  test("a signed-in operator is moved off the sign-in screen", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "VESSEL_OPERATOR");
     await page.goto("/login");
     await settle(page);
@@ -169,17 +172,22 @@ test.describe("sign-in", () => {
   test("the demo roster signs a port authority in", async ({ page }) => {
     await page.goto("/login");
     await settle(page);
-    await page.getByRole("button", { name: /port@portwatch\.demo/ }).click();
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Port demo", exact: true }).click();
     await expect(page).toHaveURL(/\/port\/overview$/, { timeout: 15_000 });
-    await expect(page.getByText("Port Authority")).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Demo role: Port Authority",
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 
   test("the demo roster signs a shipping company in", async ({ page }) => {
     await page.goto("/login");
     await settle(page);
-    await page.getByRole("button", { name: /company@portwatch\.demo/ }).click();
-    await page.getByRole("button", { name: "Sign in" }).click();
+    await page
+      .getByRole("button", { name: "Company demo", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/company\/overview$/, { timeout: 15_000 });
     await expect(page.getByText("Fleet Command").first()).toBeVisible();
   });
@@ -187,13 +195,21 @@ test.describe("sign-in", () => {
   test("a bad password is refused, and says so", async ({ page }) => {
     await page.goto("/login");
     await settle(page);
+    await page.getByLabel("Email").fill("admin@portwatch.demo");
     await page.getByLabel("Password").fill("not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByText(/Unrecognised account or password/)).toBeVisible();
+    await expect(
+      page.getByText(
+        /Unrecognised account or password|Invalid email or password/,
+      ),
+    ).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("signing out returns to the sign-in screen", async ({ context, page }) => {
+  test("signing out returns to the sign-in screen", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/radar");
     await settle(page);
@@ -202,17 +218,17 @@ test.describe("sign-in", () => {
     await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
   });
 
-  /**
-   * A session written by the previous build restores rather than being thrown
-   * away. Everyone signed in at deploy time would otherwise land on the login
-   * screen with no explanation, which reads as a bug.
-   */
-  test("a session with a pre-rename role still restores", async ({ context, page }) => {
+  test("a legacy asserted role without a server token cannot restore", async ({
+    context,
+    page,
+  }) => {
     const now = Date.now();
     await context.addInitScript(
       (session) => {
-        window.localStorage.setItem("portwatch.session.v1", session as string);
-        window.localStorage.setItem("portwatch.viewAs.v1", JSON.stringify("ADMIN"));
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+          storage.setItem("portwatch.session.v1", session);
+          storage.setItem("portwatch.viewAs.v1", JSON.stringify("ADMIN"));
+        }
       },
       JSON.stringify({
         user: {
@@ -230,6 +246,6 @@ test.describe("sign-in", () => {
     );
     await page.goto("/");
     await settle(page);
-    await expect(page).toHaveURL(/\/admin\/radar$/);
+    await expect(page).toHaveURL(/\/login/);
   });
 });
