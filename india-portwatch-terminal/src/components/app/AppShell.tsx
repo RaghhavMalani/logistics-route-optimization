@@ -103,7 +103,7 @@ function Menu({
         className={cn(
           "pw-shell-menu flex items-center gap-1.5 rounded-[2px] px-2 py-[3px] text-[11.5px] transition-colors",
           open
-            ? "bg-[var(--panel-3)] text-[var(--text)]"
+            ? "border-l-2 border-[var(--action)] bg-[var(--panel-3)] pl-[13px] font-semibold text-[var(--signal-ink)]"
             : "text-[var(--text-2)] hover:bg-[var(--panel-3)] hover:text-[var(--text)]",
         )}
       >
@@ -356,7 +356,7 @@ function SideNav({
               className={cn(
                 "relative flex items-center gap-2.5 px-[15px] py-[7px] text-[12px] transition-colors",
                 isActive
-                  ? "bg-[var(--panel-3)] text-[var(--text)]"
+                  ? "border-l-2 border-[var(--action)] bg-[var(--panel-3)] pl-[13px] font-semibold text-[var(--signal-ink)]"
                   : "text-[var(--text-3)] hover:bg-[var(--panel-2)] hover:text-[var(--text-2)]",
               )}
             >

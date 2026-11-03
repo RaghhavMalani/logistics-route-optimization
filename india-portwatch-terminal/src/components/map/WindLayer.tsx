@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 /**
  * Wind flow, drawn as advected particles over the chart.
  *
@@ -148,11 +149,13 @@ export function WindLayer({
         // The flow is basin-scale context. Closing in on a harbour it would be
         // streaks over the berths, so it thins out the way the raster does.
         const alpha = (0.26 + strength * 0.44) * fade;
-        ctx.strokeStyle = `rgba(${155 + strength * 90}, ${210 + strength * 30}, 255, ${alpha})`;
+        ctx.strokeStyle = COLORS.weatherDeep;
+        ctx.globalAlpha = alpha;
         ctx.beginPath();
         ctx.moveTo(particle.x, particle.y);
         ctx.lineTo(nx, ny);
         ctx.stroke();
+        ctx.globalAlpha = 1;
 
         particle.x = nx;
         particle.y = ny;

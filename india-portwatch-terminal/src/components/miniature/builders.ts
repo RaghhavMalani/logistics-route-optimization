@@ -1,5 +1,6 @@
 import * as T from "three";
-import { BOXCOLS, createMiniatureMaterials } from "./palette";
+import { BOXCOLS } from "./palette";
+import { createMiniatureMaterials } from "./materials";
 import { seededRandom } from "./rng";
 /** React-free builder factory. One RNG is shared, preserving reference consumption order. */
 export function createMiniatureBuilders(scene: T.Scene, rnd = seededRandom()) {

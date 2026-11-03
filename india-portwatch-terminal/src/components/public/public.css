@@ -3,7 +3,7 @@
   --public-muted: #52665f;
   --public-line: #d8e1dc;
   --public-accent: #235d50;
-  background: #f5f7f3;
+  background: var(--panel-3);
   color: var(--public-ink);
   min-height: 100vh;
   font-family: Inter, system-ui, sans-serif;
@@ -21,7 +21,7 @@
   text-decoration: underline;
 }
 .public-app :focus-visible {
-  outline: 3px solid #b07044;
+  outline: 3px solid var(--signal-ink);
   outline-offset: 4px;
 }
 .public-header {
@@ -186,7 +186,7 @@
   font: inherit;
   font-size: 14px;
   background: #fff;
-  border: 1px solid #bfcfc6;
+  border: 1px solid var(--line-strong);
   border-radius: 3px;
   padding: 10px 12px;
   color: var(--public-ink);
@@ -247,10 +247,10 @@
   transition: background 0.15s;
 }
 .public-event-list button:hover {
-  background: #e9efea;
+  background: var(--panel-3);
 }
 .public-event-list button.selected {
-  background: #e1ebe4;
+  background: var(--panel-3);
   box-shadow: inset 3px 0 var(--public-accent);
 }
 .public-event-list small {
@@ -280,7 +280,7 @@
   min-width: 0;
 }
 .public-story .public-evidence {
-  background: #ecf1ec;
+  background: var(--panel-3);
 }
 .public-facts {
   display: flex;
@@ -318,7 +318,7 @@
 }
 .public-port-links button {
   border: 1px solid var(--public-line);
-  background: #f6f8f5;
+  background: var(--panel-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -328,7 +328,7 @@
 }
 .public-port-links button[aria-pressed="true"] {
   border-color: var(--public-accent);
-  background: #e9f1eb;
+  background: var(--panel-3);
 }
 .public-port-links span {
   font-size: 10px;
@@ -376,7 +376,7 @@
   font-weight: 500;
 }
 .public-warning {
-  color: #9b4923 !important;
+  color: var(--warn) !important;
 }
 .public-plot {
   margin: 18px 0 24px;
@@ -424,7 +424,7 @@
 }
 .public-action-comparison article {
   padding: 22px;
-  background: #f1f5f0;
+  background: var(--panel-3);
   border-top: 2px solid var(--public-accent);
 }
 .public-action-comparison small {
@@ -450,7 +450,7 @@
   color: var(--public-muted);
 }
 .public-limits {
-  background: #edf2ec !important;
+  background: var(--panel-3) !important;
 }
 .public-footer {
   max-width: 1460px;
@@ -476,7 +476,7 @@
 }
 .public-badge {
   display: inline-block;
-  background: #e3ede5;
+  background: var(--panel-3);
   padding: 5px 10px;
   font-size: 11px;
   text-transform: uppercase;
@@ -513,7 +513,7 @@
   letter-spacing: 0.03em;
 }
 .public-app tbody tr:first-child {
-  background: #f2f6f0;
+  background: var(--ok-dim);
 }
 .public-research-grid {
   display: grid;
@@ -773,7 +773,7 @@
 .public-case-study {
   padding: 32px;
   margin: 0 0 36px;
-  background: #edf2ec;
+  background: var(--panel-3);
   border-top: 2px solid var(--public-accent);
   scroll-margin-top: 24px;
 }
@@ -839,7 +839,7 @@
   border: 0;
   border-top: 3px solid transparent;
   text-align: left;
-  background: #f5f7f3;
+  background: var(--panel-3);
   padding: 18px 20px;
   display: grid;
   gap: 5px;
@@ -848,10 +848,10 @@
   transition: background 180ms;
 }
 .public-call-timeline button:hover {
-  background: #e1e9df;
+  background: var(--panel-3);
 }
 .public-call-timeline button[aria-pressed="true"] {
-  background: #dce8dc;
+  background: var(--panel-3);
   border-top-color: var(--public-accent);
 }
 .public-call-timeline small,
@@ -868,7 +868,7 @@
   grid-template-columns: 1.3fr 1fr;
   gap: 28px;
   padding: 24px;
-  background: #f5f7f3;
+  background: var(--panel-3);
 }
 .public-event-evidence h4,
 .public-case-limits h4 {

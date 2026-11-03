@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 /**
  * The maritime picture.
  *
@@ -229,7 +230,7 @@ export function MaritimeMap({
   } | null>(null);
   const [overlayState, setOverlayState] = useState<Overlay>(EMPTY_OVERLAY);
 
-  const { clock, fixesAt } = useTraffic();
+  const { clock, fixesAt, colorByType } = useTraffic();
   const hoveredRef = useRef<string | null>(null);
   hoveredRef.current = hovered?.id ?? null;
 
@@ -244,6 +245,7 @@ export function MaritimeMap({
     forceVesselLabels,
     maxVesselLabels,
     labels,
+    colorByType,
     trafficOn: layers.traffic !== false,
   });
   settings.current = {
@@ -255,6 +257,7 @@ export function MaritimeMap({
     forceVesselLabels,
     maxVesselLabels,
     labels,
+    colorByType,
     trafficOn: layers.traffic !== false,
   };
 
@@ -549,7 +552,7 @@ export function MaritimeMap({
           id: "global-land-context",
           type: "fill",
           source: "global-land-context",
-          paint: { "fill-color": "#182937", "fill-opacity": 0.8 },
+          paint: { "fill-color": COLORS.land, "fill-opacity": 0.8 },
         },
         "land-fill",
       );
@@ -558,7 +561,7 @@ export function MaritimeMap({
           id: "global-coast-context",
           type: "line",
           source: "global-land-context",
-          paint: { "line-color": "#516272", "line-width": 1 },
+          paint: { "line-color": COLORS.coast, "line-width": 1 },
         },
         "land-fill",
       );
@@ -612,6 +615,7 @@ export function MaritimeMap({
         vectors: config.showVectors,
         labels: config.forceVesselLabels,
         maxLabels: config.maxVesselLabels,
+        colorByType: config.colorByType,
       });
 
       sourceOf("vessels")?.setData(
@@ -634,6 +638,7 @@ export function MaritimeMap({
                 ? fixesAt(clock.forecastAt()).filter(config.vesselFilter)
                 : fixesAt(clock.forecastAt()),
               config.focusIds,
+              config.colorByType,
             )
           : ({
               type: "FeatureCollection",
@@ -775,7 +780,7 @@ export function MaritimeMap({
   return (
     <div
       className={cn(
-        "relative h-full w-full overflow-hidden bg-[#061520]",
+        "relative h-full w-full overflow-hidden bg-[var(--sea)]",
         className,
       )}
     >
@@ -792,7 +797,7 @@ export function MaritimeMap({
         {overlayState.seas.map((sea) => (
           <span
             key={sea.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.26em] text-[#33637d]"
+            className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.26em] text-[var(--text-2)]"
             style={{ left: sea.x, top: sea.y }}
           >
             {sea.name}
@@ -805,18 +810,18 @@ export function MaritimeMap({
             className={cn(
               "absolute whitespace-nowrap text-[10.5px] leading-none",
               label.emphasis
-                ? "font-semibold text-[#eaf3f9]"
-                : "font-medium text-[#a9c2d2]",
+                ? "font-semibold text-[var(--signal-ink)]"
+                : "font-medium text-[var(--text)]",
             )}
             style={{
               left: x + 9,
               top: y - 9,
-              textShadow: "0 0 3px #04121b, 0 0 6px #04121b, 1px 1px 0 #04121b",
+              textShadow: "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel)",
             }}
           >
             {label.text}
             {label.sub ? (
-              <span className="num ml-1 text-[10px] text-[#7d97a8]">
+              <span className="num ml-1 text-[10px] text-[var(--text-2)]">
                 {label.sub}
               </span>
             ) : null}
@@ -826,7 +831,7 @@ export function MaritimeMap({
         {overlayState.clusters.map(({ mark, x, y }) => (
           <span
             key={mark.id}
-            className="num absolute -translate-x-1/2 -translate-y-1/2 text-[10.5px] font-semibold text-[#bcd6e5]"
+            className="num absolute -translate-x-1/2 -translate-y-1/2 text-[10.5px] font-semibold text-[var(--text)]"
             style={{ left: x, top: y }}
           >
             {mark.count}
@@ -859,7 +864,7 @@ export function MaritimeMap({
                   ? (label.color ?? "var(--text)")
                   : "var(--text-2)",
               textShadow:
-                "0 0 3px #04121b, 0 0 6px #04121b, 1px 1px 0 #04121b, -1px -1px 0 #04121b",
+                "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel), -1px -1px 0 var(--panel)",
             }}
           >
             {label.text}
@@ -946,7 +951,7 @@ export function MaritimeMap({
       </a>
 
       {!ready && !failed ? (
-        <div className="absolute inset-0 grid place-items-center bg-[#061520]">
+        <div className="absolute inset-0 grid place-items-center bg-[var(--sea)]">
           <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[var(--text-3)]">
             <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
             {loadingLabel}
@@ -955,7 +960,7 @@ export function MaritimeMap({
       ) : null}
 
       {failed ? (
-        <div className="absolute inset-0 grid place-items-center bg-[#061520] p-6 text-center">
+        <div className="absolute inset-0 grid place-items-center bg-[var(--sea)] p-6 text-center">
           <div className="max-w-[380px]">
             <div className="mb-1 text-[12px] font-medium text-[var(--crit)]">
               Chart renderer unavailable

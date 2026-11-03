@@ -71,6 +71,19 @@ test("four restored role workspaces retain chart, layers, timeline and visitor i
     await expect(
       scope.getByRole("button", { name: "Weather composite", exact: true }),
     ).toBeVisible();
+    const typeColours = scope.getByRole("checkbox", {
+      name: "Colour vessels by class",
+      exact: true,
+    });
+    const containerFilter = scope.getByRole("button", {
+      name: "Container",
+      exact: true,
+    });
+    await expect(typeColours).not.toBeChecked();
+    await expect(containerFilter).toBeVisible();
+    await typeColours.check();
+    await expect(containerFilter).toBeVisible();
+    await typeColours.uncheck();
     if (narrow) {
       await page.keyboard.press("Escape");
       await expect(layers).toBeFocused();

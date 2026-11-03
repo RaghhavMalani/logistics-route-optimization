@@ -59,7 +59,7 @@ export function TrafficFilters({
 }) {
   const [showFields, setShowFields] = useState(false);
   const access = useMapPanelAccess();
-  const { dataView, setDataView } = useTraffic();
+  const { dataView, setDataView, colorByType, setColorByType } = useTraffic();
   const publicAis = usePublicAis(dataView === "provider");
 
   const controls = (
@@ -86,6 +86,10 @@ export function TrafficFilters({
             Provider · transponder observations
           </label>
         </fieldset>
+        <label className="my-2 flex items-center gap-2 text-[var(--text-2)]">
+          <input type="checkbox" checked={colorByType} onChange={(event) => setColorByType(event.target.checked)} />
+          Colour vessels by class
+        </label>
         {dataView === "provider" ? (
           <p className="pw-meta" role="status">
             {publicAis.isError
@@ -462,6 +466,7 @@ function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
 
 /** The class key, so a reader can decode the colours on the chart. */
 export function VesselClassLegend({ className }: { className?: string }) {
+  const { colorByType } = useTraffic();
   return (
     <div
       className={cn(
@@ -470,7 +475,7 @@ export function VesselClassLegend({ className }: { className?: string }) {
         className,
       )}
     >
-      {Object.values(VESSEL_CLASSES).map((spec) => (
+      {colorByType && Object.values(VESSEL_CLASSES).map((spec) => (
         <span
           key={spec.key}
           className="flex items-center gap-1 text-[10.5px] text-[var(--text-3)]"
@@ -486,12 +491,12 @@ export function VesselClassLegend({ className }: { className?: string }) {
       <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[10.5px] text-[var(--text-3)]">
         <span
           aria-hidden
-          className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#93a7b8]"
+          className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[var(--text-2)]"
         />
         under way
         <span
           aria-hidden
-          className="ml-1 h-[8px] w-[8px] rounded-full border border-[#93a7b8]"
+          className="ml-1 h-[8px] w-[8px] rounded-full border border-[var(--text-2)]"
         />
         stopped
       </span>

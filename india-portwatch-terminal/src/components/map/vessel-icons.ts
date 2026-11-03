@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 /**
  * Ship glyphs, drawn into the GL context as images.
  *
@@ -24,7 +25,7 @@ export interface IconImage {
   pixelRatio: number;
 }
 
-const OUTLINE = "#04121b";
+const OUTLINE = COLORS.panel;
 
 function canvas(size: number): { ctx: CanvasRenderingContext2D; size: number } | null {
   if (typeof document === "undefined") return null;
@@ -88,27 +89,26 @@ function drawOwn(ctx: CanvasRenderingContext2D, size: number) {
   const c = size / 2;
   ctx.beginPath();
   ctx.arc(c, c, size * 0.46, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.strokeStyle = COLORS.action;
   ctx.lineWidth = Math.max(1, size * 0.05);
   ctx.stroke();
-  drawHull(ctx, size, "#f2f7fb");
+  drawHull(ctx, size, COLORS.action);
 }
 
-export function iconId(vesselClass: VesselClass, shape: GlyphShape): string {
+export function iconId(vesselClass: VesselClass | "neutral" | "selected", shape: GlyphShape): string {
   return `ship-${vesselClass}-${shape}`;
 }
 
 export const OWN_ICON = "ship-own";
 
 /**
- * Every glyph the map can show. Built once per session; there are seventeen of
- * them and each is a few hundred bytes.
+ * Every glyph the map can show. Built once per session; each glyph is a few hundred bytes.
  */
 export function buildVesselIcons(pixelRatio = 2): IconImage[] {
   const size = Math.round(22 * pixelRatio);
   const out: IconImage[] = [];
 
-  for (const spec of VESSEL_CLASS_LIST) {
+  for (const spec of [...VESSEL_CLASS_LIST, { key: "neutral" as const, color: COLORS.modelInk }, { key: "selected" as const, color: COLORS.action }]) {
     for (const shape of ["hull", "ring"] as GlyphShape[]) {
       const surface = canvas(size);
       if (!surface) return out;

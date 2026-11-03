@@ -1,4 +1,5 @@
 import * as T from "three";
+import { COLORS } from "../miniature/palette";
 import { createMiniatureBuilders } from "../miniature/builders";
 export function createTourWorld(scene: T.Scene) {
   const {
@@ -233,7 +234,7 @@ export function createTourWorld(scene: T.Scene) {
   const NT = 18;
   const { cab: tCab, chassis: tChassis, cargo: tBox } = makeTruckParts(NT);
   for (let i = 0; i < NT; i++)
-    tBox.setColorAt(i, new T.Color(rnd() < 0.15 ? 0xffffff : boxCol()));
+    tBox.setColorAt(i, new T.Color(rnd() < 0.15 ? COLORS.skyLight : boxCol()));
   if (tBox.instanceColor) tBox.instanceColor.needsUpdate = true;
   [tCab, tChassis, tBox].forEach((m) => {
     m.castShadow = true;
@@ -315,7 +316,7 @@ export function createTourWorld(scene: T.Scene) {
   /* --------------------------------------------------- event at the strait */
   const STRAIT = new T.Vector3(-340, 0, 0);
   const ringMat = new T.MeshBasicMaterial({
-    color: 0x26313b,
+    color: COLORS.modelInk,
     transparent: true,
     opacity: 0.5,
     depthWrite: false,
@@ -383,7 +384,7 @@ export function createTourWorld(scene: T.Scene) {
         ],
         false,
         1.15,
-        0x26313b,
+        COLORS.modelInk,
         4.2,
       ),
       peak: 0.95,
@@ -399,7 +400,7 @@ export function createTourWorld(scene: T.Scene) {
         ],
         false,
         0.85,
-        0x6c767e,
+        COLORS.pathMuted,
         5,
       ),
       peak: 0.6,
@@ -415,7 +416,7 @@ export function createTourWorld(scene: T.Scene) {
         ],
         true,
         0.85,
-        0x6c767e,
+        COLORS.pathMuted,
         4.4,
       ),
       peak: 0.6,
