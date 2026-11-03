@@ -5,7 +5,10 @@ import { CargoScreen } from "@/components/cargo/CargoScreen";
 import { SelectControl } from "@/components/kit/layout";
 import { usePorts } from "@/services/hooks";
 
-export const Route = createFileRoute("/company/cargo")({ component: CompanyCargo });
+export const Route = createFileRoute("/company/cargo")({
+  head: () => ({ meta: [{ title: "PortWatch X — Cargo connections" }] }),
+  component: CompanyCargo,
+});
 
 /**
  * Transshipment opportunities for this fleet.
@@ -34,7 +37,11 @@ function CompanyCargo() {
         />
       </div>
       <div className="min-h-0 flex-1">
-        <CargoScreen portCode={portCode} title="Cargo connections" mode="opportunities" />
+        <CargoScreen
+          portCode={portCode}
+          title="Cargo connections"
+          mode="opportunities"
+        />
       </div>
     </div>
   );

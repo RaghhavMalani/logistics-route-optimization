@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { GlobalEyeScreen } from "@/components/globaleye/GlobalEyeScreen";
 
-export const Route = createFileRoute("/company/global-eye")({ component: CompanyGlobalEye });
+export const Route = createFileRoute("/company/global-eye")({
+  head: () => ({ meta: [{ title: "PortWatch X — Global Eye" }] }),
+  component: CompanyGlobalEye,
+});
 
 /**
  * Global Eye, scoped to one fleet.
@@ -12,5 +15,7 @@ export const Route = createFileRoute("/company/global-eye")({ component: Company
  * "what is happening in the world".
  */
 function CompanyGlobalEye() {
-  return <GlobalEyeScreen scope="company" title="Global Eye — Fleet exposure" />;
+  return (
+    <GlobalEyeScreen scope="company" title="Global Eye — Fleet exposure" />
+  );
 }

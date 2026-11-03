@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AdvisoryScreen } from "@/components/advisory/AdvisoryScreen";
 
-export const Route = createFileRoute("/company/advisories")({ component: CompanyAdvisories });
+export const Route = createFileRoute("/company/advisories")({
+  head: () => ({ meta: [{ title: "PortWatch X — Advisories" }] }),
+  component: CompanyAdvisories,
+});
 
 /**
  * Advisories addressed to this carrier.
