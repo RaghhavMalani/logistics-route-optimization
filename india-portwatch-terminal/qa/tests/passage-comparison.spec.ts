@@ -981,6 +981,8 @@ test("supported passage is result-first, selection stays connected and each tab/
   context,
   page,
 }) => {
+  // One case exercises every comparison tab and both review transitions.
+  test.slow();
   const { panel, summary, store } = await openFixture(
     context,
     page,
@@ -1096,8 +1098,7 @@ test("supported passage is result-first, selection stays connected and each tab/
   );
 
   await panel.getByRole("tab", { name: "Options", exact: false }).click();
-  await summary
-    .getByRole("button", { name: "Continue to Decide", exact: true })
+  await panel.getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
   const review = panel.getByTestId("decision-review");
   await expect(review).toBeVisible();
@@ -1152,8 +1153,7 @@ test("lower modeled fuel cannot hide a declared deadline rejection", async ({
   });
   await expect(current).toBeEnabled();
   await current.click();
-  await summary
-    .getByRole("button", { name: "Continue to Decide", exact: true })
+  await panel.getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
   await panel.getByTestId("decision-review").click();
   await expect(panel.getByTestId("decision-approve")).toHaveText(
@@ -1210,8 +1210,7 @@ test("insufficient approach coverage cannot invent a recommendation or enable ap
       exact: true,
     }),
   ).toBeDisabled();
-  await summary
-    .getByRole("button", { name: "Continue to Decide", exact: true })
+  await panel.getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
   await panel.getByTestId("decision-review").click();
   await expect(panel.getByTestId("decision-approve")).toBeDisabled();
@@ -1462,10 +1461,10 @@ for (const version of ["v1", "v2"] as const) {
         exact: true,
       })
       .click();
-    await expect(editor.getByRole("alert")).toContainText(
+    await expect(editor.getByRole("alert").filter({ hasText: "Retained evidence expired" })).toContainText(
       "Retained evidence expired",
     );
-    await expect(editor.getByRole("alert")).toContainText(
+    await expect(editor.getByRole("alert").filter({ hasText: "Retained evidence expired" })).toContainText(
       "archived forecasts are never re-dated",
     );
     expect(JSON.stringify(store.current.evidence)).toBe(evidenceBefore);

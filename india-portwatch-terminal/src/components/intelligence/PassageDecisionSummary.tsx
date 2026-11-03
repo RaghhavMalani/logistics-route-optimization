@@ -99,6 +99,13 @@ export function PassageDecisionSummary({
     baseline?.approachClearAt &&
     alternative?.approachClearAt &&
     baseline.approachClearAt === alternative.approachClearAt;
+  const baselineCargo = baseline && cargoFor(baseline);
+  const alternativeCargo = alternative && cargoFor(alternative);
+  const sameCargoTiming =
+    baselineCargo?.readinessAt &&
+    baselineCargo.readinessAt === alternativeCargo?.readinessAt &&
+    finite(baselineCargo.slackHours) &&
+    baselineCargo.slackHours === alternativeCargo.slackHours;
   const rows: Array<{
     label: string;
     render: (option: PassageOptionComparison) => ReactNode;
@@ -244,23 +251,6 @@ export function PassageDecisionSummary({
           );
         })}
       </div>
-      {sameClear ? (
-        <p className="pw-comparison-note text-[var(--text)]">
-          Same clear approach. Reduced assumed anchorage waiting does not
-          establish earlier delivery.
-        </p>
-      ) : null}
-      {evidence.cargoCommitment ? (
-        <p data-testid="cargo-commitment-summary">
-          Fictional cargo {evidence.cargoCommitment.shipment.shipmentId} →{" "}
-          {evidence.cargoCommitment.bookedConnection.name}.{" "}
-          {evidence.cargoCommitment.mustMeet
-            ? "Declared must-meet connection."
-            : "Context only; passage ranking unchanged."}{" "}
-          No booking or final delivery is established. Inspect full stage
-          arithmetic in the evidence disclosure.
-        </p>
-      ) : null}
       <table
         className="w-full table-fixed border-collapse text-left"
         data-testid="passage-core-comparison"
@@ -332,6 +322,26 @@ export function PassageDecisionSummary({
           ))}
         </tbody>
       </table>
+      {sameClear ? (
+        <p className="pw-comparison-note text-[var(--text)]">
+          Same conditional clear-approach time. Reduced assumed anchorage
+          waiting does not establish earlier delivery.
+        </p>
+      ) : null}
+      {evidence.cargoCommitment ? (
+        <p data-testid="cargo-commitment-summary">
+          Fictional cargo {evidence.cargoCommitment.shipment.shipmentId} →{" "}
+          {evidence.cargoCommitment.bookedConnection.name}.{" "}
+          {evidence.cargoCommitment.mustMeet
+            ? "Declared must-meet connection."
+            : "Context only; passage ranking unchanged."}{" "}
+          {sameCargoTiming
+            ? "Conditional cargo readiness and cutoff slack are also unchanged. "
+            : ""}
+          No booking or final delivery is established. Inspect full stage
+          arithmetic in the evidence disclosure.
+        </p>
+      ) : null}
       <p>
         Operator-declared passage. {comparison.geometryBasis}. Port-approach
         weather only; clearance, berth confirmation and whole-route safety are

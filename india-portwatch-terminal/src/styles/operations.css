@@ -1328,6 +1328,20 @@
 .pw-plan-choices > button span {
   font-size: 0.6875rem;
 }
+@media (min-width: 700px) {
+  .pw-comparison > .pw-plan-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pw-comparison .pw-plan-choices > button {
+    min-height: 2.75rem;
+    padding: 0.25rem 0.5rem;
+    line-height: 1.25;
+  }
+  .pw-comparison .pw-plan-kicker {
+    margin-bottom: 0.125rem;
+  }
+}
 .pw-decision-header {
   padding: 0.625rem 0.875rem;
 }

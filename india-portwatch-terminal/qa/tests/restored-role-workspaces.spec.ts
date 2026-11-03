@@ -7,11 +7,11 @@ test("existing Global Eye globe returns to the same maritime chart", async ({
   await page.getByRole("button", { name: "Admin demo", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/radar$/);
   await page.goto("/admin/global-eye#intelligence-review");
-  const dialog = page.getByRole("dialog", {
-    name: "Connected global intelligence",
-  });
+  const globeTab = page.getByRole("tab", { name: "Globe", exact: true });
+  const dialog = page.getByRole("dialog").filter({ has: globeTab });
   await expect(dialog).toBeVisible();
   const chart = await page.locator("canvas.maplibregl-canvas").elementHandle();
+  await globeTab.click();
   await dialog
     .getByRole("button", { name: "Open God’s Eye globe", exact: true })
     .click();
