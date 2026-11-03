@@ -83,7 +83,7 @@ function fleetRoutes(
     features.push({
       type: "Feature",
       properties: {
-        part: "fleet",
+        part: "exposure",
         id: vessel.vessel_id,
         color:
           exposure >= 0.55
@@ -272,7 +272,7 @@ function FleetCommand() {
     if (!option.geometry?.length) return;
     setScenarioRoute(option);
     const middle = option.geometry[Math.floor(option.geometry.length / 2)];
-    workspace.flyTo([middle[1], middle[0]], 4);
+    workspace.flyTo([middle[1], middle[0]], 2.8);
   }
   const plottedRoutes: GeoJSON.FeatureCollection = scenarioRoute?.geometry
     ?.length
@@ -283,7 +283,7 @@ function FleetCommand() {
             type: "Feature",
             properties: {
               id: scenarioRoute.optionId,
-              part: "fleet",
+              part: "exposure",
               color: "#e56f26",
               width: 4,
               opacity: 1,
