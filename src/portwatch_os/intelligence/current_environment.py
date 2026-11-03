@@ -132,8 +132,10 @@ def refresh(kind, port, *, force=False):
         if kind == "hazards":
             rows = _hazards(response.text, at)
             units = {}
+            grid = None
         else:
             data = response.json(); hourly = data["hourly"]; units = data["hourly_units"]
+            grid = {key: data.get(key) for key in ("latitude", "longitude", "elevation")}
             expected = {"wind_speed_10m":"kn", "wind_gusts_10m":"kn", "wind_direction_10m":"°", "precipitation":"mm", "visibility":"m"} if kind == "surface" else {"wave_height":"m"}
             fields = list(expected)
             if not hourly["time"] or any(field not in hourly or units.get(field) != unit for field, unit in expected.items()):
@@ -144,7 +146,7 @@ def refresh(kind, port, *, force=False):
         snapshot = {"kind": kind, "portCode": port.locode if kind != "hazards" else None,
                     "source": URLS[kind], "issuedAt": None, "observedAt": None,
                     "availableAt": at.isoformat(), "fetchedAt": at.isoformat(), "rows": rows, "units": units,
-                    "request": params, "responseSha256": hashlib.sha256(response.content).hexdigest(),
+                    "request": params, "returnedGrid": grid, "responseSha256": hashlib.sha256(response.content).hexdigest(),
                     "timeBasis": "Forecast issue time unavailable; response receipt is availability. Hazard event/publication clocks are retained per item.",
                     "rights": "Open-Meteo non-commercial API / CC BY 4.0" if kind != "hazards" else "GDACS public alert feed; linked source notices apply."}
         if previous.get('responseSha256') == snapshot['responseSha256'] and previous.get('availableAt'):
@@ -197,14 +199,17 @@ def map_signals():
         data = bundle(port, allow_fetch=False)
         if data["sources"]["surface"]["status"] != "CURRENT":
             continue
-        rows = [r for r in data["hourly"] if instant(r["validAt"]) >= query_at.replace(minute=0, second=0, microsecond=0)]
+        marine_current = data["sources"]["marine"]["status"] == "CURRENT"
+        rows = [{**r, "wave_height": r.get("wave_height") if marine_current else None} for r in data["hourly"]
+                if instant(r["validAt"]) >= query_at.replace(minute=0, second=0, microsecond=0)]
         if not rows: continue
         first = rows[0]
+        rain = next((row["rainfall"] for row in data["daily"] if row["date"] == first["validAt"][:10]), None)
         signals.append({"portCode": port.locode, "name": port.name, "observedAt": None,
             "forecastFrom": first["validAt"], "availableAt": data["sources"]["surface"]["availableAt"],
             "sourceState": "FORECAST", "hourly": rows, "forecast": [], "impactScore": 0,
             "windKnots": first["wind_speed_10m"], "gustKnots": first["wind_gusts_10m"],
-            "rainfallMm24h": data["daily"][0]["rainfall"], "waveHeightM": first.get("wave_height"),
+            "rainfallMm24h": rain, "waveHeightM": first.get("wave_height"),
             "visibilityKm": first["visibility"]/1000 if finite(first["visibility"]) else None,
             "seaState": None, "windRisk": None, "rainRisk": None, "waveRisk": None, "stormRisk": None,
             "confidence": None, "weatherRegime": None, "shockScore": None, "persistenceScore": None,

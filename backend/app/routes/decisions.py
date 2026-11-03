@@ -622,7 +622,7 @@ def transition_problem(
             raise HTTPException(409,"The frozen weather receipt or planned arrival has expired; recompute this comparison")
         # This comparison consumes approach weather and explicit limits, not the
         # unrelated Suez cascade/fleet revision. Preserve that boundary in audit.
-        held.evidence["approvalBasis"] = {"scope":"FROZEN_AUTHORITY_RESTRICTION" if environment.get('kind')=='NOTICE_RESTRICTION' else "FROZEN_INTELLIGENCE_SCENARIO" if held.evidence.get("intelligenceBasis") else "FROZEN_APPROACH_WEATHER", "environmentEvidenceId":environment["evidenceId"],
+        held.evidence["approvalBasis"] = {"scope":"FROZEN_AUTHORITY_RESTRICTION" if environment.get('kind') in ('NOTICE_RESTRICTION', 'PARADIP_ENTRY_RESTRICTION') else "FROZEN_INTELLIGENCE_SCENARIO" if held.evidence.get("intelligenceBasis") else "FROZEN_APPROACH_WEATHER", "environmentEvidenceId":environment["evidenceId"],
             "availableAt":environment["availableAt"], "note":"Only frozen inputs and explicit assumptions drive this comparison; ambient cascade revisions are not consumed."}
     elif target == APPROVED and held.world_revision.get("mode") not in (None, "REPLAY"):
         # The live world's revision now, so an approval on a world that has
@@ -811,7 +811,7 @@ def _approved_operational_action(problem: DecisionProblem, option) -> Optional[D
     """Identify the chosen plan while keeping approval separate from execution."""
     basis = connected_basis(problem) or {}
     episode = basis.get("operationalEpisode")
-    if not episode:
+    if not episode or basis.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
         return None
     from src.portwatch_os.learning.shared_feedback import (
         identifier, operational_action_basis, operational_action_id, operational_metric_basis)
@@ -851,6 +851,10 @@ def _recipients_for(problem: DecisionProblem, option, payload: Dict[str, Any]) -
     if problem.domain == VESSEL_ROUTING:
         derived = option.evaluation.derived if option.evaluation else {}
         if connected_basis(problem):
+            if connected_basis(problem).get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+                return [{"vesselId": problem.subject_id, "vesselName": problem.subject_label, "kind": "approach",
+                    "recommendation": {"approach": option.label, "requestedEntryAt": derived['requestedEntryAt'],
+                        "actualEarliestPermittedAccess": None}, "organisation": payload.get('recipientOrganisation')}]
             if connected_basis(problem).get("passagePlan"):
                 return [{"vesselId":problem.subject_id,"vesselName":problem.subject_label,"kind":"arrival_window",
                     "recommendation":{

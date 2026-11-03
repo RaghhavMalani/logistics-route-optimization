@@ -86,6 +86,10 @@ def require_current(problem):
                     from src.portwatch_os.intelligence.operational_notices import require_revision
                 try: require_revision(env)
                 except ValueError as exc: reason = str(exc)
+        if not reason and env.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+            from src.portwatch_os.intelligence.paradip_entry import require_originals
+            try: require_originals(scoped.root, env['reportedFact'], operation_at)
+            except ValueError as exc: reason = str(exc)
         if not reason and env.get("cargoCommitment"):
             from .passage_cargo_integration import require_cargo_current
             reason = require_cargo_current(env, scoped)
@@ -189,6 +193,12 @@ def weather_explanation(problem):
 def intelligence_explanation(problem):
     rec=problem.recommendation
     if rec is None: return
+    if problem.evidence['intelligenceBasis'].get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+        from src.portwatch_os.intelligence.paradip_entry import ACTION, MEANING
+        rec.policy = 'paradip-pre-entry-review-v1'
+        rec.why = rec.statement = ACTION + '. ' + MEANING
+        rec.robustness = None
+        return
     if problem.evidence['intelligenceBasis'].get('kind') == 'NOTICE_RESTRICTION':
         rec.policy='authority-scheduled-access-v1'
         if problem.evidence['intelligenceBasis']['restriction'].get('sourceFamily')=='NAVCEN_MSI':

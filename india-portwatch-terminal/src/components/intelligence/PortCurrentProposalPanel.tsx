@@ -153,7 +153,9 @@ export function PortCurrentProposalPanel() {
             />
           </div>
           <div className="border-t border-[var(--line)] p-2 text-[11px]">
-            {result ? (
+            {result?.evidenceKind === "paradip_entry" ? (
+              <p data-testid="current-demo-outcome"><strong>{result.kind}</strong> · {result.note}</p>
+            ) : result ? (
               <p data-testid="current-demo-outcome">
                 <strong>{result.kind}</strong> ·{" "}
                 {result.evidenceKind === "restriction"

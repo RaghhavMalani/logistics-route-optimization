@@ -1,11 +1,11 @@
 import base from "./vercel.base.json" with { type: "json" };
 
-const themePreview =
+const isolatedPreview =
   process.env.VERCEL_ENV === "preview" &&
-  process.env.VERCEL_GIT_COMMIT_REF === "feat/theme-v2";
+  ["feat/theme-v2", "review/portwatch-weather-paradip"].includes(process.env.VERCEL_GIT_COMMIT_REF);
 
 const rewrites = [...base.rewrites];
-if (themePreview) {
+if (isolatedPreview) {
   // Keep the explicit production rule first. The last rule covers every
   // hostname assigned to this preview, including its generated URL.
   rewrites[rewrites.length - 1] = {

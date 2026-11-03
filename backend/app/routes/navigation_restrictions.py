@@ -11,11 +11,68 @@ from src.portwatch_os.intelligence import navigation_restrictions as notices
 from src.portwatch_os.intelligence.current_environment import instant
 from src.portwatch_os.decision.episodes import ensure_episode
 from src.portwatch_os.decision.model import (DecisionProblem, DecisionOption, DecisionActor,
-    DecisionEvaluation, DecisionObjective, ConstraintResult, VESSEL_ROUTING, FEASIBLE, known, unknown)
+    DecisionEvaluation, DecisionObjective, ConstraintResult, VESSEL_ROUTING, FEASIBLE, REJECTED, known, unknown)
 from src.portwatch_os.decision.actions import KEEP_PLAN, DELAY_ARRIVAL, CATALOGUE
 from src.portwatch_os.intelligence.voyage_exposure import match, passage_for, queue
 
 router=APIRouter()
+
+
+@router.post('/intelligence/paradip-entry-comparison')
+def paradip_entry_comparison(payload: dict = Body(...)):
+    from backend.app.services.demo_terminal import company_for
+    from src.portwatch_os.decision.engine import get_engine
+    from src.portwatch_os.intelligence import paradip_entry as pilot
+
+    scoped, who = company()
+    row = next((v for v in scoped.world['fleet'] if v['id'] == 'PWD-001' and v['portCode'] == 'INPRT'), None)
+    if row is None or payload.get('confirmed') is not True:
+        raise HTTPException(422, 'Select a Paradip voyage for PW Meridian and explicitly declare the fictional undisclosed steering defect')
+    at = world_now()
+    eta = instant(company_for(scoped.world).vessel(row['id']).eta)
+    if eta <= at:
+        raise HTTPException(409, 'A future Paradip entry request is required')
+    try:
+        fact = pilot.evidence(scoped.root)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(503, str(exc)) from exc
+    episode = ensure_episode(scoped, row)
+    basis = {'kind': pilot.KIND, 'voyageId': row['id'], 'portCode': row['portCode'],
+        'operationalEpisode': episode, 'availableAt': fact['checkedAt'], 'evaluatedAt': at.isoformat(),
+        'earliestVoyageArrival': eta.isoformat(), 'plannedArrival': eta.isoformat(),
+        'reportedFact': fact, 'inferredExposure': {'route': 'Declared inbound call through Paradip port limits',
+            'port': row['portCode'], 'vessel': row['name'], 'cargo': row['cargo'],
+            'basis': 'Fictional PW Meridian has a known critical steering defect and the agent has yet to disclose it.'},
+        'assumptions': {'kind': 'OPERATOR_DECLARED_FICTIONAL_DEFECT', 'purpose': pilot.ACTION, 'doesNotAssert': pilot.MEANING,
+            'knownCriticalSteeringDefect': True, 'alreadyDisclosed': False},
+        'meaning': pilot.MEANING}
+    basis['evidenceId'] = hashlib.sha256(json.dumps(basis, sort_keys=True).encode()).hexdigest()
+    did = 'dec-paradip-' + basis['evidenceId'][:20]
+    options = []
+    for baseline, action, label in ((True, KEEP_PLAN, 'Proceed on the existing entry request without disclosure'),
+                                    (False, DELAY_ARRIVAL, pilot.ACTION)):
+        options.append(DecisionOption(option_id=did + ('-baseline' if baseline else '-referral'), action=action,
+            label=label, actor=who.role, is_baseline=baseline, status=REJECTED if baseline else FEASIBLE,
+            params={'requestedEntryAt': eta.isoformat(), 'disposition': 'PROCEED' if baseline else 'HOLD_AND_REFER'},
+            constraints=[ConstraintResult('pre_entry_disclosure', 'Respect mandatory pre-entry disclosure', True,
+                not baseline, 'Disclosure is outstanding; referral does not authorize entry.', basis='evidence.intelligenceBasis')],
+            assumptions=[basis['assumptions']], provenance={'source': pilot.NOTICE, 'evidenceId': basis['evidenceId']},
+            evaluation=DecisionEvaluation(objectives={key: unknown(unit, 'No authorized access time or observed impact')
+                for key, unit in (('eta', 'hours'), ('port_wait', 'hours'), ('fuel', 'index'), ('cost', 'money'), ('risk', 'risk'))},
+                derived={'destinationPort': row['portCode'], 'requestedEntryAt': eta.isoformat(), 'arrivalAt': None,
+                         'arrivalShiftHours': None, 'holdHours': None}, computed_at=at.isoformat())))
+    problem = DecisionProblem(decision_id=did, created_at=fact['checkedAt'], domain=VESSEL_ROUTING,
+        world_revision={'mode': get_clock().state.mode}, world_state_id=scoped.world['epoch'] + basis['evidenceId'],
+        subject_type='vessel', subject_id=row['id'], subject_label=row['name'],
+        actor=DecisionActor(role=who.role, organisation=who.organisation), at=at.isoformat(),
+        objectives=[DecisionObjective('eta', 'Schedule shift', 'hours', 'min', 'Unavailable without an authority decision'),
+                    DecisionObjective('port_wait', 'Waiting', 'hours', 'min', 'Unavailable without an authority decision')],
+        available_actions=[{**CATALOGUE[DELAY_ARRIVAL].to_dict(), 'availability': {'status': 'AVAILABLE', 'reason': pilot.ACTION}}],
+        options=options, baseline_option_id=options[0].option_id,
+        evidence={'intelligenceBasis': basis, 'frontierObjectives': ['eta', 'port_wait'], 'subject': {'source': 'FICTIONAL_DEMO'}},
+        headline='PW Meridian · Paradip pre-entry restriction',
+        do_nothing_statement='Proceeding without the mandatory declaration is ineligible.', notes=[pilot.MEANING])
+    return get_engine().finish(problem).to_dict()
 
 
 @router.get('/intelligence/navigation-restrictions')

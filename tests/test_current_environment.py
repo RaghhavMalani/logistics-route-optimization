@@ -39,6 +39,18 @@ def test_unexpected_units_do_not_create_current_weather(tmp_path,monkeypatch):
     assert not list(tmp_path.glob("surface-*.json"))
 
 
+def test_current_map_excludes_stale_marine_and_uses_displayed_target_day(monkeypatch):
+    row = dict(validAt=AT.isoformat(), wave_height=2.5, wind_speed_10m=10, wind_gusts_10m=18, visibility=10000)
+    monkeypatch.setattr(env, 'world_now', lambda: AT)
+    monkeypatch.setattr(env.port_registry, 'PORTS', [env.port_registry.resolve('INNSA')])
+    monkeypatch.setattr(env, 'bundle', lambda *args, **kwargs: {
+        'sources': {'surface': {'status': 'CURRENT', 'availableAt': AT.isoformat()}, 'marine': {'status': 'STALE'}},
+        'hourly': [row], 'daily': [{'date': '2026-10-09', 'rainfall': 15}, {'date': '2026-10-10', 'rainfall': 3}]})
+    signal = env.map_signals()[0]
+    assert signal['waveHeightM'] is None and signal['hourly'][0]['wave_height'] is None
+    assert signal['rainfallMm24h'] == 3 and row['wave_height'] == 2.5
+
+
 def test_hazard_publication_event_validity_and_latest_event_are_retained():
     def item(pub, end="Sat, 10 Oct 2026 09:00:00 GMT"):
         return f'<item><title>Dated earthquake</title><pubDate>{pub}</pubDate><fromdate>Sat, 10 Oct 2026 07:00:00 GMT</fromdate><todate>{end}</todate><point>20 70</point><eventtype>EQ</eventtype><eventid>7</eventid><alertlevel>Green</alertlevel><link>https://www.gdacs.org/report.aspx?eventid=7</link></item>'

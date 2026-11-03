@@ -66,7 +66,7 @@ def proposals():
         env = connected_basis(source)
         if who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code: continue
         rows.append({**proposal,"subject":source.subject_label,"evidence":env,
-                     "evidenceKind":"restriction" if env.get('kind')=='NOTICE_RESTRICTION' else "intelligence" if source.evidence.get("intelligenceBasis") else "weather",
+                     "evidenceKind":"restriction" if env.get('kind') in ('NOTICE_RESTRICTION', 'PARADIP_ENTRY_RESTRICTION') else "intelligence" if source.evidence.get("intelligenceBasis") else "weather",
                      "reviewDecisionId":journey.get("reviewDecisionId") or (scoped.world.get("currentArrivalReview") if key == latest.get("decisionId") else None)})
     return {"proposals":rows}
 
@@ -198,6 +198,11 @@ def demo_outcome(decision_id: str):
             requestedPassage=choice.evaluation.derived['requestedPassageAt'],earliestScheduledAccess=env['restriction']['earliestScheduledAccess'],
             totalScheduleShiftHours=env['restriction']['totalScheduleShiftHours'],noticeRevisionId=env['restriction']['revisionId'],
             calculation=env['restriction'])
+    if env.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+        outcome.update(evidenceKind='paradip_entry', requestedArrival=choice.evaluation.derived['requestedEntryAt'],
+            baselineAssumedWaitHours=None, selectedAssumedWaitHours=None, actualEarliestPermittedAccess=None,
+            totalScheduleShiftHours=None, selectedAction='HOLD_AND_REFER',
+            noticeRevisionId=env['reportedFact']['revisionId'], actualExecutionStatus='NOT_OBSERVED', eligibleForRealTarget=False)
     principal = principal_from_request(who.actor,who.role,who.port_code,who.organisation,None)
     for row in rows:
         row.evidence["demoOutcome"] = outcome
@@ -242,7 +247,13 @@ def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
     env = connected_basis(source)
     if override is not None and (env.get('kind')=='NOTICE_RESTRICTION' or source.evidence.get("intelligenceBasis")):
         raise HTTPException(400,"Edited currentArrival inputs apply to a weather/passage comparison")
-    if env.get('kind')=='NOTICE_RESTRICTION':
+    if env.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+        from backend.app.routes.navigation_restrictions import paradip_entry_comparison
+        vessel = next((row for row in scoped.world['fleet'] if row['id'] == source.subject_id), {})
+        if (vessel.get('operationalEpisode') or {}).get('id') != env['operationalEpisode']['id']:
+            raise HTTPException(409, 'Declare a new comparison for the current Paradip call')
+        result = paradip_entry_comparison({'confirmed': True})
+    elif env.get('kind')=='NOTICE_RESTRICTION':
         if env['restriction'].get('sourceFamily') == 'NAVCEN_MSI':
             from backend.app.routes.navigation_restrictions import comparison
             from src.portwatch_os.intelligence.navigation_restrictions import refresh
