@@ -38,6 +38,7 @@ def evidence(root):
         raise ValueError("Could not verify the Paradip notice with the issuer") from exc
     if URL.encode() not in index or hashlib.sha256(raw).hexdigest() != SHA:
         raise ValueError("The reviewed Paradip notice is absent or its original changed; fresh source review is required")
+    # wall-clock: receipt is the actual time the issuer's bytes were checked.
     at = wall_now().isoformat()
     directory = root / "paradip_entry"
     directory.mkdir(parents=True, exist_ok=True)

@@ -4,7 +4,10 @@ import type { FeedbackConsumption } from "@/services/sharedFeedback";
 
 export interface IntelligenceBasis {
   feedbackConsumption?: FeedbackConsumption;
-  kind: "INTELLIGENCE_SCENARIO" | "NOTICE_RESTRICTION" | "PARADIP_ENTRY_RESTRICTION";
+  kind:
+    | "INTELLIGENCE_SCENARIO"
+    | "NOTICE_RESTRICTION"
+    | "PARADIP_ENTRY_RESTRICTION";
   portCode: string;
   evidenceId: string;
   plannedArrival: string;
@@ -73,18 +76,37 @@ export function FrozenIntelligenceBasis({
   evidence: IntelligenceBasis;
 }) {
   const fact = evidence.reportedFact;
-  if (evidence.kind === "PARADIP_ENTRY_RESTRICTION") return (
-    <section className="space-y-2 border-b border-[var(--line)] p-2 text-[11px]" data-testid="frozen-paradip-entry">
-      <strong>Frozen authority restriction · {fact.noticeRef}</strong>
-      <p>{fact.fact}</p>
-      <p>{evidence.inferredExposure.route}. {evidence.inferredExposure.basis}</p>
-      <p>Original entry request {formatUtc(evidence.plannedArrival)}. {evidence.assumptions.purpose}.</p>
-      <p>{evidence.assumptions.doesNotAssert}</p>
-      <p>Listed {fact.publishedDate} · issuer checked {formatUtc(fact.checkedAt ?? null)}</p>
-      <a className="underline" href={fact.source} target="_blank" rel="noreferrer">Authority original · page 1</a>
-      <p className="break-all">SHA-256 {fact.responseSha256}</p>
-    </section>
-  );
+  if (evidence.kind === "PARADIP_ENTRY_RESTRICTION")
+    return (
+      <section
+        className="space-y-2 border-b border-[var(--line)] p-2 text-[11px]"
+        data-testid="frozen-paradip-entry"
+      >
+        <strong>Frozen authority restriction · {fact.noticeRef}</strong>
+        <p>{fact.fact}</p>
+        <p>
+          {evidence.inferredExposure.route}. {evidence.inferredExposure.basis}
+        </p>
+        <p>
+          Original entry request {formatUtc(evidence.plannedArrival)}.{" "}
+          {evidence.assumptions.purpose}.
+        </p>
+        <p>{evidence.assumptions.doesNotAssert}</p>
+        <p>
+          Listed {fact.publishedDate} · issuer checked{" "}
+          {formatUtc(fact.checkedAt ?? null)}
+        </p>
+        <a
+          className="underline"
+          href={fact.source}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Authority original · page 1
+        </a>
+        <p className="break-all">SHA-256 {fact.responseSha256}</p>
+      </section>
+    );
   const restriction = evidence.restriction;
   const bridge = restriction?.sourceFamily === "NAVCEN_MSI";
   if (evidence.kind === "NOTICE_RESTRICTION" && restriction)

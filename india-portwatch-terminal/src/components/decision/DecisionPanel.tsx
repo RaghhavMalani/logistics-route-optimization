@@ -369,6 +369,11 @@ export function DecisionPanel({
           destination arrival. Revising the request relocates planned waiting;
           actual access and operational benefits remain unavailable.
         </p>
+      ) : intelligence?.kind === "PARADIP_ENTRY_RESTRICTION" ? (
+        <p className="p-2 text-xs">
+          The only eligible option is referral for human review. Entry,
+          pilotage, and the schedule effect remain unknown.
+        </p>
       ) : intelligence ? (
         <p className="p-2 text-xs">
           Reported evidence and an explicit review-hold assumption. Only the
@@ -520,7 +525,9 @@ export function DecisionPanel({
                   </span>
                 ) : (
                   <span className="ml-auto text-[10.5px] italic text-[var(--text-3)]">
-                    no feasible option survived
+                    {intelligence?.kind === "PARADIP_ENTRY_RESTRICTION"
+                      ? "Manual review required"
+                      : "no feasible option survived"}
                   </span>
                 )}
               </div>
@@ -843,7 +850,9 @@ export function DecisionPanel({
           />
         ) : null}
       </div>
-      {tab === "options" && currentWeather?.passageComparison ? (
+      {tab === "options" &&
+      (currentWeather?.passageComparison ||
+        intelligence?.kind === "PARADIP_ENTRY_RESTRICTION") ? (
         <div className="pw-next-action shrink-0">
           <button
             type="button"

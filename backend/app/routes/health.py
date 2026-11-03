@@ -21,6 +21,7 @@ from src.portwatch_os.deployment_artifact import current as source_artifact
 
 router = APIRouter()
 # Wall-clock: actual process/module start, never a forecast or observation time.
+# wall-clock: runtime boot identity records when this process actually started.
 _PROCESS_START = wall_now().isoformat()
 _PROCESS_BOOT = str(uuid4())
 

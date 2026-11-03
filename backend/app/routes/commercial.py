@@ -53,8 +53,8 @@ def _shadow(scoped,engine,problem,context,config,at,job_id):
         return output,control.public()
     finally:
         if control is not None:
-            # Wall-clock: actual compute completion, separate from frozen forecast targets.
             engine.ledger.append_feedback('commercial-job-event',{'jobId':control.id,
+                # wall-clock: actual compute completion, separate from frozen forecast targets.
                 'at':wall_now().isoformat(),**control.public()})
 
 

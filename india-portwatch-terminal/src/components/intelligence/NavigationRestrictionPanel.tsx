@@ -181,11 +181,16 @@ export function NavigationRestrictionPanel({
   const canPropose = !!onDecision && session?.user.role === "SHIPPING_COMPANY";
   const [paradipConfirmed, setParadipConfirmed] = useState(false);
   const paradip = useMutation({
-    mutationFn: () => postJson<DecisionProblem>(
-      "/intelligence/paradip-entry-comparison", { confirmed: paradipConfirmed }, identityHeaders,
-    ),
+    mutationFn: () =>
+      postJson<DecisionProblem>(
+        "/intelligence/paradip-entry-comparison",
+        { confirmed: paradipConfirmed },
+        identityHeaders,
+      ),
     onSuccess: (problem) => {
-      void client.invalidateQueries({ queryKey: ["saved-intelligence-comparisons"] });
+      void client.invalidateQueries({
+        queryKey: ["saved-intelligence-comparisons"],
+      });
       onDecision?.(problem);
     },
   });
@@ -211,15 +216,32 @@ export function NavigationRestrictionPanel({
       <summary>
         Rolling official notices → voyage exposure → supported decisions
       </summary>
-      {canPropose && q.data?.voyages.some((row) => row.id === "PWD-001" && row.portCode === "INPRT") ? (
-        <section className="my-3 space-y-2 border border-[var(--line)] p-2" aria-label="Paradip pre-entry review">
+      {canPropose &&
+      q.data?.voyages.some(
+        (row) => row.id === "PWD-001" && row.portCode === "INPRT",
+      ) ? (
+        <section
+          className="my-3 space-y-2 border border-[var(--line)] p-2"
+          aria-label="Paradip pre-entry review"
+        >
           <strong>PW Meridian · Paradip pre-entry restriction</strong>
-          <p>The issuer requires disclosure of known defects before entry. Clearance and waiting time are unavailable.</p>
+          <p>
+            The issuer requires disclosure of known defects before entry.
+            Clearance and waiting time are unavailable.
+          </p>
           <label className="block">
-            <input type="checkbox" checked={paradipConfirmed} onChange={(event) => setParadipConfirmed(event.target.checked)} />{" "}
-            Declare a fictional known critical steering defect that the agent has yet to disclose.
+            <input
+              type="checkbox"
+              checked={paradipConfirmed}
+              onChange={(event) => setParadipConfirmed(event.target.checked)}
+            />{" "}
+            Declare a fictional known critical steering defect that the agent
+            has yet to disclose.
           </label>
-          <Button disabled={!paradipConfirmed || paradip.isPending} onClick={() => paradip.mutate()}>
+          <Button
+            disabled={!paradipConfirmed || paradip.isPending}
+            onClick={() => paradip.mutate()}
+          >
             Compare Paradip entry actions
           </Button>
           {paradip.error ? <p role="alert">{paradip.error.message}</p> : null}
