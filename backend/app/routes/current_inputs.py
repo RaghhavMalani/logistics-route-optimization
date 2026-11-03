@@ -3,6 +3,7 @@ import copy
 from datetime import timedelta
 from fastapi import APIRouter, Body, HTTPException, Query
 from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from src.utils import port_registry
 from src.portwatch_os.clock import get_clock, LIVE, wall_now
 from src.portwatch_os.sandbox import current_sandbox
@@ -58,11 +59,12 @@ def proposals():
     latest = scoped.world.get("terminalProposal") or {}
     if latest.get("environmentEvidenceId"):
         journeys.setdefault(latest["decisionId"], {"proposal":latest,"reviewDecisionId":scoped.world.get("currentArrivalReview")})
+    allowed = {row["id"] for row in demo_hulls(scoped.world)}
     rows = []
     for key, journey in reversed(list(journeys.items())):
         proposal = journey.get("proposal")
         source = get_engine().get(key)
-        if not proposal or source is None: continue
+        if not proposal or source is None or proposal.get("vesselId") not in allowed: continue
         env = connected_basis(source)
         if who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code: continue
         rows.append({**proposal,"subject":source.subject_label,"evidence":env,
@@ -85,9 +87,11 @@ def review_proposal(payload: dict = Body(...)):
         raise HTTPException(409,"The Company proposal must have a computed, approved decision")
     env = connected_basis(source)
     existing = journey.get("reviewDecisionId") or (scoped.world.get("currentArrivalReview") if (scoped.world.get("terminalProposal") or {}).get("decisionId")==source.decision_id else None)
+    if (who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code) or not any(
+        row["id"] == proposal.get("vesselId") for row in demo_hulls(scoped.world)
+    ):
+        raise HTTPException(404,"No submitted current-input proposal in this visitor's world")
     if existing and engine.get(existing): return engine.get(existing).to_dict()
-    if who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code:
-        raise HTTPException(403,"This proposal belongs to another port")
     from src.portwatch_os.decision.continuation import require_current
     require_current(source)
     problem = copy.deepcopy(source)

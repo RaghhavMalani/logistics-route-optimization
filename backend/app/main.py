@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.routes import (
     admin,
     advisories,
+    handoffs,
     arrivals,
     public_arrivals,
     public_research,
@@ -300,6 +301,7 @@ app.include_router(global_eye.router, prefix="/api")
 app.include_router(company.router, prefix="/api")
 app.include_router(port_twin.router, prefix="/api")
 app.include_router(advisories.router, prefix="/api")
+app.include_router(handoffs.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(learning.router, prefix="/api")
 from backend.app.routes import capabilities

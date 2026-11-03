@@ -127,3 +127,28 @@ def test_demo_company_and_port_only_receive_their_hulls(tmp_path, monkeypatch):
     assert "PWD-002" not in response.text
     assert "PWD-003" not in response.text
     client.close()
+
+@pytest.mark.parametrize("name,role,organisation,vessels,ports,allowed", ACCOUNTS, ids=[row[0] for row in ACCOUNTS])
+def test_verified_handoff_scope(verified_api, monkeypatch, tmp_path, name, role, organisation, vessels, ports, allowed):
+    from src.portwatch_os.advisories.model import Advisory
+    from src.portwatch_os.advisories.store import AdvisoryStore
+
+    client, headers, _ = verified_api
+    register = AdvisoryStore(tmp_path / "advisories.sqlite3")
+    monkeypatch.setattr("backend.app.routes.handoffs.get_advisory_store", lambda: register)
+    for vessel_id, port in (("QA-ONE", "INNSA"), ("QA-TWO", "INMAA")):
+        register._write(Advisory(
+            advisory_id="ADV-" + vessel_id, kind="arrival_window", port_code=port,
+            issuer="QA desk", issuer_organisation="QA Port", recipient_vessel_id=vessel_id,
+            recipient_vessel_name="PRIVATE-" + vessel_id, recipient_organisation="carrier-qa",
+            created_at="2026-11-03T10:00:00Z", recommendation={"internalRate": 9182},
+            evidence={"privateTerms": "fixture-secret"}, reason="Fixture", state="issued",
+        ))
+    if name == "asserted":
+        monkeypatch.setenv("PORTWATCH_IDENTITY_MODE", "asserted")
+    response = client.get("/api/handoffs", headers=headers[name])
+    assert response.status_code == (401 if name == "anonymous" else 200)
+    if response.is_success:
+        assert {item["vesselId"] for item in response.json()["items"]} == set(allowed)
+        assert "fixture-secret" not in response.text
+        assert "internalRate" not in response.text
