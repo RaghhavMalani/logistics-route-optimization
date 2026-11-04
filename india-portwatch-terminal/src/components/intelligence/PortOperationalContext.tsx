@@ -33,6 +33,8 @@ export function PortOperationalContext({
     enabled: session?.mode === "demo",
     retry: false,
     staleTime: 30000,
+    refetchInterval: (query) =>
+      query.state.data?.refreshPending ? 2_000 : false,
   });
   const [metric, setMetric] = useState("WORKING_LISTED_ROWS"),
     [threshold, setThreshold] = useState(""),
@@ -51,6 +53,7 @@ export function PortOperationalContext({
       ),
     onSuccess: changed,
   });
+  const refreshing = refresh.isPending || q.data?.refreshPending;
   const rule = useMutation({
     mutationFn: () =>
       postJson(
@@ -250,10 +253,10 @@ export function PortOperationalContext({
               <Button
                 size="sm"
                 variant="outline"
-                disabled={refresh.isPending}
+                disabled={refreshing}
                 onClick={() => refresh.mutate()}
               >
-                {refresh.isPending
+                {refreshing
                   ? "Collecting approved report…"
                   : "Refresh official Paradip report"}
               </Button>
@@ -389,6 +392,8 @@ export function PortContextChoices({
     enabled: session?.mode === "demo",
     retry: false,
     staleTime: 30000,
+    refetchInterval: (query) =>
+      query.state.data?.refreshPending ? 2_000 : false,
   });
   useEffect(() => onChange([]), [vesselId, onChange]);
   const context = q.data?.context;

@@ -26,7 +26,7 @@ def company():
 
 @router.get('/intelligence/operational-notices')
 def listing():
-    scoped=scoped_world();notice=notices.refresh()
+    scoped=scoped_world();notice=notices.retained()
     rows=[{'id':v['id'],'name':v['name'],'laneCode':v['laneCode'],'portCode':v['portCode'],
         'cargo':v['cargo'],'declaredPassage':v.get('declaredPassage')} for v in demo_hulls(scoped.world)]
     return {'notices':[notice],'voyages':rows,
@@ -101,9 +101,12 @@ def comparison(payload:dict=Body(...)):
     if not plan: raise HTTPException(409,'Declare the route, characteristics and future passage first')
     from src.portwatch_os.decision.episodes import ensure_episode
     episode = ensure_episode(scoped, row)
-    notice=notices.refresh(force=payload.get('refreshSource') is True)
+    if payload.get('refreshSource') is True:
+        raise HTTPException(409,'Queue source collection from the source register, then retry with the retained revision')
+    notice=notices.retained()
     if notice.get('revisionId')!=payload.get('revisionId'): raise HTTPException(409,'Notice revision changed; inspect the current original before comparing')
     try:
+        notices.require_revision({'reportedFact': notice, 'restriction': {'revisionId': notice['revisionId']}}, now=at.isoformat())
         result=notices.planned_consequence(notice,plan)
         if instant(plan['passageAt'])<=at: raise ValueError('Declared passage is no longer future')
     except (ValueError,KeyError) as exc: raise HTTPException(409,str(exc))

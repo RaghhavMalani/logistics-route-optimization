@@ -21,35 +21,45 @@ def test_current_provider_context_is_withheld_during_replay(monkeypatch):
         assert result["features"] == [] and result["records"] == [] and result["fetchedAt"] is None
 
 
-def test_infrastructure_geometry_without_center_enters_the_globe_contract(monkeypatch):
+def test_infrastructure_geometry_without_center_enters_the_globe_contract(tmp_path, monkeypatch):
     from unittest.mock import Mock
     from types import SimpleNamespace
     from backend.app.routes import capabilities
     monkeypatch.setattr(capabilities, "get_clock", lambda: SimpleNamespace(state=SimpleNamespace(mode=capabilities.LIVE)))
-    monkeypatch.setattr(capabilities, "_CACHE", {})
+    from src.portwatch_os.intelligence import capability_layers as layers
+    from src.utils import port_registry
+    monkeypatch.setattr(layers.current_environment, "ROOT", tmp_path)
     reply = Mock()
     reply.json.return_value = {"elements": [{"id": 123, "type": "way", "tags": {"railway": "rail"},
         "geometry": [{"lat": 18.9, "lon": 72.9}, {"lat": 19.0, "lon": 73.0}]}]}
     get = Mock(return_value=reply)
-    monkeypatch.setattr(capabilities.requests, "get", get)
+    monkeypatch.setattr(layers.requests, "get", get)
+    layers.collect("infrastructure", port_registry.resolve("INNSA"))
+    get.reset_mock(side_effect=True)
+    get.side_effect = AssertionError("A provider call occurred during a layer read")
     data = capabilities.layer("infrastructure", "INNSA")
+    get.assert_not_called()
     assert data["status"] == "CACHED" and len(data["features"]) == 1
     feature = data["features"][0]
     assert feature["kind"] == "rail" and feature["geometry"] == [[72.9, 18.9], [73.0, 19.0]]
     assert feature["lat"] == pytest.approx(18.95) and feature["lon"] == pytest.approx(72.95)
-    assert "out geom qt 600" in get.call_args.kwargs["params"]["data"]
 
 
-def test_provider_failure_keeps_last_snapshot_stale_without_retiming_it(monkeypatch):
+
+def test_stale_provider_read_preserves_original_receipt(tmp_path, monkeypatch):
     from unittest.mock import Mock
     from types import SimpleNamespace
-    import requests
     from backend.app.routes import capabilities
+    from src.portwatch_os.intelligence import capability_layers as layers
+    from src.utils import port_registry
     monkeypatch.setattr(capabilities, "get_clock", lambda: SimpleNamespace(state=SimpleNamespace(mode=capabilities.LIVE)))
-    fetched = capabilities.world_now() - timedelta(days=1)
+    monkeypatch.setattr(layers.current_environment, "ROOT", tmp_path)
+    fetched = layers.world_now() - timedelta(days=1)
     prior = {"status": "CACHED", "fetchedAt": fetched.isoformat(), "features": [{"id": "known"}], "records": []}
-    monkeypatch.setattr(capabilities, "_CACHE", {("infrastructure", "INNSA"): (fetched, prior)})
-    monkeypatch.setattr(capabilities.requests, "get", Mock(side_effect=requests.RequestException("unavailable")))
+    path = layers._path("infrastructure", port_registry.resolve("INNSA"))
+    path.parent.mkdir()
+    path.write_text(json.dumps(prior))
+    monkeypatch.setattr(layers.requests, "get", Mock(side_effect=AssertionError("Read contacted provider")))
     response = capabilities.layer("infrastructure", "INNSA")
     assert response["status"] == "STALE" and response["features"] == prior["features"]
     assert response["fetchedAt"] == fetched.isoformat()

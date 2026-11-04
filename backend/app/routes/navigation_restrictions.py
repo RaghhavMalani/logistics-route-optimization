@@ -1,11 +1,13 @@
 """One reviewed bridge consequence carried through the original role workflow."""
 from datetime import timedelta
+from functools import partial
 import hashlib
 import json
 import math
 from fastapi import APIRouter, Body, HTTPException, Query
 from backend.app.routes.operational_notices import company
 from backend.app.routes.shipping_intelligence import scoped_world
+from backend.app.services import public_collection_queue
 from src.portwatch_os.clock import wall_now, world_now, get_clock
 from src.portwatch_os.intelligence import navigation_restrictions as notices
 from src.portwatch_os.intelligence.current_environment import instant
@@ -84,7 +86,7 @@ def listing():
     catalogue=retained(ROOT, query_at)
     from backend.app.services.demo_terminal import demo_hulls
     vessels=demo_hulls(scoped.world)
-    return {**catalogue, 'voyages':[
+    return {**catalogue, 'refreshFamilies': public_collection_queue.active(), 'voyages':[
         {k:v.get(k) for k in ('id','name','laneCode','portCode','cargo','declaredPassage','declaredPassages','possibleAssetIds','operationalEpisode')}
         for v in vessels], 'asOf':query_at.isoformat(), 'exposureQueue':exposure_rows(catalogue.get('notices',[]),vessels,query_at),
         'meaning':'The original map point identifies the restricted asset. Exposure requires an explicit declared passage; no destination or lane automatically crosses this bridge.'}
@@ -111,7 +113,9 @@ def selected_notice(payload):
         if found is None: raise HTTPException(404,'Retained Indian-source identity unavailable')
         return found
     kwargs={'notice_id':payload['noticeId']} if payload.get('noticeId') else {}
-    return notices.refresh(force=payload.get('refreshSource') is True, **kwargs)
+    if payload.get('refreshSource') is True:
+        raise HTTPException(409,'Queue source collection from the source register, then retry with the retained revision')
+    return notices.retained(**kwargs)
 
 
 @router.post('/intelligence/exposure-lead')
@@ -204,6 +208,7 @@ def comparison(payload:dict=Body(...)):
     if not plan or plan.get('sourceFamily') != 'NAVCEN_MSI': raise HTTPException(409,'Declare this specific bridge passage first')
     if notice.get('revisionId') != payload.get('revisionId'): raise HTTPException(409,'Authority revision changed; inspect current evidence')
     try:
+        notices.require_revision({'reportedFact': notice, 'restriction': {'revisionId': notice['revisionId']}}, now=at.isoformat())
         result=notices.planned_consequence(notice,plan)
         if instant(plan['passageAt'])<=at: raise ValueError('Declared passage is no longer future')
     except (ValueError,KeyError) as exc: raise HTTPException(409,str(exc))
@@ -272,7 +277,7 @@ def comparison(payload:dict=Body(...)):
     return get_engine().finish(problem).to_dict()
 
 
-@router.post('/intelligence/navigation-restrictions/refresh')
+@router.post('/intelligence/navigation-restrictions/refresh', status_code=202)
 def refresh_source(payload:dict=Body(...)):
     from backend.app.identity import current_identity
     scoped_world()
@@ -282,12 +287,14 @@ def refresh_source(payload:dict=Body(...)):
     family=payload.get('sourceFamily')
     if family=='NHO_NAVAREA_VIII':
         from src.portwatch_os.intelligence import indian_notices
-        indian_notices.refresh(force=True)
-    elif family=='NAVCEN_MSI': notices.refresh_all(force=True)
+        collector = indian_notices.refresh
+    elif family=='NAVCEN_MSI':
+        collector = notices.refresh_all
     elif family=='PEEL_PORTS':
         from src.portwatch_os.intelligence import operational_notices
-        operational_notices.refresh(force=True)
+        collector = operational_notices.refresh
     else: raise HTTPException(422,'Reviewed source family required')
+    public_collection_queue.enqueue(family, partial(collector, force=True))
     return listing()
 
 

@@ -90,7 +90,8 @@ def install():
             permitted = (module in read_modules and route.methods == {"GET"}) or module in workflow_modules or (module in (demonstrations,port_context,current_inputs,shipping_intelligence,shared_feedback,operational_notices,navigation_restrictions) and route.methods == {"POST"}) or (route.path in extras and route.methods == {"GET"}) or (route.path in own_mutations and route.methods == {"POST"})
             if permitted:
                 router.add_api_route(route.path, route.endpoint, methods=list(route.methods),
-                                     name="demo_terminal_" + route.name, response_model=route.response_model)
+                                     name="demo_terminal_" + route.name, response_model=route.response_model,
+                                     status_code=route.status_code)
 
 
 install()

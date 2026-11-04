@@ -1,7 +1,6 @@
 """Real notice parsing and software workflow fixtures; no measured outcome claim."""
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import copy
 import hashlib
 import json
 import pytest
@@ -37,7 +36,9 @@ def retained(tmp_path,monkeypatch):
     revision=hashlib.sha256(json.dumps(parsed,sort_keys=True).encode()).hexdigest()
     source={**parsed,'revisionId':revision,'id':revision,'availableAt':now.isoformat(),'checkedAt':now.isoformat(),
         'sourceStatus':'CURRENT','responseSha256':sha,'pdfSha256':sha,'source':notices.SOURCE,'pdfSource':notices.PDF}
-    monkeypatch.setattr(notices,'ROOT',root);monkeypatch.setattr(notices,'refresh',lambda *a,**k:copy.deepcopy(source))
+    (folder/'eastham-2026-18-latest.json').write_text(json.dumps(source))
+    monkeypatch.setattr(notices,'ROOT',root)
+    monkeypatch.setattr(notices,'refresh',lambda *a,**k:pytest.fail('Request path contacted the authority collector'))
     return source
 
 
@@ -74,13 +75,13 @@ def test_restriction_originals_and_revisions_guarded(tmp_path,monkeypatch):
     source=retained(tmp_path,monkeypatch);basis={'reportedFact':source,'restriction':{'revisionId':source['revisionId']}}
     notices.require_revision(basis)
     for delta in ({'status':'CANCELLED'},{'sourceStatus':'UNAVAILABLE'},{'revisionId':'revised'}):
-        monkeypatch.setattr(notices,'refresh',lambda d=delta:{**source,**d})
+        monkeypatch.setattr(notices,'retained',lambda d=delta:{**source,**d})
         with pytest.raises(ValueError): notices.require_revision(basis)
-    monkeypatch.setattr(notices,'refresh',lambda:source)
+    monkeypatch.setattr(notices,'retained',lambda:source)
     expired={**source,'checkedAt':(FIXTURE_NOW-timedelta(hours=7)).isoformat()}
-    monkeypatch.setattr(notices,'refresh',lambda:expired)
+    monkeypatch.setattr(notices,'retained',lambda:expired)
     with pytest.raises(ValueError,match='expired'): notices.require_revision(basis)
-    monkeypatch.setattr(notices,'refresh',lambda:source)
+    monkeypatch.setattr(notices,'retained',lambda:source)
     (notices.ROOT/'operational_notices'/(source['pdfSha256']+'.response')).write_bytes(b'corrupt')
     with pytest.raises(ValueError,match='corrupt'): notices.require_revision(basis)
 
