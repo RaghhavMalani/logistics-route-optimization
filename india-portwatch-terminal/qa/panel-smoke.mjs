@@ -6,11 +6,15 @@ import { join } from "node:path";
 import { chromium, expect } from "@playwright/test";
 
 const replay = process.argv.includes("--replay");
-const origin = process.env.PORTWATCH_PANEL_ORIGIN ?? (replay ? "http://127.0.0.1:4262" : "http://127.0.0.1:4263");
-const api = process.env.PORTWATCH_PANEL_API ?? (replay ? "http://127.0.0.1:9297/api" : "http://127.0.0.1:9298/api");
+const panel = process.argv.includes("--panel");
+if (replay && panel) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
+const offline = replay || panel;
+const origin = process.env.PORTWATCH_PANEL_ORIGIN ?? (offline ? "http://127.0.0.1:4262" : "http://127.0.0.1:4263");
+const api = process.env.PORTWATCH_PANEL_API ?? (offline ? "http://127.0.0.1:9297/api" : "http://127.0.0.1:9298/api");
 const originUrl = new URL(origin);
 const apiUrl = new URL(api);
 const local = [originUrl, apiUrl].every((url) => ["127.0.0.1", "localhost"].includes(url.hostname));
+if (offline && !local) throw new Error("The panel backend and frontend must both be local.");
 if (process.argv.includes("preview") && local) throw new Error("Preview target needs a verified HTTPS origin.");
 if (!local) {
   const sha = process.env.PORTWATCH_PANEL_EXPECTED_SHA;
@@ -31,6 +35,16 @@ if (!local) {
 }
 const browser = await chromium.launch();
 const open = (page, path) => page.goto(origin + path, { waitUntil: "domcontentloaded" });
+
+async function blockOutbound(context, blocked) {
+  const localOrigins = new Set([originUrl.origin, apiUrl.origin]);
+  await context.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (!["http:", "https:"].includes(url.protocol) || localOrigins.has(url.origin)) return route.continue();
+    blocked.push(url.hostname);
+    return route.abort("internetdisconnected");
+  });
+}
 
 async function call(path, token, body, expected = 200) {
   const res = await fetch(api + path, {
@@ -56,6 +70,7 @@ async function run(width, height) {
   const context = await browser.newContext({
     viewport: { width, height },
     reducedMotion: videoDir ? "no-preference" : "reduce",
+    ...(panel ? { serviceWorkers: "block" } : {}),
     ...(videoDir ? { recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } } } : {}),
   });
   const page = await context.newPage();
@@ -65,6 +80,13 @@ async function run(width, height) {
   let beat = "Company";
   const checks = [];
   const results = { origin, width, height, checks };
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 500 && new URL(response.url()).pathname.startsWith("/api/")) {
+      errors.push(`${response.status()} ${new URL(response.url()).pathname}`);
+    }
+  });
   const shot = async (name) => {
     if (videoDir) await page.waitForTimeout(1700);
     if (!evidence) return;
@@ -102,6 +124,11 @@ async function run(width, height) {
     assert.equal(result.advisoryId, id);
   }
   try {
+    if (panel) {
+      results.blockedOutbound = [];
+      await blockOutbound(context, results.blockedOutbound);
+      assert.equal((await call("/health")).worldClock.mode, "REPLAY");
+    }
     if (evidence || videoDir) {
       await open(page, "/tour");
       await page.getByRole("list", { name: "Voyage chapters" }).waitFor();
@@ -140,6 +167,7 @@ async function run(width, height) {
     const scenario = await read(calculation);
     const problem = scenario.problem;
     assert(problem);
+    if (panel) assert.equal(problem.evidence.currentEnvironment.scenario.panelReplay, true);
     const choice = problem.options.find((option) => option.status === "FEASIBLE" && /10(?:\.0)? kn/i.test(option.label));
     assert(choice);
     await scenarios.getByRole("button", { name: "See full comparison" }).click();
@@ -163,6 +191,7 @@ async function run(width, height) {
     const baseline = passage[0];
     const selected = passage.find(option => option.optionId === choice.optionId);
     results.assumedWaitHours = { baseline: baseline.anchorageWaitHours, selected: selected.anchorageWaitHours };
+    assert.equal((baseline.anchorageWaitHours - selected.anchorageWaitHours).toFixed(2), "4.00");
     await shot("03-frozen-comparison");
     const reviewPending = postResponse("/current-proposals/review");
     await panel.getByRole("button", { name: "Review Company weather proposal" }).click();
@@ -192,6 +221,7 @@ async function run(width, height) {
     await expect(recommendation).toContainText("12 → 10 kn");
     await expect(recommendation).toContainText(`${baseline.anchorageWaitHours.toFixed(2)} → ${selected.anchorageWaitHours.toFixed(2)} h`);
     await expect(recommendation).toContainText("Same modeled approach window");
+    await expect(card.getByTestId("advisory-action-accepted")).toHaveCount(0);
     await advisoryAction(card, "acknowledged", advisoryId);
     await expect(card.getByRole("region", { name: "Audit trail" })).toContainText(/acknowledged/i);
     await shot("06-vessel-acknowledged");
@@ -223,6 +253,7 @@ async function run(width, height) {
     await open(page, "/research");
     await expect(page.getByRole("main").first()).toBeVisible();
     await shot("10-research");
+    assert.deepEqual(errors, []);
     passed("Done");
   } catch (error) {
     checks.push({ beat, result: "FAIL", message: error.message });
@@ -264,13 +295,7 @@ async function projectorContext(width, height, zoom) {
 async function runReplay(width, height, zoom) {
   const { context, setZoom } = await projectorContext(width, height, zoom);
   const blocked = [];
-  const localOrigins = new Set([originUrl.origin, apiUrl.origin]);
-  await context.route("**/*", (route) => {
-    const url = new URL(route.request().url());
-    if (!["http:", "https:"].includes(url.protocol) || localOrigins.has(url.origin)) return route.continue();
-    blocked.push(url.hostname);
-    return route.abort("internetdisconnected");
-  });
+  await blockOutbound(context, blocked);
   const page = context.pages()[0] ?? await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -346,7 +371,9 @@ async function runReplay(width, height, zoom) {
     await open(page, "/research");
     await expect(page.getByRole("main").first()).toBeVisible({ timeout: 20_000 });
     await open(page, "/tour");
-    await page.getByRole("list", { name: "Voyage chapters" }).getByRole("button").nth(2).click();
+    const decide = page.getByRole("button", { name: "2: Decide" });
+    await decide.click();
+    await expect(decide).toHaveAttribute("aria-current", "step");
     await expect(page.getByText("12.14 h", { exact: true })).toBeAttached({ timeout: 20_000 });
     await expect(page.getByText("1.05 h", { exact: true })).toBeAttached();
     assert.deepEqual(errors, []);
