@@ -1,6 +1,25 @@
 # Panel runbook
 
-The review starts at 13:30 IST. Code and deployment changes stop at 10:30 IST.
+The review starts at 13:30 IST on November 4, 2026. Verification only from 12:15 to 12:30 IST. Code freezes at 12:30 IST.
+
+## How Raghhav starts it
+
+Open PowerShell and run:
+
+```powershell
+cd 'D:/LogisticOptimization-_Capstone_168/work/panel-review-integration'
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-panel.ps1
+```
+
+Wait for **READY · open http://127.0.0.1:4264/login · SHA** followed by the commit ID. Open [local login](http://127.0.0.1:4264/login). The services keep running when you close PowerShell. The local demo uses the retained replay snapshot.
+
+To stop both services, run this from the same folder:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-panel.ps1
+```
+
+The [isolated hosted preview](https://india-portwatch-ep8o88yck-flash2404s-projects.vercel.app/login) is the fallback. Chrome may prompt you to sign in to Vercel.
 
 ## Local cache-only rehearsal
 
@@ -48,7 +67,7 @@ a time-relative window, so a new visitor can see different absolute waits.
 At 12:30 IST, check power, display resolution, mirroring, browser zoom, the
 replay date and the backup slides. Record which weather, activity and
 intelligence sources the retained snapshot actually has. Scheduled refreshes
-that supply the panel snapshot must complete before the 10:30 freeze.
+that supply the panel snapshot must complete before the verification window.
 The panel rehearsal does not fetch provider data.
 
 Reset the visitor sandbox between rehearsals. If a workspace fails to open,
