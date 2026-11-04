@@ -382,6 +382,29 @@ export function PublicResearch() {
           <Link to="/explore">Explore the shipping scenarios ↗</Link>
         </aside>
       </section>
+      <section className="public-research-intro" aria-labelledby="decision-policy-benchmark">
+        <span className="public-badge">Synthetic vessel benchmark</span>
+        <h2 id="decision-policy-benchmark">Decision policy benchmark</h2>
+        <p>
+          Balanced incumbent compared with the robust policy on 200 held-out
+          vessel cases. Both policies scored 190 cases in the head-to-head
+          comparison.
+        </p>
+        <div className="public-facts">
+          <span>Mean regret<strong>12.14 → 1.05 h</strong></span>
+          <span>90th percentile regret<strong>42.1 → 0.0 h</strong></span>
+        </div>
+        <p className="public-note">
+          The current-plan baseline also scored 1.05 h mean regret. The
+          benchmark measures performance in simulation.
+        </p>
+        <a
+          className="public-download"
+          href="https://github.com/RaghhavMalani/logistics-route-optimization/blob/b3c2cbf4967e46d673a9cb185a6b1d49d9ba11fe/docs/DECISION_BENCHMARK.md#L245-L270"
+        >
+          Source · docs/DECISION_BENCHMARK.md
+        </a>
+      </section>
       <PublicPortCases />
       {query.isPending || query.isError ? (
         <DataState
