@@ -8,7 +8,7 @@ Baseline has **384 route registrations** and **384 method/path pairs**. The same
 
 Callers are representative source locations from frontend request literals, tests and docs. The demo terminal aliases call the same handler under a visitor-owned scope. A shared relative caller can therefore appear on both the operational and demo registrations.
 
-Classification by method/path pair. 370 used, 14 legacy, 0 dead.
+Classification by method/path pair. 378 used, 6 legacy, 0 dead.
 
 ## system / [`admin`](../backend/app/domains/system/admin.py)
 
@@ -98,18 +98,18 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | --- | --- | --- | --- | --- |
 | `GET /api/commercial/comparisons/{decision_id}` | Used | [CommercialReview:142](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L142) | — | — |
 | `POST /api/commercial/evaluate` | Used | [CommercialReview:175](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L175) | [test_commercial_api:46](../tests/test_commercial_api.py#L46) | — |
-| `GET /api/commercial/jobs/{job_id}` | Legacy | — | — | — |
+| `GET /api/commercial/jobs/{job_id}` | Used | — | [commercial API:54](../tests/test_commercial_api.py#L54), [commercial API:82](../tests/test_commercial_api.py#L82) | — |
 | `POST /api/commercial/jobs/{job_id}/cancel` | Used | [CommercialReview:200](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L200) | — | — |
 | `GET /api/commercial/records/{record_id}` | Used | [CommercialReview:136](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L136) | — | — |
 | `POST /api/commercial/records/{record_id}/successor` | Used | [CommercialReview:205](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L205) | — | — |
-| `GET /api/commercial/templates/{decision_id}` | Legacy | — | — | — |
+| `GET /api/commercial/templates/{decision_id}` | Used | [CommercialReview:156](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L156) | [commercial API:17](../tests/test_commercial_api.py#L17) | — |
 | `GET /api/demo/terminal/commercial/comparisons/{decision_id}` | Used | [CommercialReview:142](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L142) | — | — |
 | `POST /api/demo/terminal/commercial/evaluate` | Used | [CommercialReview:175](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L175) | [test_commercial_api:46](../tests/test_commercial_api.py#L46) | — |
-| `GET /api/demo/terminal/commercial/jobs/{job_id}` | Legacy | — | — | — |
+| `GET /api/demo/terminal/commercial/jobs/{job_id}` | Used | — | [commercial API:54](../tests/test_commercial_api.py#L54), [commercial API:82](../tests/test_commercial_api.py#L82) | — |
 | `POST /api/demo/terminal/commercial/jobs/{job_id}/cancel` | Used | [CommercialReview:200](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L200) | — | — |
 | `GET /api/demo/terminal/commercial/records/{record_id}` | Used | [CommercialReview:136](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L136) | — | — |
 | `POST /api/demo/terminal/commercial/records/{record_id}/successor` | Used | [CommercialReview:205](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L205) | — | — |
-| `GET /api/demo/terminal/commercial/templates/{decision_id}` | Legacy | — | — | — |
+| `GET /api/demo/terminal/commercial/templates/{decision_id}` | Used | [CommercialReview:156](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L156) | [commercial API:17](../tests/test_commercial_api.py#L17) | — |
 
 ## voyages / [`company`](../backend/app/domains/voyages/company.py)
 
@@ -253,7 +253,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/demo/terminal/intelligence/cameras` | Used | [intelligence:209](../india-portwatch-terminal/src/services/intelligence.ts#L209) | [intelligence.spec:30](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L30), [public-research.spec:181](../india-portwatch-terminal/qa/tests/public-research.spec.ts#L181), [verified-backend.spec:111](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L111), [test_demo_boundary:72](../tests/test_demo_boundary.py#L72) +5 | [API_CONTRACT:663](../docs/API_CONTRACT.md#L663) |
 | `GET /api/demo/terminal/intelligence/context` | Used | [intelligence:189](../india-portwatch-terminal/src/services/intelligence.ts#L189) | [intelligence.spec:65](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L65), [test_demo_terminal:52](../tests/test_demo_terminal.py#L52), [test_intelligence_api:73](../tests/test_intelligence_api.py#L73) | [API_CONTRACT:662](../docs/API_CONTRACT.md#L662), [VERIFIED_WORKFLOWS:31](../docs/VERIFIED_WORKFLOWS.md#L31) |
 | `GET /api/demo/terminal/intelligence/earthquakes` | Used | [ConnectedGodsEye:161](../india-portwatch-terminal/src/components/intelligence/ConnectedGodsEye.tsx#L161), [IntelligenceGlobe:246](../india-portwatch-terminal/src/components/intelligence/IntelligenceGlobe.tsx#L246) | [intelligence.spec:168](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L168), [test_intelligence_api:209](../tests/test_intelligence_api.py#L209) | [API_CONTRACT:666](../docs/API_CONTRACT.md#L666) |
-| `GET /api/demo/terminal/intelligence/products` | Legacy | — | — | — |
+| `GET /api/demo/terminal/intelligence/products` | Used | [PublicProductStatus:24](../india-portwatch-terminal/src/components/intelligence/PublicProductStatus.tsx#L24) | — | — |
 | `GET /api/demo/terminal/weather/feedback` | Used | [CapabilityPanels:59](../india-portwatch-terminal/src/components/intelligence/CapabilityPanels.tsx#L59), [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [intelligence.spec:98](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L98), [verified-backend.spec:280](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L280), [weather-integration.spec:46](../india-portwatch-terminal/qa/tests/weather-integration.spec.ts#L46), [test_demo_terminal:52](../tests/test_demo_terminal.py#L52) +1 | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 | `GET /api/intelligence/ais-observations` | Used | [public-ais:14](../india-portwatch-terminal/src/services/public-ais.ts#L14) | — | — |
 | `POST /api/intelligence/camera-evidence` | Used | — | [verified-backend.spec:137](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L137), [test_intelligence_api:133](../tests/test_intelligence_api.py#L133) | [API_CONTRACT:665](../docs/API_CONTRACT.md#L665) |
@@ -261,7 +261,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/intelligence/cameras` | Used | [intelligence:209](../india-portwatch-terminal/src/services/intelligence.ts#L209) | [intelligence.spec:30](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L30), [public-research.spec:181](../india-portwatch-terminal/qa/tests/public-research.spec.ts#L181), [verified-backend.spec:111](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L111), [test_demo_boundary:72](../tests/test_demo_boundary.py#L72) +5 | [API_CONTRACT:663](../docs/API_CONTRACT.md#L663) |
 | `GET /api/intelligence/context` | Used | [intelligence:189](../india-portwatch-terminal/src/services/intelligence.ts#L189) | [intelligence.spec:65](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L65), [test_demo_terminal:52](../tests/test_demo_terminal.py#L52), [test_intelligence_api:73](../tests/test_intelligence_api.py#L73) | [API_CONTRACT:662](../docs/API_CONTRACT.md#L662), [VERIFIED_WORKFLOWS:31](../docs/VERIFIED_WORKFLOWS.md#L31) |
 | `GET /api/intelligence/earthquakes` | Used | [ConnectedGodsEye:161](../india-portwatch-terminal/src/components/intelligence/ConnectedGodsEye.tsx#L161), [IntelligenceGlobe:246](../india-portwatch-terminal/src/components/intelligence/IntelligenceGlobe.tsx#L246) | [intelligence.spec:168](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L168), [test_intelligence_api:209](../tests/test_intelligence_api.py#L209) | [API_CONTRACT:666](../docs/API_CONTRACT.md#L666) |
-| `GET /api/intelligence/products` | Legacy | — | — | — |
+| `GET /api/intelligence/products` | Used | [PublicProductStatus:24](../india-portwatch-terminal/src/components/intelligence/PublicProductStatus.tsx#L24) | — | — |
 | `GET /api/weather/feedback` | Used | [CapabilityPanels:59](../india-portwatch-terminal/src/components/intelligence/CapabilityPanels.tsx#L59), [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [intelligence.spec:98](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L98), [verified-backend.spec:280](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L280), [weather-integration.spec:46](../india-portwatch-terminal/qa/tests/weather-integration.spec.ts#L46), [test_demo_terminal:52](../tests/test_demo_terminal.py#L52) +1 | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 | `POST /api/weather/observations` | Used | [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [verified-backend.spec:300](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L300), [test_intelligence_api:190](../tests/test_intelligence_api.py#L190) | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 
@@ -396,11 +396,11 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
 | `POST /api/demo/terminal/intelligence/notice-comparison` | Used | [OperationalNoticePanel:109](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L109) | [test_operational_notices:93](../tests/test_operational_notices.py#L93) | — |
-| `GET /api/demo/terminal/intelligence/notice-evidence/{digest}` | Legacy | — | — | — |
+| `GET /api/demo/terminal/intelligence/notice-evidence/{digest}` | Used | [OperationalNoticePanel:129](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L129) | — | — |
 | `POST /api/demo/terminal/intelligence/notice-passage-plan` | Used | [OperationalNoticePanel:88](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L88) | [test_operational_notices:95](../tests/test_operational_notices.py#L95) | — |
 | `GET /api/demo/terminal/intelligence/operational-notices` | Used | [OperationalNoticePanel:75](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L75) | — | — |
 | `POST /api/intelligence/notice-comparison` | Used | [OperationalNoticePanel:109](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L109) | [test_operational_notices:93](../tests/test_operational_notices.py#L93) | — |
-| `GET /api/intelligence/notice-evidence/{digest}` | Legacy | — | — | — |
+| `GET /api/intelligence/notice-evidence/{digest}` | Used | [OperationalNoticePanel:129](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L129) | — | — |
 | `POST /api/intelligence/notice-passage-plan` | Used | [OperationalNoticePanel:88](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L88) | [test_operational_notices:95](../tests/test_operational_notices.py#L95) | — |
 | `GET /api/intelligence/operational-notices` | Used | [OperationalNoticePanel:75](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L75) | — | — |
 
@@ -603,3 +603,53 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/world/observed` | Used | — | [test_configured_fleet_scope:78](../tests/test_configured_fleet_scope.py#L78), [test_scenario_branch:148](../tests/test_scenario_branch.py#L148) | — |
 | `POST /api/world/route/exposure` | Used | [portwatch-os:431](../india-portwatch-terminal/src/services/portwatch-os.ts#L431) | [test_api_fuzz:128](../tests/test_api_fuzz.py#L128), [test_marine:286](../tests/test_marine.py#L286) | — |
 | `GET /api/world/state` | Used | [portwatch-os:354](../india-portwatch-terminal/src/services/portwatch-os.ts#L354) | [capture-fixtures:64](../india-portwatch-terminal/qa/capture-fixtures.mjs#L64), [test_api_fuzz:149](../tests/test_api_fuzz.py#L149), [test_attention_and_fabric:568](../tests/test_attention_and_fabric.py#L568), [test_authorization_matrix:47](../tests/test_authorization_matrix.py#L47) +3 | [DEPLOYMENT:173](../docs/DEPLOYMENT.md#L173), [PERFORMANCE:63](../docs/PERFORMANCE.md#L63), [SECURITY:31](../docs/SECURITY.md#L31) |
+
+
+## Developer commands
+
+Install Python and terminal dependencies once.
+
+```text
+python -m pip install -r requirements-dev.txt
+npm --prefix india-portwatch-terminal ci
+```
+
+Run `make dev` from the repository root. On Windows without GNU Make, use
+`python -m scripts.dev`. Open `http://127.0.0.1:4265/login` once the launcher
+prints READY. The API uses port 9304 and local dev state is stored in
+`work/dev/state`. The launcher builds offline sample artifacts on a fresh
+checkout. Vite reloads frontend changes. Restart the launcher after backend
+edits, and use Ctrl+C to stop both services.
+
+The separate Windows panel rehearsal still starts with
+`pwsh -File .\start-panel.ps1` from a committed checkout with panel artifacts.
+It uses ports 4264 and 9299. Stop that instance with
+`pwsh -File .\stop-panel.ps1`.
+
+Run `make test` or `python -m scripts.test_suite` for the backend suite.
+The [test register](../tests/quarantine.json) records the exact pytest node ID,
+reason and owner for each quarantine. Add `--include-quarantined` to audit those
+cases in the same run.
+
+## API schema and generated client
+
+After updating a route or its documented response, regenerate both artifacts.
+
+```text
+python -m scripts.export_openapi
+npm --prefix india-portwatch-terminal run api:generate
+```
+
+CI checks that the [OpenAPI document](../backend/openapi.json) matches FastAPI
+and that the [TypeScript types](../india-portwatch-terminal/src/services/openapi.generated.ts)
+match that document. New schema-backed calls can use the
+[typed client](../india-portwatch-terminal/src/services/api-client.ts), which
+uses the existing bearer, demo routing and screen packet transport.
+Response declarations describe the JSON contract without filtering the
+returned payload. Endpoints with unconstrained JSON still use local decoding
+and workflow types until their response schemas are documented.
+
+[Settings](../src/utils/settings.py) reads the process environment ahead of the
+root `.env` file. See [the environment template](../.env.example) for supported
+keys. The API, collectors, and storage share this model. Vite build-time
+variables belong in the terminal's own environment file.
