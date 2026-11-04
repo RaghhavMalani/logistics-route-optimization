@@ -317,6 +317,7 @@ export default function TourPage() {
                 type="button"
                 aria-label={`${i}: ${c.label}`}
                 aria-current={chapter === i ? "step" : undefined}
+                disabled={!mounted}
                 onClick={() => go(i)}
               >
                 <span className="track">
