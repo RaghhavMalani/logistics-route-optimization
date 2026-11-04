@@ -188,6 +188,25 @@ class SimulationTests(unittest.TestCase):
             self.assertTrue(any(row["state"] == DEPARTED for row in run.timeline[-1]["calls"]))
         self.assertEqual(initial.to_dict(), before)
 
+    def test_comparison_captures_one_snapshot_and_uses_existing_reward(self):
+        from unittest.mock import patch
+        from backend.app.routes.port_twin import port_twin_compare
+
+        initial = small_state()
+        with patch("backend.app.routes.port_twin.build_state_for", return_value=initial) as load:
+            comparison = port_twin_compare("INMAA")
+        load.assert_called_once_with("INMAA")
+        for side, policy_id in (("baseline", "fcfs"), ("lookahead", "lookahead")):
+            run = comparison[side]
+            expected = simulate(initial, build_policy(policy_id), SimulationConfig(horizon_hours=24))
+            self.assertEqual(run["metrics"], expected.metrics)
+            self.assertEqual(run["reward"], round(reward(expected), 3))
+            self.assertEqual(run["timeline"][-1], expected.final_state.to_dict())
+        baseline = comparison["baseline"]["reward"]
+        lookahead = comparison["lookahead"]["reward"]
+        self.assertEqual(comparison["winner"], None if baseline == lookahead else
+                         "lookahead" if lookahead > baseline else "fcfs")
+
     def test_the_same_inputs_give_byte_identical_metrics(self):
         """Two policies can only be compared if the world is identical."""
         config = SimulationConfig(horizon_hours=24.0, seed=7, record_trace=False)

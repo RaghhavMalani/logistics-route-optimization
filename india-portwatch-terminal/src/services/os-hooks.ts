@@ -42,6 +42,7 @@ import {
   fetchToolCatalogue,
   fetchTwinOptimize,
   fetchTwinSimulation,
+  fetchTwinComparison,
   fetchWorldCascade,
   fetchWorldCascades,
 } from "./portwatch-os";
@@ -183,6 +184,14 @@ export const useTwinSimulation = (
     queryFn: () =>
       fetchTwinSimulation(portCode as string, policy, horizonHours),
     enabled: Boolean(portCode),
+    ...HEAVY,
+  });
+
+export const useTwinComparison = (portCode: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ["port-twin", "compare", portCode],
+    queryFn: () => fetchTwinComparison(portCode),
+    enabled: enabled && Boolean(portCode),
     ...HEAVY,
   });
 

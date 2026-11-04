@@ -39,6 +39,7 @@ import {
   usePortTwin,
   useTwinOptimize,
   useTwinSimulation,
+  useTwinComparison,
 } from "@/services/os-hooks";
 import type {
   TwinMetrics,
@@ -56,6 +57,11 @@ import {
 import { createTwinPlayback } from "./twin-playback";
 import { useTwinClock } from "./use-twin-clock";
 import { TwinTransport } from "./TwinTransport";
+import {
+  COMPARISON_LABELS,
+  TwinComparisonView,
+  type ComparisonLane,
+} from "./TwinComparisonView";
 
 /** Three is 1.1 MB. It loads when this screen does, and not before. */
 const PortTwinScene = lazy(() =>
@@ -81,11 +87,21 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   const twin = usePortTwin(portCode);
   const [overlay, setOverlay] = useState<TwinOverlay>("utilisation");
   const [showModel, setShowModel] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [selectionLane, setSelectionLane] =
+    useState<ComparisonLane>("baseline");
   const [selection, setSelection] = useState<TwinSelection | null>(null);
   const [policy, setPolicy] = useState("greedy");
 
   const simulation = useTwinSimulation(portCode, policy, 24);
   const optimize = useTwinOptimize(portCode, 24);
+  const comparison = useTwinComparison(portCode, comparing);
+  const comparisonRuns = useMemo(() => {
+    if (!comparison.data) return null;
+    const baseline = createTwinPlayback(comparison.data.baseline);
+    const lookahead = createTwinPlayback(comparison.data.lookahead);
+    return baseline && lookahead ? { baseline, lookahead } : null;
+  }, [comparison.data]);
   const playback = useMemo(
     () => (simulation.data ? createTwinPlayback(simulation.data) : null),
     [simulation.data],
@@ -104,7 +120,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   );
 
   const duration = playback?.duration ?? 24;
-  const modelAvailable = Boolean(playback && !decisionOption);
+  const modelAvailable = Boolean(
+    (comparing ? comparisonRuns : playback) && !decisionOption,
+  );
   const transport = useTwinClock(duration, modelAvailable);
   const horizon = transport.position;
   const seekModel = (hour: number) => {
@@ -114,7 +132,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   };
   const selectHorizon = (hour: number) => {
     transport.pause();
-    setShowModel(hour > 0);
+    setShowModel(comparing || hour > 0);
     transport.seek(hour);
   };
 
@@ -128,6 +146,8 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
         { scenarioState?: PortTwinState } | undefined;
       return applyPortPlan(camera?.scenarioState ?? twin.data, decisionOption);
     }
+    if (comparing && comparisonRuns)
+      return comparisonRuns[selectionLane].sample(horizon).state;
     if (!showModel || !simulation.data) return twin.data ?? null;
     return playback?.sample(horizon).state ?? simulation.data.finalState;
   }, [
@@ -138,6 +158,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
     twin.data,
     playback,
     showModel,
+    comparing,
+    comparisonRuns,
+    selectionLane,
   ]);
 
   const metrics: TwinMetrics | null = useMemo(() => {
@@ -163,6 +186,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
     twin.data,
     playback,
     showModel,
+    comparing,
+    comparisonRuns,
+    selectionLane,
   ]);
 
   if (twin.isLoading || twin.isError) {
@@ -200,26 +226,48 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
           </>
         }
         actions={
-          <div className="flex overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
-            {HORIZONS.map((hours) => (
-              <button
-                key={hours}
-                type="button"
-                aria-pressed={
-                  hours === 0 ? !showModel : Math.abs(horizon - hours) < 0.01
-                }
-                data-testid={`twin-horizon-${hours}`}
-                onClick={() => selectHorizon(hours)}
-                className={cn(
-                  "num px-2 py-[3px] text-[11px] transition-colors",
-                  (hours === 0 ? !showModel : Math.abs(horizon - hours) < 0.01)
-                    ? "bg-[var(--panel-4)] text-[var(--text)]"
-                    : "text-[var(--text-3)] hover:bg-[var(--panel-3)] hover:text-[var(--text-2)]",
-                )}
-              >
-                {hours === 0 ? "NOW" : `+${hours}h`}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              aria-pressed={comparing}
+              data-testid="twin-compare-toggle"
+              className="rounded border border-[var(--line)] px-2 py-1 text-[11px] font-semibold aria-pressed:border-[var(--signal-ink)] aria-pressed:text-[var(--signal-ink)]"
+              onClick={() => {
+                transport.pause();
+                setDecisionOptionId(null);
+                setSelection(null);
+                setSelectionLane("baseline");
+                setShowModel(!comparing);
+                setComparing(!comparing);
+              }}
+            >
+              {comparing ? "Single twin" : "Compare policies"}
+            </button>
+            <div className="flex overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
+              {HORIZONS.map((hours) => (
+                <button
+                  key={hours}
+                  type="button"
+                  aria-pressed={
+                    hours === 0 ? !showModel : Math.abs(horizon - hours) < 0.01
+                  }
+                  data-testid={`twin-horizon-${hours}`}
+                  onClick={() => selectHorizon(hours)}
+                  className={cn(
+                    "num px-2 py-[3px] text-[11px] transition-colors",
+                    (
+                      hours === 0
+                        ? !showModel
+                        : Math.abs(horizon - hours) < 0.01
+                    )
+                      ? "bg-[var(--panel-4)] text-[var(--text)]"
+                      : "text-[var(--text-3)] hover:bg-[var(--panel-3)] hover:text-[var(--text-2)]",
+                  )}
+                >
+                  {hours === 0 ? "NOW" : `+${hours}h`}
+                </button>
+              ))}
+            </div>
           </div>
         }
       />
@@ -250,63 +298,55 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             <Suspense
               fallback={<SceneFallback label="Loading the 3D renderer" />}
             >
-              <PortTwinScene
-                state={state}
-                overlay={overlay}
-                metrics={metrics}
-                playback={showModel && !decisionOption ? playback : null}
-                clock={transport.clock}
-                selectedId={selection?.id ?? null}
-                onSelect={setSelection}
-                className="h-full w-full"
-              />
-            </Suspense>
-
-            {/* Overlay picker, bottom-left over the scene. */}
-            <div className="pointer-events-auto absolute bottom-2.5 left-2.5 z-10 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-1.5 backdrop-blur-[3px]">
-              <div className="eyebrow mb-1 text-[10px]">Colour by</div>
-              <div className="flex flex-wrap gap-1">
-                {OVERLAYS.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    title={option.hint}
-                    aria-pressed={overlay === option.key}
-                    data-testid={`twin-overlay-${option.key}`}
-                    onClick={() => setOverlay(option.key)}
-                    className={cn(
-                      "rounded-[2px] border px-1.5 py-[2px] text-[10px] transition-colors",
-                      overlay === option.key
-                        ? "border-[var(--line-strong)] bg-[var(--panel-4)] text-[var(--text)]"
-                        : "border-[var(--line)] text-[var(--text-3)] hover:text-[var(--text-2)]",
+              {comparing ? (
+                comparisonRuns && comparison.data ? (
+                  <TwinComparisonView
+                    {...comparisonRuns}
+                    winner={comparison.data.winner}
+                    hour={horizon}
+                    renderScene={(lane, run, laneState) => (
+                      <PortTwinScene
+                        state={laneState}
+                        overlay={overlay}
+                        playback={run}
+                        clock={transport.clock}
+                        selectedId={
+                          selectionLane === lane ? selection?.id : null
+                        }
+                        onSelect={(item) => {
+                          setSelectionLane(lane);
+                          setSelection(item);
+                        }}
+                        className="h-full w-full"
+                      />
                     )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-2 text-xs">
-                <span>Low</span>
-                <span
-                  aria-hidden="true"
-                  className="h-2 w-20 rounded"
-                  style={{
-                    background: `linear-gradient(90deg,${TWIN_RAMP.join(",")})`,
-                  }}
-                />
-                <span>High</span>
-                <span className="font-medium">
-                  {OVERLAYS.find((item) => item.key === overlay)?.hint}
-                </span>
-              </div>
-              <div className="mt-1 text-xs">
-                {selection ? (
-                  <strong>Selected · {selection.label}</strong>
+                  />
+                ) : comparison.isError ? (
+                  <div className="grid h-full place-items-center text-xs">
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => void comparison.refetch()}
+                    >
+                      Comparison unavailable · retry
+                    </button>
+                  </div>
                 ) : (
-                  "Click an item to inspect it"
-                )}
-              </div>
-            </div>
+                  <SceneFallback label="Running both policies from the same snapshot" />
+                )
+              ) : (
+                <PortTwinScene
+                  state={state}
+                  overlay={overlay}
+                  metrics={metrics}
+                  playback={showModel && !decisionOption ? playback : null}
+                  clock={transport.clock}
+                  selectedId={selection?.id ?? null}
+                  onSelect={setSelection}
+                  className="h-full w-full"
+                />
+              )}
+            </Suspense>
 
             {decisionOption ? (
               <div
@@ -329,7 +369,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             ) : null}
 
             {/* Metrics strip, top-right over the scene. */}
-            {metrics ? (
+            {metrics && !comparing ? (
               <div className="pointer-events-none absolute right-2.5 top-2.5 z-10 grid grid-cols-3 gap-x-3 gap-y-1.5 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2.5 py-1.5 backdrop-blur-[3px]">
                 {(
                   [
@@ -372,6 +412,50 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               </div>
             ) : null}
           </div>
+          <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel)] px-3 py-1.5">
+            <div className="eyebrow mb-1 text-[10px]">Colour by</div>
+            <div className="flex flex-wrap gap-1">
+              {OVERLAYS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  title={option.hint}
+                  aria-pressed={overlay === option.key}
+                  data-testid={`twin-overlay-${option.key}`}
+                  onClick={() => setOverlay(option.key)}
+                  className={cn(
+                    "rounded-[2px] border px-1.5 py-[2px] text-[10px] transition-colors",
+                    overlay === option.key
+                      ? "border-[var(--line-strong)] bg-[var(--panel-4)] text-[var(--text)]"
+                      : "border-[var(--line)] text-[var(--text-3)] hover:text-[var(--text-2)]",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-2 text-xs">
+              <span>Low</span>
+              <span
+                aria-hidden="true"
+                className="h-2 w-20 rounded"
+                style={{
+                  background: `linear-gradient(90deg,${TWIN_RAMP.join(",")})`,
+                }}
+              />
+              <span>High</span>
+              <span className="font-medium">
+                {OVERLAYS.find((item) => item.key === overlay)?.hint}
+              </span>
+            </div>
+            <div className="mt-1 text-xs">
+              {selection ? (
+                <strong>Selected · {selection.label}</strong>
+              ) : (
+                "Click an item to inspect it"
+              )}
+            </div>
+          </div>
           <TwinTransport
             transport={transport}
             duration={duration}
@@ -396,6 +480,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             selectedOptionId={decisionOptionId}
             onSelectOption={(id) => {
               transport.pause();
+              if (id) setComparing(false);
               setDecisionOptionId(id);
             }}
           />
@@ -442,7 +527,10 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             )}
           </Panel>
 
-          <Panel title="Arrival queue" note={`${waiting.length} waiting`}>
+          <Panel
+            title="Arrival queue"
+            note={`${waiting.length} waiting${comparing ? " · " + COMPARISON_LABELS[selectionLane] : ""}`}
+          >
             <Section title={`${approaching.length} approaching`}>
               {waiting.length === 0 ? (
                 <p className="text-[10.5px] text-[var(--text-3)]">

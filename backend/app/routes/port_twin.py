@@ -116,7 +116,12 @@ def port_twin_simulate(
         )
     if include_timeline and horizon_hours > 48:
         raise HTTPException(status_code=422, detail="A playback timeline is limited to 48 modelled hours.")
-    state = build_state_for(port_code)
+    return _simulation_payload(build_state_for(port_code), policy, horizon_hours, include_timeline)
+
+
+def _simulation_payload(
+    state: PortState, policy: str, horizon_hours: float, include_timeline: bool,
+) -> Dict[str, Any]:
     chosen = build_policy(policy)
     result = simulate(
         state, chosen,
@@ -145,6 +150,21 @@ def port_twin_simulate(
             "benchmark result describe the same simulator."
         ),
     }
+
+
+@router.get("/port-twin/{port_code}/compare")
+def port_twin_compare(
+    port_code: str,
+    horizon_hours: Annotated[float, Query(ge=1.0, le=48.0)] = 24.0,
+) -> Dict[str, Any]:
+    """Run FCFS and constrained lookahead against one frozen twin snapshot."""
+    state = build_state_for(port_code)
+    baseline = _simulation_payload(state, "fcfs", horizon_hours, True)
+    lookahead = _simulation_payload(state, "lookahead", horizon_hours, True)
+    winner = None
+    if baseline["reward"] != lookahead["reward"]:
+        winner = "lookahead" if lookahead["reward"] > baseline["reward"] else "fcfs"
+    return {"baseline": baseline, "lookahead": lookahead, "winner": winner}
 
 
 @router.get("/port-twin/{port_code}/optimize")

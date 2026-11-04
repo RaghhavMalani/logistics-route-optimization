@@ -473,6 +473,12 @@ export interface TwinSimulation {
   note: string;
 }
 
+export interface TwinComparison {
+  baseline: TwinSimulation;
+  lookahead: TwinSimulation;
+  winner: "fcfs" | "lookahead" | null;
+}
+
 export interface TwinOptimizeRow {
   policy: PolicyDescriptor;
   metrics: TwinMetrics;
