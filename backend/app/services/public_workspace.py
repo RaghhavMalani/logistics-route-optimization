@@ -1,7 +1,7 @@
 """Public scene projections and request-local simulations; no operator state writes."""
 from datetime import datetime, timezone
 
-from backend.app.routes.public_research import explore, optional, safe_url
+from backend.app.domains.intelligence.public_research import explore, optional, safe_url
 from backend.app.services import cache_service as cache
 from src.portwatch_os.clock import wall_now
 from src.portwatch_os.learning.weather_feedback import instant

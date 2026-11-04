@@ -129,7 +129,7 @@ async def _storage_failures(request: Request, exc: Exception):
         telemetry.incr("api.errors", route=request.url.path, status=503)
         # A fault seen on a request is what health should say next; drop the
         # minute's memory of the last probe.
-        from backend.app.routes import health as health_route
+        from backend.app.domains.system import health as health_route
 
         health_route._PROBE_CACHE["value"] = None
         return JSONResponse(status_code=503, content={

@@ -93,7 +93,12 @@ def _screen_identity(request: Request, role: str, prefetch: bool):
 
 
 def _fragments(request: Request, screen: str, who, session: dict | None, port: str | None):
-    from backend.app.routes import company, current_inputs, demonstrations, fleet, handoffs, health, model, news, ports, weather, world
+    from backend.app.domains.advisories import handoffs
+    from backend.app.domains.intelligence import current_inputs
+    from backend.app.domains.ports import model, ports, weather
+    from backend.app.domains.system import health
+    from backend.app.domains.voyages import company, demonstrations, fleet
+    from backend.app.domains.world import news, world
     from src.portwatch_os.deployment import resolve_mode
     from src.utils import port_registry
 
