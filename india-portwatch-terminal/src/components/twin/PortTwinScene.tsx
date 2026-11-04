@@ -85,7 +85,7 @@ export function PortTwinScene({
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     pickables: Pickable[];
-    dispose: () => void;
+    repaint: () => void;
   } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const handlers = useRef({ onSelect });
@@ -599,6 +599,14 @@ export function PortTwinScene({
       camera.position.clone().sub(target),
     );
 
+    let raf = 0;
+    const repaint = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        renderer.render(scene, camera);
+      });
+    };
     const applyCamera = () => {
       spherical.phi = Math.max(
         0.18,
@@ -612,6 +620,7 @@ export function PortTwinScene({
         .copy(target)
         .add(new THREE.Vector3().setFromSpherical(spherical));
       camera.lookAt(target);
+      repaint();
     };
 
     const onDown = (event: MouseEvent) => {
@@ -647,16 +656,12 @@ export function PortTwinScene({
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      repaint();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
 
-    let raf = 0;
-    const render = () => {
-      raf = requestAnimationFrame(render);
-      renderer.render(scene, camera);
-    };
-    raf = requestAnimationFrame(render);
+    repaint();
 
     const dispose = () => {
       cancelAnimationFrame(raf);
@@ -674,7 +679,7 @@ export function PortTwinScene({
       }
     };
 
-    sceneRef.current = { renderer, scene, camera, pickables, dispose };
+    sceneRef.current = { renderer, scene, camera, pickables, repaint };
     return dispose;
     // Rebuild only when the port's shape changes; recolouring is a separate
     // effect so switching overlay never tears the GL context down.
@@ -757,9 +762,9 @@ export function PortTwinScene({
         material.color.copy(colour);
         material.emissive.set(emphasised ? COLORS.action : 0x000000);
         material.emissiveIntensity = emphasised ? 0.6 : 0;
-        material.needsUpdate = true;
       });
     }
+    current.repaint();
   }, [overlay, selectedId, state]);
 
   if (failed) {

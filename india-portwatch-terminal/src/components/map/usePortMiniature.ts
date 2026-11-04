@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { LngLat, type Map as MapLibreMap } from "maplibre-gl";
+import type { Map as MapLibreMap } from "maplibre-gl";
+import { haversineKm } from "@/lib/maritime/geo";
 
 const LAYER_ID = "port-miniature";
 const DETAIL_ZOOM = 11;
@@ -53,9 +54,9 @@ export function usePortMiniature(
       let target: PortMiniatureTarget | null = null;
       if (zoom >= DETAIL_ZOOM) {
         const center = map.getCenter();
-        let distance = Math.max(1500, 9000 / 2 ** (zoom - DETAIL_ZOOM));
+        let distance = Math.max(1.5, 9 / 2 ** (zoom - DETAIL_ZOOM));
         for (const port of latest.current) {
-          const next = center.distanceTo(LngLat.convert(port.center));
+          const next = haversineKm([center.lng, center.lat], port.center);
           if (next < distance) {
             target = port;
             distance = next;

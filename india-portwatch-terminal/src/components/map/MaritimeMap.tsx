@@ -156,14 +156,17 @@ const EMPTY_OVERLAY: Overlay = {
 };
 
 const CHAPTER_CAMERA = { pitch: 50, bearing: -12 };
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+function cameraDuration(duration: number) {
+  return window.matchMedia(REDUCED_MOTION).matches ? 0 : duration;
+}
 
 function chapterTransition() {
   return {
     ...CHAPTER_CAMERA,
-    duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? 0
-      : 1050,
-    easing: (t: number) => t * t * (3 - 2 * t),
+    duration: cameraDuration(1050),
+    easing: (t: number) => t * t * t * (t * (6 * t - 15) + 10),
   };
 }
 
@@ -275,34 +278,40 @@ export function MaritimeMap({
 
   /* Props the animation loop reads. Refs, so changing a filter never restarts
      the loop and never drops a frame. */
-  const settings = useRef({
-    vesselFilter,
-    focusIds,
-    pinnedIds,
-    selectedVesselId,
-    showVectors,
-    forceVesselLabels,
-    maxVesselLabels,
-    labels,
-    colorByType,
-    trafficOn: layers.traffic !== false,
-    portsOn: layers.ports !== false,
-    portIds,
-  });
-  settings.current = {
-    vesselFilter,
-    focusIds,
-    pinnedIds,
-    selectedVesselId,
-    showVectors,
-    forceVesselLabels,
-    maxVesselLabels,
-    labels,
-    colorByType,
-    trafficOn: layers.traffic !== false,
-    portsOn: layers.ports !== false,
-    portIds,
-  };
+  const trafficOn = layers.traffic !== false;
+  const portsOn = layers.ports !== false;
+  const trafficSettings = useMemo(
+    () => ({
+      vesselFilter,
+      focusIds,
+      pinnedIds,
+      selectedVesselId,
+      showVectors,
+      forceVesselLabels,
+      maxVesselLabels,
+      labels,
+      colorByType,
+      trafficOn,
+      portsOn,
+      portIds,
+    }),
+    [
+      vesselFilter,
+      focusIds,
+      pinnedIds,
+      selectedVesselId,
+      showVectors,
+      forceVesselLabels,
+      maxVesselLabels,
+      labels,
+      colorByType,
+      trafficOn,
+      portsOn,
+      portIds,
+    ],
+  );
+  const settings = useRef(trafficSettings);
+  settings.current = trafficSettings;
 
   const handlers = useRef({
     onSelectVessel: onSelectVessel ?? setMapSelection,
@@ -541,7 +550,11 @@ export function MaritimeMap({
   useEffect(() => {
     const instance = mapRef.current;
     if (!instance || !ready || !view) return;
-    instance.easeTo({ center: view.center, zoom: view.zoom, duration: 520 });
+    instance.easeTo({
+      center: view.center,
+      zoom: view.zoom,
+      duration: cameraDuration(520),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, view?.center[0], view?.center[1], view?.zoom]);
 
@@ -667,6 +680,13 @@ export function MaritimeMap({
     let raf = 0;
     let lastWrite = 0;
     let lastOverlay = 0;
+    let cameraVersion = 0;
+    let paintedVersion = -1;
+    let overlayDirty = true;
+    let previousAt: number | undefined;
+    let previousOffset: number | undefined;
+    let previousHover: string | null | undefined;
+    let previousSettings: typeof settings.current | undefined;
 
     const sourceOf = (
       key:
@@ -678,6 +698,22 @@ export function MaritimeMap({
     const write = () => {
       const config = settings.current;
       const at = clock.now();
+      const offset = clock.offsetHours();
+      const hover = hoveredRef.current;
+      if (
+        previousAt === at &&
+        previousOffset === offset &&
+        previousHover === hover &&
+        previousSettings === config &&
+        paintedVersion === cameraVersion
+      )
+        return null;
+      previousAt = at;
+      previousOffset = offset;
+      previousHover = hover;
+      previousSettings = config;
+      paintedVersion = cameraVersion;
+
       const all = fixesAt(at);
       const visible = config.vesselFilter
         ? all.filter(config.vesselFilter)
@@ -726,7 +762,6 @@ export function MaritimeMap({
       sourceOf("vectors")?.setData(publish("vectors", built.vectors));
       sourceOf("rings")?.setData(publish("rings", built.rings));
 
-      const offset = clock.offsetHours();
       const ghosts =
         offset > 0.01
           ? buildGhostFeatures(
@@ -800,8 +835,11 @@ export function MaritimeMap({
           label.text.length * 6.2 +
           (label.sub?.length ?? 0) * 5.2 +
           (miniature?.code === label.id ? 60 : 0);
+        const offset = miniature?.code === label.id ? 49 : 12;
         const x =
-          point.x + 12 + width < frameW ? point.x + 12 : point.x - width - 12;
+          point.x + offset + width < frameW
+            ? point.x + offset
+            : point.x - width - offset;
         const y = point.y - 11;
         if (x < 6 || !fits(x, y, width)) continue;
         placedLabels.push({ label, x, y });
@@ -810,7 +848,9 @@ export function MaritimeMap({
       // No traffic, no traffic names: a chart whose hulls are hidden must not
       // keep naming them.
       const placedVessels: Overlay["vessels"] = [];
-      for (const label of settings.current.trafficOn ? latest.labels : []) {
+      for (const label of settings.current.trafficOn
+        ? (latest?.labels ?? [])
+        : []) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
         const width = 12 + label.text.length * 5.6;
@@ -821,7 +861,7 @@ export function MaritimeMap({
 
       const placedClusters: Overlay["clusters"] = [];
       for (const mark of settings.current.trafficOn && currentZoom >= 4
-        ? latest.clusterMarks
+        ? (latest?.clusterMarks ?? [])
         : []) {
         const point = project(mark.lon, mark.lat);
         if (!inFrame(point)) continue;
@@ -861,23 +901,37 @@ export function MaritimeMap({
       // magnitude cheaper than writing a GeoJSON source every frame.
       if (time - lastWrite >= 66) {
         lastWrite = time;
-        latest = write();
+        const changed = write();
+        if (changed) {
+          latest = changed;
+          overlayDirty = true;
+        }
       }
-      if (time - lastOverlay >= 140) {
+      if (overlayDirty && time - lastOverlay >= 140) {
         lastOverlay = time;
+        overlayDirty = false;
         paintOverlay();
       }
     };
 
     raf = requestAnimationFrame(loop);
     const invalidate = () => {
-      lastOverlay = 0;
+      cameraVersion += 1;
+      overlayDirty = true;
+    };
+    const motion = window.matchMedia(REDUCED_MOTION);
+    const stopMotion = () => {
+      if (motion.matches) instance.stop();
     };
     instance.on("move", invalidate);
+    instance.on("resize", invalidate);
+    motion.addEventListener("change", stopMotion);
 
     return () => {
       cancelAnimationFrame(raf);
       instance.off("move", invalidate);
+      instance.off("resize", invalidate);
+      motion.removeEventListener("change", stopMotion);
     };
   }, [clock, fixesAt, miniature?.code, ready]);
 
@@ -893,7 +947,10 @@ export function MaritimeMap({
   const zoomBy = useCallback((factor: number) => {
     const instance = mapRef.current;
     if (!instance) return;
-    instance.easeTo({ zoom: instance.getZoom() + factor, duration: 220 });
+    instance.easeTo({
+      zoom: instance.getZoom() + factor,
+      duration: cameraDuration(220),
+    });
   }, []);
 
   return (
@@ -1061,7 +1118,7 @@ export function MaritimeMap({
             mapRef.current?.easeTo({
               center: view?.center ?? INDIA_VIEW.center,
               zoom: view?.zoom ?? INDIA_VIEW.zoom,
-              duration: 520,
+              duration: cameraDuration(520),
             })
           }
           className="grid h-[22px] w-[22px] place-items-center text-[var(--text-2)] hover:bg-[var(--panel-3)] hover:text-[var(--text)]"
