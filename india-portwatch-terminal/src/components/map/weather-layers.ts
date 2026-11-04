@@ -40,7 +40,12 @@ import { circleRing } from "./geometry";
 
 export interface WeatherRaster {
   url: string;
-  coordinates: [[number, number], [number, number], [number, number], [number, number]];
+  coordinates: [
+    [number, number],
+    [number, number],
+    [number, number],
+    [number, number],
+  ];
   covered: number;
   missing: string[];
   min: number | null;
@@ -118,9 +123,31 @@ function mixRgb(
  * whenever the forecast cursor moves, and far cheaper than the geometry the
  * polygon version of this used to push at the GPU.
  */
-export function buildCompositeRaster(frame: WeatherFrame): WeatherRaster | null {
-  if (typeof document === "undefined") return null;
+function rasterCanvas(width: number, height: number) {
+  if (typeof document === "undefined")
+    return new OffscreenCanvas(width, height);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
 
+async function rasterUrl(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+): Promise<string> {
+  if ("toDataURL" in canvas) return canvas.toDataURL("image/png");
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function buildCompositeRaster(
+  frame: WeatherFrame,
+): Promise<WeatherRaster | null> {
   const rain: SampledField = sampleField(frame, "precipitation");
   const wind: SampledField = sampleField(frame, "wind");
   const impact: SampledField = sampleField(frame, "impact");
@@ -131,9 +158,7 @@ export function buildCompositeRaster(frame: WeatherFrame): WeatherRaster | null 
   const width = Math.max(2, Math.round((maxLon - minLon) / RESOLUTION));
   const height = Math.max(2, Math.round((maxLat - minLat) / RESOLUTION));
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  const canvas = rasterCanvas(width, height);
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
@@ -179,27 +204,39 @@ export function buildCompositeRaster(frame: WeatherFrame): WeatherRaster | null 
         1 -
         Math.min(
           1,
-          Math.max(0, (nearest - FIELD_CUTOFF_KM * 0.55) / (FIELD_CUTOFF_KM * 0.45)),
+          Math.max(
+            0,
+            (nearest - FIELD_CUTOFF_KM * 0.55) / (FIELD_CUTOFF_KM * 0.45),
+          ),
         );
 
-      const rainHazard = rainSample.value == null
-        ? 0 : hazardOf(rainSpec, rainSample.value) * reach;
-      const windHazard = windSample.value == null
-        ? 0 : hazardOf(windSpec, windSample.value) * reach;
+      const rainHazard =
+        rainSample.value == null
+          ? 0
+          : hazardOf(rainSpec, rainSample.value) * reach;
+      const windHazard =
+        windSample.value == null
+          ? 0
+          : hazardOf(windSpec, windSample.value) * reach;
       const impactValue = impactSample.value ?? 0;
       const stormValue = stormSample.value ?? 0;
 
       // Wind contributes at a third of precipitation's weight. Rain is what a
       // radar sheet is *about*; wind is why a dry but blowing basin should not
       // read as empty.
-      const combined = Math.max(rainHazard, windHazard * 0.55, rainHazard * 0.7 + windHazard * 0.45);
+      const combined = Math.max(
+        rainHazard,
+        windHazard * 0.55,
+        rainHazard * 0.7 + windHazard * 0.45,
+      );
       if (combined < NOISE_FLOOR) continue;
 
-      let rgb: [number, number, number] = rainSample.value != null && rainHazard >= windHazard * 0.5
-        ? rampColor(rainSpec, rainSample.value).rgb
-        : windSample.value != null
-          ? rampColor(windSpec, windSample.value).rgb
-          : rampColor(rainSpec, rainSample.value ?? 0).rgb;
+      let rgb: [number, number, number] =
+        rainSample.value != null && rainHazard >= windHazard * 0.5
+          ? rampColor(rainSpec, rainSample.value).rgb
+          : windSample.value != null
+            ? rampColor(windSpec, windSample.value).rgb
+            : rampColor(rainSpec, rainSample.value ?? 0).rgb;
 
       // The severity highlight. A cell that would stop a crane gets pulled
       // toward the hot edge in proportion to how far past the threshold it is,
@@ -246,7 +283,7 @@ export function buildCompositeRaster(frame: WeatherFrame): WeatherRaster | null 
 
   const missing = new Set<string>([...rain.missing, ...wind.missing]);
   return {
-    url: canvas.toDataURL("image/png"),
+    url: await rasterUrl(canvas),
     coordinates: [
       [minLon, maxLat],
       [maxLon, maxLat],
@@ -268,11 +305,10 @@ export function buildCompositeRaster(frame: WeatherFrame): WeatherRaster | null 
  * Kept for the port weather screen, where an analyst really is comparing one
  * variable across ports and the composite would get in the way.
  */
-export function buildWeatherRaster(
+export async function buildWeatherRaster(
   frame: WeatherFrame,
   key: WeatherFieldKey,
-): WeatherRaster | null {
-  if (typeof document === "undefined") return null;
+): Promise<WeatherRaster | null> {
   const field: SampledField = sampleField(frame, key);
   if (!field.covered) return null;
 
@@ -280,9 +316,7 @@ export function buildWeatherRaster(
   const width = Math.max(2, Math.round((maxLon - minLon) / RESOLUTION));
   const height = Math.max(2, Math.round((maxLat - minLat) / RESOLUTION));
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  const canvas = rasterCanvas(width, height);
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
@@ -301,7 +335,10 @@ export function buildWeatherRaster(
         1 -
         Math.min(
           1,
-          Math.max(0, (nearestKm - FIELD_CUTOFF_KM * 0.55) / (FIELD_CUTOFF_KM * 0.45)),
+          Math.max(
+            0,
+            (nearestKm - FIELD_CUTOFF_KM * 0.55) / (FIELD_CUTOFF_KM * 0.45),
+          ),
         );
       const hazard = hazardOf(spec, value) * reach;
       if (hazard < NOISE_FLOOR) continue;
@@ -310,14 +347,16 @@ export function buildWeatherRaster(
       image.data[offset] = rgb[0];
       image.data[offset + 1] = rgb[1];
       image.data[offset + 2] = rgb[2];
-      image.data[offset + 3] = Math.round(255 * Math.min(0.58, 0.04 + hazard * 0.7));
+      image.data[offset + 3] = Math.round(
+        255 * Math.min(0.58, 0.04 + hazard * 0.7),
+      );
     }
   }
 
   ctx.putImageData(image, 0, 0);
 
   return {
-    url: canvas.toDataURL("image/png"),
+    url: await rasterUrl(canvas),
     coordinates: [
       [minLon, maxLat],
       [maxLon, maxLat],
@@ -386,7 +425,8 @@ export function buildStormCells(
       let dy = 0;
       let weight = 0;
       for (const other of frame.stations) {
-        if (other.portCode === station.portCode || other.stormRisk == null) continue;
+        if (other.portCode === station.portCode || other.stormRisk == null)
+          continue;
         const dLon = other.lon - station.lon;
         const dLat = other.lat - station.lat;
         const distance = Math.hypot(dLon, dLat);
@@ -399,7 +439,8 @@ export function buildStormCells(
       if (weight >= 2 && Math.hypot(dx, dy) > 1e-4) {
         // A strengthening cell moves toward higher risk; a weakening one away.
         const sign = trend > 0 ? 1 : -1;
-        motionDeg = (((Math.atan2(dx * sign, dy * sign) * 180) / Math.PI) + 360) % 360;
+        motionDeg =
+          ((Math.atan2(dx * sign, dy * sign) * 180) / Math.PI + 360) % 360;
         motionKn = Math.min(28, Math.abs(trend) * 900);
       }
     }
@@ -415,14 +456,18 @@ export function buildStormCells(
       hasTrack: false,
     });
 
-    const colour = risk >= 0.25 ? "#d05a4c" : risk >= 0.08 ? "#d3a02f" : "#c9853f";
+    const colour =
+      risk >= 0.25 ? "#d05a4c" : risk >= 0.08 ? "#d3a02f" : "#c9853f";
     const envelopeKm = 70 + Math.min(340, risk * 1400);
 
     features.push({
       type: "Feature",
       properties: {
-        portCode: station.portCode, name: station.name, risk,
-        ring: "envelope", color: colour,
+        portCode: station.portCode,
+        name: station.name,
+        risk,
+        ring: "envelope",
+        color: colour,
         opacity: 0.09 + Math.min(0.16, risk * 0.65),
       },
       geometry: {
@@ -433,8 +478,11 @@ export function buildStormCells(
     features.push({
       type: "Feature",
       properties: {
-        portCode: station.portCode, name: station.name, risk,
-        ring: "core", color: colour,
+        portCode: station.portCode,
+        name: station.name,
+        risk,
+        ring: "core",
+        color: colour,
         opacity: 0.2 + Math.min(0.26, risk * 0.95),
       },
       geometry: {
@@ -449,12 +497,17 @@ export function buildStormCells(
       const km = motionKn * 1.852 * 6;
       const rad = (motionDeg * Math.PI) / 180;
       const dLat = (km / 111) * Math.cos(rad);
-      const dLon = (km / (111 * Math.cos((station.lat * Math.PI) / 180))) * Math.sin(rad);
+      const dLon =
+        (km / (111 * Math.cos((station.lat * Math.PI) / 180))) * Math.sin(rad);
       features.push({
         type: "Feature",
         properties: {
-          portCode: station.portCode, name: station.name, risk,
-          ring: "motion", color: colour, opacity: 0.85,
+          portCode: station.portCode,
+          name: station.name,
+          risk,
+          ring: "motion",
+          color: colour,
+          opacity: 0.85,
         },
         geometry: {
           type: "LineString",
@@ -472,7 +525,9 @@ export function buildStormCells(
 }
 
 /** Formatted band edges for the legend. */
-export function legendStops(key: WeatherFieldKey): Array<{ color: string; label: string }> {
+export function legendStops(
+  key: WeatherFieldKey,
+): Array<{ color: string; label: string }> {
   const spec = WEATHER_FIELDS[key];
   return spec.bands.map((band, index) => ({
     color: spec.colors[index] ?? spec.colors[spec.colors.length - 1],

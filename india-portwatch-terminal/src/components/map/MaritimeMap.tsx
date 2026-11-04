@@ -24,7 +24,7 @@ import {
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import { loadChart } from "./chart-engine";
 
 import { useTraffic } from "@/components/app/traffic-context";
 import { MapPanelAccess } from "@/components/command/MapPanelAccess";
@@ -281,10 +281,9 @@ export function MaritimeMap({
     let alive = true;
     let instance: MapLibreMap | null = null;
 
-    void import("maplibre-gl")
-      .then(({ Map, setWorkerUrl }) => {
+    void loadChart()
+      .then(({ Map }) => {
         if (!alive || !containerRef.current) return;
-        setWorkerUrl(mapWorkerUrl);
         instance = new Map({
           container: containerRef.current,
           style: buildStyle(),

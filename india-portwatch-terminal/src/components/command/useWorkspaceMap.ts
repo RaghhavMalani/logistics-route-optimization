@@ -21,12 +21,11 @@ import type {
   MapView,
 } from "@/components/map/MaritimeMap";
 import type { LayerKey } from "@/components/map/basemap";
-import type { WeatherRaster } from "@/components/map/weather-layers";
 import {
-  buildCompositeRaster,
   buildStormCells,
-  buildWeatherRaster,
+  type WeatherRaster,
 } from "@/components/map/weather-layers";
+import { useWeatherRaster } from "@/components/map/useWeatherRaster";
 import { CHOKEPOINTS } from "@/lib/maritime/chokepoints";
 import {
   anchorageRadiusKm,
@@ -73,9 +72,6 @@ import { useCurrentMapWeather } from "@/services/current-inputs";
  * image.
  */
 const RASTER_QUANTUM_HOURS = 0.5;
-
-/** Cached rasters. A full forecast span at the quantum above fits inside this. */
-const RASTER_CACHE_LIMIT = 400;
 
 export const DEFAULT_LAYERS: Record<LayerKey, boolean> = {
   traffic: true,
@@ -281,7 +277,7 @@ export interface WorkspaceMap {
   setWeatherField: (key: WeatherFieldKey | null) => void;
   timeline: ReturnType<typeof buildWeatherTimeline>;
   frame: WeatherFrame;
-  raster: ReturnType<typeof buildCompositeRaster>;
+  raster: WeatherRaster | null;
   storms: ReturnType<typeof buildStormCells>;
   /** The frame three hours behind, from which storm motion is inferred. */
   previousFrame: WeatherFrame | null;
@@ -477,46 +473,13 @@ export function useWorkspaceMap(
    */
   const rasterOffsetHours =
     Math.round(offsetHours / RASTER_QUANTUM_HOURS) * RASTER_QUANTUM_HOURS;
-  const rasterAt = timeline.available
-    ? timeline.from + rasterOffsetHours * 3_600_000
-    : clockState.at + rasterOffsetHours * 3_600_000;
-
-  const rasterCache = useRef<{
-    timeline: unknown;
-    field: WeatherFieldKey | null;
-    entries: Map<number, WeatherRaster | null>;
-  }>({ timeline: null, field: null, entries: new Map() });
-
-  const raster = useMemo(() => {
-    if (!layers.weather) return null;
-    const store = rasterCache.current;
-    // Invalidated here rather than in an effect. An effect runs *after* the
-    // render that changed the timeline, so the first render with new weather
-    // data would be served a raster built from the old one -- which is how an
-    // empty legend appears on a screen whose data has just arrived.
-    if (store.timeline !== timeline || store.field !== weatherField) {
-      store.timeline = timeline;
-      store.field = weatherField;
-      store.entries = new Map();
-    }
-
-    const hit = store.entries.get(rasterOffsetHours);
-    if (hit !== undefined) return hit;
-
-    const built = weatherField
-      ? buildWeatherRaster(timeline.frameAt(rasterAt), weatherField)
-      : buildCompositeRaster(timeline.frameAt(rasterAt));
-    // Bounded: a full forecast span at this quantum is a few hundred entries,
-    // and each is one small PNG data URL. Oldest out first.
-    if (store.entries.size >= RASTER_CACHE_LIMIT) {
-      const oldest = store.entries.keys().next();
-      if (!oldest.done) store.entries.delete(oldest.value);
-    }
-    store.entries.set(rasterOffsetHours, built);
-    return built;
-    // `timeline` and `rasterAt` are the frame's inputs; `frame` itself is not,
-    // because the raster deliberately runs on the quantised cursor.
-  }, [layers.weather, rasterAt, rasterOffsetHours, timeline, weatherField]);
+  const raster = useWeatherRaster(
+    timeline,
+    layers.weather && timeline.available
+      ? timeline.from + rasterOffsetHours * 3_600_000
+      : null,
+    weatherField,
+  );
 
   const storms = useMemo(
     () => buildStormCells(frame, previousFrame),

@@ -1,3 +1,5 @@
+import { prewarmChart } from "@/components/map/chart-engine";
+
 /** Private boot packets are shared only by the authenticated browser session. */
 const homes = {
   SHIPPING_COMPANY: ["company-home", "/company/overview"],
@@ -104,6 +106,7 @@ export async function loadHomeSession<T>(
   mode: Mode,
 ) {
   if (!active(role)) return null;
+  prewarmChart();
   const packet = await acquire(base, role, token, mode);
   return (packet?.session as T | undefined) ?? null;
 }
