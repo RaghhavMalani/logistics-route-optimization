@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const storedView = normaliseRole(readStored<string>(VIEW_AS_KEY));
-        setAccessToken(restored.accessToken, restored.mode);
+        setAccessToken(restored.accessToken, restored.mode, restored.user.role);
         setSession(restored);
         setViewAsState(
           restored.user.role === "NATIONAL_ADMIN" && storedView
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (credentials: Credentials) => {
       const next = await adapter.signIn(credentials);
       queries.clear();
-      setAccessToken(next.accessToken, next.mode);
+      setAccessToken(next.accessToken, next.mode, next.user.role);
       writeStored(SESSION_KEY, next);
       writeStored(VIEW_AS_KEY, next.user.role);
       setSession(next);
@@ -180,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const adoptDemo = useCallback(
     (next: Session) => {
       queries.clear();
-      setAccessToken(next.accessToken, "demo");
+      setAccessToken(next.accessToken, "demo", next.user.role);
       writeStored(SESSION_KEY, next);
       writeStored(VIEW_AS_KEY, next.user.role);
       setSession(next);

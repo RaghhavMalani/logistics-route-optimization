@@ -715,8 +715,10 @@ export function MaritimeMap({
         const point = project(mark.lon, mark.lat);
         if (!inFrame(point)) continue;
         const width = 6 + String(mark.count).length * 7;
-        const y = [point.y, point.y - 13, point.y + 13].find((top) =>
-          inFrame({ x: point.x, y: top }) && fits(point.x - width / 2, top, width),
+        const y = [point.y, point.y - 13, point.y + 13].find(
+          (top) =>
+            inFrame({ x: point.x, y: top }) &&
+            fits(point.x - width / 2, top, width),
         );
         if (y !== undefined) placedClusters.push({ mark, x: point.x, y });
       }
@@ -820,7 +822,8 @@ export function MaritimeMap({
             style={{
               left: x + 9,
               top: y - 9,
-              textShadow: "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel)",
+              textShadow:
+                "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel)",
             }}
           >
             {label.text}
@@ -959,7 +962,10 @@ export function MaritimeMap({
       {!ready && !failed ? (
         <div className="absolute inset-0 grid place-items-center bg-[var(--sea)]">
           <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[var(--text-3)]">
-            <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-8 rounded bg-[var(--line-strong)]"
+            />
             {loadingLabel}
           </span>
         </div>

@@ -15,7 +15,8 @@ import {
   type Session,
   type User,
 } from "./types";
-import { ApiError, getJson, postJson } from "@/services/api";
+import { API_BASE, ApiError, getJson, postJson } from "@/services/api";
+import { loadHomeSession } from "@/services/home-screen";
 
 interface DemoAccount {
   password: string;
@@ -138,9 +139,15 @@ export const demoAdapter: AuthAdapter = {
       return null;
     try {
       return {
-        ...(await getJson<Session>("/demo/session", {
-          Authorization: `Bearer ${session.accessToken}`,
-        })),
+        ...((await loadHomeSession<Session>(
+          API_BASE,
+          session.user.role,
+          session.accessToken,
+          "demo",
+        )) ??
+          (await getJson<Session>("/demo/session", {
+            Authorization: `Bearer ${session.accessToken}`,
+          }))),
         accessToken: session.accessToken,
       };
     } catch {
@@ -189,9 +196,16 @@ export const productionAdapter: AuthAdapter = {
     )
       return null;
     try {
-      const verified = await getJson<Session>("/auth/session", {
-        Authorization: `Bearer ${session.accessToken}`,
-      });
+      const verified =
+        (await loadHomeSession<Session>(
+          API_BASE,
+          session.user.role,
+          session.accessToken,
+          "production",
+        )) ??
+        (await getJson<Session>("/auth/session", {
+          Authorization: `Bearer ${session.accessToken}`,
+        }));
       return { ...verified, accessToken: session.accessToken };
     } catch {
       return null;

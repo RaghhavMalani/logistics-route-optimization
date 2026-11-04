@@ -181,7 +181,7 @@ async def _identity_gate(request: Request, call_next):
         # Demo routes authenticate against their separate store. Never create an
         # operational Identity or forward demo requests into protected routers.
         response = await call_next(request)
-        response.headers["Cache-Control"] = "no-store"
+        response.headers.setdefault("Cache-Control", "no-store")
         return response
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
@@ -228,8 +228,8 @@ async def _identity_gate(request: Request, call_next):
             elif identity_mode() == REQUIRED and not (request.headers.get("x-portwatch-role") or "").strip():
                 raise HTTPException(401, "This deployment requires an identity from the authenticating proxy")
         response = await call_next(request)
-        if current_identity.get():
-            response.headers["Cache-Control"] = "no-store"
+        if path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-store")
         return response
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
@@ -259,6 +259,11 @@ async def _telemetry(request: Request, call_next):
     template = getattr(route, "path", None) or request.url.path
     telemetry.observe("api.latency", time.perf_counter() - started, route=template)
     telemetry.incr("api.requests", route=template)
+    if request.method in ("POST", "PATCH", "PUT", "DELETE") and 200 <= response.status_code < 300:
+        namespace = getattr(request.state, "screen_namespace", None)
+        if namespace is not None or (request.url.path.startswith("/api/") and not request.url.path.startswith("/api/demo/")):
+            screens.invalidate(namespace)
+            handoff_events.publish(namespace)
     if response.status_code >= 500:
         telemetry.incr("api.errors", route=template, status=response.status_code)
         telemetry.event("api.errors", route=template, status=response.status_code)
@@ -306,6 +311,9 @@ app.include_router(company.router, prefix="/api")
 app.include_router(port_twin.router, prefix="/api")
 app.include_router(advisories.router, prefix="/api")
 app.include_router(handoffs.router, prefix="/api")
+from backend.app.routes import screens
+from backend.app.services import handoff_events
+app.include_router(screens.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(learning.router, prefix="/api")
 from backend.app.routes import capabilities

@@ -19,7 +19,9 @@ _mutation_locks = weakref.WeakValueDictionary()
 
 async def sandbox(request: Request, credential=Depends(token)):
     store = get_demo_store()
-    session, world = store.session(credential), store.read(credential)
+    from starlette.concurrency import run_in_threadpool
+    session, world = await run_in_threadpool(store.session_world, credential)
+    request.state.demo_session = session
     user = session["user"]
     if request.method == "POST":
         payload = await request.json()
@@ -29,6 +31,7 @@ async def sandbox(request: Request, credential=Depends(token)):
             if user["role"] == "PORT_AUTHORITY" and payload.get("portCode") and payload["portCode"] != world["portCode"]:
                 raise HTTPException(403, "This port demo is scoped to the selected port in this visitor's world")
     scoped = bind(session, world, store)
+    request.state.screen_namespace = str(scoped.root)
     mutation_lock = None
     # Cancellation only signals the already owned in-flight control; it does not
     # mutate the visitor world. Waiting for that world's calculation lock would
@@ -41,7 +44,7 @@ async def sandbox(request: Request, credential=Depends(token)):
             mutation_lock = asyncio.Lock()
             _mutation_locks[key] = mutation_lock
         await mutation_lock.acquire()
-        scoped.world = store.read(credential)
+        scoped.world = await run_in_threadpool(store.read, credential)
     scoped.save_world = lambda change: store.update(credential, change)
     from backend.app.services.demo_terminal import demo_principal
     who = demo_principal(user)
@@ -68,9 +71,9 @@ router = APIRouter(prefix="/demo/terminal", dependencies=[Depends(sandbox)])
 def install():
     from backend.app.routes import (advisories, company, decisions, commercial, finance, fleet, handoffs,
         global_eye, health, learning, lenses, missions, model, news, port_twin, navigation_restrictions, operational_evidence,
-        ports, provenance, sar, scenarios, weather, weather_verification, shipping_intelligence, shared_feedback, operational_notices, world, agents, admin, intelligence, capabilities, current_inputs, port_context, demonstrations)
+        ports, provenance, sar, scenarios, weather, weather_verification, shipping_intelligence, shared_feedback, operational_notices, world, agents, admin, intelligence, capabilities, current_inputs, port_context, demonstrations, screens)
     # Static /weather/feedback must precede the original /weather/{port_code}.
-    read_modules = (demonstrations, port_context, current_inputs, shipping_intelligence, shared_feedback, operational_notices, operational_evidence, navigation_restrictions, weather_verification, intelligence, capabilities, company, fleet, global_eye, learning, lenses, model, news,
+    read_modules = (screens, demonstrations, port_context, current_inputs, shipping_intelligence, shared_feedback, operational_notices, operational_evidence, navigation_restrictions, weather_verification, intelligence, capabilities, company, fleet, global_eye, learning, lenses, model, news,
                     port_twin, ports, sar, weather, health, provenance)
     workflow_modules = (advisories, handoffs, decisions, commercial, missions, scenarios, agents)
     extras = {"/finance/basis", "/finance/tariffs", "/finance/assumptions",

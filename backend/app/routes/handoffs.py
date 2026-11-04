@@ -1,7 +1,12 @@
+import asyncio
+import json
+from time import monotonic
 from hashlib import sha256
 from urllib.parse import urlencode
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import StreamingResponse
 
 from backend.app.identity import current_identity, may_see_decision
 from backend.app.routes.advisories import principal_from_request
@@ -26,6 +31,80 @@ ADVISORY_STAGES = {
     "expired": ("EXPIRED", None),
     "completed": ("COMPLETED", None),
 }
+
+
+@router.get("/handoffs/stream")
+async def handoff_stream(request: Request):
+    from backend.app.services import handoff_events
+
+    who = current_identity.get()
+    sandbox = current_sandbox.get()
+    if who is None or (sandbox is None and not who.verified):
+        raise HTTPException(401, "A verified workspace session is required")
+    credential = request.headers.get("authorization", "").partition(" ")[2]
+    namespace = str(sandbox.root) if sandbox else None
+
+    def snapshot():
+        from backend.app.services.demo_store import get_demo_store
+        from backend.app.services.demo_terminal import bind, demo_principal
+
+        if sandbox is not None:
+            store = get_demo_store()
+            session, world = store.session_world(credential)
+            scoped = bind(session, world, store)
+            if str(scoped.root) != namespace or demo_principal(session["user"]) != who:
+                return None
+            sandbox_token = current_sandbox.set(scoped)
+            identity_token = current_identity.set(who)
+            try:
+                return handoffs()
+            finally:
+                current_identity.reset(identity_token)
+                current_sandbox.reset(sandbox_token)
+        from backend.app.auth_store import get_auth_store
+
+        session = get_auth_store().session(credential)
+        user = session["user"]
+        if (user["id"], user["role"], user["organisation"], user["portCode"],
+            tuple(user["portCodes"]), tuple(user["vesselIds"])) != (
+            who.actor, who.role, who.organisation, who.port_code,
+            tuple(who.port_codes), tuple(who.vessel_ids),
+        ):
+            return None
+        identity_token = current_identity.set(who)
+        try:
+            return handoffs()
+        finally:
+            current_identity.reset(identity_token)
+
+    async def events():
+        previous = None
+        deadline = monotonic() + 50
+        with handoff_events.subscribe(namespace) as queue:
+            dirty = True
+            while not await request.is_disconnected() and monotonic() < deadline:
+                if dirty:
+                    try:
+                        payload = await run_in_threadpool(snapshot)
+                    except HTTPException:
+                        return
+                    if payload is None:
+                        return
+                    serialized = json.dumps(payload, separators=(",", ":"))
+                    if serialized != previous:
+                        yield f"event: handoffs\ndata: {serialized}\n\n"
+                        previous = serialized
+                try:
+                    await asyncio.wait_for(queue.get(), timeout=min(15, max(0, deadline - monotonic())))
+                    dirty = True
+                except TimeoutError:
+                    dirty = False
+                    yield ": heartbeat\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={
+        "Cache-Control": "private, no-store, no-transform",
+        "X-Accel-Buffering": "no",
+    })
 
 
 def link(workspace, **selection):

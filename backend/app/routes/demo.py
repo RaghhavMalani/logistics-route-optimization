@@ -1,21 +1,24 @@
 """Explicit demo API. No forwarding to operational routes or their stores."""
 import secrets
 from typing import Literal
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from backend.app.services.demo_store import get_demo_store, ROLES, seed_world, utc_now
-from backend.app.services.demo_terminal import demo_hulls, demo_principal
+from backend.app.services.demo_terminal import bind, demo_hulls, demo_principal
 from backend.app.services import public_workspace
 
 router = APIRouter(prefix="/demo")
 Role = Literal["SHIPPING_COMPANY", "VESSEL_OPERATOR", "PORT_AUTHORITY", "NATIONAL_ADMIN"]
 
 
-def token(authorization: str = Header("")):
+def token(request: Request, authorization: str = Header("")):
     scheme, _, credential = authorization.partition(" ")
     if scheme.lower() != "bearer":
         raise HTTPException(401, "A demo bearer session is required")
-    get_demo_store().session(credential)
+    store = get_demo_store()
+    session, world = store.session_world(credential)
+    if request.method == "POST" and request.url.path not in ("/api/demo/role", "/api/demo/logout"):
+        request.state.screen_namespace = str(bind(session, world, store).root)
     return credential
 
 
