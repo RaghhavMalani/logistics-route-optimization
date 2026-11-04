@@ -27,23 +27,27 @@ import * as THREE from "three";
 
 import type { PortTwinState, TwinMetrics } from "@/types/portwatch-os";
 
-import type { TwinOverlay, TwinSelection } from "./twin-presentation";
+import {
+  TWIN_RAMP,
+  type TwinOverlay,
+  type TwinSelection,
+} from "./twin-presentation";
 
 /* ------------------------------------------------------------------ ramp -- */
 
-/** Green through amber to red. The same status vocabulary as the rest of the UI. */
+/** Sequential pressure scale, with selection styled independently. */
 function pressureColour(value: number): THREE.Color {
   const v = Math.max(0, Math.min(1, value));
   if (v < 0.5) {
     return new THREE.Color().lerpColors(
-      new THREE.Color(COLORS.ok),
-      new THREE.Color(COLORS.warn),
+      new THREE.Color(TWIN_RAMP[0]),
+      new THREE.Color(TWIN_RAMP[1]),
       v / 0.5,
     );
   }
   return new THREE.Color().lerpColors(
-    new THREE.Color(COLORS.warn),
-    new THREE.Color(COLORS.crit),
+    new THREE.Color(TWIN_RAMP[1]),
+    new THREE.Color(TWIN_RAMP[2]),
     (v - 0.5) / 0.5,
   );
 }
@@ -111,7 +115,9 @@ export function PortTwinScene({
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     } catch (error) {
       setFailed(
-        error instanceof Error ? error.message : "WebGL is unavailable in this browser",
+        error instanceof Error
+          ? error.message
+          : "WebGL is unavailable in this browser",
       );
       return undefined;
     }
@@ -180,7 +186,9 @@ export function PortTwinScene({
     const pickables: Pickable[] = [];
     const disposables: Array<THREE.BufferGeometry | THREE.Material> = [];
 
-    const track = <T extends THREE.BufferGeometry | THREE.Material>(item: T): T => {
+    const track = <T extends THREE.BufferGeometry | THREE.Material>(
+      item: T,
+    ): T => {
       disposables.push(item);
       return item;
     };
@@ -197,7 +205,9 @@ export function PortTwinScene({
         // Enough sheen to read as water, not so much that the sun leaves a
         // specular blob competing with the terminal for attention.
         new THREE.MeshStandardMaterial({
-          color: WATER, roughness: 0.42, metalness: 0.18,
+          color: WATER,
+          roughness: 0.42,
+          metalness: 0.18,
         }),
       ),
     );
@@ -216,7 +226,12 @@ export function PortTwinScene({
     // stops, and it is the reference every berth is read against.
     const edge = new THREE.Mesh(
       track(new THREE.BoxGeometry(spanX, 9, 5)),
-      track(new THREE.MeshStandardMaterial({ color: COLORS.modelWhite, roughness: 0.7 })),
+      track(
+        new THREE.MeshStandardMaterial({
+          color: COLORS.modelWhite,
+          roughness: 0.7,
+        }),
+      ),
     );
     edge.position.set(centreX, 5, -8);
     scene.add(edge);
@@ -225,7 +240,10 @@ export function PortTwinScene({
     // scale the eye can use.
     const bollard = track(new THREE.CylinderGeometry(3.5, 4.5, 11, 8));
     const bollardMaterial = track(
-      new THREE.MeshStandardMaterial({ color: COLORS.boxLight, roughness: 0.6 }),
+      new THREE.MeshStandardMaterial({
+        color: COLORS.boxLight,
+        roughness: 0.6,
+      }),
     );
     for (const berth of state.berths) {
       for (const offset of [-berth.length_m * 0.35, 0, berth.length_m * 0.35]) {
@@ -262,7 +280,9 @@ export function PortTwinScene({
             ["Occupied by", berth.occupied_by ?? "free"],
             [
               "Frees at",
-              berth.free_at_hour == null ? "n/a" : `hour ${berth.free_at_hour.toFixed(1)}`,
+              berth.free_at_hour == null
+                ? "n/a"
+                : `hour ${berth.free_at_hour.toFixed(1)}`,
             ],
             ["Occupied hours this run", berth.occupied_hours.toFixed(1)],
           ],
@@ -273,7 +293,12 @@ export function PortTwinScene({
       if (berth.occupied_by) {
         const hull = new THREE.Mesh(
           track(new THREE.BoxGeometry(berth.length_m * 0.82, 30, 46)),
-          track(new THREE.MeshStandardMaterial({ color: COLORS.modelInk, roughness: 0.65 })),
+          track(
+            new THREE.MeshStandardMaterial({
+              color: COLORS.modelInk,
+              roughness: 0.65,
+            }),
+          ),
         );
         hull.position.set(berth.x, 13, -42);
         scene.add(hull);
@@ -282,14 +307,19 @@ export function PortTwinScene({
         // glance where a bare hull reads as a barge.
         const boxGeometry = track(new THREE.BoxGeometry(24, 13, 13));
         const boxMaterial = track(
-          new THREE.MeshStandardMaterial({ color: COLORS.ballast, roughness: 0.85 }),
+          new THREE.MeshStandardMaterial({
+            color: COLORS.ballast,
+            roughness: 0.85,
+          }),
         );
         const bays = Math.max(3, Math.round(berth.length_m / 46));
         for (let bay = 0; bay < bays; bay += 1) {
           for (const lane of [-13, 0, 13]) {
             const box = new THREE.Mesh(boxGeometry, boxMaterial);
             box.position.set(
-              berth.x - berth.length_m * 0.34 + bay * (berth.length_m * 0.68 / bays),
+              berth.x -
+                berth.length_m * 0.34 +
+                bay * ((berth.length_m * 0.68) / bays),
               34,
               -42 + lane,
             );
@@ -299,7 +329,12 @@ export function PortTwinScene({
 
         const house = new THREE.Mesh(
           track(new THREE.BoxGeometry(34, 30, 40)),
-          track(new THREE.MeshStandardMaterial({ color: COLORS.boxGrey, roughness: 0.55 })),
+          track(
+            new THREE.MeshStandardMaterial({
+              color: COLORS.boxGrey,
+              roughness: 0.55,
+            }),
+          ),
         );
         house.position.set(berth.x + berth.length_m * 0.32, 43, -42);
         scene.add(house);
@@ -310,11 +345,17 @@ export function PortTwinScene({
     for (const crane of state.cranes) {
       const group = new THREE.Group();
       const legMaterial = track(
-        new THREE.MeshStandardMaterial({ color: COLORS.boxMid, roughness: 0.6 }),
+        new THREE.MeshStandardMaterial({
+          color: COLORS.boxMid,
+          roughness: 0.6,
+        }),
       );
       for (const dx of [-16, 16]) {
         for (const dz of [-14, 14]) {
-          const leg = new THREE.Mesh(track(new THREE.BoxGeometry(5, 78, 5)), legMaterial);
+          const leg = new THREE.Mesh(
+            track(new THREE.BoxGeometry(5, 78, 5)),
+            legMaterial,
+          );
           leg.position.set(dx, 39, dz);
           group.add(leg);
         }
@@ -327,7 +368,12 @@ export function PortTwinScene({
       group.add(boom);
       const gantry = new THREE.Mesh(
         track(new THREE.BoxGeometry(40, 9, 34)),
-        track(new THREE.MeshStandardMaterial({ color: COLORS.rail, roughness: 0.7 })),
+        track(
+          new THREE.MeshStandardMaterial({
+            color: COLORS.rail,
+            roughness: 0.7,
+          }),
+        ),
       );
       gantry.position.set(0, 84, 0);
       group.add(gantry);
@@ -389,7 +435,12 @@ export function PortTwinScene({
     for (const shed of state.sheds) {
       const mesh = new THREE.Mesh(
         track(new THREE.BoxGeometry(shed.width_m, 46, shed.depth_m)),
-        track(new THREE.MeshStandardMaterial({ color: COLORS.modelWhite, roughness: 0.9 })),
+        track(
+          new THREE.MeshStandardMaterial({
+            color: COLORS.modelWhite,
+            roughness: 0.9,
+          }),
+        ),
       );
       mesh.position.set(shed.x, 29, shed.y);
       mesh.userData.kind = "shed";
@@ -398,7 +449,12 @@ export function PortTwinScene({
 
       const roof = new THREE.Mesh(
         track(new THREE.ConeGeometry(shed.width_m * 0.62, 22, 4)),
-        track(new THREE.MeshStandardMaterial({ color: COLORS.panel3, roughness: 0.85 })),
+        track(
+          new THREE.MeshStandardMaterial({
+            color: COLORS.panel3,
+            roughness: 0.85,
+          }),
+        ),
       );
       roof.rotation.y = Math.PI / 4;
       roof.position.set(shed.x, 63, shed.y);
@@ -423,7 +479,12 @@ export function PortTwinScene({
     for (const gate of state.gates) {
       const mesh = new THREE.Mesh(
         track(new THREE.BoxGeometry(gate.lanes * 16, 22, 40)),
-        track(new THREE.MeshStandardMaterial({ color: COLORS.boxGrey, roughness: 0.9 })),
+        track(
+          new THREE.MeshStandardMaterial({
+            color: COLORS.boxGrey,
+            roughness: 0.9,
+          }),
+        ),
       );
       mesh.position.set(gate.x, 17, gate.y);
       scene.add(mesh);
@@ -457,7 +518,12 @@ export function PortTwinScene({
     waiting.forEach((call, index) => {
       const hull = new THREE.Mesh(
         track(new THREE.BoxGeometry(call.loa_m * 0.72, 26, 38)),
-        track(new THREE.MeshStandardMaterial({ color: COLORS.ballast, roughness: 0.8 })),
+        track(
+          new THREE.MeshStandardMaterial({
+            color: COLORS.ballast,
+            roughness: 0.8,
+          }),
+        ),
       );
       // Ranked seaward in the order they will be served, so the anchorage
       // reads as a queue rather than as scatter. Far enough off the quay that
@@ -534,9 +600,17 @@ export function PortTwinScene({
     );
 
     const applyCamera = () => {
-      spherical.phi = Math.max(0.18, Math.min(Math.PI / 2 - 0.06, spherical.phi));
-      spherical.radius = Math.max(spanX * 0.3, Math.min(spanX * 2.8, spherical.radius));
-      camera.position.copy(target).add(new THREE.Vector3().setFromSpherical(spherical));
+      spherical.phi = Math.max(
+        0.18,
+        Math.min(Math.PI / 2 - 0.06, spherical.phi),
+      );
+      spherical.radius = Math.max(
+        spanX * 0.3,
+        Math.min(spanX * 2.8, spherical.radius),
+      );
+      camera.position
+        .copy(target)
+        .add(new THREE.Vector3().setFromSpherical(spherical));
       camera.lookAt(target);
     };
 
@@ -623,7 +697,10 @@ export function PortTwinScene({
       ...state.cranes.map((c) => c.working_hours),
     );
     const maxWait = Math.max(1, ...state.calls.map((c) => c.wait_hours));
-    const maxDwell = Math.max(1, ...state.yardBlocks.map((b) => b.mean_dwell_hours));
+    const maxDwell = Math.max(
+      1,
+      ...state.yardBlocks.map((b) => b.mean_dwell_hours),
+    );
 
     for (const { mesh, selection } of current.pickables) {
       let value: number | null = null;
@@ -662,14 +739,15 @@ export function PortTwinScene({
         }
       } else if (selection.kind === "shed") {
         const shed = shedById.get(selection.id);
-        if (shed) value = overlay === "storage" ? shed.utilisation : shed.utilisation * 0.6;
+        if (shed)
+          value =
+            overlay === "storage" ? shed.utilisation : shed.utilisation * 0.6;
       } else if (selection.kind === "vessel") {
         const call = callById.get(selection.id);
         if (call) value = Math.min(1, call.wait_hours / maxWait);
       }
 
-      const colour =
-        value == null ? IDLE.clone() : pressureColour(value);
+      const colour = value == null ? IDLE.clone() : pressureColour(value);
       const emphasised = selectedId === selection.id;
 
       mesh.traverse((child) => {
@@ -692,15 +770,17 @@ export function PortTwinScene({
             3D renderer unavailable
           </div>
           <p className="text-[11.5px] leading-relaxed text-[var(--text-3)]">
-            {failed}. The twin's metrics and overlays on this screen are unaffected —
-            only the spatial view is missing.
+            {failed}. The twin's metrics and overlays on this screen are
+            unaffected — only the spatial view is missing.
           </p>
         </div>
       </div>
     );
   }
 
-  return <div ref={mountRef} className={className} data-testid="port-twin-scene" />;
+  return (
+    <div ref={mountRef} className={className} data-testid="port-twin-scene" />
+  );
 }
 
 export default PortTwinScene;

@@ -1,3 +1,5 @@
+export const TWIN_RAMP = ["#2a7690", "#8185b8", "#773c85"] as const;
+
 /** What the operator is colouring the scene by. */
 export type TwinOverlay =
   "utilisation" | "dwell" | "workload" | "queue" | "storage";
