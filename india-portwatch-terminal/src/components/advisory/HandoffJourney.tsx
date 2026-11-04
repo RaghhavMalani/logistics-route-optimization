@@ -40,24 +40,37 @@ export function HandoffJourney({
     from: number;
     state: string;
   } | null>(null);
+  const journey = useRef<HTMLDivElement>(null);
   const detail = useRef<HTMLParagraphElement>(null);
   const visited = useRef<{ id: string; state: string } | null>(null);
 
   useEffect(() => {
-    if (!stage) return;
-    const key = `portwatch:handoff:${viewer ?? ""}:${id}`;
-    let previous = visited.current?.id === id ? visited.current.state : null;
-    try {
-      previous = sessionStorage.getItem(key) ?? previous;
-      sessionStorage.setItem(key, state);
-    } catch {
-      // Same-card transitions still work when browser storage is unavailable.
-    }
-    visited.current = { id, state };
-    const from = previous ? stages[previous]?.station : undefined;
-    if (from !== undefined && previous !== state) {
-      setMotion({ from, state });
-    }
+    if (!stage || !journey.current) return;
+    // Another role can open the same record while this copy is offscreen.
+    // Only remember a stage once the operator can see its parcel.
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.intersectionRatio < 0.8) return;
+        observer.disconnect();
+        const key = `portwatch:handoff:${viewer ?? ""}:${id}`;
+        let previous =
+          visited.current?.id === id ? visited.current.state : null;
+        try {
+          previous = sessionStorage.getItem(key) ?? previous;
+          sessionStorage.setItem(key, state);
+        } catch {
+          // Same-card transitions still work when browser storage is unavailable.
+        }
+        visited.current = { id, state };
+        const from = previous ? stages[previous]?.station : undefined;
+        if (from !== undefined && previous !== state) {
+          setMotion({ from, state });
+        }
+      },
+      { threshold: 0.8 },
+    );
+    observer.observe(journey.current);
+    return () => observer.disconnect();
   }, [id, stage, state, viewer]);
 
   useEffect(() => {
@@ -69,7 +82,7 @@ export function HandoffJourney({
   const picked = stations.findIndex((station) => station.key === viewed);
   const parcelPosition = (index: number) => `${((index + 0.5) / 3) * 100}%`;
   return (
-    <div className="pw-handoff-journey">
+    <div ref={journey} className="pw-handoff-journey">
       <WorkflowRail
         label="Company to Port to Vessel"
         steps={stations}

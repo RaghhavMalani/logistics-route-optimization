@@ -132,7 +132,11 @@ async function run(width, height) {
     });
     await page.addInitScript(() => {
       document.addEventListener("animationstart", (event) => {
-        if (event.animationName === "pw-handoff-travel") void window.recordParcelTravel();
+        if (event.animationName === "pw-handoff-travel") {
+          const rect = event.target.getBoundingClientRect();
+          const visible = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          if (event.target.contains(visible)) void window.recordParcelTravel();
+        }
       });
     });
   }
@@ -330,6 +334,12 @@ async function run(width, height) {
     const reviewPending = postResponse("/current-proposals/review");
     await panel.getByRole("button", { name: "Review Company weather proposal" }).click();
     const review = await read(reviewPending);
+    if (results.recording) {
+      const rail = panel.getByRole("navigation", { name: "Company to Port to Vessel" });
+      await rail.scrollIntoViewIfNeeded();
+      await expect(rail.getByRole("button", { name: "Port", exact: true })).toHaveAttribute("aria-current", "step");
+      await page.waitForTimeout(1800);
+    }
     await approve(panel, choice.optionId, "03a-port");
     await shot("03a-port-approved");
     const issuePending = postResponse("/handoff");
@@ -449,6 +459,9 @@ async function run(width, height) {
       }
     }
     assert.deepEqual(errors, []);
+    if (results.recording) {
+      assert(results.recording.parcels.length >= 2, "The browser recorded both visible handoff transitions");
+    }
     passed("Done");
   } catch (error) {
     checks.push({ beat, result: "FAIL", message: error.message });
