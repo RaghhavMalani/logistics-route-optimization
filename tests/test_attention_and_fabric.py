@@ -517,6 +517,7 @@ class FabricTests(unittest.TestCase):
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("red_sea_evidence")
 class WorldApiTests(unittest.TestCase):
     """The contract the map depends on."""
 
@@ -554,8 +555,7 @@ class WorldApiTests(unittest.TestCase):
         from urllib.parse import quote
 
         instant = self._live_instant()
-        if instant is None:
-            self.skipTest("the feed carries no dated events at all")
+        self.assertIsNotNone(instant, "fixture must expose dated evidence")
         return f"at={quote(instant)}"
 
     def _live_event(self):
@@ -563,8 +563,7 @@ class WorldApiTests(unittest.TestCase):
             f"/api/world/cascades?{self._at()}", headers=self.headers,
         ).json()
         live = [r for r in rows["cascades"] if r.get("live")]
-        if not live:
-            self.skipTest("no event propagates consequence even at its own instant")
+        self.assertTrue(live, "fixture must propagate a live event")
         return live[0]["eventId"]
 
     def test_the_world_reports_its_own_rule_catalogue(self):
@@ -645,8 +644,7 @@ class WorldApiTests(unittest.TestCase):
 
     def test_an_attention_item_can_be_traced_to_its_computation(self):
         queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
-        if not queue["items"]:
-            self.skipTest("the queue is empty even at the events' own instant")
+        self.assertTrue(queue["items"], "fixture must populate the attention queue")
         item_id = queue["items"][0]["attentionId"]
         body = self.client.get(
             f"/api/attention/{item_id}?{self._at()}", headers=self.headers,
@@ -654,7 +652,6 @@ class WorldApiTests(unittest.TestCase):
         self.assertTrue(body["evidence"])
         self.assertEqual(body["item"]["attentionId"], item_id)
 
-    @pytest.mark.usefixtures("red_sea_evidence")
     def test_the_evidence_chain_runs_from_the_event_not_just_the_last_hop(self):
         queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
         self.assertTrue(queue["items"])
@@ -865,7 +862,6 @@ class WorldApiTests(unittest.TestCase):
         body = self.client.get("/api/world/state?mode=COMMERCIAL").json()
         self.assertEqual(body["summary"]["observedVessels"], 0)
 
-    @pytest.mark.usefixtures("red_sea_evidence")
     def test_an_observed_hull_is_reached_by_a_cascade_with_discounted_confidence(self):
         """The point of the exercise: consequence reaches a real hull, and the
         confidence on it is lower than on a fleet vessel by what was inferred."""
@@ -930,7 +926,6 @@ class WorldApiTests(unittest.TestCase):
                                             "Eta": {"Month": 9, "Day": 20, "Hour": 1, "Minute": 0}}}},
         ]
 
-    @pytest.mark.usefixtures("red_sea_evidence")
     def test_an_observed_hull_is_advised_not_ordered(self):
         """A national centre can tell a third-party hull about the water ahead;
         it cannot order it to divert, and the queue must not say it can."""
