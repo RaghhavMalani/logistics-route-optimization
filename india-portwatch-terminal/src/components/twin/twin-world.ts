@@ -259,7 +259,42 @@ export function createTwinWorld(base: PortTwinState) {
     box(trucks, x - 4, 14, z, 13, 10, 8, COLORS.modelWhite, id);
   }
 
-  const active = [pad, cranes, gantries, containers, hulls, buildings, trucks];
+  const queuePads = batch("Anchorage pads", base.calls.length);
+  const outline = batch("Selection outline", 16);
+  const active = [
+    pad,
+    queuePads,
+    cranes,
+    gantries,
+    containers,
+    hulls,
+    buildings,
+    trucks,
+    outline,
+  ];
+  function drawOutline(
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+    d: number,
+    heading = 0,
+  ) {
+    const cos = Math.cos(heading);
+    const sin = Math.sin(heading);
+    for (const side of [-1, 1]) {
+      const short = (side * d) / 2;
+      const long = (side * w) / 2;
+      outline.push(
+        pose(x + short * sin, y, z + short * cos, w, 3, 6, heading),
+        COLORS.signal,
+      );
+      outline.push(
+        pose(x + long * cos, y, z - long * sin, 6, 3, d, heading),
+        COLORS.signal,
+      );
+    }
+  }
   const anchorOrder = new Map(
     [...base.calls]
       .sort((a, b) => a.effectiveEta - b.effectiveEta)
@@ -291,8 +326,10 @@ export function createTwinWorld(base: PortTwinState) {
         heading,
       ),
       call.call_id,
-      call.call_id === selected ? COLORS.signal : COLORS.shipContainer,
+      COLORS.shipContainer,
     );
+    if (call.call_id === selected)
+      drawOutline(x, 1, z, call.loa_m + 20, call.loa_m * 0.25 + 18, heading);
   }
   function draw(
     state: PortTwinState,
@@ -308,10 +345,11 @@ export function createTwinWorld(base: PortTwinState) {
       ...state.yardBlocks.map((b) => b.mean_dwell_hours),
     );
     for (const berth of state.berths) {
-      const tint =
-        berth.berth_id === selectedId
-          ? COLORS.signal
-          : pressure(berth.occupied_by ? 0.85 : 0.15);
+      const tint = pressure(
+        overlay === "utilisation" ? (berth.occupied_by ? 0.85 : 0.15) : null,
+      );
+      if (berth.berth_id === selectedId)
+        drawOutline(berth.x, 7, 29, berth.length_m * 0.94, 41);
       box(
         pad,
         berth.x,
@@ -327,15 +365,25 @@ export function createTwinWorld(base: PortTwinState) {
       const call = calls.get(berth.occupied_by);
       if (frame && call) continue;
       const length = call?.loa_m ?? berth.length_m * 0.8;
+      if (call) {
+        shipAt(call, berth.x, -37, 0, selectedId);
+        continue;
+      }
       model(
         hulls,
         hullParts,
         pose(berth.x, -1, -37, length / 38, length / 46, length / 46),
-        call?.call_id ?? berth.berth_id,
-        call?.call_id === selectedId ? COLORS.signal : COLORS.shipContainer,
+        berth.berth_id,
+        COLORS.shipContainer,
       );
     }
     let waiting = 0;
+    const longestWait = Math.max(
+      1,
+      ...state.calls
+        .filter((call) => call.state === "waiting")
+        .map((call) => call.wait_hours),
+    );
     const berths = new Map(
       state.berths.map((berth) => [berth.berth_id, berth]),
     );
@@ -347,6 +395,18 @@ export function createTwinWorld(base: PortTwinState) {
       const x = quayStart + span * (0.16 + (index % 5) * 0.17);
       const z = -250 - Math.floor(index / 5) * 135;
       if (!frame || call.state === "waiting") {
+        if (overlay === "queue")
+          box(
+            queuePads,
+            x,
+            -11,
+            z,
+            call.loa_m + 26,
+            2,
+            call.loa_m * 0.28 + 22,
+            pressure(call.wait_hours / longestWait),
+            call.call_id,
+          );
         shipAt(call, x, z, 0.12, selectedId);
       } else if (
         call.state === "approaching" &&
@@ -397,17 +457,16 @@ export function createTwinWorld(base: PortTwinState) {
         38,
         2,
         37,
-        item.crane_id === selectedId
-          ? COLORS.signal
-          : pressure(
-              overlay === "workload" ? item.working_hours / craneHours : null,
-            ),
+        pressure(
+          overlay === "workload" ? item.working_hours / craneHours : null,
+        ),
         item.crane_id,
       );
       const berth = item.assigned_berth
         ? berths.get(item.assigned_berth)
         : undefined;
       const x = berth ? berth.x + (index % 2 === 0 ? -39 : 39) : item.x;
+      if (item.crane_id === selectedId) drawOutline(x, 5, 43, 56, 65);
       const at = pose(x, 3, 6, 4, 4, 4, -Math.PI / 2);
       model(cranes, craneFixed, at, item.crane_id);
       const working = T.MathUtils.lerp(
@@ -430,7 +489,9 @@ export function createTwinWorld(base: PortTwinState) {
           ? block.mean_dwell_hours / dwellHours
           : overlay === "storage"
             ? Math.min(1, block.utilisation / 0.95)
-            : block.utilisation;
+            : overlay === "utilisation"
+              ? block.utilisation
+              : null;
       box(
         pad,
         block.x,
@@ -439,9 +500,17 @@ export function createTwinWorld(base: PortTwinState) {
         block.width_m,
         3,
         block.depth_m,
-        block.block_id === selectedId ? COLORS.signal : pressure(value),
+        pressure(value),
         block.block_id,
       );
+      if (block.block_id === selectedId)
+        drawOutline(
+          block.x,
+          5,
+          block.y,
+          block.width_m + 10,
+          block.depth_m + 10,
+        );
       const count = Math.min(
         60,
         Math.round(60 * (frame?.yardFill[index] ?? block.utilisation)),
@@ -476,6 +545,8 @@ export function createTwinWorld(base: PortTwinState) {
       );
     }
     for (const shed of state.sheds) {
+      if (shed.shed_id === selectedId)
+        drawOutline(shed.x, 5, shed.y, shed.width_m + 25, shed.depth_m + 22);
       box(
         pad,
         shed.x,
@@ -484,9 +555,7 @@ export function createTwinWorld(base: PortTwinState) {
         shed.width_m + 24,
         3,
         shed.depth_m + 22,
-        shed.shed_id === selectedId
-          ? COLORS.signal
-          : pressure(overlay === "storage" ? shed.utilisation : null),
+        pressure(overlay === "storage" ? shed.utilisation : null),
         shed.shed_id,
       );
       box(
@@ -525,17 +594,9 @@ export function createTwinWorld(base: PortTwinState) {
     }
     for (const gate of state.gates) {
       const width = gate.lanes * 16;
-      box(
-        pad,
-        gate.x,
-        2,
-        gate.y,
-        width + 24,
-        3,
-        60,
-        gate.gate_id === selectedId ? COLORS.signal : COLORS.road,
-        gate.gate_id,
-      );
+      if (gate.gate_id === selectedId)
+        drawOutline(gate.x, 5, gate.y, width + 25, 65);
+      box(pad, gate.x, 2, gate.y, width + 24, 3, 60, COLORS.road, gate.gate_id);
       box(
         buildings,
         gate.x,

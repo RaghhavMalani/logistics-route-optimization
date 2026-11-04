@@ -1,4 +1,4 @@
-export const TWIN_RAMP = ["#2a7690", "#8185b8", "#773c85"] as const;
+export const TWIN_RAMP = ["#daebee", "#73a6b2", "#205c6e"] as const;
 
 /** What the operator is colouring the scene by. */
 export type TwinOverlay =
@@ -24,7 +24,11 @@ export const OVERLAYS: Array<{
     label: "Crane workload",
     hint: "Working hours accrued per crane",
   },
-  { key: "queue", label: "Queue", hint: "Vessels waiting, and how long" },
+  {
+    key: "queue",
+    label: "Queue",
+    hint: "Waiting hours at each anchorage position",
+  },
   {
     key: "storage",
     label: "Storage pressure",
