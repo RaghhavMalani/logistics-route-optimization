@@ -1,16 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
-import { ApiError, getJson } from "@/services/api";
-
-export interface HomeHandoff {
-  id: string;
-  vesselName: string;
-  portCode: string;
-  state: string;
-  nextActor: string | null;
-  deepLink: string | null;
-  advisoryId?: string;
-}
+import { useWorkspaceHandoffs } from "@/services/handoffs";
 
 const companyStages: Record<string, string> = {
   COMPANY_PROPOSED: "Waiting on Port",
@@ -21,34 +10,6 @@ const companyStages: Record<string, string> = {
   OUTCOME_RECORDED: "Outcome completed",
   COMPLETED: "Outcome completed",
 };
-
-export function useWorkspaceHandoffs(enabled = true) {
-  const { session, identityHeaders } = useAuth();
-  return useQuery({
-    queryKey: [
-      "workspace-handoffs",
-      session?.demoId ?? session?.user.id,
-      session?.user.role,
-    ],
-    enabled: enabled && Boolean(session),
-    refetchInterval: 8000,
-    retry: false,
-    queryFn: async ({ signal }) => {
-      try {
-        return (
-          await getJson<{ items: HomeHandoff[] }>(
-            "/handoffs",
-            identityHeaders,
-            { signal },
-          )
-        ).items;
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 404) return null;
-        throw error;
-      }
-    },
-  });
-}
 
 export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
   const { session } = useAuth();

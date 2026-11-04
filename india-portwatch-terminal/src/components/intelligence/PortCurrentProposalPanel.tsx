@@ -14,7 +14,7 @@ import { useAdvisories } from "@/services/os-hooks";
 import { getJson, postJson } from "@/services/api";
 import type { FrozenEnvironment } from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
-import type { HomeHandoff } from "@/components/advisory/WorkspaceHandoffCard";
+import type { HomeHandoff } from "@/services/handoffs";
 
 interface Proposal {
   decisionId: string;

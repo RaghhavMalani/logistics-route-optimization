@@ -24,7 +24,7 @@ The [isolated hosted preview](https://india-portwatch-ep8o88yck-flash2404s-proje
 ## Demo click path
 
 1. Open **Company demo**. In Fleet Command, open **Scenarios**, select **S10 · Slow steaming to the same approach window**, tick the fictional-input checkbox, and choose **Calculate selected demonstration**. This saves the comparison for the fresh visitor.
-2. In the same tab, open **Fleet intelligence → Fleet review queue → PW Meridian → Open saved comparison**. Select the **10 kn** alternative, then **Continue to Decide → Mark reviewed → Approve**. Fleet Command shows **Waiting on Port**.
+2. In the same tab, open **Fleet intelligence → Fleet review queue → PW Meridian → Open saved comparison**. Select the **10 kn** alternative, then **Continue to Decide → Mark reviewed → Approve**. If you return to Fleet Command to show **Waiting on Port**, choose **Close fleet review** before switching roles.
 3. Use the **Demo role** menu to switch to **Port Authority**. Open **Needs your action → Review proposal**, then **Review Company weather proposal → Continue to Decide → Mark reviewed → Approve → Hand into advisory boundary**. In **Needs action**, open the PW Meridian advisory and choose **Open for review → Approve and issue**. The card stays open between the two actions.
 4. Switch to **Vessel Bridge**. Choose **Needs your action → Open advisory → Acknowledge receipt → Accept**.
 5. Switch to **Port Authority**. From **Needs your action**, open **Review accepted proposal**. Show the **Decide** tab and choose **Run frozen demo outcome**.

@@ -33,7 +33,7 @@ import { generateAdvisories } from "@/services/portwatch-os";
 import { useAdvisories, useAdvisoryPolicy } from "@/services/os-hooks";
 import type { AdvisoryState } from "@/types/portwatch-os";
 import { PortCurrentProposalPanel } from "@/components/intelligence/PortCurrentProposalPanel";
-import { useWorkspaceHandoffs } from "@/components/advisory/WorkspaceHandoffCard";
+import { useWorkspaceHandoffs } from "@/services/handoffs";
 
 /** Which states a given side of the workflow actually cares about seeing. */
 const ISSUER_FILTERS: Array<{

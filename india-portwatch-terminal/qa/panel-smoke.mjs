@@ -59,10 +59,13 @@ async function call(path, token, body, expected = 200) {
 
 async function role(page, name) {
   await page.getByRole("button", { name: /Demo role/i }).click();
-  const changed = page.waitForResponse((response) => response.url().endsWith("/demo/role") &&
-    response.request().method() === "POST" && response.ok());
-  await page.getByRole("menuitem", { name }).click();
-  await changed;
+  const item = page.getByRole("menuitem", { name });
+  await expect(item).toBeVisible();
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith("/demo/role") &&
+      response.request().method() === "POST" && response.ok()),
+    item.click(),
+  ]);
 }
 
 async function run(width, height) {
@@ -206,6 +209,8 @@ async function run(width, height) {
     await open(page, "/company/overview");
     await expect(companyHandoffs).toContainText("Waiting on Port");
     await expect(companyHandoffs.getByRole("link", { name: "Open Company comparison" })).toHaveAttribute("href", new RegExp(problem.decisionId));
+    await queue.getByRole("button", { name: "Close fleet review" }).click();
+    await expect(queue).toBeHidden();
     await shot("01a-waiting-on-port");
     passed("Port home");
     await role(page, /Port Authority/);
