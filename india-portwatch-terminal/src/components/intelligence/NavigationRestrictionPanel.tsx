@@ -67,17 +67,24 @@ export function NavigationRestrictionPanel({
     if (selected.noticeId) setNoticeId(selected.noticeId);
     if (selected.vesselId) setVesselId(selected.vesselId);
   }, []);
+  const vessel = q.data?.voyages.find((v) => v.id === vesselId);
+  const indianVoyage = view === "voyage" && vessel?.portCode.startsWith("IN");
+  const notices = (q.data?.notices ?? []).filter(
+    (n) =>
+      !indianVoyage ||
+      (n.sourceFamily !== "NAVCEN_MSI" && n.sourceStatus !== "EXPIRED"),
+  );
   const notice = noticeId
-    ? q.data?.notices.find((n) => n.noticeId === noticeId)
-    : (q.data?.notices.find(
+    ? (notices.find((n) => n.noticeId === noticeId) ??
+      (indianVoyage ? notices[0] : undefined))
+    : (notices.find(
         (n) => n.extractionStatus === "SUPPORTED" && n.status === "SCHEDULED",
       ) ??
-      q.data?.notices.find(
+      notices.find(
         (n) => n.sourceFamily === "NHO_NAVAREA_VIII" && n.areaId != null,
       ) ??
-      q.data?.notices.find((n) => n.extractionStatus === "SUPPORTED") ??
-      q.data?.notices[0]);
-  const vessel = q.data?.voyages.find((v) => v.id === vesselId);
+      notices.find((n) => n.extractionStatus === "SUPPORTED") ??
+      notices[0]);
   const plan = notice?.areaId
     ? (vessel?.declaredPassages?.[notice.areaId] ??
       (vessel?.declaredPassage?.areaId === notice.areaId
@@ -87,9 +94,13 @@ export function NavigationRestrictionPanel({
   const relation = q.data?.exposureQueue.find(
     (r) => r.noticeId === notice?.noticeId && r.vesselId === vesselId,
   );
+  const indianNoticeIds = indianVoyage
+    ? new Set(notices.map((n) => n.noticeId))
+    : null;
   const rows = (q.data?.exposureQueue ?? []).filter((r) =>
     view === "voyage"
-      ? r.vesselId === vesselId
+      ? r.vesselId === vesselId &&
+        (!indianNoticeIds || indianNoticeIds.has(r.noticeId))
       : r.noticeId === notice?.noticeId,
   );
   const zone = notice?.windows[0]?.timeZone;
@@ -326,7 +337,7 @@ export function NavigationRestrictionPanel({
                 }}
                 className="bg-[var(--panel-2)] border border-[var(--line)] max-w-full w-72"
               >
-                {(q.data?.notices ?? []).map((n) => (
+                {notices.map((n) => (
                   <option key={n.noticeId} value={n.noticeId}>
                     {n.providerNoticeId ?? n.noticeId} ·{" "}
                     {n.title ?? n.noticeRef} · {n.status} /{" "}
@@ -382,10 +393,11 @@ export function NavigationRestrictionPanel({
           ) : (
             <>
               <p>
-                {q.data?.notices.length ?? 0} discovered notices ·{" "}
-                {q.data?.notices.filter(
-                  (n) => n.extractionStatus === "SUPPORTED",
-                ).length ?? 0}{" "}
+                {notices.length} discovered notices ·{" "}
+                {
+                  notices.filter((n) => n.extractionStatus === "SUPPORTED")
+                    .length
+                }{" "}
                 extraction-supported notices. A supported parser does not
                 establish current applicability or observed closure.
               </p>
@@ -721,7 +733,15 @@ export function NavigationRestrictionPanel({
               ? "This exact source identity is unavailable in the current retained view. No other source event was substituted."
               : "No source events available. Collection failure or an empty product does not establish non-occurrence."}
           </p>
-          {noticeId && q.data ? (
+          {indianVoyage ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setView("event")}
+            >
+              Open source event archive
+            </Button>
+          ) : noticeId && q.data ? (
             <Button size="sm" variant="outline" onClick={() => setNoticeId("")}>
               Clear unavailable source selection
             </Button>

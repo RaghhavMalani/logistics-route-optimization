@@ -38,10 +38,12 @@ def source_validity(event, now):
             return "NOT_YET_AVAILABLE"
         if event.get("productThrough") and instant(event["productThrough"]) <= now:
             return "EXPIRED"
+        if event.get("providerCancelAt") and instant(event["providerCancelAt"]) <= now:
+            return "EXPIRED"
         windows = event.get("windows") or []
         if windows and all(instant(w["end"]) <= now for w in windows):
             return "EXPIRED"
-        if state in ("UNAVAILABLE", "MISSING", "STALE", "FUTURE_DATED", "UNKNOWN"):
+        if state in ("UNAVAILABLE", "MISSING", "STALE", "FUTURE_DATED", "UNKNOWN", "EXPIRED"):
             return state
         if event.get("checkedAt") and instant(event["checkedAt"]) + timedelta(hours=6) < now:
             return "STALE"

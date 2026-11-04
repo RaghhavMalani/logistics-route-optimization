@@ -57,6 +57,19 @@ def test_fresh_receipt_does_not_refresh_old_product(tmp_path, monkeypatch):
     assert 'sourceText' not in row and not row['originalDownloadAvailable']
 
 
+def test_explicit_cancel_dtg_expires_retained_notice_at_minute_boundary():
+    from src.portwatch_os.intelligence.voyage_exposure import source_validity
+
+    row = n.parse_pages(pages("CANCEL THIS MSG 301000 UTC OCT 26."))["notices"][0]
+    assert row["providerCancelAt"] == "2026-10-30T10:00:00+00:00"
+    end = AT + timedelta(hours=2)
+    assert source_validity(n.public_notice(row, as_of=end - timedelta(seconds=1)), end - timedelta(seconds=1)) == "CURRENT_PRODUCT_DATE"
+    del row["providerCancelAt"]  # Pre-upgrade retained notices still age correctly.
+    projected = n.public_notice(row, as_of=end)
+    assert source_validity(projected, end) == "EXPIRED"
+    assert "sourceText" not in projected
+
+
 def test_unchanged_revision_dedup_changed_revision_and_reversion(tmp_path,monkeypatch):
     first=retain(tmp_path,monkeypatch)['notices'][0]
     again=retain(tmp_path,monkeypatch,at=AT+timedelta(minutes=1))['notices'][0]
