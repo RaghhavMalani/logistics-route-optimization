@@ -15,7 +15,7 @@ export const Route = createFileRoute("/port/advisories")({
  */
 function PortAdvisories() {
   return (
-    <div className="flex h-full min-h-0 flex-col [&_[data-testid=decision-approve]]:bg-[var(--action)] [&_[data-testid=advisory-action-issued]]:bg-[var(--action)] [&_[data-testid=decision-approve]]:text-white [&_[data-testid=advisory-action-issued]]:!text-white">
+    <div className="flex h-full min-h-0 flex-col">
       <AdvisoryScreen
         title="Advisories"
         context="Review, modify and issue recommendations to vessels"

@@ -1259,7 +1259,7 @@ function WorkflowView({
             }
             onClick={onApprove}
             data-testid="decision-approve"
-            className="flex-1 rounded bg-[var(--accent)] px-2 py-1 text-[10px] font-medium text-[var(--surface)] disabled:opacity-50"
+            className="flex-1 rounded bg-[var(--action)] px-2 py-1 text-[10px] font-medium text-[var(--on-signal)] hover:bg-[var(--signal-ink)] disabled:opacity-50"
           >
             Approve{" "}
             {selected

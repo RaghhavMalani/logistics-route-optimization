@@ -293,13 +293,19 @@ export function AdvisoryActions({
             }}
             className={cn(
               "inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[3px] text-[10.5px] transition-colors",
-              "border-[var(--line-strong)] hover:bg-[var(--panel-3)]",
+              option.target === "issued"
+                ? "border-[var(--action)] bg-[var(--action)] text-[var(--on-signal)] hover:bg-[var(--signal-ink)]"
+                : "border-[var(--line-strong)] hover:bg-[var(--panel-3)]",
               pending === option.target && "bg-[var(--panel-3)]",
               mutation.isPending && "cursor-not-allowed opacity-50",
             )}
-            style={{
-              color: `var(--${TONE_FOR_TARGET[option.target] ?? "text-2"})`,
-            }}
+            style={
+              option.target === "issued"
+                ? undefined
+                : {
+                    color: `var(--${TONE_FOR_TARGET[option.target] ?? "text-2"})`,
+                  }
+            }
           >
             {ACTION_ICON[option.target] ?? null}
             {option.label}
