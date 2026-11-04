@@ -63,6 +63,7 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
     const ray = new T.Raycaster();
     const point = new T.Vector2();
     let frame = 0;
+    let paintCount = 0;
     let dirty = true;
     const paint = () => {
       frame = 0;
@@ -73,11 +74,26 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
         const hour = clock?.read() ?? simulationHour;
         const model =
           playback && hour !== undefined ? playback.sample(hour) : undefined;
-        world.draw(model?.state ?? state, overlay, selectedId ?? null, model);
+        const lowDetail = world.draw(
+          model?.state ?? state,
+          overlay,
+          selectedId ?? null,
+          model,
+          {
+            unitsPerPixel:
+              (camera.top - camera.bottom) /
+              (camera.zoom * Math.max(1, container.clientHeight)),
+            x: camera.position.x,
+            z: camera.position.z,
+          },
+        );
+        container.dataset.lowDetailBlocks = String(lowDetail);
+        container.dataset.modelHour = model?.hour.toFixed(3) ?? "";
         dirty = false;
       }
       renderer.render(world.scene, camera);
       container.dataset.drawCalls = String(renderer.info.render.calls);
+      container.dataset.frameCount = String(++paintCount);
     };
     const schedule = () => {
       if (!frame && !document.hidden) frame = requestAnimationFrame(paint);
@@ -89,7 +105,7 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
     function aim() {
       camera.position.setFromSpherical(spherical).add(target);
       camera.lookAt(target);
-      schedule();
+      refresh.current?.();
     }
     const size = () => {
       const w = container.clientWidth;
@@ -97,8 +113,8 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       if (!w || !h) return;
       const aspect = w / h;
       const halfHeight = Math.max(
-        (world.span * 0.45) / aspect,
-        world.inland * 0.72 + 170,
+        (world.span * 0.58) / aspect,
+        world.inland * 0.54 + 115,
       );
       camera.left = -halfHeight * aspect;
       camera.right = halfHeight * aspect;
@@ -106,7 +122,7 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       camera.bottom = -halfHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
-      schedule();
+      refresh.current?.();
     };
     let down: { x: number; y: number; moved: boolean } | null = null;
     const onDown = (event: PointerEvent) => {
@@ -152,7 +168,7 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
         4.5,
       );
       camera.updateProjectionMatrix();
-      schedule();
+      refresh.current?.();
     };
     const visibility = () => {
       if (document.hidden) {

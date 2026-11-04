@@ -5,6 +5,7 @@ import { BOXCOLS, COLORS } from "@/components/miniature/palette";
 import { seededRandom } from "@/components/miniature/rng";
 import type { PortTwinState, TwinCall } from "@/types/portwatch-os";
 import type { TwinFrame } from "./twin-playback";
+import { twinCallPickId } from "./twin-selection";
 import { TWIN_RAMP, type TwinOverlay } from "./twin-presentation";
 
 type Part = { matrix: T.Matrix4; color: T.Color; material: T.Material };
@@ -307,9 +308,10 @@ export function createTwinWorld(base: PortTwinState) {
     }
   }
   const anchorOrder = new Map(
-    [...base.calls]
-      .sort((a, b) => a.effectiveEta - b.effectiveEta)
-      .map((call, index) => [call.call_id, index]),
+    base.calls
+      .map((call, row) => ({ eta: call.effectiveEta, row }))
+      .sort((a, b) => a.eta - b.eta)
+      .map(({ row }, rank) => [row, rank]),
   );
   const craneSwing = new T.Matrix4();
   const movingCrane = new T.Matrix4();
@@ -319,11 +321,13 @@ export function createTwinWorld(base: PortTwinState) {
   };
   function shipAt(
     call: TwinCall,
+    row: number,
     x: number,
     z: number,
     heading: number,
     selected: string | null,
   ) {
+    const id = twinCallPickId(call, row);
     model(
       hulls,
       hullParts,
@@ -336,10 +340,10 @@ export function createTwinWorld(base: PortTwinState) {
         call.loa_m / 46,
         heading,
       ),
-      call.call_id,
+      id,
       COLORS.shipContainer,
     );
-    if (call.call_id === selected)
+    if (id === selected || call.call_id === selected)
       drawOutline(x, 1, z, call.loa_m + 20, call.loa_m * 0.25 + 18, heading);
   }
   function draw(
@@ -347,9 +351,15 @@ export function createTwinWorld(base: PortTwinState) {
     overlay: TwinOverlay,
     selectedId: string | null,
     frame?: TwinFrame,
+    view?: { unitsPerPixel: number; x: number; z: number },
   ) {
     for (const item of active) item.reset();
-    const calls = new Map(state.calls.map((call) => [call.call_id, call]));
+    const calls = new Map<string, number>();
+    // The engine resolves duplicate demo IDs to the first record.
+    for (const [row, call] of state.calls.entries()) {
+      if (!calls.has(call.call_id)) calls.set(call.call_id, row);
+    }
+    let lowDetailBlocks = 0;
     const craneHours = Math.max(1, ...state.cranes.map((c) => c.working_hours));
     const dwellHours = Math.max(
       1,
@@ -373,11 +383,12 @@ export function createTwinWorld(base: PortTwinState) {
         berth.berth_id,
       );
       if (!berth.occupied_by) continue;
-      const call = calls.get(berth.occupied_by);
+      const row = calls.get(berth.occupied_by);
+      const call = row === undefined ? undefined : state.calls[row];
       if (frame && call) continue;
       const length = call?.loa_m ?? berth.length_m * 0.8;
       if (call) {
-        shipAt(call, berth.x, -37, 0, selectedId);
+        shipAt(call, row!, berth.x, -37, 0, selectedId);
         continue;
       }
       model(
@@ -398,11 +409,9 @@ export function createTwinWorld(base: PortTwinState) {
     const berths = new Map(
       state.berths.map((berth) => [berth.berth_id, berth]),
     );
-    for (const call of state.calls) {
+    for (const [row, call] of state.calls.entries()) {
       if (!frame && call.state !== "waiting") continue;
-      const index = frame
-        ? (anchorOrder.get(call.call_id) ?? 0) % 15
-        : waiting++;
+      const index = frame ? (anchorOrder.get(row) ?? 0) % 15 : waiting++;
       const x = quayStart + span * (0.16 + (index % 5) * 0.17);
       const z = -250 - Math.floor(index / 5) * 135;
       if (!frame || call.state === "waiting") {
@@ -416,9 +425,9 @@ export function createTwinWorld(base: PortTwinState) {
             2,
             call.loa_m * 0.28 + 22,
             pressure(call.wait_hours / longestWait),
-            call.call_id,
+            twinCallPickId(call, row),
           );
-        shipAt(call, x, z, 0.12, selectedId);
+        shipAt(call, row, x, z, 0.12, selectedId);
       } else if (
         call.state === "approaching" &&
         call.effectiveEta - frame.hour <= 2
@@ -426,6 +435,7 @@ export function createTwinWorld(base: PortTwinState) {
         const approach = smooth((frame.hour - call.effectiveEta + 2) / 2);
         shipAt(
           call,
+          row,
           x - (1 - approach) * 220,
           z - (1 - approach) * 420,
           -0.72,
@@ -438,6 +448,7 @@ export function createTwinWorld(base: PortTwinState) {
           const docking = smooth((frame.hour - call.berthed_hour) / 0.75);
           shipAt(
             call,
+            row,
             T.MathUtils.lerp(x, berth.x, docking),
             T.MathUtils.lerp(z, -37, docking),
             (1 - docking) * -0.55,
@@ -451,6 +462,7 @@ export function createTwinWorld(base: PortTwinState) {
           const leaving = smooth((frame.hour - call.departed_hour) / 1.6);
           shipAt(
             call,
+            row,
             berth.x + 320 * leaving,
             -37 - 740 * leaving,
             leaving * 0.93,
@@ -522,21 +534,35 @@ export function createTwinWorld(base: PortTwinState) {
           block.width_m + 10,
           block.depth_m + 10,
         );
+      const near =
+        !view ||
+        (block.width_m / view.unitsPerPixel >= 30 &&
+          Math.hypot(block.x - view.x, block.y - view.z) <
+            Math.hypot(mid - view.x, inland * 0.31 - view.z) + span * 0.24);
+      if (!near) lowDetailBlocks++;
+      const columns = near ? 5 : 3;
+      const rows = near ? 4 : 2;
+      const slots = columns * rows;
+      const capacity = slots * 3;
       const count = Math.min(
-        60,
-        Math.round(60 * (frame?.yardFill[index] ?? block.utilisation)),
+        capacity,
+        Math.round(capacity * (frame?.yardFill[index] ?? block.utilisation)),
       );
       for (let stack = 0; stack < count; stack++) {
-        const slot = stack % 20;
-        const tier = Math.floor(stack / 20);
+        const slot = stack % slots;
+        const tier = Math.floor(stack / slots);
         box(
           containers,
-          block.x + (((slot % 5) - 2) * block.width_m) / 5.7,
+          block.x +
+            (((slot % columns) - (columns - 1) / 2) * block.width_m) /
+              (columns + 0.7),
           10 + tier * 12,
-          block.y + ((Math.floor(slot / 5) - 1.5) * block.depth_m) / 4.7,
-          block.width_m / 6.6,
+          block.y +
+            ((Math.floor(slot / columns) - (rows - 1) / 2) * block.depth_m) /
+              (rows + 0.7),
+          block.width_m / (columns + 1.6),
           11,
-          block.depth_m / 6.4,
+          block.depth_m / (rows + 2.4),
           BOXCOLS[(index * 3 + slot + tier) % BOXCOLS.length],
           block.block_id,
         );
@@ -651,6 +677,7 @@ export function createTwinWorld(base: PortTwinState) {
       }
     }
     for (const item of active) item.commit();
+    return lowDetailBlocks;
   }
 
   const pick = (raycaster: T.Raycaster) => {

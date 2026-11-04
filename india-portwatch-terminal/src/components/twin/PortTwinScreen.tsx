@@ -55,7 +55,7 @@ import {
 } from "./twin-presentation";
 
 import { createTwinPlayback } from "./twin-playback";
-import { twinSelection } from "./twin-selection";
+import { twinCallPickId, twinSelection } from "./twin-selection";
 import { useTwinClock } from "./use-twin-clock";
 import { TwinTransport } from "./TwinTransport";
 import {
@@ -428,8 +428,8 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               </div>
             ) : null}
           </div>
-          <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel)] px-3 py-1.5">
-            <div className="eyebrow mb-1 text-[10px]">Colour by</div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--line)] bg-[var(--panel)] px-3 py-2">
+            <div className="eyebrow text-[10px]">Colour by</div>
             <div className="flex flex-wrap gap-1">
               {OVERLAYS.map((option) => (
                 <button
@@ -450,7 +450,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 </button>
               ))}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-[10px]">
               <span>Low</span>
               <span
                 aria-hidden="true"
@@ -464,7 +464,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 {OVERLAYS.find((item) => item.key === overlay)?.hint}
               </span>
             </div>
-            <div className="mt-1 text-xs">
+            <div className="text-[10px]">
               {selection ? (
                 <strong>Selected · {selection.label}</strong>
               ) : (
@@ -563,9 +563,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 </p>
               ) : (
                 <ul className="space-y-1">
-                  {waiting.slice(0, 10).map((call) => (
+                  {waiting.slice(0, 10).map((call, index) => (
                     <li
-                      key={call.call_id}
+                      key={twinCallPickId(call, index)}
                       className="flex items-baseline gap-2"
                     >
                       <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">

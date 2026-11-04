@@ -1,5 +1,8 @@
-import type { PortTwinState } from "@/types/portwatch-os";
+import type { PortTwinState, TwinCall } from "@/types/portwatch-os";
 import type { TwinSelection } from "./twin-presentation";
+
+export const twinCallPickId = (call: TwinCall, index: number) =>
+  `call:${index}:${call.call_id}`;
 
 /** Resolve against the displayed simulation frame, including after a seek. */
 export function twinSelection(
@@ -81,11 +84,17 @@ export function twinSelection(
         ["Queue", `${gate.queue_trucks.toFixed(0)} trucks`],
       ],
     };
-  const call = state.calls.find((row) => row.call_id === id);
+  const callKey = /^call:(\d+):(.*)$/.exec(id);
+  const rowIndex = callKey ? Number(callKey[1]) : -1;
+  const indexed = state.calls[rowIndex];
+  const call =
+    indexed && indexed.call_id === callKey?.[2]
+      ? indexed
+      : state.calls.find((row) => row.call_id === (callKey?.[2] ?? id));
   if (call)
     return {
       kind: "vessel",
-      id: call.call_id,
+      id,
       label: call.name,
       fields: [
         ["Class", call.vessel_class],
