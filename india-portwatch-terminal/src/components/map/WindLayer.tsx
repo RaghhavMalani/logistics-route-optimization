@@ -93,11 +93,17 @@ export function WindLayer({
     };
 
     let lastTime = performance.now();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const step = (time: number) => {
       raf = requestAnimationFrame(step);
       const delta = Math.min(0.05, (time - lastTime) / 1000);
       lastTime = time;
+      if (reducedMotion.matches) {
+        if (!stale) clear();
+        stale = true;
+        return;
+      }
 
       const weather = frameRef.current;
       if (!weather || !width || !height) return;

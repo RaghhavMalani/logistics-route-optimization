@@ -33,6 +33,7 @@ import type { WeatherFrame } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
 import {
   BLANK_IMAGE,
+  EMPTY,
   INDIA_VIEW,
   LAYER_GROUPS,
   REGION_BOUNDS,
@@ -207,6 +208,9 @@ export function MaritimeMap({
 }: MaritimeMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const sent = useRef<
+    Partial<Record<RuntimeSource, GeoJSON.FeatureCollection>>
+  >({});
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const [suspended, setSuspended] = useState(false);
@@ -408,6 +412,7 @@ export function MaritimeMap({
       alive = false;
       instance?.remove();
       mapRef.current = null;
+      sent.current = {};
       setMap(null);
     };
     // Created once: view changes go through the imperative effects below rather
@@ -429,15 +434,13 @@ export function MaritimeMap({
     const instance = mapRef.current;
     if (!instance || !ready) return;
     for (const key of RUNTIME_KEYS) {
+      const features = data?.[key] ?? EMPTY;
+      if (sent.current[key] === features) continue;
       const source = instance.getSource(key) as
         { setData: (value: GeoJSON.FeatureCollection) => void } | undefined;
       if (!source) continue;
-      source.setData(
-        publish(
-          key,
-          data?.[key] ?? { type: "FeatureCollection", features: [] },
-        ),
-      );
+      source.setData(publish(key, features));
+      sent.current[key] = features;
     }
   }, [data, ready]);
 
@@ -490,6 +493,13 @@ export function MaritimeMap({
   useEffect(() => {
     const instance = mapRef.current;
     if (!instance || !ready || !view) return;
+    const center = instance.getCenter();
+    if (
+      Math.abs(center.lng - view.center[0]) < 0.000001 &&
+      Math.abs(center.lat - view.center[1]) < 0.000001 &&
+      instance.getZoom() === view.zoom
+    )
+      return;
     instance.easeTo({ center: view.center, zoom: view.zoom, duration: 520 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, view?.center[0], view?.center[1], view?.zoom]);
@@ -513,7 +523,6 @@ export function MaritimeMap({
       instance.fitBounds(focus.bounds, {
         padding: fits ? padding : 24,
         duration: 900,
-        essential: true,
         maxZoom: 7,
       });
       return;
@@ -576,7 +585,6 @@ export function MaritimeMap({
       center: focus.center,
       zoom: focus.zoom ?? Math.max(instance.getZoom(), 7),
       duration: 900,
-      essential: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.token, ready]);

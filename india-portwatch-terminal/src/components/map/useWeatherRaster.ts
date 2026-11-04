@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import type {
   WeatherFieldKey,
   WeatherTimeline,
@@ -46,7 +46,7 @@ export function useWeatherRaster(
               if (oldest !== undefined) cache.delete(oldest);
             }
             cache.set(at, raster);
-            refresh((value) => value + 1);
+            startTransition(() => refresh((value) => value + 1));
           }
           const pending = state.pending;
           state.pending = undefined;
