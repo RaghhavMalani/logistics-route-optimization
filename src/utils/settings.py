@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     PORTWATCH_RESEARCH_SOURCE_PROFILE: str | None = None
     PORTWATCH_SEA_ROUTES: str | None = None
     PORTWATCH_SOURCE: str | None = None
+    PORTWATCH_SOURCE_SNAPSHOT_URL: str | None = Field(default=None, repr=False, exclude=True)
     PORTWATCH_STATE_DIR: str | None = None
     PORTWATCH_VESSELFINDER_ENABLED: str | None = None
     PORTWATCH_WEATHER_FEEDBACK_DB: str | None = None
