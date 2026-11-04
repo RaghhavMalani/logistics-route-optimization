@@ -163,6 +163,7 @@ const EMPTY_OVERLAY: Overlay = {
 
 const CHAPTER_CAMERA = { pitch: 50, bearing: -12 };
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+const UNPADDED: MapPadding = { top: 0, right: 0, bottom: 0, left: 0 };
 
 function cameraDuration(duration: number) {
   return window.matchMedia(REDUCED_MOTION).matches ? 0 : duration;
@@ -176,11 +177,35 @@ function chapterTransition() {
   };
 }
 
+function selectionPadding(map: MapLibreMap): MapPadding {
+  const container = map.getContainer();
+  const bounds = container.getBoundingClientRect();
+  const inset = (side: "right" | "bottom") => {
+    const panel = container.parentElement?.querySelector<HTMLElement>(
+      `[data-map-camera-inset="${side}"]`,
+    );
+    const box = panel?.getBoundingClientRect();
+    if (
+      !box ||
+      box.width === 0 ||
+      box.height === 0 ||
+      !panel?.childElementCount
+    )
+      return 0;
+    const overlap =
+      side === "right" ? bounds.right - box.left : bounds.bottom - box.top;
+    const size = side === "right" ? bounds.width : bounds.height;
+    return Math.max(0, Math.min(Math.round(overlap), size - 96));
+  };
+  return { ...UNPADDED, right: inset("right"), bottom: inset("bottom") };
+}
+
 function glideTo(map: MapLibreMap, center: [number, number], zoom: number) {
   map.flyTo({
     ...chapterTransition(),
     center,
     zoom: Math.min(map.getMaxZoom(), zoom),
+    padding: selectionPadding(map),
   });
 }
 
@@ -561,6 +586,7 @@ export function MaritimeMap({
     instance.easeTo({
       center: view.center,
       zoom: view.zoom,
+      padding: UNPADDED,
       duration: cameraDuration(520),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1178,6 +1204,7 @@ export function MaritimeMap({
             mapRef.current?.easeTo({
               center: view?.center ?? INDIA_VIEW.center,
               zoom: view?.zoom ?? INDIA_VIEW.zoom,
+              padding: UNPADDED,
               duration: cameraDuration(520),
             })
           }

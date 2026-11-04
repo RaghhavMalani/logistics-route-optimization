@@ -153,7 +153,10 @@ function PortCockpitScreen() {
   );
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") workspace.setSelectedVesselId(hit.id);
-    workspace.flyTo([hit.lon, hit.lat], hit.kind === "vessel" ? 9 : 8);
+    workspace.flyTo(
+      [hit.lon, hit.lat],
+      hit.kind === "port" ? 11.5 : hit.kind === "vessel" ? 9 : 8,
+    );
   };
 
   return (
@@ -211,6 +214,7 @@ function PortCockpitScreen() {
 
             {/* -------------------------------------------------- right rail -- */}
             <div
+              data-map-camera-inset="right"
               className="pointer-events-none absolute right-2.5 top-2.5 z-20 flex w-[320px] flex-col gap-2"
               style={{ bottom: bottomStack + 8 }}
             >
@@ -306,6 +310,7 @@ function PortCockpitScreen() {
             {/* ------------------------------------------------ traffic board -- */}
             <div
               className="pointer-events-none absolute z-20"
+              data-map-camera-inset="bottom"
               style={{ left: 272, right: 330, bottom: boardHeight + 18 }}
             >
               <TimeTransport

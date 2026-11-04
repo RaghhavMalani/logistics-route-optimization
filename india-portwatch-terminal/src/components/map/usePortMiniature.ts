@@ -16,15 +16,13 @@ function closestVisible(
   map: MapLibreMap,
   ports: RegisteredPort[],
 ): PortMiniatureTarget | null {
-  const canvas = map.getCanvas();
+  const center = map.project(map.getCenter());
   let target: PortMiniatureTarget | null = null;
   let distance = Infinity;
   for (const port of ports) {
     if (!port.shore || !inView(map, port.center)) continue;
     const point = map.project(port.center);
-    const next =
-      (point.x - canvas.clientWidth / 2) ** 2 +
-      (point.y - canvas.clientHeight / 2) ** 2;
+    const next = (point.x - center.x) ** 2 + (point.y - center.y) ** 2;
     if (next < distance) {
       target = { ...port, shore: port.shore };
       distance = next;

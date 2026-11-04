@@ -323,7 +323,11 @@ function FleetCommand() {
             : "unavailable";
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "port") workspace.setSelectedPortCode(hit.id);
-    workspace.flyTo([hit.lon, hit.lat], hit.kind === "vessel" ? 8 : 7);
+    if (hit.kind === "vessel") setSelectedVessel(hit.id);
+    workspace.flyTo(
+      [hit.lon, hit.lat],
+      hit.kind === "port" ? 11.5 : hit.kind === "vessel" ? 8 : 7,
+    );
   };
 
   return (
@@ -366,7 +370,10 @@ function FleetCommand() {
               <AgentConsole />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[372px] z-20">
+            <div
+              data-map-camera-inset="bottom"
+              className="pointer-events-none absolute bottom-2.5 left-[272px] right-[372px] z-20"
+            >
               <TimeTransport
                 timeline={workspace.timeline}
                 weatherAt={workspace.weatherAt}
@@ -374,7 +381,10 @@ function FleetCommand() {
             </div>
 
             {/* --------------------------------------------------- right -- */}
-            <div className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
+            <div
+              data-map-camera-inset="right"
+              className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2"
+            >
               <WorkspaceHandoffCard view="company" />
               <div className="pointer-events-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2">
                 <div
