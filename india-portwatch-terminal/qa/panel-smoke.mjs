@@ -33,7 +33,7 @@ if (!local) {
   assert.equal(health.artifact.applicationSha, sha);
   assert.equal(health.release.provider.serviceId, "c7dfe1db-2fd0-4c24-8a59-dde1d34239c2");
 }
-const browser = await chromium.launch();
+const browser = await chromium.launch({ headless: !process.argv.includes("--headed") });
 const open = (page, path) => page.goto(origin + path, { waitUntil: "domcontentloaded" });
 
 async function blockOutbound(context, blocked) {
@@ -79,12 +79,24 @@ async function run(width, height) {
   let token;
   let beat = "Company";
   const checks = [];
-  const results = { origin, width, height, checks };
   const errors = [];
+  const results = { origin, width, height, checks, errors };
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    const source = message.location().url;
+    if (panelMode && source && ![originUrl.origin, apiUrl.origin].some((base) => source.startsWith(base + "/"))) return;
+    errors.push(message.text());
+  });
   page.on("response", (response) => {
-    if (response.status() >= 500 && new URL(response.url()).pathname.startsWith("/api/")) {
+    if (response.status() >= 400 && new URL(response.url()).pathname.startsWith("/api/")) {
       errors.push(`${response.status()} ${new URL(response.url()).pathname}`);
+    }
+  });
+  page.on("requestfailed", (request) => {
+    const failure = request.failure()?.errorText;
+    if (new URL(request.url()).pathname.startsWith("/api/") && failure !== "net::ERR_ABORTED") {
+      errors.push(`${failure} ${new URL(request.url()).pathname}`);
     }
   });
   const shot = async (name) => {
@@ -105,11 +117,13 @@ async function run(width, height) {
     if (!response.ok()) throw new Error(`${response.status()} ${await response.text()}`);
     return response.json();
   };
-  async function approve(panel, choice) {
+  async function approve(panel, choice, capturePrefix) {
     await panel.getByRole("button", { name: "Continue to Decide", exact: true }).click();
+    await shot(`${capturePrefix}-decide`);
     const reviewing = postResponse("/transition");
     await panel.getByTestId("decision-review").click();
     await read(reviewing);
+    await shot(`${capturePrefix}-reviewed`);
     const changed = postResponse("/transition");
     await panel.getByTestId("decision-approve").click();
     const result = await read(changed);
@@ -157,8 +171,8 @@ async function run(width, height) {
     await page.getByRole("button", { name: "Company demo", exact: true }).click();
     token = (await read(login)).accessToken;
     await page.waitForURL("**/company/overview");
-    await open(page, "/company/global-eye#intelligence-review");
-    await page.getByRole("tab", { name: "Scenarios", exact: true }).click();
+    const companyHandoffs = page.getByRole("region", { name: "Fleet handoffs" });
+    await page.getByRole("button", { name: "Scenarios", exact: true }).click();
     const scenarios = page.getByTestId("demonstration-scenarios");
     await scenarios.getByLabel("Shipping demonstration scenario").selectOption("S10");
     await scenarios.getByRole("checkbox").check();
@@ -170,12 +184,29 @@ async function run(width, height) {
     if (panelMode) assert.equal(problem.evidence.currentEnvironment.scenario.panelReplay, true);
     const choice = problem.options.find((option) => option.status === "FEASIBLE" && /10(?:\.0)? kn/i.test(option.label));
     assert(choice);
-    await scenarios.getByRole("button", { name: "See full comparison" }).click();
+    await expect(scenarios.getByRole("button", { name: "Show on map" })).toBeDisabled();
+    await expect(scenarios.getByRole("button", { name: "Propose to port" })).toHaveCount(0);
+    await expect(scenarios).not.toContainText(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    await shot("00a-scenario");
+    await page.getByRole("button", { name: "Fleet intelligence", exact: true }).click();
+    await page.getByRole("button", { name: /Fleet review queue.*3 voyages/ }).click();
+    const queue = page.getByTestId("company-fleet-triage");
+    await queue.getByRole("button", { name: "Inspect review for PW Meridian" }).click();
+    const sourceLeads = queue.getByText("Coverage, policy and separate source leads", { exact: true });
+    await sourceLeads.click();
+    await expect(sourceLeads.locator("..")).not.toContainText(/NAVCEN_MSI|Houston|Chesapeake|Lake Michigan|Pascagoula/);
+    await shot("00b-fleet-review");
+    await queue.getByRole("link", { name: "Open saved comparison" }).click();
     const decision = page.getByTestId("decision-panel");
     await decision.getByRole("tab", { name: /^Options/ }).click();
     await decision.getByRole("button", { name: /Propose 10 kn on the declared passage/ }).first().click();
-    await approve(decision, choice.optionId);
+    await shot("00c-alternative");
+    await approve(decision, choice.optionId, "00d-company");
     await shot("01-company");
+    await open(page, "/company/overview");
+    await expect(companyHandoffs).toContainText("Waiting on Port");
+    await expect(companyHandoffs.getByRole("link", { name: "Open Company comparison" })).toHaveAttribute("href", new RegExp(problem.decisionId));
+    await shot("01a-waiting-on-port");
     passed("Port home");
     await role(page, /Port Authority/);
     await page.waitForURL("**/port/overview");
@@ -187,6 +218,7 @@ async function run(width, height) {
     passed("Port approves and issues");
     const panel = page.getByTestId("current-proposal-review");
     await expect(panel).toContainText("Assumed anchorage wait", { timeout: 25_000 });
+    await expect(page.getByRole("button", { name: /Needs action\s+1/ })).toBeVisible();
     const passage = problem.evidence.currentEnvironment.passageComparison.options;
     const baseline = passage[0];
     const selected = passage.find(option => option.optionId === choice.optionId);
@@ -196,15 +228,22 @@ async function run(width, height) {
     const reviewPending = postResponse("/current-proposals/review");
     await panel.getByRole("button", { name: "Review Company weather proposal" }).click();
     const review = await read(reviewPending);
-    await approve(panel, choice.optionId);
+    await approve(panel, choice.optionId, "03a-port");
+    await shot("03a-port-approved");
     const issuePending = postResponse("/handoff");
     await panel.getByTestId("decision-handoff").click();
     const issue = await read(issuePending);
     const advisoryId = issue.advisories[0].advisoryId;
     results.advisoryId = advisoryId;
+    await page.getByRole("button", { name: /Needs action/ }).click();
     let card = page.getByTestId("advisory-card").filter({ hasText: "PW Meridian" }).first();
     await card.locator("button").first().click();
+    await expect(panel.getByRole("button", { name: "Run frozen demo outcome" })).toBeDisabled();
+    await shot("03a-port-draft");
     await advisoryAction(card, "under_review", advisoryId);
+    await expect(card.locator("button").first()).toHaveAttribute("aria-expanded", "true");
+    await expect(card.getByTestId("advisory-action-issued")).toBeVisible();
+    await shot("03b-port-open-for-review");
     await advisoryAction(card, "issued", advisoryId);
     await expect(panel.getByRole("button", { name: "Run frozen demo outcome" })).toBeDisabled();
     await shot("04-port-issued");
@@ -223,6 +262,7 @@ async function run(width, height) {
     await expect(recommendation).toContainText(`${baseline.anchorageWaitHours.toFixed(2)} → ${selected.anchorageWaitHours.toFixed(2)} h`);
     await expect(recommendation).toContainText("Same modeled approach window");
     await expect(card.getByTestId("advisory-action-accepted")).toHaveCount(0);
+    await shot("05a-vessel-open-advisory");
     await advisoryAction(card, "acknowledged", advisoryId);
     await expect(card.getByRole("region", { name: "Audit trail" })).toContainText(/acknowledged/i);
     await shot("06-vessel-acknowledged");
@@ -232,12 +272,15 @@ async function run(width, height) {
     passed("Acceptance returns to Company and Port");
     await role(page, /Fleet Command|Shipping Company/);
     await page.waitForURL("**/company/overview");
-    await expect(page.getByRole("region", { name: "Accepted handoffs" })).toContainText("Accepted by Vessel", { timeout: 20_000 });
+    await expect(companyHandoffs).toContainText("Accepted by Vessel", { timeout: 20_000 });
+    await shot("07a-company-accepted");
     await role(page, /Port Authority/);
     await page.waitForURL("**/port/overview");
     await expect(page.getByRole("region", { name: "Needs your action" })).toContainText("Accepted by Vessel", { timeout: 20_000 });
     passed("Port records outcome");
-    await open(page, "/port/advisories?proposal=" + encodeURIComponent(problem.decisionId));
+    await inbox.getByRole("link", { name: "Review accepted proposal" }).click();
+    await panel.getByRole("tab", { name: /^Decide/ }).click();
+    await shot("07b-port-ready-for-outcome");
     const outcomePending = postResponse("/" + review.decisionId + "/demo-outcome");
     const runOutcome = page.getByRole("button", { name: "Run frozen demo outcome" });
     await expect(runOutcome).toBeEnabled({ timeout: 20_000 });
@@ -246,7 +289,16 @@ async function run(width, height) {
     assert.equal(outcome.kind, "SIMULATED_DEMO_OUTCOME");
     assert.equal(outcome.eligibleForRealTarget, false);
     await expect(page.getByTestId("current-demo-outcome")).toContainText("Simulated demo outcome");
+    await expect(panel.getByTestId("decision-panel")).toContainText("Outcome completed");
+    await expect(panel.getByTestId("decision-countdown")).toHaveCount(0);
     await shot("08-port-outcome");
+    await role(page, /Fleet Command|Shipping Company/);
+    await page.waitForURL("**/company/overview");
+    await expect(companyHandoffs).toContainText("Outcome completed");
+    await expect(companyHandoffs.getByRole("link", { name: "Open advisory" })).toHaveAttribute("href", "/company/advisories?advisory=" + advisoryId);
+    await shot("08a-company-outcome");
+    await companyHandoffs.getByRole("link", { name: "Open advisory" }).click();
+    await expect(page.getByTestId("advisory-card").filter({ hasText: advisoryId }).locator("button").first()).toHaveAttribute("aria-expanded", "true");
     passed("Admin");
     await role(page, /National Command/);
     await page.waitForURL("**/admin/radar");

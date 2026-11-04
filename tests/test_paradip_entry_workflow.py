@@ -1,4 +1,5 @@
 import hashlib
+from urllib.parse import parse_qs, urlsplit
 
 from src.portwatch_os.intelligence import paradip_entry as pilot
 from tests.test_current_recovery import step
@@ -40,7 +41,16 @@ def test_paradip_referral_keeps_unknowns_and_frozen_evidence(tmp_path, monkeypat
     step(client, decision_path, headers, 'REVIEWED')
     step(client, decision_path, headers, 'APPROVED', choice)
     resources.cache_clear()
-    assert feed()[0]['state'] == 'COMPANY_PROPOSED'
+    item, = feed()
+    assert item['state'] == 'COMPANY_PROPOSED'
+    comparison = urlsplit(item['deepLink'])
+    assert comparison.path == '/company/global-eye'
+    assert comparison.fragment.startswith('fleet-review?')
+    assert parse_qs(comparison.fragment.split('?', 1)[1]) == {
+        'vesselId': [company['subject']['id']],
+        'decisionId': [company['decisionId']],
+        'optionId': [choice],
+    }
     store.switch(token, 'VESSEL_OPERATOR')
     assert feed() == []
     store.switch(token, 'PORT_AUTHORITY')
@@ -57,9 +67,14 @@ def test_paradip_referral_keeps_unknowns_and_frozen_evidence(tmp_path, monkeypat
     assert response.status_code == 200, response.text
     advisory = response.json()['advisories'][0]
     assert advisory['evidence']['intelligenceBasis'] == basis
+    assert feed()[0]['advisoryId'] == advisory['advisoryId']
     advisory_path = BASE + '/advisories/' + advisory['advisoryId']
     step(client, advisory_path, headers, 'under_review')
     step(client, advisory_path, headers, 'issued')
+    store.switch(token, 'SHIPPING_COMPANY')
+    item, = feed()
+    assert item['state'] == 'ISSUED_TO_VESSEL'
+    assert item['deepLink'] == '/company/advisories?advisory=' + advisory['advisoryId']
     store.switch(token, 'VESSEL_OPERATOR')
     item, = feed()
     assert item['state'] == 'ISSUED_TO_VESSEL'
@@ -81,6 +96,8 @@ def test_paradip_referral_keeps_unknowns_and_frozen_evidence(tmp_path, monkeypat
         item, = feed()
         assert item['state'] == 'OUTCOME_RECORDED'
         assert item['stateChangedAt'] and 'SIMULATED' in item['labels']
+        if role == 'SHIPPING_COMPANY':
+            assert item['deepLink'] == '/company/advisories?advisory=' + advisory['advisoryId']
     other = store.create('SHIPPING_COMPANY')['accessToken']
     assert feed({'Authorization': 'Bearer ' + other}) == []
     sibling = store.create('VESSEL_OPERATOR')['accessToken']

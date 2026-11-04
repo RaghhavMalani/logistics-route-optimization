@@ -278,6 +278,7 @@ export function useDecisionWorkflow(headers: Record<string, string>) {
   const settle = (problem: DecisionProblem) => {
     client.setQueryData(["decision", problem.decisionId], problem);
     void client.invalidateQueries({ queryKey: ["decisions"] });
+    void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
   };
   const transition = useMutation({
     mutationFn: (args: {
@@ -303,6 +304,7 @@ export function useDecisionWorkflow(headers: Record<string, string>) {
         queryKey: ["decision", result.decision.decisionId],
       });
       void client.invalidateQueries({ queryKey: ["advisories"] });
+      void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
     },
   });
   const outcome = useMutation({

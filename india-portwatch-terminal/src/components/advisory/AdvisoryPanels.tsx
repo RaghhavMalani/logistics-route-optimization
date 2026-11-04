@@ -362,11 +362,13 @@ export function AdvisoryCard({
   headers,
   expanded,
   onToggle,
+  onTransition,
 }: {
   advisory: Advisory;
   headers: Record<string, string>;
   expanded?: boolean;
   onToggle?: () => void;
+  onTransition?: (next: Advisory) => void;
 }) {
   return (
     <article data-testid="advisory-card" className="pw-advisory-card">
@@ -497,7 +499,11 @@ export function AdvisoryCard({
             <aside className="pw-advisory-aside">
               <section className="pw-advisory-actions">
                 <h4>Permitted next action</h4>
-                <AdvisoryActions advisory={advisory} headers={headers} />
+                <AdvisoryActions
+                  advisory={advisory}
+                  headers={headers}
+                  onDone={onTransition}
+                />
               </section>
               <section>
                 <h4 className="eyebrow text-[10px]">Audit trail</h4>

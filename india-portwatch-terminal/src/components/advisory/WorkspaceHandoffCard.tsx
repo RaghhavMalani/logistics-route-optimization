@@ -2,25 +2,35 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { ApiError, getJson } from "@/services/api";
 
-interface HomeHandoff {
+export interface HomeHandoff {
   id: string;
   vesselName: string;
   portCode: string;
   state: string;
   nextActor: string | null;
   deepLink: string | null;
+  advisoryId?: string;
 }
 
-export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
+const companyStages: Record<string, string> = {
+  COMPANY_PROPOSED: "Waiting on Port",
+  PORT_REVIEWING: "Waiting on Port",
+  ISSUED_TO_VESSEL: "Issued to Vessel",
+  ACKNOWLEDGED: "Issued to Vessel · receipt acknowledged",
+  ACCEPTED: "Accepted by Vessel",
+  OUTCOME_RECORDED: "Outcome completed",
+  COMPLETED: "Outcome completed",
+};
+
+export function useWorkspaceHandoffs(enabled = true) {
   const { session, identityHeaders } = useAuth();
-  const isVessel = view === "vessel";
-  const query = useQuery({
+  return useQuery({
     queryKey: [
       "workspace-handoffs",
       session?.demoId ?? session?.user.id,
       session?.user.role,
     ],
-    enabled: Boolean(session),
+    enabled: enabled && Boolean(session),
     refetchInterval: 8000,
     retry: false,
     queryFn: async ({ signal }) => {
@@ -38,21 +48,35 @@ export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
       }
     },
   });
+}
+
+export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
+  const { session } = useAuth();
+  const isVessel = view === "vessel";
+  const demoCompany = !isVessel && session?.mode === "demo";
+  const title = isVessel
+    ? "Needs your action"
+    : demoCompany
+      ? "Fleet handoffs"
+      : "Accepted handoffs";
+  const query = useWorkspaceHandoffs();
   const matches =
     query.data?.filter((item) =>
       isVessel
         ? item.nextActor === "VESSEL_OPERATOR" &&
           item.deepLink?.startsWith("/vessel/advisories?advisory=")
-        : item.state === "ACCEPTED",
+        : demoCompany
+          ? item.state in companyStages
+          : item.state === "ACCEPTED",
     ) ?? [];
-  if (!isVessel && !matches.length) return null;
+  if (!isVessel && !demoCompany && !matches.length) return null;
   return (
     <section
-      aria-label={isVessel ? "Needs your action" : "Accepted handoffs"}
+      aria-label={title}
       className="pointer-events-auto max-h-40 shrink-0 overflow-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2 text-xs"
     >
       <h2 className="font-semibold">
-        {isVessel ? "Needs your action" : "Accepted handoffs"}
+        {title}
         {matches.length ? ` · ${matches.length}` : ""}
       </h2>
       {query.isError ? (
@@ -64,13 +88,17 @@ export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
           Handoffs unavailable · retry
         </button>
       ) : query.isPending ? (
-        <p>Checking Port advisories…</p>
-      ) : query.data === null ? (
+        <p>Checking handoffs…</p>
+      ) : query.data === null && isVessel ? (
         <a href="/vessel/advisories" className="underline">
           Open the advisory register
         </a>
       ) : matches.length === 0 ? (
-        <p>No issued advisory needs your response.</p>
+        <p>
+          {isVessel
+            ? "No issued advisory needs your response."
+            : "No fleet handoffs yet."}
+        </p>
       ) : (
         matches.map((item) => (
           <div
@@ -79,15 +107,21 @@ export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
           >
             <strong>{item.vesselName}</strong> · {item.portCode}
             <p>
-              {item.state === "ACCEPTED"
-                ? "Accepted by Vessel"
-                : item.state === "ACKNOWLEDGED"
+              {isVessel
+                ? item.state === "ACKNOWLEDGED"
                   ? "Acknowledged · awaiting your response"
-                  : "Issued by Port"}
+                  : "Issued by Port"
+                : companyStages[item.state]}
             </p>
-            {item.deepLink?.startsWith(`/${view}/advisories?advisory=`) ? (
+            {item.deepLink?.startsWith(`/${view}/advisories?advisory=`) ||
+            (!isVessel &&
+              item.deepLink?.startsWith(
+                "/company/global-eye#fleet-review?",
+              )) ? (
               <a href={item.deepLink} className="font-semibold underline">
-                Open advisory
+                {item.deepLink.includes("#fleet-review?")
+                  ? "Open Company comparison"
+                  : "Open advisory"}
               </a>
             ) : null}
           </div>

@@ -14,6 +14,7 @@ import { useAdvisories } from "@/services/os-hooks";
 import { getJson, postJson } from "@/services/api";
 import type { FrozenEnvironment } from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
+import type { HomeHandoff } from "@/components/advisory/WorkspaceHandoffCard";
 
 interface Proposal {
   decisionId: string;
@@ -33,7 +34,26 @@ interface DemoOutcome {
   totalScheduleShiftHours?: number;
 }
 
-export function PortCurrentProposalPanel() {
+const handoffLabels: Record<string, string> = {
+  COMPANY_PROPOSED: "Awaiting Port review",
+  PORT_REVIEWING: "Port review in progress",
+  ISSUED_TO_VESSEL: "Issued to Vessel",
+  ACKNOWLEDGED: "Acknowledged by Vessel",
+  ACCEPTED: "Accepted by Vessel",
+  OUTCOME_RECORDED: "Outcome completed",
+  COMPLETED: "Advisory completed",
+  QUERIED: "Vessel requested review",
+  DECLINED: "Declined by Vessel",
+  REJECTED: "Rejected by Port",
+  WITHDRAWN: "Advisory withdrawn",
+  EXPIRED: "Advisory expired",
+};
+
+export function PortCurrentProposalPanel({
+  handoffs,
+}: {
+  handoffs: HomeHandoff[];
+}) {
   const { session, identityHeaders } = useAuth();
   const { portCode } = useWorkspace();
   const client = useQueryClient();
@@ -91,24 +111,34 @@ export function PortCurrentProposalPanel() {
     onSuccess: (problem) => {
       client.setQueryData(["decision", problem.decisionId], problem);
       void client.invalidateQueries({ queryKey: ["current-proposals"] });
+      void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
       setSelected(proposal?.optionId ?? null);
     },
   });
   const outcome = useMutation({
-    mutationFn: () =>
+    mutationFn: (decisionId: string) =>
       postJson<{ outcome: DemoOutcome }>(
-        `/decisions/problems/${decision.data?.decisionId}/demo-outcome`,
+        `/decisions/problems/${decisionId}/demo-outcome`,
         {},
         identityHeaders,
       ),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["decision"] });
+    onSuccess: ({ outcome }, decisionId) => {
+      client.setQueryData<DecisionProblem>(
+        ["decision", decisionId],
+        (problem) =>
+          problem
+            ? {
+                ...problem,
+                evidence: { ...problem.evidence, demoOutcome: outcome },
+              }
+            : problem,
+      );
+      void client.invalidateQueries({ queryKey: ["decision", decisionId] });
       void client.invalidateQueries({ queryKey: ["advisories"] });
+      void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
     },
   });
-  const result =
-    outcome.data?.outcome ??
-    (decision.data?.evidence.demoOutcome as DemoOutcome | undefined);
+  const result = decision.data?.evidence.demoOutcome as DemoOutcome | undefined;
   if (session?.mode !== "demo") return null;
   if (!proposal)
     return target ? (
@@ -118,6 +148,18 @@ export function PortCurrentProposalPanel() {
           : "That proposal is unavailable in this Port workspace."}
       </p>
     ) : null;
+  const handoff = handoffs.find(
+    (item) =>
+      item.deepLink ===
+      "/port/advisories?proposal=" + encodeURIComponent(proposal.decisionId),
+  );
+  const handoffStatus = result
+    ? "Outcome completed"
+    : handoff
+      ? handoffLabels[handoff.state]
+      : undefined;
+  const closedWindowStatus =
+    handoff?.advisoryId || result ? handoffStatus : undefined;
   return (
     <Panel
       title={
@@ -127,7 +169,11 @@ export function PortCurrentProposalPanel() {
             ? "Company intelligence proposal"
             : "Company current-weather proposal"
       }
-      note={proposal.subject}
+      note={
+        handoffStatus
+          ? `${proposal.subject} · ${handoffStatus}`
+          : proposal.subject
+      }
       testId="current-proposal-review"
     >
       {(proposals.data?.proposals.length ?? 0) > 1 ? (
@@ -222,6 +268,7 @@ export function PortCurrentProposalPanel() {
               onSelectOption={setSelected}
               onToggleCompare={setCompare}
               canHandoff
+              closedWindowStatus={closedWindowStatus}
             />
           </div>
           <div className="border-t border-[var(--line)] p-2 text-[11px]">
@@ -248,7 +295,7 @@ export function PortCurrentProposalPanel() {
               <>
                 <Button
                   disabled={!vesselAccepted || outcome.isPending}
-                  onClick={() => outcome.mutate()}
+                  onClick={() => outcome.mutate(decision.data.decisionId)}
                 >
                   Run frozen demo outcome
                 </Button>

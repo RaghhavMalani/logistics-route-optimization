@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { formatUtc } from "@/components/kit/primitives";
 import type { DecisionOption, DecisionProblem } from "@/types/decisions";
 
 type Scenario = {
@@ -19,6 +20,13 @@ type Result = {
   problem?: DecisionProblem;
   inputs?: unknown;
 };
+
+function formatScenarioTimes(text: string) {
+  return text.replace(
+    /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g,
+    (timestamp) => formatUtc(timestamp),
+  );
+}
 
 export function DemonstrationScenarios({
   onDecision,
@@ -114,13 +122,13 @@ export function DemonstrationScenarios({
     (option) =>
       option.action.toLowerCase() === "reroute" &&
       option.feasible &&
-      option.geometry?.length,
+      (option.geometry?.length ?? 0) >= 2,
   );
   const mapped =
     (result?.scenarioId === "S06" ? reroute : null) ??
-    (recommended?.geometry?.length ? recommended : null) ??
+    ((recommended?.geometry?.length ?? 0) >= 2 ? recommended : null) ??
     problem?.options.find(
-      (option) => option.feasible && option.geometry?.length,
+      (option) => option.feasible && (option.geometry?.length ?? 0) >= 2,
     );
   const words = recommendation
     ? {
@@ -281,10 +289,12 @@ export function DemonstrationScenarios({
           </p>
           <h4 className="my-1 text-sm font-semibold">{words}</h4>
           <p className="my-1">
-            {recommendation?.statement ||
-              recommendation?.why ||
-              result.missingInputs ||
-              "No supported recommendation for these inputs."}
+            {formatScenarioTimes(
+              recommendation?.statement ||
+                recommendation?.why ||
+                result.missingInputs ||
+                "No supported recommendation for these inputs.",
+            )}
           </p>
           {recommended ? metrics(recommended) : null}
           <p className="my-2 text-[var(--text-2)]">
@@ -316,19 +326,13 @@ export function DemonstrationScenarios({
               >
                 See full comparison
               </Button>
-              {onShowRoute ? (
-                <Button size="sm" variant="outline" disabled>
-                  Propose to port
-                </Button>
-              ) : null}
             </div>
           ) : null}
           {onShowRoute && problem ? (
             <p className="mb-2 text-[var(--text-2)]">
               {mapped
                 ? `Map route: ${mapped.label}.`
-                : "This comparison has no mapped route."}{" "}
-              Port proposals from this panel are pending handoff work.
+                : "This comparison has no mapped route."}
             </p>
           ) : null}
           {showComparison && problem ? (
@@ -343,7 +347,9 @@ export function DemonstrationScenarios({
                   </strong>
                   {metrics(option)}
                   {option.rejectedBy.map((constraint) => (
-                    <p key={constraint.key}>{constraint.detail}</p>
+                    <p key={constraint.key}>
+                      {formatScenarioTimes(constraint.detail)}
+                    </p>
                   ))}
                 </li>
               ))}

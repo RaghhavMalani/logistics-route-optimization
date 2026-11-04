@@ -164,6 +164,7 @@ export function DecisionPanel({
   onRecompute,
   recomputing = false,
   compact = false,
+  closedWindowStatus,
 }: {
   problem: DecisionProblem;
   selectedOptionId: string | null;
@@ -181,6 +182,7 @@ export function DecisionPanel({
   recomputing?: boolean;
   /** Fewer tabs, for a replay or a twin sidebar. */
   compact?: boolean;
+  closedWindowStatus?: string;
 }) {
   const { identityHeaders, session } = useAuth();
   const workflow = useDecisionWorkflow(identityHeaders);
@@ -271,14 +273,16 @@ export function DecisionPanel({
         <div className="flex items-center gap-1.5">
           <Pill
             tone={
-              problem.decisionWindowHours != null &&
-              problem.decisionWindowHours < 3
-                ? "crit"
-                : "warn"
+              closedWindowStatus
+                ? "info"
+                : problem.decisionWindowHours != null &&
+                    problem.decisionWindowHours < 3
+                  ? "crit"
+                  : "warn"
             }
             solid
           >
-            Action required
+            {closedWindowStatus ?? "Action required"}
           </Pill>
           <span
             className={cn(
@@ -306,23 +310,25 @@ export function DecisionPanel({
               problem.headline}
         </p>
         <div className="mt-1 flex items-center gap-3 text-[10.5px] text-[var(--text-3)]">
-          <span>
-            Decision window{" "}
-            <span
-              className="num text-[var(--text)]"
-              data-testid="decision-countdown"
-            >
-              {/* A replay's deadline is historical: the window is stated from its clock, not counted down from ours. */}
-              {isReplay
-                ? problem.decisionWindowHours != null
-                  ? `${problem.decisionWindowHours.toFixed(1)} h from the replay clock`
-                  : "open"
-                : (countdown ??
-                  (problem.decisionWindowHours != null
-                    ? `${problem.decisionWindowHours.toFixed(1)} h`
-                    : "open"))}
+          {!closedWindowStatus ? (
+            <span>
+              Decision window{" "}
+              <span
+                className="num text-[var(--text)]"
+                data-testid="decision-countdown"
+              >
+                {/* A replay's deadline is historical: the window is stated from its clock, not counted down from ours. */}
+                {isReplay
+                  ? problem.decisionWindowHours != null
+                    ? `${problem.decisionWindowHours.toFixed(1)} h from the replay clock`
+                    : "open"
+                  : (countdown ??
+                    (problem.decisionWindowHours != null
+                      ? `${problem.decisionWindowHours.toFixed(1)} h`
+                      : "open"))}
+              </span>
             </span>
-          </span>
+          ) : null}
           {isReplay ? <Pill tone="info">Replay</Pill> : null}
           <span className="num ml-auto">
             {problem.counts.feasible} feasible · {problem.counts.rejected}{" "}

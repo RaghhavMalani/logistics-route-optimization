@@ -373,6 +373,7 @@ function FleetCommand() {
 
             {/* --------------------------------------------------- right -- */}
             <div className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
+              <WorkspaceHandoffCard view="company" />
               <div className="pointer-events-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2">
                 <div
                   className="flex flex-wrap items-center gap-2"
@@ -435,7 +436,6 @@ function FleetCommand() {
               <div
                 className={planningTab === "scenarios" ? "hidden" : "contents"}
               >
-                <WorkspaceHandoffCard view="company" />
                 <CompanyIntelligenceQueue />
                 <ObservedSelection
                   workspace={workspace}

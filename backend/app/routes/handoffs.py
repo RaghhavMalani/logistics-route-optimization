@@ -100,6 +100,11 @@ def handoffs():
                     if choice.evaluation.derived.get("scheduleShiftHours") == 0:
                         summary += " · same modeled schedule"
             target = link("port", proposal=key) if who.role in ("PORT_AUTHORITY", "NATIONAL_ADMIN") else None
+            if who.role == "SHIPPING_COMPANY":
+                selection = {"vesselId": vessel_id, "decisionId": key}
+                if proposal.get("optionId"):
+                    selection["optionId"] = proposal["optionId"]
+                target = f"/company/global-eye#fleet-review?{urlencode(selection)}"
             from_role, from_org = "SHIPPING_COMPANY", source.actor.organisation
             if advisory:
                 consumed.add(advisory.advisory_id)
@@ -113,14 +118,17 @@ def handoffs():
                     summary = "Port issued an advisory for this vessel."
                 if who.role == "SHIPPING_COMPANY":
                     target = link("company", advisory=advisory.advisory_id)
-            items.append({
+            item = {
                 "id": "handoff-" + sha256(key.encode()).hexdigest()[:24],
                 "vesselId": vessel_id, "vesselName": source.subject_label,
                 "fromRole": from_role, "fromOrg": from_org, "toRole": next_actor,
                 "portCode": proposal.get("portCode"), "summary": summary,
                 "state": state, "stateChangedAt": change, "nextActor": next_actor,
                 "deepLink": target, "labels": ["DEMO", "SIMULATED", "ASSUMPTION"],
-            })
+            }
+            if who.role == "PORT_AUTHORITY" and advisory:
+                item["advisoryId"] = advisory.advisory_id
+            items.append(item)
 
     for advisory_id, row in advisory_rows.items():
         if advisory_id in consumed:
