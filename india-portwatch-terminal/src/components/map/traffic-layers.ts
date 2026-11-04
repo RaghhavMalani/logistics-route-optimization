@@ -17,7 +17,7 @@ import type { NavStatus, VesselFix } from "@/lib/maritime/traffic-types";
 import { VESSEL_CLASSES } from "@/lib/maritime/traffic-types";
 import { destination } from "@/lib/maritime/geo";
 import { COLORS } from "@/components/miniature/palette";
-import { iconId, OWN_ICON } from "./vessel-icons";
+import { vesselIconId } from "./vessel-icons";
 
 const STILL: NavStatus[] = ["anchored", "waiting", "moored"];
 
@@ -75,7 +75,10 @@ export interface TrafficRenderOptions {
   maxLabels?: number;
 }
 
-const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const EMPTY: GeoJSON.FeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 /** Degrees covered by one screen pixel at this zoom, at the equator. */
 function degreesPerPixel(zoom: number): number {
@@ -167,11 +170,15 @@ export function buildTrafficFeatures(
   const drawVectors = vectors && zoom >= 5.2;
 
   for (const fix of individual) {
-    const dimmed = focus !== null && !focus.has(fix.id) && !fix.owned;
     const selected = fix.id === selectedId;
-    const icon = fix.owned
-      ? OWN_ICON
-      : iconId(selected ? "selected" : options.colorByType ? fix.vesselClass : "neutral", isStill(fix.status) ? "ring" : "hull");
+    const followed = selected || fix.owned;
+    const dimmed = focus !== null && !focus.has(fix.id) && !followed;
+    const ink = followed
+      ? "follow"
+      : options.colorByType
+        ? fix.vesselClass
+        : "neutral";
+    const stopped = isStill(fix.status) || fix.sogKn <= 0.5;
 
     vesselFeatures.push({
       type: "Feature",
@@ -179,43 +186,48 @@ export function buildTrafficFeatures(
       properties: {
         id: fix.id,
         name: fix.name,
-        icon,
-        cog: fix.heading,
+        icon: vesselIconId(fix.vesselClass, ink, false, stopped),
+        detailedIcon: vesselIconId(fix.vesselClass, ink, true, stopped),
+        cog: fix.cog,
         status: fix.status,
         class: fix.vesselClass,
         scale: fix.owned ? 1.25 : selected || fix.id === hoveredId ? 1.15 : 1,
-        opacity: dimmed ? 0.34 : 1,
+        opacity: followed ? 1 : dimmed ? 0.46 : 0.84,
+        emphasis: selected ? 2 : followed ? 1 : 0,
       },
       geometry: { type: "Point", coordinates: [fix.lon, fix.lat] },
     });
 
-    if (selected || fix.owned) {
+    if (followed) {
       ringFeatures.push({
         type: "Feature",
         properties: {
           id: fix.id,
-          radius: selected ? 15 : 12,
-          width: selected ? 1.6 : 1.2,
-          opacity: selected ? 0.95 : 0.6,
-          color: fix.owned ? COLORS.action : COLORS.modelInk,
+          radius: selected ? 17 : 14,
+          opacity: selected ? 0.46 : 0.31,
         },
         geometry: { type: "Point", coordinates: [fix.lon, fix.lat] },
       });
     }
 
-    const moving = fix.sogKn > 0.5;
-    if (moving && (drawVectors || selected || fix.owned)) {
-      const minutes = selected || fix.owned ? Math.max(leaderMinutes, 60) : leaderMinutes;
-      const km = (fix.sogKn * 1.852 * minutes) / 60;
+    if (!stopped && drawVectors) {
+      const km = (fix.sogKn * 1.852 * leaderMinutes) / 60;
       const tip = destination([fix.lon, fix.lat], fix.cog, km);
       vectorFeatures.push({
         type: "Feature",
         properties: {
           id: fix.id,
-          color: selected || fix.owned ? COLORS.signalInk : options.colorByType ? vesselColor(fix) : COLORS.modelInk,
-          opacity: dimmed ? 0.16 : selected || fix.owned ? 0.9 : 0.42,
+          color: followed
+            ? COLORS.signalInk
+            : options.colorByType
+              ? vesselColor(fix)
+              : COLORS.modelInk,
+          opacity: dimmed ? 0.16 : followed ? 0.76 : 0.42,
         },
-        geometry: { type: "LineString", coordinates: [[fix.lon, fix.lat], tip] },
+        geometry: {
+          type: "LineString",
+          coordinates: [[fix.lon, fix.lat], tip],
+        },
       });
     }
   }
@@ -278,17 +290,28 @@ export function buildTrafficFeatures(
  * of its own present position is noise, and a ghost twelve hours out is the
  * whole argument for having a timeline.
  */
-export function buildGhostFeatures(fixes: VesselFix[], focus?: Set<string> | null, colorByType = false) {
+export function buildGhostFeatures(
+  fixes: VesselFix[],
+  focus?: Set<string> | null,
+  colorByType = false,
+) {
   const features: GeoJSON.Feature[] = [];
   for (const fix of fixes) {
     if (focus && !focus.has(fix.id) && !fix.owned) continue;
     if (isStill(fix.status) && !fix.owned) continue;
+    const ink = fix.owned
+      ? "follow"
+      : colorByType
+        ? fix.vesselClass
+        : "neutral";
+    const stopped = isStill(fix.status) || fix.sogKn <= 0.5;
     features.push({
       type: "Feature",
       properties: {
         id: fix.id,
-        icon: fix.owned ? OWN_ICON : iconId(colorByType ? fix.vesselClass : "neutral", "hull"),
-        cog: fix.heading,
+        icon: vesselIconId(fix.vesselClass, ink, false, stopped),
+        detailedIcon: vesselIconId(fix.vesselClass, ink, true, stopped),
+        cog: fix.cog,
       },
       geometry: { type: "Point", coordinates: [fix.lon, fix.lat] },
     });

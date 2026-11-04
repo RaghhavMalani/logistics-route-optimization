@@ -180,7 +180,7 @@ function resolveEpoch(origin: string | null | undefined): number {
 }
 
 export function TrafficProvider({ children }: { children: ReactNode }) {
-  const [colorByType, setColorByType] = useState(false);
+  const [colorByType, setColorByType] = useState(true);
   const [dataView, setDataView] = useState<"provider" | "scenario">("scenario");
   const { session } = useAuth();
   const { ports, query: portsQuery } = useEnrichedPorts();

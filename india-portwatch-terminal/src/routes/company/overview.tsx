@@ -340,6 +340,8 @@ function FleetCommand() {
         // Company hulls at full weight, everything else dimmed but present: a
         // fleet desk needs to see its own ships in traffic, not in isolation.
         focusIds={ownedIds}
+        selectedVesselId={selectedVessel}
+        onSelectVessel={setSelectedVessel}
         labels={workspace.labels}
         selectedPortCode={workspace.selectedPortCode}
         onSelectPort={workspace.setSelectedPortCode}
