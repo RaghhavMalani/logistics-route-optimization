@@ -7,6 +7,8 @@ import { chromium, expect } from "@playwright/test";
 
 const replay = process.argv.includes("--replay");
 const panelMode = process.argv.includes("--panel");
+const production = process.argv.includes("production");
+const checkApprovalStyle = production || process.argv.includes("--check-approval-style");
 if (replay && panelMode) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
 const offline = replay || panelMode;
 const origin = process.env.PORTWATCH_PANEL_ORIGIN ?? (offline ? "http://127.0.0.1:4262" : "http://127.0.0.1:4263");
@@ -15,23 +17,37 @@ const originUrl = new URL(origin);
 const apiUrl = new URL(api);
 const local = [originUrl, apiUrl].every((url) => ["127.0.0.1", "localhost"].includes(url.hostname));
 if (offline && !local) throw new Error("The panel backend and frontend must both be local.");
-if (process.argv.includes("preview") && local) throw new Error("Preview target needs a verified HTTPS origin.");
+if ((production || process.argv.includes("preview")) && local) {
+  throw new Error("A hosted target needs a verified HTTPS origin.");
+}
 if (!local) {
-  const sha = process.env.PORTWATCH_PANEL_EXPECTED_SHA;
-  const previewHost = /^india-portwatch-[a-z0-9]+-flash2404s-projects[.]vercel[.]app$/;
-  if (!sha || !/^[a-f0-9]{40}$/.test(sha) || originUrl.protocol !== "https:" ||
-      !previewHost.test(originUrl.hostname) || apiUrl.origin !== originUrl.origin || apiUrl.pathname !== "/api") {
-    throw new Error("Set an exact SHA and a same-origin API on a generated isolated preview.");
+  const frontendSha = process.env.PORTWATCH_PANEL_EXPECTED_SHA;
+  const backendSha = process.env.PORTWATCH_PANEL_EXPECTED_API_SHA ?? frontendSha;
+  const shaPattern = /^[a-f0-9]{40}$/;
+  const allowedHost = production
+    ? originUrl.hostname === "india-portwatch.vercel.app"
+    : /^india-portwatch-[a-z0-9]+-flash2404s-projects[.]vercel[.]app$/.test(originUrl.hostname);
+  if (!shaPattern.test(frontendSha) || !shaPattern.test(backendSha) ||
+      originUrl.protocol !== "https:" || !allowedHost ||
+      originUrl.pathname !== "/" || apiUrl.origin !== originUrl.origin || apiUrl.pathname !== "/api") {
+    throw new Error("Set exact frontend and backend SHAs and the same-origin API for the verified hosted target.");
   }
-  const health = await fetch(api + "/health").then((response) => response.json());
   const receiptPath = process.env.PORTWATCH_PANEL_BINDING;
   if (!receiptPath) throw new Error("Set PORTWATCH_PANEL_BINDING to the verified Vercel/Railway receipt.");
   const receipt = JSON.parse((await readFile(receiptPath, "utf8")).replace(/^\uFEFF/, ""));
   assert.equal(receipt.origin, origin);
-  assert.equal(receipt.frontendSha, sha);
-  assert.equal(receipt.backendSha, sha);
-  assert.equal(health.artifact.applicationSha, sha);
+  assert.equal(receipt.frontendSha, frontendSha);
+  assert.equal(receipt.backendSha, backendSha);
+  if (production) assert.equal(receipt.target, "production");
+  const healthResponse = await fetch(api + "/health", { signal: AbortSignal.timeout(15_000) });
+  assert.equal(healthResponse.status, 200);
+  const health = await healthResponse.json();
+  assert.equal(health.status, "ok");
+  assert.equal(health.artifact.applicationSha, backendSha);
+  assert.equal(health.release.sha, backendSha);
   assert.equal(health.release.provider.serviceId, "c7dfe1db-2fd0-4c24-8a59-dde1d34239c2");
+  assert.equal(health.release.provider.environmentId, "678352b2-e032-4c0c-b900-60f68fa3562f");
+  assert.equal(health.release.provider.deploymentId, receipt.railway);
 }
 const browser = await chromium.launch({ headless: !process.argv.includes("--headed") });
 const open = (page, path) => page.goto(origin + path, { waitUntil: "domcontentloaded" });
@@ -68,6 +84,27 @@ async function role(page, name) {
   ]);
 }
 
+function watchBrowserErrors(page, errors) {
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    const source = message.location().url;
+    if (panelMode && source && ![originUrl.origin, apiUrl.origin].some((base) => source.startsWith(base + "/"))) return;
+    errors.push(message.text());
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400 && new URL(response.url()).pathname.startsWith("/api/")) {
+      errors.push(response.status() + " " + new URL(response.url()).pathname);
+    }
+  });
+  page.on("requestfailed", (request) => {
+    const failure = request.failure()?.errorText;
+    if (new URL(request.url()).pathname.startsWith("/api/") && failure !== "net::ERR_ABORTED") {
+      errors.push(failure + " " + new URL(request.url()).pathname);
+    }
+  });
+}
+
 async function run(width, height) {
   const videoDir = process.env.PORTWATCH_PANEL_VIDEO_DIR;
   const context = await browser.newContext({
@@ -84,29 +121,12 @@ async function run(width, height) {
   const checks = [];
   const errors = [];
   const results = { origin, width, height, checks, errors };
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() !== "error") return;
-    const source = message.location().url;
-    if (panelMode && source && ![originUrl.origin, apiUrl.origin].some((base) => source.startsWith(base + "/"))) return;
-    errors.push(message.text());
-  });
-  page.on("response", (response) => {
-    if (response.status() >= 400 && new URL(response.url()).pathname.startsWith("/api/")) {
-      errors.push(`${response.status()} ${new URL(response.url()).pathname}`);
-    }
-  });
-  page.on("requestfailed", (request) => {
-    const failure = request.failure()?.errorText;
-    if (new URL(request.url()).pathname.startsWith("/api/") && failure !== "net::ERR_ABORTED") {
-      errors.push(`${failure} ${new URL(request.url()).pathname}`);
-    }
-  });
-  const shot = async (name) => {
+  watchBrowserErrors(page, errors);
+  const shot = async (name, screen = page) => {
     if (videoDir) await page.waitForTimeout(1700);
     if (!evidence) return;
     await mkdir(evidence, { recursive: true });
-    await page.screenshot({ path: join(evidence, `${width}-${name}.png`), timeout: 15_000 });
+    await screen.screenshot({ path: join(evidence, `${width}-${name}.png`), timeout: 15_000 });
   };
   const passed = (next) => {
     checks.push({ beat, result: "PASS" });
@@ -120,22 +140,33 @@ async function run(width, height) {
     if (!response.ok()) throw new Error(`${response.status()} ${await response.text()}`);
     return response.json();
   };
+  async function expectPrimary(button) {
+    await page.mouse.move(1, 1);
+    await expect(button).toHaveCSS("background-color", "rgb(201, 70, 26)");
+    await expect(button).toHaveCSS("color", "rgb(255, 255, 255)");
+  }
   async function approve(panel, choice, capturePrefix) {
     await panel.getByRole("button", { name: "Continue to Decide", exact: true }).click();
     await shot(`${capturePrefix}-decide`);
     const reviewing = postResponse("/transition");
     await panel.getByTestId("decision-review").click();
     await read(reviewing);
+    const approveButton = panel.getByTestId("decision-approve");
+    if (checkApprovalStyle) await expectPrimary(approveButton);
     await shot(`${capturePrefix}-reviewed`);
     const changed = postResponse("/transition");
-    await panel.getByTestId("decision-approve").click();
+    await approveButton.click();
     const result = await read(changed);
     assert.equal(result.humanChoice, choice);
     return result;
   }
   async function advisoryAction(card, state, id) {
+    const action = card.getByTestId("advisory-action-" + state);
+    if (checkApprovalStyle && (state === "issued" || state === "acknowledged")) {
+      await expectPrimary(action);
+    }
     const changed = postResponse("/advisories/" + id + "/transition");
-    await card.getByTestId("advisory-action-" + state).click();
+    await action.click();
     const result = await read(changed);
     assert.equal(result.state, state);
     assert.equal(result.advisoryId, id);
@@ -146,9 +177,14 @@ async function run(width, height) {
       await blockOutbound(context, results.blockedOutbound);
       assert.equal((await call("/health")).worldClock.mode, "REPLAY");
     }
-    if (evidence || videoDir) {
+    if (evidence || videoDir || production) {
       await open(page, "/tour");
       await page.getByRole("list", { name: "Voyage chapters" }).waitFor();
+      if (checkApprovalStyle) {
+        await expect(page.locator(".pw-tour")).toHaveAttribute("data-webgl", "available");
+        await expect(page.locator(".pw-tour canvas")).toBeVisible({ timeout: 25_000 });
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      }
       if (videoDir) {
         await page.locator(".pw-tour canvas").waitFor({ timeout: 15_000 });
         await page.getByRole("list", { name: "Voyage chapters" }).getByRole("button").nth(2).click();
@@ -170,6 +206,11 @@ async function run(width, height) {
       await shot("00-tour");
     }
     await open(page, "/login");
+    if (production) {
+      await expect(page.getByText("Data service", { exact: true }).locator("..")
+        .getByText("Reachable", { exact: true })).toBeVisible({ timeout: 25_000 });
+      await shot("00-login-reachable");
+    }
     const login = postResponse("/demo/session");
     await page.getByRole("button", { name: "Company demo", exact: true }).click();
     token = (await read(login)).accessToken;
@@ -307,7 +348,9 @@ async function run(width, height) {
     passed("Admin");
     await role(page, /National Command/);
     await page.waitForURL("**/admin/radar");
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "National Command", exact: true })).toBeVisible();
+    await expect(page.locator(".maplibregl-canvas").first()).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText("Initialising chart", { exact: true })).toBeHidden({ timeout: 25_000 });
     await shot("09-admin");
     passed("Research");
     await open(page, "/research");
@@ -316,6 +359,34 @@ async function run(width, height) {
     await expect(benchmark).toContainText("12.14 → 1.05 h");
     await expect(benchmark).toContainText("42.1 → 0.0 h");
     await shot("10-research");
+    if (production) {
+      beat = "Direct demo entries";
+      for (const [label, path, heading] of [
+        ["Vessel", "/vessel/overview", "Vessel Bridge"],
+        ["Port", "/port/overview", /Port Control$/],
+        ["Admin", "/admin/radar", "National Command"],
+      ]) {
+        const directContext = await browser.newContext({ viewport: { width, height } });
+        const direct = await directContext.newPage();
+        watchBrowserErrors(direct, errors);
+        let directToken;
+        try {
+          await open(direct, "/login");
+          const [response] = await Promise.all([
+            direct.waitForResponse((result) => result.url().endsWith("/demo/session") &&
+              result.request().method() === "POST"),
+            direct.getByRole("button", { name: label + " demo", exact: true }).click(),
+          ]);
+          directToken = (await read(response)).accessToken;
+          await direct.waitForURL(origin + path);
+          await expect(direct.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+          await shot("11-direct-" + label.toLowerCase(), direct);
+        } finally {
+          if (directToken) await call("/demo/logout", directToken, {}).catch(() => {});
+          await directContext.close();
+        }
+      }
+    }
     assert.deepEqual(errors, []);
     passed("Done");
   } catch (error) {
