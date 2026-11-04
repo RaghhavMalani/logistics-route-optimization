@@ -218,7 +218,7 @@ async function run(width, height) {
     passed("Port approves and issues");
     const panel = page.getByTestId("current-proposal-review");
     await expect(panel).toContainText("Assumed anchorage wait", { timeout: 25_000 });
-    await expect(page.getByRole("button", { name: /Needs action\s+1/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Needs action\s*1\b/ })).toBeVisible();
     const passage = problem.evidence.currentEnvironment.passageComparison.options;
     const baseline = passage[0];
     const selected = passage.find(option => option.optionId === choice.optionId);

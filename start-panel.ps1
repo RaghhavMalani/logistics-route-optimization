@@ -6,11 +6,12 @@ $run = Join-Path $root 'work/panel/run'
 $apiPort = 9299
 $terminalPort = 4264
 $api = "http://127.0.0.1:$apiPort/api"
-$login = "http://127.0.0.1:$terminalPort/login"
+$origin = "http://127.0.0.1:$terminalPort"
+$login = "$origin/login"
 
 $sha = git -C $root rev-parse HEAD
 if ($LASTEXITCODE) { throw 'Could not read the panel checkout SHA.' }
-git -C $root diff --quiet HEAD --
+git -C $root -c core.safecrlf=false diff --quiet HEAD --
 if ($LASTEXITCODE) { throw 'The panel checkout has tracked changes. Start from a committed build.' }
 
 $python = (Get-Command python.exe).Source
@@ -53,7 +54,6 @@ $settings = @{
     PORTWATCH_FRESHNESS_SCHEDULER = '0'
     PORTWATCH_STATE_DIR = Join-Path $run 'state'
     VITE_PORTWATCH_API_BASE = $api
-    VITE_PORTWATCH_RELEASE_SHA = $sha
     NITRO_PRESET = 'node-server'
     HOST = '127.0.0.1'
     PORT = [string]$terminalPort
@@ -73,10 +73,18 @@ try {
         [Environment]::SetEnvironmentVariable($key, $settings[$key], 'Process')
     }
 
-    $build = Start-Process -FilePath $node -ArgumentList 'node_modules/vite/bin/vite.js build' -WorkingDirectory $terminal -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput (Join-Path $run 'build.log') -RedirectStandardError (Join-Path $run 'build.err.log')
+    $releasePath = Join-Path $terminal 'public/release.json'
+    $releaseJson = @{ applicationSha = $sha; scope = 'LOCAL_PANEL' } | ConvertTo-Json
+    New-Item -ItemType File -Path $releasePath -Value $releaseJson | Out-Null
+    try {
+        $build = Start-Process -FilePath $node -ArgumentList 'node_modules/vite/bin/vite.js build' -WorkingDirectory $terminal -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput (Join-Path $run 'build.log') -RedirectStandardError (Join-Path $run 'build.err.log')
+    } finally {
+        Remove-Item -LiteralPath $releasePath
+    }
     if ($build.ExitCode -ne 0) { throw "Terminal build failed. See $run\build.err.log." }
     if ((git -C $root rev-parse HEAD) -ne $sha) { throw 'The checkout changed during the panel build.' }
-
+    git -C $root -c core.safecrlf=false diff --quiet HEAD --
+    if ($LASTEXITCODE) { throw 'The panel sources changed during the build.' }
     $backend = Start-PanelService 'api' $python "-m src.portwatch_os.panel_runtime backend.app.main:app --host 127.0.0.1 --port $apiPort" $root
     $frontend = Start-PanelService 'terminal' $node '.output/server/index.mjs' $terminal
 
@@ -85,8 +93,10 @@ try {
         if ($backend.HasExited -or $frontend.HasExited) { throw "A panel process exited. See the logs in $run." }
         try {
             $health = Invoke-RestMethod -Uri "$api/health" -TimeoutSec 3
+            $release = Invoke-RestMethod -Uri "$origin/release.json" -TimeoutSec 3
             $page = Invoke-WebRequest -Uri $login -UseBasicParsing -TimeoutSec 3
-            if ($health.status -eq 'ok' -and $health.release.sha -eq $sha -and $page.StatusCode -eq 200) {
+            if ($health.status -eq 'ok' -and $health.release.sha -eq $sha -and
+                $release.applicationSha -eq $sha -and $page.StatusCode -eq 200) {
                 $dot = [char]0x00B7
                 Write-Output "READY $dot open $login $dot SHA $sha"
                 return

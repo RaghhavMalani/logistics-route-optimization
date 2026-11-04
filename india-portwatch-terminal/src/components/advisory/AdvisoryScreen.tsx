@@ -209,6 +209,7 @@ export function AdvisoryScreen({
                   <button
                     key={option.key}
                     type="button"
+                    aria-label={`${option.label} ${count}`}
                     aria-pressed={active.key === option.key}
                     onClick={() => setFilter(option.key)}
                     className={cn(
