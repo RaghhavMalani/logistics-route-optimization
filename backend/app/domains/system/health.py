@@ -9,6 +9,8 @@ on stale data, the UI says so.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 from datetime import datetime, timezone
 import os
 from uuid import uuid4
@@ -65,7 +67,7 @@ def release_identity() -> dict:
     import re
 
     def configured(name: str, pattern: str) -> str:
-        value = os.environ.get(name, "")
+        value = get_settings().get(name, "")
         return value if re.fullmatch(pattern, value) else "UNKNOWN"
 
     sha = configured("PORTWATCH_RELEASE_SHA", r"[0-9a-fA-F]{40}")
@@ -126,7 +128,7 @@ def durable_stores(*, fresh: bool = False) -> dict:
     identity = get_auth_store().probe()
     value = {
         "stateDir": str(STATE_DIR),
-        "stateDirSource": "PORTWATCH_STATE_DIR" if os.environ.get("PORTWATCH_STATE_DIR") else "default (outputs/)",
+        "stateDirSource": "PORTWATCH_STATE_DIR" if get_settings().PORTWATCH_STATE_DIR else "default (outputs/)",
         "ok": ledger["ok"] and advisories["ok"] and assumptions["ok"] and cameras["ok"] and identity["ok"],
         "ledger": ledger,
         "advisories": advisories,

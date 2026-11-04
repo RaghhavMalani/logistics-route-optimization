@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 import re
 import time
 
@@ -69,7 +70,7 @@ async def lifespan(_: FastAPI):
     if not panel:
         start_client()
     coordinator = install_product_jobs(get_coordinator())
-    scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
+    scheduler = (get_settings().PORTWATCH_FRESHNESS_SCHEDULER or "1").strip().lower() not in ("0", "false", "no", "off")
     if scheduler and not panel:
         coordinator.start()
     from src.portwatch_os.learning import weather_reconciliation
@@ -103,7 +104,7 @@ app = FastAPI(
 # Local development works out of the box. Production can set
 # PORTWATCH_CORS_REGEX to the exact deployed frontend domain/regex without a
 # source-code edit, e.g. https://portwatch\.example\.com.
-cors_regex = os.getenv(
+cors_regex = get_settings().get(
     "PORTWATCH_CORS_REGEX",
     r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
 )

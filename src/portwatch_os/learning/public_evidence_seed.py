@@ -6,10 +6,11 @@ Source clocks and IDs remain unchanged; import time is a separate audit record.
 """
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 from datetime import datetime, timezone
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import sqlite3
@@ -287,7 +288,7 @@ def import_public_seed(manifest_path,*,state_dir,current_environment_dir,weather
 
 def import_configured_seed():
     """Absent configuration is a no-op; callers invoke before collectors start."""
-    manifest=os.getenv('PORTWATCH_PUBLIC_EVIDENCE_SEED_MANIFEST')
+    manifest=get_settings().PORTWATCH_PUBLIC_EVIDENCE_SEED_MANIFEST
     if not manifest:return {'status':'DISABLED'}
     from src.utils.config import STATE_DIR
     from src.portwatch_os.intelligence.current_environment import ROOT, FEEDBACK_DB

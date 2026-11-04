@@ -16,8 +16,9 @@ Sources:
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import io
-import os
 from typing import Optional
 
 import numpy as np
@@ -29,7 +30,7 @@ from src.utils.logging_utils import get_logger
 log = get_logger(__name__)
 
 FRED_BRENT_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILBRENTEU"
-EIA_API_KEY = os.environ.get("EIA_API_KEY")
+EIA_API_KEY = get_settings().EIA_API_KEY
 
 
 def fetch_brent(days: int = 365) -> pd.DataFrame:

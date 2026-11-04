@@ -3,8 +3,9 @@
 Vendor AIS ETAs and port-call events enrich vessel identity; they do not
 rewrite the public PDF cohort or establish anchorage/all-fast/berth labels.
 """
+from src.utils.settings import get_settings
+
 import json
-import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
@@ -26,13 +27,13 @@ VERSION = "vesselfinder-json-v1"
 
 
 def configured():
-    return (os.getenv("PORTWATCH_VESSELFINDER_ENABLED") or "0").lower() in ("1", "true", "yes", "on")
+    return (get_settings().PORTWATCH_VESSELFINDER_ENABLED or "0").lower() in ("1", "true", "yes", "on")
 
 
 def eligibility():
     if not configured():
         return "Optional VesselFinder adapter is disabled"
-    if not os.getenv("VESSELFINDER_API_KEY"):
+    if not get_settings().VESSELFINDER_API_KEY:
         return "Optional VesselFinder adapter requires a server API key and credits"
     if get_clock().state.mode != LIVE:
         return "Structured vessel collection requires LIVE"
@@ -49,7 +50,7 @@ def fetch_json(port, kind):
         raise ValueError("Unsupported vessel source")
     if eligibility():
         raise ValueError(eligibility())
-    key = os.environ["VESSELFINDER_API_KEY"]
+    key = get_settings()["VESSELFINDER_API_KEY"]
     params = {"locode": port, "interval": 1440, "limit": 50, "format": "json"}
     if kind == "portcalls":
         params["extradata"] = "ais"

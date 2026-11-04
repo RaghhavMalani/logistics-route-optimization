@@ -15,8 +15,9 @@ configured key's value appears anywhere in it.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
-import os
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -49,7 +50,7 @@ def _scrub(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Refuse a payload that carries a configured secret's value."""
     text = json.dumps(payload, default=str)
     for name in SECRET_ENV:
-        value = os.getenv(name)
+        value = get_settings().get(name)
         if value and len(value) >= 6 and value in text:
             raise HTTPException(
                 status_code=500,

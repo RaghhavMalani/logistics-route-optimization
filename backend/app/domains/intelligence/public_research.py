@@ -5,9 +5,10 @@ advisories, permissions and tenant records. No collection or fitting on requests
 """
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import hashlib
 import json
-import os
 import re
 import sqlite3
 from datetime import datetime
@@ -71,7 +72,7 @@ def public_case_audit(case_id: str):
 
 
 def release_root():
-    return Path(os.getenv("PORTWATCH_PUBLIC_RESEARCH_DIR") or ROOT / "data/research_release")
+    return Path(get_settings().PORTWATCH_PUBLIC_RESEARCH_DIR or ROOT / "data/research_release")
 
 
 def release():
@@ -186,7 +187,7 @@ def research():
     _, report = release()
     now = wall_now()  # wall-clock: public paired scores use actual observation availability.
     try:
-        feedback_path = os.getenv("PORTWATCH_WEATHER_FEEDBACK_DB")
+        feedback_path = get_settings().PORTWATCH_WEATHER_FEEDBACK_DB
         if feedback_path:
             if not Path(feedback_path).is_file():
                 raise OSError("Public forecast archive is unavailable")

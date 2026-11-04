@@ -1,7 +1,8 @@
 """Bounded intelligence adapters and measured candidate results in the terminal."""
 from __future__ import annotations
+from src.utils.settings import get_settings
+
 import json
-import os
 from pathlib import Path
 from typing import Literal
 from fastapi import APIRouter, Query, HTTPException
@@ -18,7 +19,7 @@ router = APIRouter()
 def experiments():
     results = {}
     for key in ("neural_fusion", "constrained_rl"):
-        path = Path(os.getenv("PORTWATCH_EXPERIMENT_DIR") or FORECASTS_DIR) / (key+"_report.json")
+        path = Path(get_settings().PORTWATCH_EXPERIMENT_DIR or FORECASTS_DIR) / (key+"_report.json")
         results[key] = json.loads(path.read_text()) if path.exists() else {"status":"UNTRAINED"}
     inference = FORECASTS_DIR / "neural_fusion_live.csv"
     results["neural_fusion"]["shadowInferenceAvailable"] = inference.exists()

@@ -8,6 +8,8 @@ route here.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import os
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -44,7 +46,7 @@ _OPERATIONAL_HULL_FIELDS = frozenset({"vessel_id", "name", "imo", "vessel_class"
 
 
 def configured_fleet() -> bool:
-    return bool(os.getenv("PORTWATCH_FLEET_PROVIDER"))
+    return bool(get_settings().PORTWATCH_FLEET_PROVIDER)
 
 
 def _fleet_row(vessel):
@@ -124,7 +126,7 @@ def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile
         return company_for(scoped.world, allowed_ids={row["id"] for row in demo_hulls(scoped.world, identity)})
     if identity is None or not identity.verified:
         return None
-    provider_path = os.getenv("PORTWATCH_FLEET_PROVIDER")
+    provider_path = get_settings().PORTWATCH_FLEET_PROVIDER
     if provider_path:
         try:
             stamp = os.path.getmtime(provider_path)

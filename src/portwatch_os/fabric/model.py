@@ -25,6 +25,8 @@ the features that use them.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -60,9 +62,8 @@ def deployment_mode() -> str:
     A request may still ask to view the world in another mode; this is the
     answer when it does not.
     """
-    import os
 
-    value = (os.getenv(MODE_ENV) or COMMERCIAL).strip().upper()
+    value = (get_settings().get(MODE_ENV) or COMMERCIAL).strip().upper()
     return value if value in MODES else COMMERCIAL
 
 # --------------------------------------------------------------------------

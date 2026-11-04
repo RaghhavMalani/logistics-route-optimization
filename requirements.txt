@@ -19,6 +19,7 @@ pdfplumber>=0.11,<0.12  # Versioned official public-port PDF adapters
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pydantic>=2.8
+pydantic-settings>=2.10,<3
 httpx>=0.27            # required by fastapi.testclient
 Brotli>=1.1,<2         # negotiated compression for private screen snapshots
 
