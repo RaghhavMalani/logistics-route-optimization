@@ -13,11 +13,9 @@ if ($LASTEXITCODE) { throw 'Could not read the panel checkout SHA.' }
 git -C $root diff --quiet HEAD --
 if ($LASTEXITCODE) { throw 'The panel checkout has tracked changes. Start from a committed build.' }
 
-$python = Join-Path $root '.venv/Scripts/python.exe'
-if (!(Test-Path -LiteralPath $python)) {
-    $python = Join-Path $root '../../.venv/Scripts/python.exe'
-}
-if (!(Test-Path -LiteralPath $python)) { $python = (Get-Command python.exe).Source }
+$python = (Get-Command python.exe).Source
+& $python -c 'import fastapi, uvicorn, pandas, numpy'
+if ($LASTEXITCODE) { throw 'Activate the Python environment with the backend dependencies and try again.' }
 $node = (Get-Command node.exe).Source
 $vite = Join-Path $terminal 'node_modules/vite/bin/vite.js'
 if (!(Test-Path -LiteralPath $vite)) { throw 'Install the terminal dependencies before starting the panel.' }
