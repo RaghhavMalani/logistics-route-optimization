@@ -112,13 +112,23 @@ class SnapshotStore:
     def _for(self, scope: str, product: str):
         return (_attempts.c.scope == scope, _attempts.c.product == product)
 
-    def latest(self, scope: str, product: str) -> Snapshot | None:
+    def snapshots(self, scope: str, product: str, *, since=None, until=None, limit=None) -> list[Snapshot]:
         query = select(_attempts.c.payload, _attempts.c.observed).where(
             *self._for(scope, product), _attempts.c.error.is_(None),
-        ).order_by(_attempts.c.finished.desc()).limit(1)
+        ).order_by(_attempts.c.finished.desc())
+        if since is not None:
+            query = query.where(_attempts.c.finished >= _stamp(since))
+        if until is not None:
+            query = query.where(_attempts.c.finished <= _stamp(until))
+        if limit is not None:
+            query = query.limit(limit)
         with self.engine.connect() as conn:
-            row = conn.execute(query).first()
-        return Snapshot(row.payload, datetime.fromisoformat(row.observed) if row.observed else None) if row else None
+            return [Snapshot(row.payload, datetime.fromisoformat(row.observed) if row.observed else None)
+                    for row in conn.execute(query)]
+
+    def latest(self, scope: str, product: str) -> Snapshot | None:
+        rows = self.snapshots(scope, product, limit=1)
+        return rows[0] if rows else None
 
     def attempts(
         self, scope: str, product: str, *, since: datetime | None = None,

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from src.portwatch_os.clock import wall_now
 from src.portwatch_os.fabric.licence import ALLOWED
+from src.portwatch_os.fabric.model import deployment_mode
 from src.portwatch_os.fabric.products import ProviderProduct
 from src.portwatch_os.freshness.source_snapshots import Attempt, Snapshot, SnapshotStore
 
@@ -34,8 +35,9 @@ class SourceJob:
         if not (evidence.reviewed_at and evidence.finding and evidence.checked_urls):
             raise ValueError("Collection requires product-specific terms evidence")
         if self.scope == "published":
-            if not self.publication_approved or licence.redistribution != ALLOWED:
-                raise ValueError("Publication requires redistribution permission and trial approval")
+            if (not self.publication_approved or licence.redistribution != ALLOWED
+                    or not licence.permits(deployment_mode())[0]):
+                raise ValueError("Publication requires deployment permission, redistribution permission and trial approval")
         elif not self.scope.startswith("trial-") or not self.trial_permitted:
             raise ValueError("Trial collection requires verified permission and an isolated trial scope")
         if min(self.cadence, self.retry_base, self.breaker_cooldown) <= timedelta(0) or self.retry_limit < 1:
@@ -76,17 +78,14 @@ def collect_due(store: SnapshotStore, job: SourceJob, clock: Callable[[], dateti
         return True
 
 
-async def run_worker(store: SnapshotStore, jobs: list[SourceJob], *, once: bool = False) -> None:
+async def run_worker(store: SnapshotStore, jobs: list[SourceJob], *, until: datetime) -> None:
     async def run(job: SourceJob) -> None:
-        while True:
+        # wall-clock: a source trial ends after elapsed time, even during app replay.
+        while wall_now() < until:
             try:
                 await asyncio.to_thread(collect_due, store, job)
             except Exception as exc:
-                if once:
-                    raise
                 log.error("Snapshot storage failed for %s (%s)", job.product.product_id, type(exc).__name__)
-            if once:
-                return
             await asyncio.sleep(min(5, job.cadence.total_seconds()))
 
     await asyncio.gather(*(run(job) for job in jobs))
