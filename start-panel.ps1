@@ -24,6 +24,21 @@ $at = [DateTimeOffset]::Parse($snapshot.forecastOrigin, [Globalization.CultureIn
 
 New-Item -ItemType Directory -Force -Path $run | Out-Null
 & (Join-Path $root 'stop-panel.ps1')
+# Migrate the older panel launcher only when its listeners identify this checkout.
+$legacyApi = Get-NetTCPConnection -State Listen -LocalPort $apiPort -ErrorAction SilentlyContinue
+if ($legacyApi) {
+    try { $legacyHealth = Invoke-RestMethod -Uri "$api/health" -TimeoutSec 3 } catch { $legacyHealth = $null }
+    if ($legacyHealth.durableStores.stateDir -eq (Join-Path $root '.portwatch\panel-state')) {
+        $legacyTerminal = Get-NetTCPConnection -State Listen -LocalPort $terminalPort -ErrorAction SilentlyContinue
+        if ($legacyTerminal) {
+            $legacyProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($legacyTerminal.OwningProcess)"
+            if ($legacyProcess.CommandLine -like "*$(Join-Path $terminal '.output\server\index.mjs')*") {
+                Stop-Process -Id $legacyTerminal.OwningProcess
+            }
+        }
+        Stop-Process -Id $legacyApi.OwningProcess
+    }
+}
 foreach ($port in $apiPort, $terminalPort) {
     if (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) {
         throw "Port $port belongs to another process. Stop that process before starting the panel."
