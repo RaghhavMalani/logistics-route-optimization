@@ -169,6 +169,37 @@ export function createMiniatureBuilders(scene: T.Scene, rnd = seededRandom()) {
     mesh.setMatrixAt(i, dummy.matrix);
   }
 
+  function treeMeshes(capacity: number) {
+    return [
+      new T.InstancedMesh(new T.ConeGeometry(2.4, 7, 6), M.tree1, capacity),
+      new T.InstancedMesh(new T.IcosahedronGeometry(3, 0), M.tree2, capacity),
+    ] as const;
+  }
+  function placeTrees(
+    parent: T.Object3D,
+    trees: ReadonlyArray<{
+      x: number;
+      z: number;
+      size: number;
+      ground?: number;
+    }>,
+  ) {
+    const [cone, blob] = treeMeshes(Math.ceil(trees.length / 2));
+    cone.count = 0;
+    blob.count = 0;
+    trees.forEach(({ x, z, size, ground = 0 }, index) => {
+      const mesh = index % 2 === 0 ? cone : blob;
+      dummy.position.set(x, ground + (mesh === cone ? 3.5 : 3.6) * size, z);
+      dummy.rotation.set(0, rnd() * 6.28, 0);
+      dummy.scale.setScalar(size);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(mesh.count++, dummy.matrix);
+    });
+    for (const mesh of [cone, blob]) {
+      mesh.computeBoundingSphere();
+      parent.add(mesh);
+    }
+  }
   function buildTrees() {
     const HILLS = [
       [430, -175, 72, 22],
@@ -214,10 +245,7 @@ export function createMiniatureBuilders(scene: T.Scene, rnd = seededRandom()) {
       );
     }
     {
-      const cone = new T.ConeGeometry(2.4, 7, 6);
-      const blob = new T.IcosahedronGeometry(3, 0);
-      const A = new T.InstancedMesh(cone, M.tree1, 900);
-      const B = new T.InstancedMesh(blob, M.tree2, 900);
+      const [A, B] = treeMeshes(900);
       let a = 0,
         b = 0,
         tries = 0;
@@ -359,6 +387,7 @@ export function createMiniatureBuilders(scene: T.Scene, rnd = seededRandom()) {
     makeGantry,
     placePart,
     buildTrees,
+    placeTrees,
     buildYard,
     buildTracks,
     makeTruckParts,

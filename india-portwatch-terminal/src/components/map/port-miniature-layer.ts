@@ -1,105 +1,119 @@
 import * as THREE from "three";
-import { MercatorCoordinate, type CustomLayerInterface } from "maplibre-gl";
 import { createMiniatureBuilders } from "@/components/miniature/builders";
-import { createMiniatureLighting } from "@/components/miniature/lighting";
 import { seededRandom } from "@/components/miniature/rng";
-import type { PortMiniatureTarget } from "./usePortMiniature";
+import {
+  SCHEMATIC_ZOOM,
+  inView,
+  portSeed,
+  schematicAnchor,
+  schematicScale,
+  type PortMiniatureTarget,
+} from "./port-placement";
+import { placeScene, portSceneLayer } from "./port-scene-layer";
 
-export const PORT_MINIATURE_LAYER = "port-miniature";
-
-export function createPortMiniature(
-  port: PortMiniatureTarget,
-): CustomLayerInterface {
-  const scene = new THREE.Scene();
-  const seed = [...port.code].reduce(
-    (value, letter) => value * 31 + letter.charCodeAt(0),
-    0,
-  );
-  const { M, unitBox, box, makeQuayCrane, rnd } = createMiniatureBuilders(
-    scene,
-    seededRandom(seed),
-  );
-  const origin = MercatorCoordinate.fromLngLat(port.center);
-  const metresPerUnit = 28;
-  const scale = origin.meterInMercatorCoordinateUnits() * metresPerUnit;
-  const model = new THREE.Matrix4()
-    .makeTranslation(origin.x, origin.y, origin.z)
-    .scale(new THREE.Vector3(scale, -scale, scale))
-    .multiply(new THREE.Matrix4().makeRotationX(Math.PI / 2));
-
-  box(scene, 52, 1.5, 65, M.land, 12, 0, 0);
-  box(scene, 12, 1.75, 65, M.pave, -13, 0.1, 0);
-  box(scene, 0.8, 0.6, 64, M.ink, -19, 0.85, 0, false);
-  box(scene, 3, 0.25, 63, M.road, -4, 0.87, 0, false);
-  for (const z of [-20, 0, 20]) {
-    const crane = makeQuayCrane(z);
-    crane.g.position.x = -14;
-    crane.g.position.y = 0.98;
-    crane.g.scale.setScalar(0.57);
-  }
-
-  const yardColors = [M.white, M.road, M.pave, M.rail];
-  for (const x of [7, 16, 25]) {
-    for (const z of [-22, -11, 0, 11, 22]) {
-      const tiers = rnd() > 0.42 ? 2 : 1;
-      for (let tier = 0; tier < tiers; tier++) {
-        const material = yardColors[Math.floor(rnd() * yardColors.length)];
-        box(scene, 6.3, 1.65, 7.2, material, x, 1.6 + tier * 1.65, z);
-      }
-    }
-  }
-  box(scene, 9, 3.2, 16, M.white, 35, 2.3, 12);
-  box(scene, 9.5, 0.6, 17, M.rail, 35, 4.1, 12);
-
-  // The tour's parts are static on the chart. Batch their shared boxes by ink.
+/** Batch the tour's shared boxes by material. The two groups are independent LODs. */
+function batchBoxes(group: THREE.Group, unitBox: THREE.BoxGeometry) {
   const batches = new Map<THREE.Material, THREE.Matrix4[]>();
-  scene.updateMatrixWorld(true);
-  scene.traverse((object) => {
-    if (!(object instanceof THREE.Mesh) || Array.isArray(object.material))
-      return;
-    const matrices = batches.get(object.material) ?? [];
-    matrices.push(object.matrixWorld.clone());
-    batches.set(object.material, matrices);
+  group.updateMatrixWorld(true);
+  group.traverse((part) => {
+    if (!(part instanceof THREE.Mesh) || Array.isArray(part.material)) return;
+    const matrices = batches.get(part.material) ?? [];
+    matrices.push(part.matrixWorld.clone());
+    batches.set(part.material, matrices);
   });
-  scene.clear();
+  group.clear();
   for (const [material, matrices] of batches) {
     const mesh = new THREE.InstancedMesh(unitBox, material, matrices.length);
     matrices.forEach((matrix, index) => mesh.setMatrixAt(index, matrix));
     mesh.computeBoundingSphere();
-    scene.add(mesh);
+    group.add(mesh);
   }
+}
 
-  const lighting = createMiniatureLighting(scene, true);
-  lighting.follow(new THREE.Vector3(), 45);
-  lighting.sun.castShadow = false;
+export function createPortMiniature(port: PortMiniatureTarget) {
+  const scene = new THREE.Scene();
+  const core = new THREE.Group();
+  const detail = new THREE.Group();
+  const {
+    M,
+    unitBox,
+    box,
+    makeQuayCrane,
+    makeGantry,
+    placeTrees,
+    dummy,
+    boxCol,
+    rnd,
+  } = createMiniatureBuilders(scene, seededRandom(portSeed(port.code)));
 
-  const camera = new THREE.Camera();
-  let renderer: THREE.WebGLRenderer | undefined;
-  return {
-    id: PORT_MINIATURE_LAYER,
-    type: "custom",
-    renderingMode: "3d",
-    onAdd(map, context) {
-      renderer = new THREE.WebGLRenderer({ canvas: map.getCanvas(), context });
-      renderer.autoClear = false;
-      renderer.toneMapping = THREE.NoToneMapping;
+  box(core, 52, 1.2, 58, M.pave, 9, 0, 0);
+  box(core, 9, 1.6, 58, M.land, -15, 0, 0);
+  box(core, 0.8, 0.65, 58, M.rail, -19.5, 0.48, 0);
+  box(core, 2.8, 0.2, 56, M.road, -4, 0.68, 0, false);
+  for (const z of [-18, 18, 0]) {
+    const { g } = makeQuayCrane(z);
+    g.position.set(-16, 0.78, z);
+    g.scale.setScalar(0.56);
+    (z ? core : detail).add(g);
+  }
+  const { g: gantry } = makeGantry(12, 8, 4);
+  gantry.position.set(17, 0.66, 12);
+  gantry.scale.setScalar(0.62);
+  detail.add(gantry);
+  box(core, 7.5, 3.5, 13, M.white, 29, 2.32, -13);
+  box(core, 7.9, 0.65, 13.4, M.rail, 29, 4.32, -13);
+  batchBoxes(core, unitBox);
+  batchBoxes(detail, unitBox);
+  scene.add(core, detail);
+
+  // The tour's container dimensions and ink colours, batched in one draw.
+  const stacks = new THREE.InstancedMesh(unitBox, M.white, 320);
+  stacks.count = 0;
+  for (const x of [4, 13, 22]) {
+    for (const z of [-20, -10, 0, 10, 20]) {
+      for (let row = 0; row < 4; row++) {
+        const tiers = 1 + Math.floor(rnd() * 3);
+        for (let tier = 0; tier < tiers; tier++) {
+          const index = stacks.count++;
+          dummy.position.set(x, 1.27 + tier * 1.36, z - 2.25 + row * 1.5);
+          dummy.scale.set(3.05, 1.28, 1.3);
+          dummy.updateMatrix();
+          stacks.setMatrixAt(index, dummy.matrix);
+          stacks.setColorAt(index, new THREE.Color(boxCol()));
+        }
+      }
+    }
+  }
+  stacks.computeBoundingSphere();
+  core.add(stacks);
+  placeTrees(
+    core,
+    [-24, -16, -7, 6, 15, 23].map((z) => ({
+      x: 34 + rnd() * 3,
+      z,
+      size: 0.52 + rnd() * 0.22,
+    })),
+  );
+
+  const rotation = new THREE.Matrix4().makeRotationY(
+    ((90 - port.shore.bearing) * Math.PI) / 180,
+  );
+  let previousZoom = -1;
+  let anchor = port.center;
+  return portSceneLayer(
+    "port-miniature",
+    scene,
+    (map, model) => {
+      const zoom = map.getZoom();
+      if (zoom < SCHEMATIC_ZOOM || !inView(map, port.center, 28)) return false;
+      if (zoom !== previousZoom) {
+        previousZoom = zoom;
+        anchor = schematicAnchor(port, zoom);
+        placeScene(model, anchor, schematicScale(zoom)).multiply(rotation);
+      }
+      detail.visible = zoom >= 12.15;
+      return inView(map, anchor, 75);
     },
-    render(_context, frame) {
-      if (!renderer) return;
-      camera.projectionMatrix
-        .fromArray(frame.defaultProjectionData.mainMatrix)
-        .multiply(model);
-      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-      renderer.resetState();
-      renderer.render(scene, camera);
-    },
-    onRemove() {
-      lighting.dispose();
-      unitBox.dispose();
-      for (const material of new Set([...Object.values(M), ...batches.keys()]))
-        material.dispose();
-      renderer?.dispose();
-      scene.clear();
-    },
-  };
+    [unitBox, ...Object.values(M)],
+  );
 }

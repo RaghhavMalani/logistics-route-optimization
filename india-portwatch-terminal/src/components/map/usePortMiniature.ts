@@ -1,104 +1,143 @@
 import { useEffect, useRef, useState } from "react";
-import type { Map as MapLibreMap } from "maplibre-gl";
-import { haversineKm } from "@/lib/maritime/geo";
+import type { CustomLayerInterface, Map as MapLibreMap } from "maplibre-gl";
+import {
+  GROVE_ZOOM,
+  SCHEMATIC_ZOOM,
+  inView,
+  schematicAnchor,
+  type PortMiniatureTarget,
+  type RegisteredPort,
+} from "./port-placement";
 
-const LAYER_ID = "port-miniature";
-const DETAIL_ZOOM = 11;
+const SCHEMATIC_ID = "port-miniature";
+const GROVE_ID = "port-groves";
 
-export interface PortMiniatureTarget {
-  code: string;
-  name: string;
-  center: [number, number];
-}
-
-export function registeredPorts(
-  ports: GeoJSON.FeatureCollection | undefined,
-): PortMiniatureTarget[] {
-  return (ports?.features ?? []).flatMap(({ properties, geometry }) => {
-    if (
-      geometry.type !== "Point" ||
-      typeof properties?.code !== "string" ||
-      typeof properties.name !== "string"
-    )
-      return [];
-    const [lon, lat] = geometry.coordinates;
-    return [
-      { code: properties.code, name: properties.name, center: [lon, lat] },
-    ];
-  });
+function closestVisible(
+  map: MapLibreMap,
+  ports: RegisteredPort[],
+): PortMiniatureTarget | null {
+  const canvas = map.getCanvas();
+  let target: PortMiniatureTarget | null = null;
+  let distance = Infinity;
+  for (const port of ports) {
+    if (!port.shore || !inView(map, port.center)) continue;
+    const point = map.project(port.center);
+    const next =
+      (point.x - canvas.clientWidth / 2) ** 2 +
+      (point.y - canvas.clientHeight / 2) ** 2;
+    if (next < distance) {
+      target = { ...port, shore: port.shore };
+      distance = next;
+    }
+  }
+  return target;
 }
 
 export function usePortMiniature(
   map: MapLibreMap | null,
-  ports: PortMiniatureTarget[],
+  ports: RegisteredPort[],
   enabled: boolean,
 ) {
   const [active, setActive] = useState<PortMiniatureTarget | null>(null);
   const latest = useRef(ports);
-  const updateRef = useRef<(() => void) | null>(null);
+  const refresh = useRef<(() => void) | null>(null);
   latest.current = ports;
 
   useEffect(() => {
     if (!map || !enabled) return;
     setActive(null);
-    let removed = false;
-    let requested: PortMiniatureTarget | null = null;
-    let visible: PortMiniatureTarget | null = null;
-    const removeLayer = () => {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      visible = null;
-      if (!removed) setActive(null);
+    let disposed = false;
+    const slots = new Map<string, PortMiniatureTarget>();
+    const remove = (id: string) => {
+      slots.delete(id);
+      if (map.getLayer(id)) map.removeLayer(id);
+      if (!disposed && id === SCHEMATIC_ID) setActive(null);
     };
-    const update = () => {
-      const zoom = map.getZoom();
-      let target: PortMiniatureTarget | null = null;
-      if (zoom >= DETAIL_ZOOM) {
-        const center = map.getCenter();
-        let distance = Math.max(1.5, 9 / 2 ** (zoom - DETAIL_ZOOM));
-        for (const port of latest.current) {
-          const next = haversineKm([center.lng, center.lat], port.center);
-          if (next < distance) {
-            target = port;
-            distance = next;
-          }
-        }
-      }
-      if (
-        target?.code === requested?.code &&
-        (!target || requested !== visible || map.getLayer(LAYER_ID))
-      )
-        return;
-      requested = target;
-      removeLayer();
+    const sync = (
+      id: string,
+      target: PortMiniatureTarget | null,
+      factory: () => Promise<
+        (port: PortMiniatureTarget) => CustomLayerInterface
+      >,
+    ) => {
+      if (slots.get(id)?.code === target?.code) return;
+      remove(id);
       if (!target) return;
-      void import("./port-miniature-layer")
-        .then(({ createPortMiniature }) => {
-          if (removed || requested !== target || map.getZoom() < DETAIL_ZOOM)
+      slots.set(id, target);
+      void factory()
+        .then((createLayer) => {
+          if (
+            disposed ||
+            slots.get(id) !== target ||
+            document.hidden ||
+            !map.getLayer("port-mark")
+          ) {
+            if (!disposed && slots.get(id) === target) slots.delete(id);
             return;
-          map.addLayer(createPortMiniature(target), "port-mark");
-          visible = target;
-          setActive(target);
+          }
+          const zoom = map.getZoom();
+          if (
+            !inView(map, target.center) ||
+            zoom < (id === GROVE_ID ? GROVE_ZOOM : SCHEMATIC_ZOOM)
+          ) {
+            slots.delete(id);
+            return;
+          }
+          map.addLayer(createLayer(target), "port-mark");
+          if (id === SCHEMATIC_ID) setActive(target);
         })
         .catch((error: unknown) => {
-          if (removed || requested !== target) return;
-          requested = null;
-          console.warn("[port miniature]", error);
+          if (disposed || slots.get(id) !== target) return;
+          slots.delete(id);
+          console.warn("[port landscape]", error);
         });
     };
-    updateRef.current = update;
+    const update = () => {
+      if (document.hidden || !map.getLayer("port-mark")) return;
+      const zoom = map.getZoom();
+      const port =
+        zoom >= GROVE_ZOOM ? closestVisible(map, latest.current) : null;
+      sync(GROVE_ID, port?.shore.groves.length ? port : null, () =>
+        import("./port-grove-layer").then(
+          ({ createPortGroves }) => createPortGroves,
+        ),
+      );
+      const schematic =
+        port &&
+        zoom >= SCHEMATIC_ZOOM &&
+        inView(map, schematicAnchor(port, zoom), 32)
+          ? port
+          : null;
+      sync(SCHEMATIC_ID, schematic, () =>
+        import("./port-miniature-layer").then(
+          ({ createPortMiniature }) => createPortMiniature,
+        ),
+      );
+    };
+    const styleLoaded = () => {
+      slots.clear();
+      setActive(null);
+      update();
+    };
+    // Wait for the camera to settle before constructing a new port scene.
+    refresh.current = update;
     map.on("moveend", update);
-    map.on("style.load", update);
+    map.on("resize", update);
+    map.on("style.load", styleLoaded);
+    document.addEventListener("visibilitychange", update);
     update();
     return () => {
-      removed = true;
-      updateRef.current = null;
+      disposed = true;
+      refresh.current = null;
       map.off("moveend", update);
-      map.off("style.load", update);
-      removeLayer();
+      map.off("resize", update);
+      map.off("style.load", styleLoaded);
+      document.removeEventListener("visibilitychange", update);
+      remove(SCHEMATIC_ID);
+      remove(GROVE_ID);
     };
   }, [enabled, map]);
 
-  useEffect(() => updateRef.current?.(), [ports]);
-
+  useEffect(() => refresh.current?.(), [ports]);
   return enabled ? active : null;
 }

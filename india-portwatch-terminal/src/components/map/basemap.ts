@@ -23,7 +23,7 @@ import { COLORS } from "@/components/miniature/palette";
 import type { StyleSpecification } from "maplibre-gl";
 
 import borders from "@/assets/geo/region-borders.json";
-import land from "@/assets/geo/region-land.json";
+import harbourContext from "@/assets/geo/region-land-detail.generated.json";
 import { corridorFeatures } from "@/lib/maritime/searoutes";
 
 /**
@@ -112,7 +112,8 @@ export type RuntimeSource = (typeof RUNTIME_SOURCES)[number];
 export function buildStyle(): StyleSpecification {
   const sources: StyleSpecification["sources"] = {
     graticule: { type: "geojson", data: graticule() as never },
-    land: { type: "geojson", data: land as never },
+    land: { type: "geojson", data: harbourContext.land as never },
+    "port-land": { type: "geojson", data: harbourContext.tint as never },
     borders: { type: "geojson", data: borders as never },
     corridors: { type: "geojson", data: corridorFeatures() as never },
     wxraster: {
@@ -148,6 +149,7 @@ export function buildStyle(): StyleSpecification {
         id: "shelf-deep",
         type: "line",
         source: "land",
+        maxzoom: 10.5,
         paint: {
           "line-color": COLORS.weatherMid,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 46, 8, 150],
@@ -165,6 +167,8 @@ export function buildStyle(): StyleSpecification {
             0.45,
             9,
             0.15,
+            10.5,
+            0,
           ],
         },
       },
@@ -172,6 +176,7 @@ export function buildStyle(): StyleSpecification {
         id: "shelf-mid",
         type: "line",
         source: "land",
+        maxzoom: 10.5,
         paint: {
           "line-color": COLORS.modelSea,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 18, 8, 60],
@@ -186,6 +191,8 @@ export function buildStyle(): StyleSpecification {
             0.5,
             9,
             0.16,
+            10.5,
+            0,
           ],
         },
       },
@@ -193,6 +200,7 @@ export function buildStyle(): StyleSpecification {
         id: "shelf-near",
         type: "line",
         source: "land",
+        maxzoom: 10.5,
         paint: {
           "line-color": COLORS.weatherHigh,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 22],
@@ -207,6 +215,8 @@ export function buildStyle(): StyleSpecification {
             0.55,
             9,
             0.18,
+            10.5,
+            0,
           ],
         },
       },
@@ -217,6 +227,31 @@ export function buildStyle(): StyleSpecification {
         type: "fill",
         source: "land",
         paint: { "fill-color": COLORS.land },
+      },
+      {
+        id: "port-land-tint",
+        type: "fill",
+        source: "port-land",
+        minzoom: 8,
+        paint: {
+          "fill-color": [
+            "match",
+            ["get", "band"],
+            "inner",
+            COLORS.grass,
+            COLORS.panel4,
+          ],
+          "fill-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            8,
+            0.42,
+            11,
+            0.92,
+          ],
+          "fill-antialias": false,
+        },
       },
 
       /* -------------------------------------------------- weather raster -- */
