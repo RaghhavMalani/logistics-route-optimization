@@ -1,0 +1,503 @@
+import * as T from "three";
+import { createMiniatureBuilders } from "@/components/miniature/builders";
+import { createMiniatureLighting } from "@/components/miniature/lighting";
+import { BOXCOLS, COLORS } from "@/components/miniature/palette";
+import { seededRandom } from "@/components/miniature/rng";
+import type { PortTwinState } from "@/types/portwatch-os";
+import { TWIN_RAMP, type TwinOverlay } from "./twin-presentation";
+
+type Part = { matrix: T.Matrix4; color: T.Color; material: T.Material };
+type Tint = T.ColorRepresentation;
+
+export function createTwinWorld(base: PortTwinState) {
+  const scene = new T.Scene();
+  scene.background = new T.Color(COLORS.modelSea);
+  const templates = new T.Scene();
+  const { unitBox, makeShip, makeQuayCrane, makeGantry, buildTracks, M } =
+    createMiniatureBuilders(templates, seededRandom(1234));
+
+  const instancedMaterial = new T.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.92,
+  });
+  const transform = new T.Object3D();
+  const matrix = new T.Matrix4();
+  const color = new T.Color();
+  const batches: T.InstancedMesh[] = [];
+  const entities = new Map<T.InstancedMesh, string[]>();
+  const templateResources = new Set<T.Material>();
+  const templateInstances: T.InstancedMesh[] = [];
+
+  function batch(name: string, capacity: number) {
+    const mesh = new T.InstancedMesh(
+      unitBox,
+      instancedMaterial,
+      Math.max(1, capacity),
+    );
+    mesh.name = name;
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
+    const ids: string[] = [];
+    entities.set(mesh, ids);
+    batches.push(mesh);
+    scene.add(mesh);
+    return {
+      reset() {
+        mesh.count = 0;
+      },
+      push(at: T.Matrix4, tint: Tint, id = "") {
+        const index = mesh.count++;
+        mesh.setMatrixAt(index, at);
+        mesh.setColorAt(index, color.set(tint));
+        ids[index] = id;
+      },
+      commit() {
+        mesh.boundingSphere = null;
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      },
+    };
+  }
+
+  function extract(root: T.Object3D) {
+    root.updateMatrixWorld(true);
+    const parts: Part[] = [];
+    root.traverse((object) => {
+      if (!(object instanceof T.Mesh)) return;
+      const material = object.material as T.MeshStandardMaterial;
+      templateResources.add(material);
+      if (object instanceof T.InstancedMesh) {
+        templateInstances.push(object);
+        for (let index = 0; index < object.count; index++) {
+          object.getMatrixAt(index, matrix);
+          object.getColorAt(index, color);
+          parts.push({
+            matrix: object.matrixWorld.clone().multiply(matrix),
+            color: color.clone(),
+            material,
+          });
+        }
+      } else {
+        parts.push({
+          matrix: object.matrixWorld.clone(),
+          color: material.color.clone(),
+          material,
+        });
+      }
+    });
+    return parts;
+  }
+
+  type Batch = ReturnType<typeof batch>;
+  function pose(
+    x: number,
+    y: number,
+    z: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    heading = 0,
+  ) {
+    transform.position.set(x, y, z);
+    transform.scale.set(sx, sy, sz);
+    transform.rotation.y = heading;
+    transform.updateMatrix();
+    return transform.matrix;
+  }
+  function box(
+    target: Batch,
+    x: number,
+    y: number,
+    z: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    tint: Tint,
+    id = "",
+  ) {
+    target.push(pose(x, y, z, sx, sy, sz), tint, id);
+  }
+  function model(
+    target: Batch,
+    parts: Part[],
+    at: T.Matrix4,
+    id = "",
+    hullTint?: Tint,
+  ) {
+    for (const part of parts) {
+      matrix.multiplyMatrices(at, part.matrix);
+      target.push(
+        matrix,
+        hullTint && part.material === M.signal ? hullTint : part.color,
+        id,
+      );
+    }
+  }
+
+  const quayStart = Math.min(
+    0,
+    ...base.berths.map((b) => b.x - b.length_m * 0.6),
+  );
+  const quayEnd = Math.max(
+    quayStart + 600,
+    ...base.berths.map((b) => b.x + b.length_m * 0.65),
+    ...base.yardBlocks.map((b) => b.x + b.width_m * 0.65),
+    ...base.sheds.map((s) => s.x + s.width_m * 0.6),
+    ...base.gates.map((g) => g.x + 100),
+  );
+  const span = quayEnd - quayStart;
+  const inland = Math.max(760, ...base.gates.map((gate) => gate.y + 125));
+  const mid = (quayStart + quayEnd) / 2;
+  const lighting = createMiniatureLighting(scene, true);
+  lighting.sun.castShadow = false;
+  lighting.sun.intensity = 2.6;
+  lighting.follow(new T.Vector3(mid, 0, inland / 3), span);
+
+  const ground = batch("Quay and landside", 20 + base.berths.length * 4);
+  box(ground, mid, -9, inland / 2, span, 18, inland, COLORS.land);
+  box(ground, mid, 1, 76, span, 4, 152, COLORS.pave);
+  box(ground, mid, 0, -4, span, 13, 10, COLORS.modelInk);
+  box(ground, mid, 8, 9, span, 3, 5, COLORS.modelWhite);
+  box(ground, mid, 1, 178, span - 20, 3, 26, COLORS.road);
+  box(ground, mid, 1, inland - 92, span - 24, 3, 32, COLORS.road);
+  for (const berth of base.berths) {
+    box(
+      ground,
+      berth.x,
+      4,
+      67,
+      berth.length_m,
+      2,
+      2,
+      COLORS.controlLine,
+      berth.berth_id,
+    );
+    box(
+      ground,
+      berth.x - berth.length_m / 2,
+      6,
+      18,
+      8,
+      7,
+      8,
+      COLORS.modelInk,
+      berth.berth_id,
+    );
+    box(
+      ground,
+      berth.x + berth.length_m / 2,
+      6,
+      18,
+      8,
+      7,
+      8,
+      COLORS.modelInk,
+      berth.berth_id,
+    );
+  }
+  ground.commit();
+
+  const ship = makeShip(36, 8, 0.56);
+  ship.position.set(0, 0, 0);
+  const hullParts = extract(ship);
+  const crane = makeQuayCrane(0);
+  const craneFixed = extract(crane.g).slice(0, crane.g.children.length - 1);
+  const craneMotion = extract(crane.trolley);
+  const gantry = makeGantry(16, 9, 2.8);
+  const rtgParts = extract(gantry.g);
+  templates.clear();
+  buildTracks();
+  const tracks = batch("Rail", 20);
+  model(
+    tracks,
+    extract(templates),
+    pose(mid - span / 2, 1, inland - 32, span / 550, 3, 1.2),
+  );
+  tracks.commit();
+
+  const pad = batch(
+    "Facility pads",
+    base.berths.length +
+      base.yardBlocks.length +
+      base.sheds.length +
+      base.cranes.length +
+      base.gates.length,
+  );
+  const cranes = batch(
+    "Quay cranes",
+    base.cranes.length * (craneFixed.length + craneMotion.length),
+  );
+  const gantries = batch("Yard RTGs", base.yardBlocks.length * rtgParts.length);
+  const containers = batch("Yard containers", base.yardBlocks.length * 60);
+  const hulls = batch(
+    "Hull models",
+    (base.calls.length + base.berths.length) * hullParts.length,
+  );
+  const buildings = batch(
+    "Sheds and gate",
+    base.sheds.length * 3 + base.gates.length * 6,
+  );
+  const trucks = batch(
+    "Road vehicles",
+    (base.vehicles.length + base.gates.length * 8) * 3,
+  );
+
+  const ramp = TWIN_RAMP.map((hex) => new T.Color(hex));
+  const fillColor = new T.Color();
+  function pressure(value: number | null) {
+    if (value === null) return COLORS.pave;
+    const fraction = T.MathUtils.clamp(value, 0, 1);
+    return fraction < 0.5
+      ? fillColor.lerpColors(ramp[0], ramp[1], fraction * 2)
+      : fillColor.lerpColors(ramp[1], ramp[2], fraction * 2 - 1);
+  }
+  function truck(x: number, z: number, id: string) {
+    box(trucks, x, 8, z, 21, 4, 9, COLORS.modelInk, id);
+    box(trucks, x + 8, 13, z, 8, 9, 9, COLORS.signal, id);
+    box(trucks, x - 4, 14, z, 13, 10, 8, COLORS.modelWhite, id);
+  }
+
+  const active = [pad, cranes, gantries, containers, hulls, buildings, trucks];
+  function draw(
+    state: PortTwinState,
+    overlay: TwinOverlay,
+    selectedId: string | null,
+  ) {
+    for (const item of active) item.reset();
+    const calls = new Map(state.calls.map((call) => [call.call_id, call]));
+    const craneHours = Math.max(1, ...state.cranes.map((c) => c.working_hours));
+    const dwellHours = Math.max(
+      1,
+      ...state.yardBlocks.map((b) => b.mean_dwell_hours),
+    );
+    for (const berth of state.berths) {
+      const tint =
+        berth.berth_id === selectedId
+          ? COLORS.signal
+          : pressure(berth.occupied_by ? 0.85 : 0.15);
+      box(
+        pad,
+        berth.x,
+        4,
+        29,
+        berth.length_m * 0.92,
+        3,
+        37,
+        tint,
+        berth.berth_id,
+      );
+      if (!berth.occupied_by) continue;
+      const call = calls.get(berth.occupied_by);
+      const length = call?.loa_m ?? berth.length_m * 0.8;
+      model(
+        hulls,
+        hullParts,
+        pose(berth.x, -1, -37, length / 38, length / 46, length / 46),
+        call?.call_id ?? berth.berth_id,
+        call?.call_id === selectedId ? COLORS.signal : COLORS.shipContainer,
+      );
+    }
+    let waiting = 0;
+    for (const call of state.calls) {
+      if (call.state !== "waiting") continue;
+      const index = waiting++;
+      const x = quayStart + span * (0.17 + (index % 5) * 0.165);
+      const z = -260 - Math.floor(index / 5) * 165;
+      model(
+        hulls,
+        hullParts,
+        pose(x, -1, z, call.loa_m / 38, call.loa_m / 46, call.loa_m / 46, 0.13),
+        call.call_id,
+        call.call_id === selectedId ? COLORS.signal : COLORS.shipCargo,
+      );
+    }
+    for (const item of state.cranes) {
+      box(
+        pad,
+        item.x,
+        4,
+        98,
+        38,
+        2,
+        37,
+        item.crane_id === selectedId
+          ? COLORS.signal
+          : pressure(
+              overlay === "workload" ? item.working_hours / craneHours : null,
+            ),
+        item.crane_id,
+      );
+      const at = pose(item.x, 3, 6, 4, 4, 4, -Math.PI / 2);
+      model(cranes, craneFixed, at, item.crane_id);
+      model(cranes, craneMotion, at, item.crane_id);
+    }
+    for (const [index, block] of state.yardBlocks.entries()) {
+      const value =
+        overlay === "dwell"
+          ? block.mean_dwell_hours / dwellHours
+          : overlay === "storage"
+            ? Math.min(1, block.utilisation / 0.95)
+            : block.utilisation;
+      box(
+        pad,
+        block.x,
+        2,
+        block.y,
+        block.width_m,
+        3,
+        block.depth_m,
+        block.block_id === selectedId ? COLORS.signal : pressure(value),
+        block.block_id,
+      );
+      const count = Math.min(60, Math.round(60 * block.utilisation));
+      for (let stack = 0; stack < count; stack++) {
+        const slot = stack % 20;
+        const tier = Math.floor(stack / 20);
+        box(
+          containers,
+          block.x + (((slot % 5) - 2) * block.width_m) / 5.7,
+          10 + tier * 12,
+          block.y + ((Math.floor(slot / 5) - 1.5) * block.depth_m) / 4.7,
+          block.width_m / 6.6,
+          11,
+          block.depth_m / 6.4,
+          BOXCOLS[(index * 3 + slot + tier) % BOXCOLS.length],
+          block.block_id,
+        );
+      }
+      model(
+        gantries,
+        rtgParts,
+        pose(
+          block.x - block.width_m * 0.23,
+          3,
+          block.y,
+          4,
+          4,
+          block.depth_m / 17,
+        ),
+        block.block_id,
+      );
+    }
+    for (const shed of state.sheds) {
+      box(
+        pad,
+        shed.x,
+        3,
+        shed.y,
+        shed.width_m + 24,
+        3,
+        shed.depth_m + 22,
+        shed.shed_id === selectedId
+          ? COLORS.signal
+          : pressure(overlay === "storage" ? shed.utilisation : null),
+        shed.shed_id,
+      );
+      box(
+        buildings,
+        shed.x,
+        19,
+        shed.y,
+        shed.width_m,
+        30,
+        shed.depth_m,
+        COLORS.modelWhite,
+        shed.shed_id,
+      );
+      box(
+        buildings,
+        shed.x,
+        37,
+        shed.y,
+        shed.width_m + 12,
+        9,
+        shed.depth_m + 10,
+        COLORS.glass,
+        shed.shed_id,
+      );
+      box(
+        buildings,
+        shed.x,
+        9,
+        shed.y - shed.depth_m / 2,
+        shed.width_m * 0.56,
+        11,
+        5,
+        COLORS.rail,
+        shed.shed_id,
+      );
+    }
+    for (const gate of state.gates) {
+      const width = gate.lanes * 16;
+      box(
+        pad,
+        gate.x,
+        2,
+        gate.y,
+        width + 24,
+        3,
+        60,
+        gate.gate_id === selectedId ? COLORS.signal : COLORS.road,
+        gate.gate_id,
+      );
+      box(
+        buildings,
+        gate.x,
+        28,
+        gate.y,
+        width,
+        8,
+        28,
+        COLORS.modelInk,
+        gate.gate_id,
+      );
+      for (const side of [-1, 1])
+        box(
+          buildings,
+          gate.x + side * width * 0.45,
+          13,
+          gate.y,
+          11,
+          24,
+          21,
+          COLORS.modelWhite,
+          gate.gate_id,
+        );
+    }
+    for (const vehicle of state.vehicles)
+      truck(vehicle.x, vehicle.y, vehicle.assigned_block ?? "");
+    for (const item of active) item.commit();
+  }
+
+  const pick = (raycaster: T.Raycaster) => {
+    for (const hit of raycaster.intersectObjects(batches, false)) {
+      const id =
+        hit.instanceId === undefined
+          ? undefined
+          : entities.get(hit.object as T.InstancedMesh)?.[hit.instanceId];
+      if (id) return id;
+    }
+    return null;
+  };
+  return {
+    scene,
+    draw,
+    pick,
+    mid,
+    span,
+    inland,
+    dispose() {
+      for (const mesh of [...batches, ...templateInstances]) mesh.dispose();
+      for (const material of new Set([
+        ...Object.values(M),
+        ...templateResources,
+        instancedMaterial,
+      ]))
+        material.dispose();
+      lighting.dispose();
+      unitBox.dispose();
+      scene.clear();
+    },
+  };
+}
