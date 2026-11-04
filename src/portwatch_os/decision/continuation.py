@@ -42,6 +42,16 @@ def connected_basis(problem):
     return problem.evidence.get("currentEnvironment") or problem.evidence.get("intelligenceBasis")
 
 
+def panel_fixture_at(env):
+    from src.portwatch_os.panel_runtime import pinned_panel_at
+
+    scenario = (env or {}).get("scenario") or {}
+    if (env and env.get("evidenceKind") == "SOFTWARE_LIFECYCLE_FIXTURE"
+            and scenario.get("id") == "S10" and scenario.get("panelReplay") is True):
+        return pinned_panel_at()
+    return None
+
+
 def require_current(problem):
     """Only inputs consumed by this gate matter; ambient news revisions do not."""
     from datetime import timedelta
@@ -54,9 +64,11 @@ def require_current(problem):
     require_commercial_current(problem,scoped)
     env = connected_basis(problem)
     reason = None
-    # wall-clock: continuation is a live-only approval action against actual receipt expiry.
-    operation_at = wall_now()
-    if get_clock().state.mode != LIVE:
+    replay_at = panel_fixture_at(env)
+    # wall-clock: live approvals recheck actual receipt expiry; only the pinned
+    # offline S10 software fixture uses its own replay time.
+    operation_at = replay_at or wall_now()
+    if replay_at is None and get_clock().state.mode != LIVE:
         reason = "Return to the live clock before continuing this frozen comparison."
     elif instant(env["plannedArrival"]) <= operation_at or operation_at-instant(env["availableAt"]) > timedelta(hours=1):
         reason = "The frozen input receipt or requested arrival has expired."

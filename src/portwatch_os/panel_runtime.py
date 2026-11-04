@@ -11,6 +11,19 @@ def snapshot_at():
     return datetime.fromisoformat(value) if value else None
 
 
+def pinned_panel_at():
+    """Return the panel anchor only in its visitor-owned, frozen replay."""
+    from src.portwatch_os.clock import REPLAY, get_clock
+    from src.portwatch_os.sandbox import current_sandbox
+
+    at = snapshot_at()
+    if at is not None and current_sandbox.get() is not None:
+        state = get_clock().state
+        if state.mode == REPLAY and state.anchor == at and state.rate == 0:
+            return at
+    return None
+
+
 def restrict_network(event, args):
     if event in ("socket.connect", "socket.sendto"):
         endpoint = args[1]

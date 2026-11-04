@@ -33,6 +33,38 @@ def test_panel_replay_keeps_clock_and_world_pinned(tmp_path, monkeypatch):
         set_clock(None)
 
 
+def test_only_the_server_selected_s10_fixture_can_use_panel_replay(tmp_path, monkeypatch):
+    anchor = datetime(2026, 10, 23, tzinfo=timezone.utc)
+    monkeypatch.setenv("PORTWATCH_PANEL_SNAPSHOT_AT", anchor.isoformat())
+    set_clock(None)
+    store, client = setup(tmp_path, monkeypatch)
+    base = "/api/demo/terminal"
+    token = store.create("SHIPPING_COMPANY")["accessToken"]
+    headers = {"Authorization": "Bearer " + token}
+    fixture = {"scenarioId": "S10", "requestId": "panel-s10-test", "acknowledged": True}
+    try:
+        catalogue = client.get(base + "/demonstrations/scenarios", headers=headers).json()
+        assert [item["id"] for item in catalogue["scenarios"]] == ["S10"]
+        assert client.post(base + "/demonstrations/select", headers=headers, json={
+            **fixture, "scenarioId": "S01",
+        }).status_code == 409
+        provider = {"domain": "vessel", "vesselId": "PWD-001",
+                    "currentArrival": {"inputView": "provider"}}
+        assert client.post(base + "/decisions/problems", headers=headers, json=provider).status_code == 409
+        response = client.post(base + "/demonstrations/select", headers=headers, json=fixture)
+        assert response.status_code == 200, response.text
+        body = response.json()
+        frozen = body["problem"]["evidence"]["currentEnvironment"]
+        assert frozen["scenario"]["panelReplay"] is True
+        assert datetime.fromisoformat(frozen["availableAt"]) == anchor
+        assert client.post(base + "/decisions/problems", headers=headers, json=body["inputs"]).status_code == 409
+        store.switch(token, "VESSEL_OPERATOR")
+        assert client.post(base + "/demonstrations/select", headers=headers, json=fixture).status_code == 403
+    finally:
+        client.close()
+        set_clock(None)
+
+
 @pytest.mark.parametrize(("event", "args"), [
     ("socket.connect", (None, ("192.0.2.1", 443))),
     ("socket.getaddrinfo", ("example.invalid", 443, 0, 0, 0)),

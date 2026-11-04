@@ -54,7 +54,7 @@ def context_fixture(at,value,status='CURRENT_ELIGIBLE'):
                         'eligibility':status,'meaning':'Threshold fixture only; no individual waiting hours, actual readiness or port closure.'}]}
 
 
-def prepare(scoped,scenario,at):
+def prepare(scoped,scenario,at,*,panel_replay=False):
     if scenario not in {r['id'] for r in catalogue()}:raise ValueError('Unknown bounded scenario identity')
     if scenario in BLOCKED:return {'blocked':BLOCKED[scenario]}
     old=next(v for v in scoped.world['fleet'] if v['id']=='PWD-001')
@@ -68,6 +68,8 @@ def prepare(scoped,scenario,at):
     marker={'contractVersion':VERSION,'id':scenario,'title':TITLES[int(scenario[1:])-1],'selectedAt':stamp(at),
             'basis':'Illustrative voyage and source assumptions; real official port context is separately labelled.',
             'scope':'Visitor-owned DEMO only; no real operational target, booking or measured benefit'}
+    if panel_replay:
+        marker.update(panelReplay=True, scope='Offline replay rehearsal with fictional S10 inputs only')
     def update(world):
         vessel=next(v for v in world['fleet'] if v['id']=='PWD-001')
         vessel.update(portCode='INPRT',operationalEpisode=episode,hoursToRisk=hours,laneCode='EUR_IND',serviceSpeedKn=12.,etaHours=(at-scoped_epoch(world)).total_seconds()/3600+20)

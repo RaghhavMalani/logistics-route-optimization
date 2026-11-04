@@ -19,10 +19,10 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from src.portwatch_os.decision.continuation import connected_basis
+from src.portwatch_os.decision.continuation import connected_basis, panel_fixture_at
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from backend.app.identity import (
@@ -289,6 +289,10 @@ def create_problem(
     every figure built on one is labelled ASSUMPTION. ``at`` moves the world
     clock, as it does everywhere else.
     """
+    return _create_problem(payload, actor_name, role, header_port, organisation, vessel_ids)
+
+
+def _create_problem(payload, actor_name, role, header_port, organisation, vessel_ids, *, panel_fixture=False):
     engine = get_engine()
     domain = str(payload.get("domain") or "vessel").lower()
     moment = _at(payload.get("at"))
@@ -333,7 +337,7 @@ def create_problem(
 
     try:
         if domain == "vessel":
-            problem = _vessel_problem(engine, payload, actor, moment, basis, mode)
+            problem = _vessel_problem(engine, payload, actor, moment, basis, mode, panel_fixture=panel_fixture)
         elif domain == "port":
             problem = _port_problem(engine, payload, actor, moment, basis, mode, header_port)
         elif domain == "cargo":
@@ -356,7 +360,7 @@ def create_problem(
     return problem.to_dict()
 
 
-def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProblem:
+def _vessel_problem(engine, payload, actor, moment, basis, mode, *, panel_fixture=False) -> DecisionProblem:
     from backend.app.routes.company import resolve_company
     from src.portwatch_os.sandbox import current_sandbox
 
@@ -373,7 +377,7 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
         from src.portwatch_os.decision.current_arrival import build_arrival_problem
         if current_sandbox.get() is None:
             raise HTTPException(403,"The current approach comparison is an isolated demo capability")
-        if get_clock().state.mode != LIVE or payload.get("at"):
+        if (get_clock().state.mode != LIVE and not panel_fixture) or payload.get("at"):
             raise HTTPException(409,"Current forecasts cannot be injected into a historical or projected decision clock")
         profile = resolve_company(payload.get("companyId"))
         vessel = next((v for v in profile.vessels if v.vessel_id == vessel_id),None)
@@ -381,6 +385,8 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
             raise HTTPException(404,"Voyage is not in this demo fleet")
         _build, _events, state = _observed_state(payload.get("companyId"),mode,moment)
         problem = build_arrival_problem(vessel,payload["currentArrival"],actor,state,moment)
+        if panel_fixture and panel_fixture_at(connected_basis(problem)) is None:
+            raise HTTPException(409, "Only the pinned fictional S10 fixture is available in panel replay")
         if connected_basis(problem).get("cargoCommitment"):
             from src.portwatch_os.decision.passage_cargo_integration import bind_declaration
             bind_declaration(problem, predecessor_id=payload.get("predecessorDecisionId"), persist=False)
@@ -654,13 +660,6 @@ def transition_problem(
             raise HTTPException(409,"Port review must preserve the Company's selected passage plan. Company must create and approve a linked successor to propose a different plan.")
         from src.portwatch_os.decision.continuation import require_current
         require_current(held)
-        from src.portwatch_os.intelligence.current_environment import instant
-        from src.portwatch_os.clock import wall_now, get_clock, LIVE
-        from datetime import timedelta
-        # wall-clock: actual live approval rechecks receipt expiry once; replay cannot authorize this action.
-        approval_at = wall_now()
-        if get_clock().state.mode != LIVE or instant(environment["plannedArrival"]) <= approval_at or approval_at-instant(environment["availableAt"]) > timedelta(hours=1):
-            raise HTTPException(409,"The frozen weather receipt or planned arrival has expired; recompute this comparison")
         # This comparison consumes approach weather and explicit limits, not the
         # unrelated Suez cascade/fleet revision. Preserve that boundary in audit.
         held.evidence["approvalBasis"] = {"scope":"FROZEN_AUTHORITY_RESTRICTION" if environment.get('kind') in ('NOTICE_RESTRICTION', 'PARADIP_ENTRY_RESTRICTION') else "FROZEN_INTELLIGENCE_SCENARIO" if held.evidence.get("intelligenceBasis") else "FROZEN_APPROACH_WEATHER", "environmentEvidenceId":environment["evidenceId"],
@@ -819,7 +818,10 @@ def handoff_problem(
                          if m.available}},
             critic_verdict=(option.critic or {}).get("verdict"),
             critic_reasons=list((option.critic or {}).get("reasons") or []),
-            valid_until=payload.get("validUntil") or _default_validity(),
+            valid_until=payload.get("validUntil") or (
+                (datetime.fromisoformat(created) + timedelta(hours=24)).isoformat()
+                if panel_fixture_at(connected_basis(problem)) is not None else _default_validity()
+            ),
         )
         try:
             store.create(advisory, principal=acting)
