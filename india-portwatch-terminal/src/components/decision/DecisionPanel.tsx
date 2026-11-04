@@ -191,9 +191,10 @@ export function DecisionPanel({
   const { identityHeaders, session } = useAuth();
   const workflow = useDecisionWorkflow(identityHeaders);
   const [tab, setTab] = useState<Tab>("options");
-  const [workflowTarget, setWorkflowTarget] = useState<{ key: string } | null>(
-    null,
-  );
+  const [workflowTarget, setWorkflowTarget] = useState<{
+    key: string;
+    showControls: boolean;
+  } | null>(null);
   const currentStage =
     WORKFLOW.find((step) => step.key === problem.workflow)?.key ??
     problem.workflowHistory
@@ -364,7 +365,7 @@ export function DecisionPanel({
           current={currentStage}
           onStep={(key) => {
             setTab("workflow");
-            setWorkflowTarget({ key });
+            setWorkflowTarget({ key, showControls: key === currentStage });
           }}
         />
       </div>
@@ -1203,7 +1204,7 @@ function WorkflowView({
   handoffResult,
 }: {
   problem: DecisionProblem;
-  target: { key: string } | null;
+  target: { key: string; showControls: boolean } | null;
   selected: DecisionOption | null;
   canHandoff: boolean;
   canApprove: boolean;
@@ -1220,13 +1221,16 @@ function WorkflowView({
 }) {
   const [observedEta, setObservedEta] = useState("");
   const [incident, setIncident] = useState(false);
+  const workflowIntro = useRef<HTMLParagraphElement>(null);
   const workflowLog = useRef<HTMLOListElement>(null);
   useEffect(() => {
     if (!target) return;
     scrollToWorkflowStep(
-      workflowLog.current?.querySelector(
-        `[data-workflow-stage="${target.key}"]`,
-      ),
+      target.showControls
+        ? workflowIntro.current
+        : workflowLog.current?.querySelector(
+            `[data-workflow-stage="${target.key}"]`,
+          ),
     );
   }, [target]);
   const chosen =
@@ -1244,7 +1248,10 @@ function WorkflowView({
       className="flex flex-col gap-2 px-2 py-1.5"
       data-testid="decision-workflow"
     >
-      <p className="text-[10px] leading-snug text-[var(--text-3)]">
+      <p
+        ref={workflowIntro}
+        className="text-[10px] leading-snug text-[var(--text-3)]"
+      >
         Decision ≠ execution. A named person reviews and approves;{" "}
         {execution?.mechanism === "ISSUE_ADVISORY"
           ? `the approved option reaches the ${problem.domain === "CARGO_CONNECTION" ? "booking party" : "vessel"} as an advisory to ${execution.by}, never as a command.`

@@ -169,10 +169,11 @@ async function run(width, height) {
     if (miniature) {
       const rail = panel.getByRole("navigation", { name: "Decision progress" });
       await expect(rail.getByRole("button", { name: "Computed", exact: true })).toHaveAttribute("aria-current", "step");
+      assert(await rail.locator("ol").evaluate((track) => track.scrollWidth <= track.clientWidth + 1), "All seven Decide stages fit at the panel viewport");
       await rail.getByRole("button", { name: "Observed", exact: true }).click();
       await expect(panel.locator("[data-workflow-stage=OBSERVED]")).toBeInViewport();
       await rail.getByRole("button", { name: "Computed", exact: true }).click();
-      await expect(panel.locator("[data-workflow-stage=COMPUTED]")).toBeInViewport();
+      await expect(panel.getByTestId("decision-review")).toBeInViewport();
     }
     await shot(`${capturePrefix}-decide`);
     const reviewing = postResponse("/transition");
