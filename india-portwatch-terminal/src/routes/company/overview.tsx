@@ -32,6 +32,7 @@ import { useWorkspace } from "@/auth/AuthProvider";
 import { AgentConsole } from "@/components/agent/AgentConsole";
 import { DemonstrationScenarios } from "@/components/intelligence/DemonstrationScenarios";
 import type { DecisionOption } from "@/types/decisions";
+import { WorkspaceHandoffCard } from "@/components/advisory/WorkspaceHandoffCard";
 import { CompanyIntelligenceQueue } from "@/components/intelligence/CompanyIntelligenceQueue";
 import { useFixes, useTraffic } from "@/components/app/traffic-context";
 import {
@@ -434,6 +435,7 @@ function FleetCommand() {
               <div
                 className={planningTab === "scenarios" ? "hidden" : "contents"}
               >
+                <WorkspaceHandoffCard view="company" />
                 <CompanyIntelligenceQueue />
                 <ObservedSelection
                   workspace={workspace}

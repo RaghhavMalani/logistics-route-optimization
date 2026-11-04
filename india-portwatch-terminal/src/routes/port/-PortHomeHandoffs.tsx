@@ -4,6 +4,7 @@ import { ApiError, getJson } from "@/services/api";
 
 interface Handoff {
   id: string;
+  state?: string;
   vesselName: string;
   summary: string;
   portCode: string;
@@ -13,7 +14,7 @@ interface Handoff {
 
 export function PortHomeHandoffs({ portCode }: { portCode: string }) {
   const { session, identityHeaders } = useAuth();
-  const queue = useQuery({
+  const queue = useQuery<Handoff[]>({
     queryKey: [
       "port-home-handoffs",
       session?.demoId ?? session?.user.id,
@@ -88,12 +89,17 @@ export function PortHomeHandoffs({ portCode }: { portCode: string }) {
         needs.map((row) => (
           <div key={row.id} className="mt-2 border-t border-[var(--line)] pt-2">
             <strong>{row.vesselName}</strong>
+            {row.state === "ACCEPTED" ? (
+              <span className="ml-2 font-semibold">Accepted by Vessel</span>
+            ) : null}
             <p className="text-[var(--text-2)]">{row.summary}</p>
             <a
               href={row.deepLink ?? undefined}
               className="mt-1 inline-block font-semibold underline"
             >
-              Review proposal
+              {row.state === "ACCEPTED"
+                ? "Review accepted proposal"
+                : "Review proposal"}
             </a>
           </div>
         ))

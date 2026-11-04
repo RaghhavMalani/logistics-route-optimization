@@ -13,7 +13,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { AgentConsole } from "@/components/agent/AgentConsole";
-import { useFixes, useTrafficTick } from "@/components/app/traffic-context";
+import {
+  useFixes,
+  useTraffic,
+  useTrafficTick,
+} from "@/components/app/traffic-context";
 import {
   MaritimeSearch,
   type SearchHit,
@@ -37,10 +41,12 @@ import {
 } from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
-import { Num, Pill } from "@/components/kit/primitives";
+import { formatUtc, Num, Pill } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { formatBearing } from "@/lib/maritime/geo";
+import { worstExposure } from "@/lib/maritime/weather-field";
+import { WorkspaceHandoffCard } from "@/components/advisory/WorkspaceHandoffCard";
 import { waypoint } from "@/lib/maritime/searoutes";
 import { NAV_STATUS_LABEL, VESSEL_CLASSES } from "@/lib/maritime/traffic-types";
 import { nearbyTraffic, STATUS_TONE } from "@/lib/maritime/traffic-views";
@@ -48,11 +54,13 @@ import { useFleet } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/vessel/overview")({
+  head: () => ({ meta: [{ title: "PortWatch X — Vessel Bridge" }] }),
   component: VesselBridge,
 });
 
 function VesselBridge() {
   const workspace = useWorkspaceMap();
+  const { source: trafficSource } = useTraffic();
   const fleet = useFleet();
   const fixes = useFixes(1);
   const at = useTrafficTick(1);
@@ -124,6 +132,13 @@ function VesselBridge() {
     );
   }
 
+  const health = workspace.health.data;
+  const activity = (
+    ["live", "cached", "stale", "synthetic", "unavailable"] as const
+  ).find((status) =>
+    health?.sources?.[status]?.some((name) => name.startsWith("Port activity")),
+  );
+  const worst = worstExposure(exposure);
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") {
       workspace.setSelectedVesselId(hit.id);
@@ -174,7 +189,7 @@ function VesselBridge() {
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div className="pointer-events-none absolute right-2.5 top-2.5 z-30">
+            <div className="pointer-events-none absolute right-[346px] top-2.5 z-30 max-[900px]:hidden">
               <AgentConsole />
             </div>
 
@@ -194,6 +209,46 @@ function VesselBridge() {
             </div>
 
             <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2">
+              <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
+                <strong>Data now</strong> · Weather{" "}
+                {workspace.frame.forecast
+                  ? "provider forecast"
+                  : workspace.frame.stations.length
+                    ? "retained map data"
+                    : "unavailable"}{" "}
+                · Port activity {activity ?? "unavailable"} · Traffic{" "}
+                {trafficSource.info.label}
+              </p>
+              <WorkspaceHandoffCard view="vessel" />
+              {selectedFix?.owned ? (
+                <section
+                  aria-label="Passage at a glance"
+                  className="pointer-events-auto shrink-0 rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2.5"
+                >
+                  <h2 className="text-sm font-semibold">
+                    Passage · {selectedFix.name}
+                  </h2>
+                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                    <dt>Route</dt>
+                    <dd>
+                      {ownRow?.originPortCode ?? "Unavailable"} →{" "}
+                      {ownRow?.intendedPortCode ?? "Unavailable"}
+                    </dd>
+                    <dt>ETA</dt>
+                    <dd>
+                      {selectedFix.etaMs == null
+                        ? "Unavailable"
+                        : formatUtc(new Date(selectedFix.etaMs).toISOString())}
+                    </dd>
+                    <dt>Passage weather</dt>
+                    <dd>
+                      {worst
+                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route samples`
+                        : "No forecast coverage for this passage"}
+                    </dd>
+                  </dl>
+                </section>
+              ) : null}
               {owned.length > 1 ? (
                 <FloatPanel
                   title="Own fleet"
