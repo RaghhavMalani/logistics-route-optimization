@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
 import pytest
+
+from scripts.sample_cache import ensure_sample_cache
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTER = ROOT / "tests" / "quarantine.json"
@@ -40,8 +43,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--include-quarantined", action="store_true")
     args, pytest_args = parser.parse_known_args()
+    if "--collect-only" not in pytest_args and "--co" not in pytest_args:
+        ensure_sample_cache()
+    os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
     return pytest.main(
-        [str(ROOT / "tests"), "--rootdir", str(ROOT), "-q", *pytest_args],
+        [str(ROOT / "tests"), "--rootdir", str(ROOT), "-q",
+         "-p", "anyio.pytest_plugin", "-p", "hypothesis.extra.pytestplugin",
+         "-p", "pytest_timeout", *pytest_args],
         plugins=[Quarantine(enabled=not args.include_quarantined)],
     )
 

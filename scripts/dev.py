@@ -12,6 +12,8 @@ from time import monotonic, sleep
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from scripts.sample_cache import ensure_sample_cache
+
 ROOT = Path(__file__).resolve().parents[1]
 TERMINAL = ROOT / "india-portwatch-terminal"
 STATE = ROOT / "work" / "dev" / "state"
@@ -30,7 +32,7 @@ def wait_ready(processes: list[subprocess.Popen]) -> None:
             with urlopen(API + "/health", timeout=2) as health:
                 ready = json.load(health)["status"] == "ok"
             if ready:
-                with urlopen(WEB + "/login", timeout=2) as terminal:
+                with urlopen(WEB + "/login", timeout=20) as terminal:
                     if terminal.status == 200:
                         return
         except (URLError, OSError, ValueError, KeyError):
@@ -55,13 +57,7 @@ def main() -> None:
         "PORTWATCH_WEATHER_RECONCILIATION": "0",
     }.items():
         env.setdefault(name, value)
-    if not (ROOT / "data" / "cache" / "port_state.json").is_file():
-        subprocess.run(
-            [sys.executable, "run_award_demo.py", "--source", "sample", "--model", "baseline", "--offline"],
-            cwd=ROOT,
-            env=env,
-            check=True,
-        )
+    ensure_sample_cache(env)
 
     processes: list[subprocess.Popen] = []
     try:

@@ -4,7 +4,11 @@ import type { paths } from "./openapi.generated";
 
 type Method = "get" | "post";
 type PathFor<M extends Method> = {
-  [P in keyof paths]: paths[P] extends Record<M, unknown> ? P : never;
+  [P in keyof paths]: P extends `/api/${string}`
+    ? P extends `${string}{${string}`
+      ? never
+      : paths[P] extends Record<M, unknown> ? P : never
+    : never;
 }[keyof paths];
 
 export type ApiResponse<P extends keyof paths, M extends keyof paths[P]> =
