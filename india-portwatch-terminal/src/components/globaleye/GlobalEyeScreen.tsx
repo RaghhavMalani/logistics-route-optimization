@@ -148,14 +148,6 @@ export function GlobalEyeScreen({
   const [fleetLinked, setFleetLinked] = useState(false);
   const [railExpanded, setRailExpanded] = useState(true);
   useEffect(() => {
-    const inspect = (event: Event) => {
-      if ((event as CustomEvent<boolean>).detail) setRailExpanded(false);
-    };
-    window.addEventListener("portwatch:inspector-visibility", inspect);
-    return () =>
-      window.removeEventListener("portwatch:inspector-visibility", inspect);
-  }, []);
-  useEffect(() => {
     if (decisionOpen || evidenceOpen) setRailExpanded(false);
   }, [decisionOpen, evidenceOpen]);
   const selectFleetMapVessel = workspace.setSelectedVesselId;

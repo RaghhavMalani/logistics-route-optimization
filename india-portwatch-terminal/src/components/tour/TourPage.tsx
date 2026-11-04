@@ -34,14 +34,6 @@ export default function TourPage() {
   const onUnavailable = useCallback(() => {
     setUnavailable(true);
   }, []);
-  const go = (index: number) => {
-    const element = scroll.current;
-    if (!element) return;
-    element.scrollTo({
-      top: (index / 5) * (element.scrollHeight - element.clientHeight),
-      behavior: reduced ? "instant" : "smooth",
-    });
-  };
   const readScroll = useCallback(() => {
     const element = scroll.current;
     if (!element) return;
@@ -61,6 +53,16 @@ export default function TourPage() {
         fill.style.transform = `scaleX(${Math.max(0, Math.min(1, p - i + 1))})`;
     });
   }, []);
+  const go = (index: number) => {
+    const element = scroll.current;
+    if (!element) return;
+    const instant = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element.scrollTo({
+      top: (index / (CHAPTERS.length - 1)) * (element.scrollHeight - element.clientHeight),
+      behavior: instant ? "instant" : "smooth",
+    });
+    if (instant) readScroll();
+  };
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduced(media.matches);

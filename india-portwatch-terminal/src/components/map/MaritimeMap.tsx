@@ -709,12 +709,16 @@ export function MaritimeMap({
       }
 
       const placedClusters: Overlay["clusters"] = [];
-      for (const mark of settings.current.trafficOn
+      for (const mark of settings.current.trafficOn && currentZoom >= 4
         ? latest.clusterMarks
         : []) {
         const point = project(mark.lon, mark.lat);
         if (!inFrame(point)) continue;
-        placedClusters.push({ mark, x: point.x, y: point.y });
+        const width = 6 + String(mark.count).length * 7;
+        const y = [point.y, point.y - 13, point.y + 13].find((top) =>
+          inFrame({ x: point.x, y: top }) && fits(point.x - width / 2, top, width),
+        );
+        if (y !== undefined) placedClusters.push({ mark, x: point.x, y });
       }
 
       const seas = SEA_LABELS.filter((sea) => currentZoom >= sea.minZoom)
@@ -831,6 +835,7 @@ export function MaritimeMap({
         {overlayState.clusters.map(({ mark, x, y }) => (
           <span
             key={mark.id}
+            data-map-cluster-count
             className="num absolute -translate-x-1/2 -translate-y-1/2 text-[10.5px] font-semibold text-[var(--text)]"
             style={{ left: x, top: y }}
           >
@@ -841,6 +846,7 @@ export function MaritimeMap({
         {overlayState.labels.map(({ label, x, y }) => (
           <button
             key={label.id}
+            data-map-port-label
             type="button"
             onClick={() => onSelectPort?.(label.id)}
             className={cn(

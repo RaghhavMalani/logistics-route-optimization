@@ -1432,3 +1432,8 @@ html {
     bottom: calc(var(--status-h) + 6.5rem);
   }
 }
+@media (min-width: 1200px) and (max-width: 1450px) {
+  .pw-dock[data-expanded="false"] {
+    width: min(26rem, calc(100vw - var(--nav-w) - 322px - min(24rem, 30vw)));
+  }
+}

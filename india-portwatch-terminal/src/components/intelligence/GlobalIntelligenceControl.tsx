@@ -76,16 +76,6 @@ export function GlobalIntelligenceControl({
       window.removeEventListener("hashchange", readHash);
     };
   }, [changeOpen]);
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("portwatch:inspector-visibility", { detail: open }),
-    );
-    return () => {
-      window.dispatchEvent(
-        new CustomEvent("portwatch:inspector-visibility", { detail: false }),
-      );
-    };
-  }, [open]);
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen} modal={false}>
       <div className="absolute bottom-[164px] right-3 z-30 pointer-events-auto">
