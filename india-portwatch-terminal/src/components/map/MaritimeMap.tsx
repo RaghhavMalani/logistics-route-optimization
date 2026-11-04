@@ -44,6 +44,7 @@ import {
 import {
   buildGhostFeatures,
   buildTrafficFeatures,
+  viewportTraffic,
   type ClusterMark,
   type VesselLabel,
 } from "./traffic-layers";
@@ -51,7 +52,12 @@ import { corridorFeatures } from "@/lib/maritime/searoutes";
 import { buildVesselIcons } from "./vessel-icons";
 import type { WeatherRaster } from "./weather-layers";
 import { WindLayer } from "./WindLayer";
-import { registeredPorts, usePortMiniature } from "./usePortMiniature";
+import {
+  registeredPorts,
+  schematicAnchor,
+  SCHEMATIC_ZOOM,
+} from "./port-placement";
+import { usePortMiniature } from "./usePortMiniature";
 
 export interface MapLabel {
   id: string;
@@ -225,7 +231,7 @@ export function MaritimeMap({
   overlay,
   className,
   minZoom = 2.6,
-  maxZoom = 13,
+  maxZoom = 14,
   onZoomChange,
   loadingLabel = "Initialising chart",
 }: MaritimeMapProps) {
@@ -247,6 +253,8 @@ export function MaritimeMap({
     registered,
     layers.ports !== false && !suspended,
   );
+  const miniatureRef = useRef(miniature);
+  miniatureRef.current = miniature;
   const cameraSelection = useRef({
     port: selectedPortCode,
     vessel: selectedVesselId,
@@ -687,6 +695,7 @@ export function MaritimeMap({
     let previousOffset: number | undefined;
     let previousHover: string | null | undefined;
     let previousSettings: typeof settings.current | undefined;
+    let previousMiniature = miniatureRef.current;
 
     const sourceOf = (
       key:
@@ -714,22 +723,40 @@ export function MaritimeMap({
       previousSettings = config;
       paintedVersion = cameraVersion;
 
-      const all = fixesAt(at);
-      const visible = config.vesselFilter
-        ? all.filter(config.vesselFilter)
-        : all;
-
-      const built = buildTrafficFeatures(visible, {
-        zoom: instance.getZoom(),
+      const zoom = instance.getZoom();
+      const bounds = instance.getBounds();
+      const center = instance.getCenter();
+      const viewport = {
+        zoom,
+        west: bounds.getWest(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        north: bounds.getNorth(),
+        lon: center.lng,
+        lat: center.lat,
+      };
+      const options = {
+        zoom,
         selectedId: config.selectedVesselId,
-        hoveredId: hoveredRef.current,
+        hoveredId: hover,
         focus: config.focusIds,
         pinned: config.pinnedIds,
         vectors: config.showVectors,
         labels: config.forceVesselLabels,
         maxLabels: config.maxVesselLabels,
         colorByType: config.colorByType,
-      });
+      };
+      const trafficAt = (instant: number) => {
+        const all = fixesAt(instant);
+        const filtered = config.vesselFilter
+          ? all.filter(config.vesselFilter)
+          : all;
+        return viewportTraffic(filtered, viewport, options);
+      };
+      const built = buildTrafficFeatures(
+        config.trafficOn ? trafficAt(at) : [],
+        options,
+      );
 
       sourceOf("vessels")?.setData(
         publish(
@@ -763,11 +790,9 @@ export function MaritimeMap({
       sourceOf("rings")?.setData(publish("rings", built.rings));
 
       const ghosts =
-        offset > 0.01
+        config.trafficOn && offset > 0.01
           ? buildGhostFeatures(
-              config.vesselFilter
-                ? fixesAt(clock.forecastAt()).filter(config.vesselFilter)
-                : fixesAt(clock.forecastAt()),
+              trafficAt(clock.forecastAt()),
               config.focusIds,
               config.colorByType,
             )
@@ -793,6 +818,8 @@ export function MaritimeMap({
         p.x > 6 && p.y > 6 && p.x < frameW - 10 && p.y < frameH - 10;
 
       const currentZoom = instance.getZoom();
+      const active =
+        currentZoom >= SCHEMATIC_ZOOM ? miniatureRef.current : null;
       const boxes: Array<[number, number, number, number]> = [];
       const fits = (x: number, y: number, width: number, height = 13) => {
         const box: [number, number, number, number] = [
@@ -824,24 +851,41 @@ export function MaritimeMap({
         .map((label) => project(label.lon, label.lat))
         .filter(inFrame);
       for (const label of [...settings.current.labels].sort(
-        (a, b) => Number(b.emphasis ?? false) - Number(a.emphasis ?? false),
+        (a, b) =>
+          Number(b.id === active?.code) - Number(a.id === active?.code) ||
+          Number(b.emphasis ?? false) - Number(a.emphasis ?? false),
       )) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
         const portLabel = settings.current.portIds.has(label.id);
         if (portLabel && !settings.current.portsOn) continue;
+        const isSchematic = active?.code === label.id;
         const width =
           14 +
           label.text.length * 6.2 +
           (label.sub?.length ?? 0) * 5.2 +
-          (miniature?.code === label.id ? 60 : 0);
-        const offset = miniature?.code === label.id ? 49 : 12;
-        const x =
-          point.x + offset + width < frameW
-            ? point.x + offset
-            : point.x - width - offset;
-        const y = point.y - 11;
-        if (x < 6 || !fits(x, y, width)) continue;
+          (isSchematic ? 65 : 0);
+        let x =
+          point.x + 12 + width < frameW ? point.x + 12 : point.x - width - 12;
+        let y = point.y - 11;
+        if (isSchematic) {
+          const inland = instance.project(schematicAnchor(active, currentZoom));
+          const dx = inland.x - point.x;
+          const dy = inland.y - point.y;
+          // Put the label on the seaward side of the pin in screen space.
+          const seawardX = dx >= 0 ? point.x - width - 14 : point.x + 14;
+          if (
+            Math.abs(dx) >= 0.6 * Math.abs(dy) &&
+            seawardX >= 6 &&
+            seawardX + width <= frameW - 6
+          ) {
+            x = seawardX;
+          } else {
+            x = Math.max(6, Math.min(frameW - width - 6, point.x - width / 2));
+            y = point.y + (dy >= 0 ? -22 : 22);
+          }
+        }
+        if (x < 6 || x + width > frameW - 6 || !fits(x, y, width)) continue;
         placedLabels.push({ label, x, y });
       }
 
@@ -895,11 +939,16 @@ export function MaritimeMap({
     };
 
     const loop = (time: number) => {
+      if (document.hidden) return;
       raf = requestAnimationFrame(loop);
       if (suspendedRef.current) return;
+      if (previousMiniature !== miniatureRef.current) {
+        previousMiniature = miniatureRef.current;
+        overlayDirty = true;
+      }
       // Fifteen hertz for geometry: smooth at any replay rate, and an order of
       // magnitude cheaper than writing a GeoJSON source every frame.
-      if (time - lastWrite >= 66) {
+      if (time - lastWrite >= (instance.isMoving() ? 100 : 66)) {
         lastWrite = time;
         const changed = write();
         if (changed) {
@@ -914,11 +963,21 @@ export function MaritimeMap({
       }
     };
 
-    raf = requestAnimationFrame(loop);
     const invalidate = () => {
       cameraVersion += 1;
       overlayDirty = true;
     };
+    const syncVisibility = () => {
+      cancelAnimationFrame(raf);
+      if (document.hidden) {
+        instance.stop();
+        return;
+      }
+      invalidate();
+      raf = requestAnimationFrame(loop);
+    };
+    document.addEventListener("visibilitychange", syncVisibility);
+    syncVisibility();
     const motion = window.matchMedia(REDUCED_MOTION);
     const stopMotion = () => {
       if (motion.matches) instance.stop();
@@ -929,11 +988,12 @@ export function MaritimeMap({
 
     return () => {
       cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", syncVisibility);
       instance.off("move", invalidate);
       instance.off("resize", invalidate);
       motion.removeEventListener("change", stopMotion);
     };
-  }, [clock, fixesAt, miniature?.code, ready]);
+  }, [clock, fixesAt, ready]);
 
   const hoverFix = useMemo(() => {
     if (!hovered) return null;
