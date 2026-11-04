@@ -87,7 +87,7 @@ export function TimeTransport({
   const controls = (
     <div
       className={cn(
-        "pointer-events-auto flex items-center gap-3 rounded-[3px] border border-[var(--line-strong)]",
+        "pw-time-transport pointer-events-auto flex min-w-0 items-center gap-3 rounded-[3px] border border-[var(--line-strong)]",
         "bg-[var(--panel)]/95 px-2.5 py-1.5 backdrop-blur-[3px] shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
         access?.mobile && "flex-wrap",
         className,

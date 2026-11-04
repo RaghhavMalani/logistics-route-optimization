@@ -1413,3 +1413,22 @@ html {
 .pw-worklist input {
   accent-color: var(--info);
 }
+
+@media (min-width: 901px) and (max-width: 1450px) {
+  .pw-time-transport {
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .pw-status-line {
+    min-width: 0;
+    gap: 0.55rem;
+    overflow-x: auto;
+  }
+  .pw-status-line > * { flex-shrink: 0; }
+  .pw-dock[data-expanded="false"] {
+    right: min(24rem, 30vw);
+    top: calc(var(--topbar-h) + 2.5rem);
+    bottom: calc(var(--status-h) + 6.5rem);
+  }
+}

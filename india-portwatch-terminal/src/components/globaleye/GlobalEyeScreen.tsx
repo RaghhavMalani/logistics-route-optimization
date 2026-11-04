@@ -790,7 +790,7 @@ export function GlobalEyeScreen({
                     ) : null}
                     {totals.hours ? (
                       <span className="num" data-testid="total-hours">
-                        {totals.hours.value.toFixed(0)} h aggregate shift
+                        {totals.hours.value.toFixed(0)} h total modelled arrival shift across affected vessels
                       </span>
                     ) : null}
                     {totals.ratio ? (

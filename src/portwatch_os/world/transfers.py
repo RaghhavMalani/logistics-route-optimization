@@ -411,7 +411,10 @@ def vessel_reaches_port(
             shift,
             HOURS,
             confidence=0.85,
-            detour_hours=round(detour_hours, 1),
+            detour_hours=detour_hours,
+            detour_nm=src.attrs.get("detour_nm"),
+            detour_speed_kn=max(1.0, float(src.attrs["service_speed_kn"])) if src.attrs.get("service_speed_kn") is not None else None,
+            exposure_factor=quantity.value,
             port=dst.identifier,
         )
     )
