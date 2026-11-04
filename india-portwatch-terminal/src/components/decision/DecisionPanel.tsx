@@ -35,6 +35,10 @@ import type {
 } from "@/types/decisions";
 
 import { DecisionTimeline } from "./DecisionTimeline";
+import {
+  scrollToWorkflowStep,
+  WorkflowRail,
+} from "@/components/miniature/WorkflowRail";
 import { CommercialReview } from "./CommercialReview";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
@@ -66,14 +70,14 @@ const VERDICT_TONE: Record<CriticVerdict, Tone> = {
   REJECT: "crit",
 };
 
-const WORKFLOW: Array<{ state: string; label: string }> = [
-  { state: "COMPUTED", label: "Computed" },
-  { state: "REVIEWED", label: "Reviewed" },
-  { state: "APPROVED", label: "Approved" },
-  { state: "PROPOSED", label: "Proposed" },
-  { state: "ISSUED", label: "Issued" },
-  { state: "ACCEPTED", label: "Accepted" },
-  { state: "OBSERVED", label: "Observed" },
+const WORKFLOW = [
+  { key: "COMPUTED", label: "Computed" },
+  { key: "REVIEWED", label: "Reviewed" },
+  { key: "APPROVED", label: "Approved" },
+  { key: "PROPOSED", label: "Proposed" },
+  { key: "ISSUED", label: "Issued" },
+  { key: "ACCEPTED", label: "Accepted" },
+  { key: "OBSERVED", label: "Observed" },
 ];
 
 /** The columns shown per domain, in order. */
@@ -187,6 +191,14 @@ export function DecisionPanel({
   const { identityHeaders, session } = useAuth();
   const workflow = useDecisionWorkflow(identityHeaders);
   const [tab, setTab] = useState<Tab>("options");
+  const [workflowTarget, setWorkflowTarget] = useState<{ key: string } | null>(
+    null,
+  );
+  const currentStage =
+    WORKFLOW.find((step) => step.key === problem.workflow)?.key ??
+    problem.workflowHistory
+      .filter((entry) => WORKFLOW.some((step) => step.key === entry.state))
+      .at(-1)?.state;
   useEffect(() => {
     document
       .querySelector<HTMLElement>(
@@ -343,6 +355,18 @@ export function DecisionPanel({
             ? "Current plan and alternatives use frozen declarations and forecast hours."
             : problem.doNothingStatement}
         </p>
+      </div>
+
+      <div className="pw-decision-rail">
+        <WorkflowRail
+          label="Decision progress"
+          steps={WORKFLOW}
+          current={currentStage}
+          onStep={(key) => {
+            setTab("workflow");
+            setWorkflowTarget({ key });
+          }}
+        />
       </div>
 
       {currentWeather?.passageComparison ? (
@@ -806,6 +830,7 @@ export function DecisionPanel({
         {tab === "workflow" ? (
           <WorkflowView
             problem={problem}
+            target={workflowTarget}
             selected={selected}
             canHandoff={canHandoff && session?.user.canApprove !== false}
             canApprove={session?.user.canApprove !== false}
@@ -1164,6 +1189,7 @@ function CriticView({
 
 function WorkflowView({
   problem,
+  target,
   selected,
   canHandoff,
   canApprove,
@@ -1177,6 +1203,7 @@ function WorkflowView({
   handoffResult,
 }: {
   problem: DecisionProblem;
+  target: { key: string } | null;
   selected: DecisionOption | null;
   canHandoff: boolean;
   canApprove: boolean;
@@ -1193,7 +1220,15 @@ function WorkflowView({
 }) {
   const [observedEta, setObservedEta] = useState("");
   const [incident, setIncident] = useState(false);
-  const current = WORKFLOW.findIndex((w) => w.state === problem.workflow);
+  const workflowLog = useRef<HTMLOListElement>(null);
+  useEffect(() => {
+    if (!target) return;
+    scrollToWorkflowStep(
+      workflowLog.current?.querySelector(
+        `[data-workflow-stage="${target.key}"]`,
+      ),
+    );
+  }, [target]);
   const chosen =
     problem.options.find((o) => o.optionId === problem.humanChoice) ?? null;
   const execution = problem.evidence?.execution as
@@ -1209,29 +1244,6 @@ function WorkflowView({
       className="flex flex-col gap-2 px-2 py-1.5"
       data-testid="decision-workflow"
     >
-      <ol className="flex flex-wrap items-center gap-0.5">
-        {WORKFLOW.map((step, index) => (
-          <li key={step.state} className="flex items-center gap-0.5">
-            <span
-              data-state={step.state}
-              data-reached={index <= current}
-              className={cn(
-                "num rounded px-1 py-[1px] text-[10px] uppercase tracking-wide",
-                index === current
-                  ? "bg-[var(--accent)] text-[var(--surface)]"
-                  : index < current
-                    ? "text-[var(--text-2)]"
-                    : "text-[var(--text-3)]",
-              )}
-            >
-              {step.label}
-            </span>
-            {index < WORKFLOW.length - 1 ? (
-              <span className="text-[10px] text-[var(--text-3)]">›</span>
-            ) : null}
-          </li>
-        ))}
-      </ol>
       <p className="text-[10px] leading-snug text-[var(--text-3)]">
         Decision ≠ execution. A named person reviews and approves;{" "}
         {execution?.mechanism === "ISSUE_ADVISORY"
@@ -1391,18 +1403,43 @@ function WorkflowView({
       {error ? (
         <p className="text-[10.5px] text-[var(--crit)]">{error}</p>
       ) : null}
-      <ol className="flex flex-col gap-[2px]">
-        {problem.workflowHistory.map((step, index) => (
-          <li
-            key={`${step.state}-${index}`}
-            className="num text-[10px] text-[var(--text-3)]"
-          >
-            {step.at.slice(0, 16).replace("T", " ")} · {step.state} ·{" "}
-            {step.actor}
-            {step.optionId ? ` · ${step.optionId}` : ""}
-            {step.note ? ` · ${step.note}` : ""}
-          </li>
-        ))}
+      <ol ref={workflowLog} className="pw-decision-workflow-log">
+        {WORKFLOW.map(({ key, label }) => {
+          const history = problem.workflowHistory.filter(
+            (entry) => entry.state === key,
+          );
+          return (
+            <li key={key} data-workflow-stage={key}>
+              <h3>{label}</h3>
+              {history.length ? (
+                <ul>
+                  {history.map((step, index) => (
+                    <li key={index}>
+                      {step.at.slice(0, 16).replace("T", " ")} · {step.actor}
+                      {step.optionId ? ` · ${step.optionId}` : ""}
+                      {step.note ? ` · ${step.note}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Pending</p>
+              )}
+            </li>
+          );
+        })}
+        {problem.workflowHistory
+          .filter((entry) => !WORKFLOW.some((step) => step.key === entry.state))
+          .map((step, index) => (
+            <li
+              key={`${step.state}-${index}`}
+              className="num text-[10px] text-[var(--text-3)]"
+            >
+              {step.at.slice(0, 16).replace("T", " ")} · {step.state} ·{" "}
+              {step.actor}
+              {step.optionId ? ` · ${step.optionId}` : ""}
+              {step.note ? ` · ${step.note}` : ""}
+            </li>
+          ))}
       </ol>
     </div>
   );

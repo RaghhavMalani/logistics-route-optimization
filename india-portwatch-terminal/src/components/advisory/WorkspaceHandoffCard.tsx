@@ -1,5 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
+import { HandoffJourney } from "./HandoffJourney";
 
 const companyStages: Record<string, string> = {
   COMPANY_PROPOSED: "Waiting on Port",
@@ -34,7 +35,7 @@ export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
   return (
     <section
       aria-label={title}
-      className="pointer-events-auto max-h-40 shrink-0 overflow-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2 text-xs"
+      className="pw-handoff-card pointer-events-auto max-h-44 shrink-0 overflow-auto p-2 text-xs"
     >
       <h2 className="font-semibold">
         {title}
@@ -66,6 +67,11 @@ export function WorkspaceHandoffCard({ view }: { view: "vessel" | "company" }) {
             key={item.id}
             className="mt-2 border-t border-[var(--line)] pt-2"
           >
+            <HandoffJourney
+              id={item.id}
+              state={item.state}
+              viewer={session?.demoId ?? session?.user.id}
+            />
             <strong>{item.vesselName}</strong> · {item.portCode}
             <p>
               {isVessel
