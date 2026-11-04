@@ -6,9 +6,9 @@ import { join } from "node:path";
 import { chromium, expect } from "@playwright/test";
 
 const replay = process.argv.includes("--replay");
-const panel = process.argv.includes("--panel");
-if (replay && panel) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
-const offline = replay || panel;
+const panelMode = process.argv.includes("--panel");
+if (replay && panelMode) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
+const offline = replay || panelMode;
 const origin = process.env.PORTWATCH_PANEL_ORIGIN ?? (offline ? "http://127.0.0.1:4262" : "http://127.0.0.1:4263");
 const api = process.env.PORTWATCH_PANEL_API ?? (offline ? "http://127.0.0.1:9297/api" : "http://127.0.0.1:9298/api");
 const originUrl = new URL(origin);
@@ -70,7 +70,7 @@ async function run(width, height) {
   const context = await browser.newContext({
     viewport: { width, height },
     reducedMotion: videoDir ? "no-preference" : "reduce",
-    ...(panel ? { serviceWorkers: "block" } : {}),
+    ...(panelMode ? { serviceWorkers: "block" } : {}),
     ...(videoDir ? { recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } } } : {}),
   });
   const page = await context.newPage();
@@ -124,7 +124,7 @@ async function run(width, height) {
     assert.equal(result.advisoryId, id);
   }
   try {
-    if (panel) {
+    if (panelMode) {
       results.blockedOutbound = [];
       await blockOutbound(context, results.blockedOutbound);
       assert.equal((await call("/health")).worldClock.mode, "REPLAY");
@@ -167,7 +167,7 @@ async function run(width, height) {
     const scenario = await read(calculation);
     const problem = scenario.problem;
     assert(problem);
-    if (panel) assert.equal(problem.evidence.currentEnvironment.scenario.panelReplay, true);
+    if (panelMode) assert.equal(problem.evidence.currentEnvironment.scenario.panelReplay, true);
     const choice = problem.options.find((option) => option.status === "FEASIBLE" && /10(?:\.0)? kn/i.test(option.label));
     assert(choice);
     await scenarios.getByRole("button", { name: "See full comparison" }).click();
