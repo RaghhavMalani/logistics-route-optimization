@@ -149,7 +149,7 @@ function VesselBridge() {
 
   return (
     <div className="absolute inset-0">
-      <h1 className="sr-only">Fleet Bridge</h1>
+      <h1 className="sr-only">Vessel Bridge</h1>
 
       <MaritimeMap
         layers={workspace.layers}
@@ -205,6 +205,7 @@ function VesselBridge() {
               <TimeTransport
                 timeline={workspace.timeline}
                 weatherAt={workspace.weatherAt}
+                className="flex-wrap [&>div:last-child]:basis-full"
               />
             </div>
 
@@ -243,7 +244,7 @@ function VesselBridge() {
                     <dt>Passage weather</dt>
                     <dd>
                       {worst
-                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route samples`
+                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route ${exposure.length === 1 ? "sample" : "samples"}`
                         : "No forecast coverage for this passage"}
                     </dd>
                   </dl>
