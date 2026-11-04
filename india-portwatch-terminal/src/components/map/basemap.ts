@@ -602,34 +602,18 @@ export function buildStyle(): StyleSpecification {
 
       /* ----------------------------------------------------------- ports -- */
       {
-        id: "port-pressure",
-        type: "circle",
-        source: "ports",
-        paint: {
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            3,
-            ["+", 6, ["*", 10, ["get", "pressure"]]],
-            9,
-            ["+", 16, ["*", 30, ["get", "pressure"]]],
-          ],
-          "circle-color": ["get", "color"],
-          "circle-opacity": 0.1,
-          "circle-stroke-color": ["get", "color"],
-          "circle-stroke-width": 0.8,
-          "circle-stroke-opacity": 0.32,
-        },
-      },
-      {
         id: "port-mark",
         type: "circle",
         source: "ports",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4.2, 9, 8],
           "circle-color": COLORS.panel,
-          "circle-stroke-color": ["get", "color"],
+          "circle-stroke-color": [
+            "case",
+            ["==", ["get", "selected"], true],
+            COLORS.action,
+            COLORS.coast,
+          ],
           "circle-stroke-width": [
             "case",
             ["==", ["get", "selected"], true],
@@ -652,7 +636,12 @@ export function buildStyle(): StyleSpecification {
             9,
             3.4,
           ],
-          "circle-color": ["get", "color"],
+          "circle-color": [
+            "case",
+            ["==", ["get", "selected"], true],
+            COLORS.action,
+            COLORS.chart2,
+          ],
         },
       },
 
@@ -814,7 +803,7 @@ export const LAYER_GROUPS = {
   ghosts: ["ghost-mark"],
   weather: ["wx-field"],
   storms: ["storm-area", "storm-edge"],
-  ports: ["port-pressure", "port-mark", "port-core"],
+  ports: ["port-mark", "port-core"],
   corridors: ["corridor-line"],
   routes: [
     "route-behind",

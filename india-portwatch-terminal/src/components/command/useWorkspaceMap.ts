@@ -162,11 +162,6 @@ function portFeatures(
           name: port.name,
           risk: port.risk,
           color: portColor(port.risk),
-          pressure: Math.min(
-            1,
-            (port.queuePressure ?? 0) * 0.7 +
-              (port.capacityPressure ?? 0) * 0.4,
-          ),
           selected: selected === port.code,
         },
         geometry: {

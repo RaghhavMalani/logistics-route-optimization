@@ -127,11 +127,10 @@ export function GlobalEyeScreen({
   }, [live, selectedEventId, world]);
 
   const cascade = useWorldCascade(selectedEventId, identityHeaders, at);
-  const reveal = useCascadeReveal(
-    selectedEventId ? `${selectedEventId}@${projectionHours}` : null,
-  );
-
   const affected = cascade.data?.affected;
+  const reveal = useCascadeReveal(
+    affected && selectedEventId ? `${selectedEventId}@${projectionHours}` : null,
+  );
   const layers = useMemo(
     () => cascadeLayers(affected, reveal.reveal),
     [affected, reveal.reveal],

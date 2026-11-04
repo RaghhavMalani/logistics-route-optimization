@@ -51,6 +51,7 @@ import { corridorFeatures } from "@/lib/maritime/searoutes";
 import { buildVesselIcons } from "./vessel-icons";
 import type { WeatherRaster } from "./weather-layers";
 import { WindLayer } from "./WindLayer";
+import { registeredPorts, usePortMiniature } from "./usePortMiniature";
 
 export interface MapLabel {
   id: string;
@@ -154,6 +155,26 @@ const EMPTY_OVERLAY: Overlay = {
   clusters: [],
 };
 
+const CHAPTER_CAMERA = { pitch: 50, bearing: -12 };
+
+function chapterTransition() {
+  return {
+    ...CHAPTER_CAMERA,
+    duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? 0
+      : 1050,
+    easing: (t: number) => t * t * (3 - 2 * t),
+  };
+}
+
+function glideTo(map: MapLibreMap, center: [number, number], zoom: number) {
+  map.flyTo({
+    ...chapterTransition(),
+    center,
+    zoom: Math.min(map.getMaxZoom(), zoom),
+  });
+}
+
 /**
  * The geometry the chart last wrote, exposed for the browser suite.
  *
@@ -185,7 +206,7 @@ export function MaritimeMap({
   vesselFilter,
   focusIds = null,
   pinnedIds,
-  selectedVesselId = null,
+  selectedVesselId: vesselSelection,
   onSelectVessel,
   onSelectObserved,
   onHoverVessel,
@@ -210,6 +231,24 @@ export function MaritimeMap({
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const [suspended, setSuspended] = useState(false);
+  const [mapSelection, setMapSelection] = useState<string | null>(null);
+  const selectedVesselId =
+    vesselSelection === undefined ? mapSelection : vesselSelection;
+  const registered = useMemo(() => registeredPorts(data?.ports), [data?.ports]);
+  const portIds = useMemo(
+    () => new Set(registered.map((port) => port.code)),
+    [registered],
+  );
+  const miniature = usePortMiniature(
+    map,
+    registered,
+    layers.ports !== false && !suspended,
+  );
+  const cameraSelection = useRef({
+    port: selectedPortCode,
+    vessel: selectedVesselId,
+    focus: focus?.token,
+  });
   const suspendedRef = useRef(false);
   useEffect(() => {
     // Keep the original chart, camera and selections while the additional globe
@@ -247,6 +286,8 @@ export function MaritimeMap({
     labels,
     colorByType,
     trafficOn: layers.traffic !== false,
+    portsOn: layers.ports !== false,
+    portIds,
   });
   settings.current = {
     vesselFilter,
@@ -259,17 +300,19 @@ export function MaritimeMap({
     labels,
     colorByType,
     trafficOn: layers.traffic !== false,
+    portsOn: layers.ports !== false,
+    portIds,
   };
 
   const handlers = useRef({
-    onSelectVessel,
+    onSelectVessel: onSelectVessel ?? setMapSelection,
     onSelectObserved,
     onHoverVessel,
     onSelectPort,
     onZoomChange,
   });
   handlers.current = {
-    onSelectVessel,
+    onSelectVessel: onSelectVessel ?? setMapSelection,
     onSelectObserved,
     onHoverVessel,
     onSelectPort,
@@ -290,6 +333,7 @@ export function MaritimeMap({
           style: buildStyle(),
           center: view?.center ?? INDIA_VIEW.center,
           zoom: view?.zoom ?? INDIA_VIEW.zoom,
+          ...CHAPTER_CAMERA,
           minZoom,
           maxZoom,
           maxBounds: REGION_BOUNDS,
@@ -366,36 +410,42 @@ export function MaritimeMap({
           const features = instance.queryRenderedFeatures(event.point, {
             layers: pickable,
           });
-          const top = features[0];
+          const top =
+            features.find((feature) => feature.layer.id === "port-core") ??
+            features[0];
           if (!top) {
             handlers.current.onSelectVessel?.(null);
             handlers.current.onSelectObserved?.(null);
             return;
           }
           const id = top.properties?.id;
+          const center = (top.geometry as GeoJSON.Point).coordinates as [
+            number,
+            number,
+          ];
           if (top.layer.id === "observed-mark" && typeof id === "string") {
             handlers.current.onSelectObserved?.(id);
             handlers.current.onSelectVessel?.(null);
+            glideTo(instance, center, Math.max(instance.getZoom(), 8));
             return;
           }
           if (top.layer.id === "vessel-mark" && typeof id === "string") {
+            cameraSelection.current.vessel = id;
             handlers.current.onSelectVessel?.(id);
             handlers.current.onSelectObserved?.(null);
+            glideTo(instance, center, Math.max(instance.getZoom(), 8));
             return;
           }
           if (top.layer.id === "cluster-mark") {
-            instance.easeTo({
-              center: (top.geometry as GeoJSON.Point).coordinates as [
-                number,
-                number,
-              ],
-              zoom: Math.min(maxZoom, instance.getZoom() + 2.2),
-              duration: 420,
-            });
+            glideTo(instance, center, instance.getZoom() + 2.2);
             return;
           }
           const code = top.properties?.code;
-          if (typeof code === "string") handlers.current.onSelectPort?.(code);
+          if (typeof code === "string") {
+            cameraSelection.current.port = code;
+            handlers.current.onSelectPort?.(code);
+            glideTo(instance, center, Math.max(instance.getZoom(), 11.5));
+          }
         });
       })
       .catch((error: unknown) => {
@@ -512,9 +562,8 @@ export function MaritimeMap({
         padding.left + padding.right < box.clientWidth - 80 &&
         padding.top + padding.bottom < box.clientHeight - 80;
       instance.fitBounds(focus.bounds, {
+        ...chapterTransition(),
         padding: fits ? padding : 24,
-        duration: 900,
-        essential: true,
         maxZoom: 7,
       });
       return;
@@ -573,14 +622,42 @@ export function MaritimeMap({
           "visibility",
           outside ? "visible" : "none",
         );
-    instance.flyTo({
-      center: focus.center,
-      zoom: focus.zoom ?? Math.max(instance.getZoom(), 7),
-      duration: 900,
-      essential: true,
-    });
+    glideTo(
+      instance,
+      focus.center,
+      focus.zoom ?? Math.max(instance.getZoom(), 7),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.token, ready]);
+
+  useEffect(() => {
+    const previous = cameraSelection.current;
+    cameraSelection.current = {
+      port: selectedPortCode,
+      vessel: selectedVesselId,
+      focus: focus?.token,
+    };
+    if (!map || previous.focus !== focus?.token) return;
+    if (selectedPortCode && selectedPortCode !== previous.port) {
+      const port = registered.find(
+        (candidate) => candidate.code === selectedPortCode,
+      );
+      if (port) glideTo(map, port.center, Math.max(map.getZoom(), 11.5));
+    } else if (selectedVesselId && selectedVesselId !== previous.vessel) {
+      const fix = fixesAt(clock.now()).find(
+        (candidate) => candidate.id === selectedVesselId,
+      );
+      if (fix) glideTo(map, [fix.lon, fix.lat], Math.max(map.getZoom(), 8));
+    }
+  }, [
+    clock,
+    fixesAt,
+    focus?.token,
+    map,
+    registered,
+    selectedPortCode,
+    selectedVesselId,
+  ]);
 
   /* --------------------------------------------------------- traffic loop -- */
   useEffect(() => {
@@ -626,7 +703,26 @@ export function MaritimeMap({
             : { type: "FeatureCollection", features: [] },
         ),
       );
-      sourceOf("clusters")?.setData(publish("clusters", built.clusters));
+      const portMarkers = config.portsOn
+        ? config.labels
+            .filter((label) => config.portIds.has(label.id))
+            .map((label) => instance.project([label.lon, label.lat]))
+        : [];
+      const clusterMarks = built.clusterMarks.filter((cluster) => {
+        const point = instance.project([cluster.lon, cluster.lat]);
+        return !portMarkers.some(
+          (port) => Math.hypot(port.x - point.x, port.y - point.y) < 18,
+        );
+      });
+      const clusterIds = new Set(clusterMarks.map((cluster) => cluster.id));
+      sourceOf("clusters")?.setData(
+        publish("clusters", {
+          type: "FeatureCollection",
+          features: built.clusters.features.filter((feature) =>
+            clusterIds.has(feature.properties?.id),
+          ),
+        }),
+      );
       sourceOf("vectors")?.setData(publish("vectors", built.vectors));
       sourceOf("rings")?.setData(publish("rings", built.rings));
 
@@ -646,7 +742,7 @@ export function MaritimeMap({
             } as GeoJSON.FeatureCollection);
       sourceOf("ghosts")?.setData(publish("ghosts", ghosts));
 
-      return built;
+      return { ...built, clusterMarks };
     };
 
     let latest = write();
@@ -685,15 +781,30 @@ export function MaritimeMap({
       };
 
       const placedLabels: Overlay["labels"] = [];
+      const markerPoints = [...settings.current.labels]
+        .filter(
+          (label) =>
+            settings.current.portsOn && settings.current.portIds.has(label.id),
+        )
+        .map((label) => project(label.lon, label.lat))
+        .filter(inFrame);
       for (const label of [...settings.current.labels].sort(
         (a, b) => Number(b.emphasis ?? false) - Number(a.emphasis ?? false),
       )) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
+        const portLabel = settings.current.portIds.has(label.id);
+        if (portLabel && !settings.current.portsOn) continue;
         const width =
-          14 + label.text.length * 6.2 + (label.sub?.length ?? 0) * 5.2;
-        if (!fits(point.x + 8, point.y, width)) continue;
-        placedLabels.push({ label, x: point.x, y: point.y });
+          14 +
+          label.text.length * 6.2 +
+          (label.sub?.length ?? 0) * 5.2 +
+          (miniature?.code === label.id ? 60 : 0);
+        const x =
+          point.x + 12 + width < frameW ? point.x + 12 : point.x - width - 12;
+        const y = point.y - 11;
+        if (x < 6 || !fits(x, y, width)) continue;
+        placedLabels.push({ label, x, y });
       }
 
       // No traffic, no traffic names: a chart whose hulls are hidden must not
@@ -715,10 +826,14 @@ export function MaritimeMap({
         const point = project(mark.lon, mark.lat);
         if (!inFrame(point)) continue;
         const width = 6 + String(mark.count).length * 7;
-        const y = [point.y, point.y - 13, point.y + 13].find((top) =>
-          inFrame({ x: point.x, y: top }) && fits(point.x - width / 2, top, width),
-        );
-        if (y !== undefined) placedClusters.push({ mark, x: point.x, y });
+        if (
+          markerPoints.some(
+            (port) => Math.hypot(port.x - point.x, port.y - point.y) < 18,
+          )
+        )
+          continue;
+        if (fits(point.x - width / 2, point.y, width))
+          placedClusters.push({ mark, x: point.x, y: point.y });
       }
 
       const seas = SEA_LABELS.filter((sea) => currentZoom >= sea.minZoom)
@@ -764,7 +879,7 @@ export function MaritimeMap({
       cancelAnimationFrame(raf);
       instance.off("move", invalidate);
     };
-  }, [clock, fixesAt, ready]);
+  }, [clock, fixesAt, miniature?.code, ready]);
 
   const hoverFix = useMemo(() => {
     if (!hovered) return null;
@@ -820,7 +935,8 @@ export function MaritimeMap({
             style={{
               left: x + 9,
               top: y - 9,
-              textShadow: "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel)",
+              textShadow:
+                "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel)",
             }}
           >
             {label.text}
@@ -848,7 +964,16 @@ export function MaritimeMap({
             key={label.id}
             data-map-port-label
             type="button"
-            onClick={() => onSelectPort?.(label.id)}
+            onClick={() => {
+              const port = registered.find(
+                (candidate) => candidate.code === label.id,
+              );
+              if (map && port) {
+                cameraSelection.current.port = port.code;
+                glideTo(map, port.center, Math.max(map.getZoom(), 11.5));
+              }
+              onSelectPort?.(label.id);
+            }}
             className={cn(
               "pointer-events-auto absolute -translate-y-1/2 whitespace-nowrap px-1 text-left leading-tight",
               "tracking-[0.02em] transition-colors",
@@ -862,7 +987,7 @@ export function MaritimeMap({
                   : "font-medium",
             )}
             style={{
-              left: x + 9,
+              left: x,
               top: y,
               color: label.muted
                 ? (label.color ?? "var(--text-3)")
@@ -874,6 +999,14 @@ export function MaritimeMap({
             }}
           >
             {label.text}
+            {miniature?.code === label.id ? (
+              <span
+                data-testid="port-miniature-label"
+                className="num ml-1 text-[10px] text-[var(--text-3)]"
+              >
+                · schematic
+              </span>
+            ) : null}
             {label.sub ? (
               <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
                 {label.sub}
