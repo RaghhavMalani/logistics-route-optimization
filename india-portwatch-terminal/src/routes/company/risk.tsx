@@ -1,15 +1,28 @@
+import { ExposureScore } from "@/components/company/ExposureScore";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useWorkspace } from "@/auth/AuthProvider";
-import { VesselExposureRow, exposureTone } from "@/components/globaleye/EventPanels";
-import { Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import {
+  VesselExposureRow,
+  exposureTone,
+} from "@/components/globaleye/EventPanels";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Pill, formatUtc } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
 import { useCompanyRisk } from "@/services/os-hooks";
 
-export const Route = createFileRoute("/company/risk")({ component: CompanyRisk });
+export const Route = createFileRoute("/company/risk")({
+  head: () => ({ meta: [{ title: "PortWatch X — Risk" }] }),
+  component: CompanyRisk,
+});
 
 const HORIZONS = [24, 48, 72, 168];
 
@@ -40,7 +53,9 @@ function CompanyRisk() {
 
   const actionRequired = query.data?.actionRequired ?? [];
   const monitorOnly = query.data?.monitorOnly ?? [];
-  const ports = Object.values(query.data?.portRisk ?? {}).sort((a, b) => b.risk - a.risk);
+  const ports = Object.values(query.data?.portRisk ?? {}).sort(
+    (a, b) => b.risk - a.risk,
+  );
 
   return (
     <Page>
@@ -48,8 +63,8 @@ function CompanyRisk() {
         title="Risk"
         context={
           <span>
-            {query.data?.vesselsExposed ?? 0} of {query.data?.fleetSize ?? 0} vessels
-            exposed
+            {query.data?.vesselsExposed ?? 0} of {query.data?.fleetSize ?? 0}{" "}
+            vessels exposed
           </span>
         }
         actions={
@@ -89,7 +104,10 @@ function CompanyRisk() {
               />
             ) : (
               actionRequired.map((row) => (
-                <VesselExposureRow key={`${row.vesselId}-${row.eventId}`} row={row} />
+                <VesselExposureRow
+                  key={`${row.vesselId}-${row.eventId}`}
+                  row={row}
+                />
               ))
             )}
           </Panel>
@@ -108,12 +126,15 @@ function CompanyRisk() {
             ) : (
               <>
                 <p className="border-b border-[var(--line)] px-2 py-1.5 text-[10px] leading-snug text-[var(--text-3)]">
-                  These vessels are inside the exposed water. The diversion option has
-                  closed, so no routing action is offered — they are listed so they are
-                  not mistaken for safe.
+                  These vessels are inside the exposed water. The diversion
+                  option has closed, so no routing action is offered — they are
+                  listed so they are not mistaken for safe.
                 </p>
                 {monitorOnly.map((row) => (
-                  <VesselExposureRow key={`${row.vesselId}-${row.eventId}`} row={row} />
+                  <VesselExposureRow
+                    key={`${row.vesselId}-${row.eventId}`}
+                    row={row}
+                  />
                 ))}
               </>
             )}
@@ -142,7 +163,7 @@ function CompanyRisk() {
                             `text-[var(--${exposureTone(port.risk)})]`,
                           )}
                         >
-                          {port.risk.toFixed(2)}
+                          <ExposureScore value={port.risk} />
                         </span>
                       </div>
                       {port.arrivalShiftHours ? (

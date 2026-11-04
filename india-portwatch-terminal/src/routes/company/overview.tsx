@@ -20,16 +20,20 @@
  * is on by default.
  */
 
+import { ExposureScore } from "@/components/company/ExposureScore";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, ArrowUpRight, Ship } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Link } from "@tanstack/react-router";
+import { useAuth } from "@/auth/AuthProvider";
 
 import { useWorkspace } from "@/auth/AuthProvider";
 import { AgentConsole } from "@/components/agent/AgentConsole";
+import { DemonstrationScenarios } from "@/components/intelligence/DemonstrationScenarios";
+import type { DecisionOption } from "@/types/decisions";
 import { CompanyIntelligenceQueue } from "@/components/intelligence/CompanyIntelligenceQueue";
-import { useFixes } from "@/components/app/traffic-context";
+import { useFixes, useTraffic } from "@/components/app/traffic-context";
 import {
   MaritimeSearch,
   type SearchHit,
@@ -59,6 +63,7 @@ import { useCompanyFleet, useCompanyRisk } from "@/services/os-hooks";
 import type { CompanyRiskRow, FleetVessel } from "@/types/portwatch-os";
 
 export const Route = createFileRoute("/company/overview")({
+  head: () => ({ meta: [{ title: "PortWatch X — Fleet Command" }] }),
   component: FleetCommand,
 });
 
@@ -78,7 +83,7 @@ function fleetRoutes(
     features.push({
       type: "Feature",
       properties: {
-        part: "fleet",
+        part: "exposure",
         id: vessel.vessel_id,
         color:
           exposure >= 0.55
@@ -131,7 +136,7 @@ function ActionRow({
             `text-[var(--${exposureTone(row.exposure)})]`,
           )}
         >
-          {row.exposure.toFixed(2)}
+          <ExposureScore value={row.exposure} />
         </span>
       </div>
 
@@ -175,10 +180,17 @@ function ActionRow({
 
 function FleetCommand() {
   const { companyId } = useWorkspace();
+  const { source: trafficSource } = useTraffic();
   const workspace = useWorkspaceMap({ layerOverrides: { routes: true } });
   const fleet = useCompanyFleet(companyId);
   const [horizon, setHorizon] = useState(72);
   const risk = useCompanyRisk(companyId, horizon);
+  const [planningTab, setPlanningTab] = useState<"fleet" | "scenarios">(
+    "fleet",
+  );
+  const [scenarioRoute, setScenarioRoute] = useState<DecisionOption | null>(
+    null,
+  );
   const [selectedVessel, setSelectedVessel] = useState<string | null>(null);
   const previousSelection = useRef<string | null>(null);
   useEffect(() => {
@@ -202,7 +214,7 @@ function FleetCommand() {
   const [tab, setTab] = useState<"action" | "fleet" | "ports">("action");
   const fixes = useFixes(1);
 
-  const vessels = fleet.data?.vessels ?? [];
+  const vessels = useMemo(() => fleet.data?.vessels ?? [], [fleet.data]);
   const actionRequired = risk.data?.actionRequired ?? [];
   const monitorOnly = risk.data?.monitorOnly ?? [];
 
@@ -238,6 +250,7 @@ function FleetCommand() {
   // Hoisted above the loading early-return. Called from inside the JSX it sat
   // after that return, so the loading render and the loaded render disagreed on
   // how many hooks had run.
+  const { session } = useAuth();
   const ownedIds = useMemo(
     () => new Set(fixes.filter((fix) => fix.owned).map((fix) => fix.id)),
     [fixes],
@@ -256,6 +269,57 @@ function FleetCommand() {
     );
   }
 
+  function showScenarioRoute(option: DecisionOption) {
+    if (!option.geometry?.length) return;
+    setScenarioRoute(option);
+    const middle = option.geometry[Math.floor(option.geometry.length / 2)];
+    workspace.flyTo([middle[1], middle[0]], 2.8);
+  }
+  const plottedRoutes: GeoJSON.FeatureCollection = scenarioRoute?.geometry
+    ?.length
+    ? {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: {
+              id: scenarioRoute.optionId,
+              part: "exposure",
+              color: "#e56f26",
+              width: 4,
+              opacity: 1,
+              label: scenarioRoute.label,
+            },
+            geometry: {
+              type: "LineString",
+              coordinates: scenarioRoute.geometry.map(([lat, lon]) => [
+                lon,
+                lat,
+              ]),
+            },
+          },
+        ],
+      }
+    : routes;
+  const health = workspace.health.data;
+  const activityStatus = (
+    ["live", "cached", "stale", "synthetic", "unavailable"] as const
+  ).find((status) =>
+    health?.sources[status]?.some((name) => name.startsWith("Port activity")),
+  );
+  const forecastOrigin = health?.forecastOrigin
+    ? formatUtc(health.forecastOrigin)
+    : "origin unavailable";
+  const congestionStatus =
+    health?.targetStatus === "EXPIRED"
+      ? "expired"
+      : health?.forecastOriginStatus === "STALE"
+        ? "stale"
+        : health?.targetStatus === "CURRENT_HORIZON"
+          ? "current horizon"
+          : health?.targetStatus === "PARTIAL_HORIZON"
+            ? "partial horizon"
+            : "unavailable";
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "port") workspace.setSelectedPortCode(hit.id);
     workspace.flyTo([hit.lon, hit.lat], hit.kind === "vessel" ? 8 : 7);
@@ -267,7 +331,7 @@ function FleetCommand() {
 
       <MaritimeMap
         layers={{ ...workspace.layers, routes: true }}
-        data={{ ...workspace.data, routes }}
+        data={{ ...workspace.data, routes: plottedRoutes }}
         weatherRaster={workspace.raster}
         windFrame={workspace.frame}
         showWind={workspace.showWind && workspace.layers.weather}
@@ -308,316 +372,389 @@ function FleetCommand() {
 
             {/* --------------------------------------------------- right -- */}
             <div className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2">
-              <CompanyIntelligenceQueue />
-              <ObservedSelection
-                workspace={workspace}
-                className="min-h-0 flex-1"
-              />
-              <FloatPanel
-                title={fleet.data?.companyName ?? "Fleet"}
-                note={
-                  <span className="num">
-                    {risk.data?.vesselsExposed ?? 0}/{vessels.length} exposed
-                  </span>
-                }
-                className="min-h-0 flex-1"
-                scroll
-                testId="fleet-command-panel"
-                collapsible
-                defaultOpen={!selected}
-                collapseWhen={Boolean(selected)}
-                mapControls
-                footer={
-                  fleet.data?.disclaimer ? (
-                    <details>
-                      <summary>Fleet data and scope</summary>
-                      <p className="mt-2">{fleet.data.disclaimer}</p>
-                    </details>
-                  ) : undefined
-                }
-              >
-                <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
-                  <span className="eyebrow text-[10px]">Horizon</span>
-                  {[24, 48, 72, 168].map((hours) => (
-                    <button
-                      key={hours}
-                      type="button"
-                      aria-pressed={horizon === hours}
-                      onClick={() => setHorizon(hours)}
-                      className={cn(
-                        "num rounded-[2px] px-1.5 py-[1px] text-[10px] transition-colors",
-                        horizon === hours
-                          ? "bg-[var(--panel-4)] text-[var(--text)]"
-                          : "text-[var(--text-3)] hover:text-[var(--text-2)]",
-                      )}
-                    >
-                      {hours}h
-                    </button>
-                  ))}
-                  <Link
-                    to="/company/global-eye"
-                    className="ml-auto inline-flex items-center gap-1 text-[10px] text-[var(--text-3)] hover:text-[var(--text)]"
+              <div className="pointer-events-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2">
+                <div
+                  className="flex flex-wrap items-center gap-2"
+                  aria-label="Fleet planning tools"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={planningTab === "fleet"}
+                    onClick={() => setPlanningTab("fleet")}
+                    className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs aria-pressed:font-semibold"
                   >
-                    Global Eye <ArrowUpRight size={9} />
+                    Fleet intelligence
+                  </button>
+                  {session?.mode === "demo" ? (
+                    <button
+                      type="button"
+                      aria-pressed={planningTab === "scenarios"}
+                      onClick={() => setPlanningTab("scenarios")}
+                      className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs aria-pressed:font-semibold"
+                    >
+                      Scenarios
+                    </button>
+                  ) : null}
+                  <Link to="/company/global-eye" className="text-xs underline">
+                    Global Eye
                   </Link>
                 </div>
-
-                <PanelTabs
-                  value={tab}
-                  onChange={setTab}
-                  tabs={[
-                    {
-                      value: "action",
-                      label: "Action required",
-                      count: actionRequired.length,
-                    },
-                    { value: "fleet", label: "Fleet", count: vessels.length },
-                    { value: "ports", label: "Ports", count: portRisk.length },
-                  ]}
+                <p className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
+                  <strong>Data now</strong> · Weather{" "}
+                  {workspace.frame.forecast
+                    ? "current provider forecast"
+                    : workspace.frame.stations.length
+                      ? "retained map data"
+                      : "unavailable"}{" "}
+                  · Port activity {activityStatus ?? "status unavailable"} ·
+                  Traffic {trafficSource.info.label} · Congestion{" "}
+                  {congestionStatus} ({forecastOrigin})
+                </p>
+              </div>
+              {session?.mode === "demo" ? (
+                <div
+                  hidden={planningTab !== "scenarios"}
+                  className="pointer-events-auto min-h-0 overflow-y-auto rounded border border-[var(--line-strong)] bg-[var(--panel)]"
+                >
+                  {scenarioRoute ? (
+                    <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3 py-2 text-xs">
+                      <span>Map: {scenarioRoute.label}</span>
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => setScenarioRoute(null)}
+                      >
+                        Clear route
+                      </button>
+                    </div>
+                  ) : null}
+                  <DemonstrationScenarios onShowRoute={showScenarioRoute} />
+                </div>
+              ) : null}
+              <div
+                className={planningTab === "scenarios" ? "hidden" : "contents"}
+              >
+                <CompanyIntelligenceQueue />
+                <ObservedSelection
+                  workspace={workspace}
+                  className="min-h-0 flex-1"
                 />
+                <FloatPanel
+                  title={fleet.data?.companyName ?? "Fleet"}
+                  note={
+                    <span className="num">
+                      {risk.data
+                        ? `${risk.data.vesselsExposed}/${vessels.length} exposed`
+                        : risk.isError
+                          ? "Exposure unavailable"
+                          : "Checking exposure"}
+                    </span>
+                  }
+                  className="min-h-0 flex-1"
+                  scroll
+                  testId="fleet-command-panel"
+                  collapsible
+                  defaultOpen={!selected}
+                  collapseWhen={Boolean(selected)}
+                  mapControls
+                  footer={
+                    fleet.data?.disclaimer ? (
+                      <details>
+                        <summary>Fleet data and scope</summary>
+                        <p className="mt-2">{fleet.data.disclaimer}</p>
+                      </details>
+                    ) : undefined
+                  }
+                >
+                  <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
+                    <span className="eyebrow text-[10px]">Horizon</span>
+                    {[24, 48, 72, 168].map((hours) => (
+                      <button
+                        key={hours}
+                        type="button"
+                        aria-pressed={horizon === hours}
+                        onClick={() => setHorizon(hours)}
+                        className={cn(
+                          "num rounded-[2px] px-1.5 py-[1px] text-[10px] transition-colors",
+                          horizon === hours
+                            ? "bg-[var(--panel-4)] text-[var(--text)]"
+                            : "text-[var(--text-3)] hover:text-[var(--text-2)]",
+                        )}
+                      >
+                        {hours}h
+                      </button>
+                    ))}
+                    <Link
+                      to="/company/global-eye"
+                      className="ml-auto inline-flex items-center gap-1 text-[10px] text-[var(--text-3)] hover:text-[var(--text)]"
+                    >
+                      Global Eye <ArrowUpRight size={9} />
+                    </Link>
+                  </div>
 
-                {tab === "action" ? (
-                  <>
-                    {risk.isLoading ? (
-                      <EmptyNote>Computing fleet exposure…</EmptyNote>
-                    ) : actionRequired.length === 0 ? (
-                      <EmptyNote>
-                        No vessel in this fleet requires intervention over the
-                        next {horizon} hours.{" "}
-                        {monitorOnly.length
-                          ? `${monitorOnly.length} vessel(s) are already inside an exposed area and appear below.`
-                          : "No live event reaches a lane this fleet runs."}
-                      </EmptyNote>
-                    ) : (
-                      <div data-testid="action-required">
-                        <div className="flex items-center gap-1.5 border-b border-[var(--line)] bg-[var(--crit-dim)]/25 px-2 py-1">
-                          <AlertTriangle
-                            size={11}
-                            className="text-[var(--crit)]"
-                          />
-                          <span className="eyebrow text-[10px] text-[var(--crit)]">
-                            Action required
-                          </span>
-                          <span className="num ml-auto text-[10px] text-[var(--text-2)]">
-                            {actionRequired.length} vessel
-                            {actionRequired.length === 1 ? "" : "s"}
-                          </span>
+                  <PanelTabs
+                    value={tab}
+                    onChange={setTab}
+                    tabs={[
+                      {
+                        value: "action",
+                        label: "Action required",
+                        count: actionRequired.length,
+                      },
+                      { value: "fleet", label: "Fleet", count: vessels.length },
+                      {
+                        value: "ports",
+                        label: "Ports",
+                        count: portRisk.length,
+                      },
+                    ]}
+                  />
+
+                  {tab === "action" ? (
+                    <>
+                      {risk.isLoading ? (
+                        <EmptyNote>Computing fleet exposure…</EmptyNote>
+                      ) : actionRequired.length === 0 ? (
+                        <EmptyNote>
+                          No vessel in this fleet requires intervention over the
+                          next {horizon} hours.{" "}
+                          {monitorOnly.length
+                            ? `${monitorOnly.length} vessel(s) are already inside an exposed area and appear below.`
+                            : "No live event reaches a lane this fleet runs."}
+                        </EmptyNote>
+                      ) : (
+                        <div data-testid="action-required">
+                          <div className="flex items-center gap-1.5 border-b border-[var(--line)] bg-[var(--crit-dim)]/25 px-2 py-1">
+                            <AlertTriangle
+                              size={11}
+                              className="text-[var(--crit)]"
+                            />
+                            <span className="eyebrow text-[10px] text-[var(--crit)]">
+                              Action required
+                            </span>
+                            <span className="num ml-auto text-[10px] text-[var(--text-2)]">
+                              {actionRequired.length} vessel
+                              {actionRequired.length === 1 ? "" : "s"}
+                            </span>
+                          </div>
+                          {actionRequired.map((row, index) => (
+                            <ActionRow
+                              key={`${row.vesselId}-${row.eventId}`}
+                              row={row}
+                              index={index}
+                              selected={selectedVessel === row.vesselId}
+                              onSelect={() => setSelectedVessel(row.vesselId)}
+                            />
+                          ))}
                         </div>
-                        {actionRequired.map((row, index) => (
-                          <ActionRow
-                            key={`${row.vesselId}-${row.eventId}`}
-                            row={row}
-                            index={index}
-                            selected={selectedVessel === row.vesselId}
-                            onSelect={() => setSelectedVessel(row.vesselId)}
-                          />
+                      )}
+
+                      {monitorOnly.length ? (
+                        <PanelSection
+                          title="Already committed"
+                          right={`${monitorOnly.length} monitor only`}
+                        >
+                          <p className="mb-1.5 text-[10px] leading-snug text-[var(--text-3)]">
+                            These vessels have passed the point at which a
+                            diversion was available. They are listed so they are
+                            not mistaken for safe; no routing action is offered
+                            because none exists.
+                          </p>
+                          {monitorOnly.map((row) => (
+                            <div
+                              key={`${row.vesselId}-${row.eventId}`}
+                              className="flex items-baseline gap-2 border-b border-[var(--line)]/50 py-[3px] last:border-0"
+                            >
+                              <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">
+                                {row.vesselName}
+                              </span>
+                              <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
+                                {row.chokepoint.replace(/_/g, "-")}
+                              </span>
+                              <span className="num shrink-0 text-[10.5px] text-[var(--unc)]">
+                                <ExposureScore value={row.exposure} />
+                              </span>
+                            </div>
+                          ))}
+                        </PanelSection>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {tab === "fleet" ? (
+                    <div>
+                      {vessels.map((vessel) => {
+                        const exposure =
+                          exposureByVessel.get(vessel.vessel_id) ?? 0;
+                        return (
+                          <button
+                            key={vessel.vessel_id}
+                            type="button"
+                            onClick={() => setSelectedVessel(vessel.vessel_id)}
+                            className={cn(
+                              "block w-full border-b border-[var(--line)]/60 px-2 py-1.5 text-left transition-colors last:border-0",
+                              selectedVessel === vessel.vessel_id
+                                ? "bg-[var(--panel-3)]"
+                                : "hover:bg-[var(--panel-2)]",
+                            )}
+                          >
+                            <div className="flex items-baseline gap-2">
+                              <Ship
+                                size={10}
+                                className="shrink-0 text-[var(--text-3)]"
+                              />
+                              <span className="min-w-0 flex-1 truncate text-[11.5px] text-[var(--text)]">
+                                {vessel.name}
+                              </span>
+                              {exposure > 0 ? (
+                                <span
+                                  className={cn(
+                                    "num shrink-0 text-[10.5px]",
+                                    `text-[var(--${exposureTone(exposure)})]`,
+                                  )}
+                                >
+                                  <ExposureScore value={exposure} />
+                                </span>
+                              ) : (
+                                <span className="num shrink-0 text-[10px] text-[var(--ok)]">
+                                  clear
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--text-3)]">
+                              <span className="num">{vessel.vessel_id}</span>
+                              <span className="truncate">
+                                {vessel.laneName ?? "no lane"}
+                              </span>
+                              <span className="num">
+                                {vessel.origin_port} → {vessel.destination_port}
+                              </span>
+                              {vessel.eta ? (
+                                <span className="num">
+                                  ETA {formatUtc(vessel.eta)}
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {tab === "ports" ? (
+                    portRisk.length ? (
+                      <div className="px-2 py-1">
+                        {portRisk.map((port) => (
+                          <div
+                            key={port.portCode}
+                            className="border-b border-[var(--line)]/50 py-1 last:border-0"
+                          >
+                            <div className="flex items-baseline gap-2">
+                              <span className="num w-[46px] shrink-0 text-[10.5px] text-[var(--text-2)]">
+                                {port.portCode}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text)]">
+                                {port.portName}
+                              </span>
+                              <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
+                                {port.affectedVessels} vsl
+                              </span>
+                              <span
+                                className={cn(
+                                  "num shrink-0 text-[11px]",
+                                  `text-[var(--${exposureTone(port.risk)})]`,
+                                )}
+                              >
+                                <ExposureScore value={port.risk} />
+                              </span>
+                            </div>
+                            {port.arrivalShiftHours ? (
+                              <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
+                                arrivals shift +
+                                {port.arrivalShiftHours.toFixed(1)} h
+                              </div>
+                            ) : null}
+                          </div>
                         ))}
                       </div>
-                    )}
+                    ) : (
+                      <EmptyNote>
+                        No destination port carries measurable event risk for
+                        this fleet.
+                      </EmptyNote>
+                    )
+                  ) : null}
+                </FloatPanel>
 
-                    {monitorOnly.length ? (
-                      <PanelSection
-                        title="Already committed"
-                        right={`${monitorOnly.length} monitor only`}
-                      >
-                        <p className="mb-1.5 text-[10px] leading-snug text-[var(--text-3)]">
-                          These vessels have passed the point at which a
-                          diversion was available. They are listed so they are
-                          not mistaken for safe; no routing action is offered
-                          because none exists.
-                        </p>
-                        {monitorOnly.map((row) => (
+                {selected ? (
+                  <FloatPanel
+                    title={selected.name}
+                    note={<span className="num">{selected.vessel_id}</span>}
+                    onClose={() => setSelectedVessel(null)}
+                    className="pw-selected-vessel max-h-[360px] shrink-0"
+                  >
+                    <PanelSection title="Particulars">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[.8125rem]">
+                        {(
+                          [
+                            ["Class", selected.vessel_class],
+                            ["LOA", `${selected.loa_m.toFixed(0)} m`],
+                            ["Draught", `${selected.draught_m.toFixed(1)} m`],
+                            [
+                              "Capacity",
+                              `${selected.capacity_teu.toLocaleString()} TEU`,
+                            ],
+                            [
+                              "Free slots",
+                              `${selected.available_teu.toFixed(0)} TEU`,
+                            ],
+                            [
+                              "Speed",
+                              `${selected.service_speed_kn.toFixed(1)} kn`,
+                            ],
+                            ["Flag", selected.flag],
+                            ["IMO", selected.imo ?? "none issued"],
+                          ] as Array<[string, string]>
+                        ).map(([label, value]) => (
                           <div
-                            key={`${row.vesselId}-${row.eventId}`}
-                            className="flex items-baseline gap-2 border-b border-[var(--line)]/50 py-[3px] last:border-0"
+                            key={label}
+                            className="flex items-baseline justify-between gap-2"
                           >
-                            <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text-2)]">
-                              {row.vesselName}
+                            <span className="text-[var(--text-3)]">
+                              {label}
                             </span>
-                            <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
-                              {row.chokepoint.replace(/_/g, "-")}
+                            <span className="num text-[var(--text)]">
+                              {value}
                             </span>
-                            <span className="num shrink-0 text-[10.5px] text-[var(--unc)]">
-                              {row.exposure.toFixed(2)}
-                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </PanelSection>
+                    {selectedRows.length ? (
+                      <PanelSection
+                        title="Exposure"
+                        right={`${selectedRows.length}`}
+                      >
+                        {selectedRows.map((row) => (
+                          <div
+                            key={row.eventId}
+                            className="border-b border-[var(--line)]/50 py-1 last:border-0"
+                          >
+                            <div className="truncate text-[10.5px] text-[var(--text-2)]">
+                              {row.eventTitle}
+                            </div>
+                            <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-3)]">
+                              {row.actionBasis}
+                            </p>
                           </div>
                         ))}
                       </PanelSection>
-                    ) : null}
-                  </>
+                    ) : (
+                      <EmptyNote>No live event reaches this vessel.</EmptyNote>
+                    )}
+                  </FloatPanel>
                 ) : null}
-
-                {tab === "fleet" ? (
-                  <div>
-                    {vessels.map((vessel) => {
-                      const exposure =
-                        exposureByVessel.get(vessel.vessel_id) ?? 0;
-                      return (
-                        <button
-                          key={vessel.vessel_id}
-                          type="button"
-                          onClick={() => setSelectedVessel(vessel.vessel_id)}
-                          className={cn(
-                            "block w-full border-b border-[var(--line)]/60 px-2 py-1.5 text-left transition-colors last:border-0",
-                            selectedVessel === vessel.vessel_id
-                              ? "bg-[var(--panel-3)]"
-                              : "hover:bg-[var(--panel-2)]",
-                          )}
-                        >
-                          <div className="flex items-baseline gap-2">
-                            <Ship
-                              size={10}
-                              className="shrink-0 text-[var(--text-3)]"
-                            />
-                            <span className="min-w-0 flex-1 truncate text-[11.5px] text-[var(--text)]">
-                              {vessel.name}
-                            </span>
-                            {exposure > 0 ? (
-                              <span
-                                className={cn(
-                                  "num shrink-0 text-[10.5px]",
-                                  `text-[var(--${exposureTone(exposure)})]`,
-                                )}
-                              >
-                                {exposure.toFixed(2)}
-                              </span>
-                            ) : (
-                              <span className="num shrink-0 text-[10px] text-[var(--ok)]">
-                                clear
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-[2px] flex flex-wrap items-center gap-x-2 text-[10.5px] text-[var(--text-3)]">
-                            <span className="num">{vessel.vessel_id}</span>
-                            <span className="truncate">
-                              {vessel.laneName ?? "no lane"}
-                            </span>
-                            <span className="num">
-                              {vessel.origin_port} → {vessel.destination_port}
-                            </span>
-                            {vessel.eta ? (
-                              <span className="num">
-                                ETA {formatUtc(vessel.eta)}
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-
-                {tab === "ports" ? (
-                  portRisk.length ? (
-                    <div className="px-2 py-1">
-                      {portRisk.map((port) => (
-                        <div
-                          key={port.portCode}
-                          className="border-b border-[var(--line)]/50 py-1 last:border-0"
-                        >
-                          <div className="flex items-baseline gap-2">
-                            <span className="num w-[46px] shrink-0 text-[10.5px] text-[var(--text-2)]">
-                              {port.portCode}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-[10.5px] text-[var(--text)]">
-                              {port.portName}
-                            </span>
-                            <span className="num shrink-0 text-[10.5px] text-[var(--text-3)]">
-                              {port.affectedVessels} vsl
-                            </span>
-                            <span
-                              className={cn(
-                                "num shrink-0 text-[11px]",
-                                `text-[var(--${exposureTone(port.risk)})]`,
-                              )}
-                            >
-                              {port.risk.toFixed(2)}
-                            </span>
-                          </div>
-                          {port.arrivalShiftHours ? (
-                            <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
-                              arrivals shift +
-                              {port.arrivalShiftHours.toFixed(1)} h
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyNote>
-                      No destination port carries measurable event risk for this
-                      fleet.
-                    </EmptyNote>
-                  )
-                ) : null}
-              </FloatPanel>
-
-              {selected ? (
-                <FloatPanel
-                  title={selected.name}
-                  note={<span className="num">{selected.vessel_id}</span>}
-                  onClose={() => setSelectedVessel(null)}
-                  className="pw-selected-vessel max-h-[360px] shrink-0"
-                >
-                  <PanelSection title="Particulars">
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[.8125rem]">
-                      {(
-                        [
-                          ["Class", selected.vessel_class],
-                          ["LOA", `${selected.loa_m.toFixed(0)} m`],
-                          ["Draught", `${selected.draught_m.toFixed(1)} m`],
-                          [
-                            "Capacity",
-                            `${selected.capacity_teu.toLocaleString()} TEU`,
-                          ],
-                          [
-                            "Free slots",
-                            `${selected.available_teu.toFixed(0)} TEU`,
-                          ],
-                          [
-                            "Speed",
-                            `${selected.service_speed_kn.toFixed(1)} kn`,
-                          ],
-                          ["Flag", selected.flag],
-                          ["IMO", selected.imo ?? "none issued"],
-                        ] as Array<[string, string]>
-                      ).map(([label, value]) => (
-                        <div
-                          key={label}
-                          className="flex items-baseline justify-between gap-2"
-                        >
-                          <span className="text-[var(--text-3)]">{label}</span>
-                          <span className="num text-[var(--text)]">
-                            {value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </PanelSection>
-                  {selectedRows.length ? (
-                    <PanelSection
-                      title="Exposure"
-                      right={`${selectedRows.length}`}
-                    >
-                      {selectedRows.map((row) => (
-                        <div
-                          key={row.eventId}
-                          className="border-b border-[var(--line)]/50 py-1 last:border-0"
-                        >
-                          <div className="truncate text-[10.5px] text-[var(--text-2)]">
-                            {row.eventTitle}
-                          </div>
-                          <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-3)]">
-                            {row.actionBasis}
-                          </p>
-                        </div>
-                      ))}
-                    </PanelSection>
-                  ) : (
-                    <EmptyNote>No live event reaches this vessel.</EmptyNote>
-                  )}
-                </FloatPanel>
-              ) : null}
+              </div>
             </div>
           </>
         }
