@@ -201,16 +201,28 @@ class IntelligenceApiTests(unittest.TestCase):
             self.registry.cameras()
 
     def test_earthquake_failure_keeps_original_snapshot_time_then_expires(self):
-        import requests
+        import json
+        from src.portwatch_os.intelligence import free_sources
+
         original = world_now()
-        payload = {"type": "FeatureCollection", "features": [], "portwatch": {"status": "LIVE", "fetchedAt": original.isoformat(), "source": "USGS"}}
-        with patch.dict(intelligence._QUAKES, {"at": original, "payload": payload}, clear=True), patch("requests.get", side_effect=requests.RequestException("offline")):
-            with patch.object(intelligence, "world_now", return_value=original+timedelta(minutes=10)):
+        root = Path(self.tmp.name)
+        (root / "usgs.json").write_text(json.dumps({
+            "firstAvailableAt": original.isoformat(),
+            "lastSuccessfulCheckAt": original.isoformat(),
+            "error": "Offline collector",
+            "rows": [{
+                "id": "synthetic-event", "geometry": {"type": "Point", "coordinates": [72, 18, 10]},
+                "title": "Synthetic event", "magnitude": 4, "time": original.timestamp() * 1000,
+                "updated": original.timestamp() * 1000, "url": "https://example.invalid/event",
+            }],
+        }), encoding="utf-8")
+        with patch.object(free_sources, "ROOT", root), patch("requests.get", side_effect=AssertionError("Read reached provider")):
+            with patch.object(free_sources, "world_now", return_value=original + timedelta(minutes=10)):
                 response = self.client.get("/api/intelligence/earthquakes", headers=ADMIN)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["portwatch"]["status"], "STALE")
             self.assertEqual(response.json()["portwatch"]["fetchedAt"], original.isoformat())
-            with patch.object(intelligence, "world_now", return_value=original+timedelta(hours=2)):
+            with patch.object(free_sources, "world_now", return_value=original - timedelta(seconds=1)):
                 self.assertEqual(self.client.get("/api/intelligence/earthquakes", headers=ADMIN).status_code, 503)
 
     def test_historical_economic_context_does_not_assume_publication_vintages(self):

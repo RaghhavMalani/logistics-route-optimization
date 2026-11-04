@@ -24,6 +24,10 @@ import unittest
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 ADMIN = {"X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "fuzz.admin"}
 COMPANY = {"X-PortWatch-Role": "SHIPPING_COMPANY", "X-PortWatch-Actor": "fuzz.co", "X-PortWatch-Org": "PortWatch Demo Shipping"}
 PORT = {"X-PortWatch-Role": "PORT_AUTHORITY", "X-PortWatch-Actor": "fuzz.port", "X-PortWatch-Port": "INNSA"}
@@ -86,7 +90,7 @@ class FuzzBase(unittest.TestCase):
         return found
 
     def _probe(self, method: str, path: str, body: Any = None, headers: Optional[Dict[str, str]] = None,
-               raw: Optional[bytes] = None) -> Tuple[int, Any, float]:
+               raw: Optional[bytes] = None, *, degraded_detail: str | None = None) -> Tuple[int, Any, float]:
         started = time.perf_counter()
         if method == "GET":
             response = self.client.get(path, headers=headers or ADMIN)
@@ -99,7 +103,10 @@ class FuzzBase(unittest.TestCase):
             parsed = response.json()
         except ValueError:
             parsed = response.text
-        self.assertLess(response.status_code, 500, f"{method} {path} {str(body)[:80]!r} -> {response.status_code}: {str(parsed)[:200]}")
+        if response.status_code == 503 and degraded_detail is not None:
+            self.assertEqual(parsed, {"detail": degraded_detail})
+        else:
+            self.assertLess(response.status_code, 500, f"{method} {path} {str(body)[:80]!r} -> {response.status_code}: {str(parsed)[:200]}")
         self.assertLess(elapsed, PROBE_BUDGET_SECONDS, f"{method} {path} took {elapsed:.1f}s")
         text = response.text
         for secret in self.secrets:
@@ -256,11 +263,18 @@ class IdentifierFuzz(FuzzBase):
             self.assertIn(status, (200, 400, 404))
 
     def test_scenario_options_and_branches(self):
+        missing_forecasts = ("Run `python run_award_demo.py --source portwatch` to produce "
+                             "the forecast artefacts the Decision Room simulates against.")
         for intensity in HOSTILE_NUMBERS:
-            status, _, _ = self._probe("POST", "/api/scenarios/simulate", {"scenarioKey": "HORMUZ", "intensity": _json_safe(intensity)})
+            status, _, _ = self._probe(
+                "POST", "/api/scenarios/simulate", {"scenarioKey": "HORMUZ", "intensity": _json_safe(intensity)},
+                degraded_detail=missing_forecasts,
+            )
             self.assertIn(status, (200, 400, 404, 503))
         for key in HOSTILE_STRINGS:
-            status, _, _ = self._probe("POST", "/api/scenarios/simulate", {"scenarioKey": key})
+            status, _, _ = self._probe(
+                "POST", "/api/scenarios/simulate", {"scenarioKey": key}, degraded_detail=missing_forecasts,
+            )
             self.assertIn(status, (200, 400, 404, 503))
         for value in HOSTILE_NUMBERS:
             status, _, _ = self._probe("POST", "/api/world/branches",

@@ -16,6 +16,10 @@ from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.services import cache_service as cache
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 client = TestClient(app)
 
 ARTEFACTS_READY = cache.FORECAST_CACHE.exists()

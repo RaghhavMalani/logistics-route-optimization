@@ -103,6 +103,7 @@ def collect(layer, port):
                     features.append({"id":str(e["id"]),"name":tags.get("name") or tags.get("highway") or tags.get("railway") or "Infrastructure",
                         "lat":c["lat"],"lon":c["lon"],"kind":"rail" if tags.get("railway") else "infrastructure",
                         "geometry":[[p["lon"],p["lat"]] for p in geometry],"tags":tags})
+        # wall-clock: a provider receipt records collection time, even during replay.
         result = {"status": "CACHED", "fetchedAt": wall_now().isoformat(), "source": source,
                   "coverage": coverage, "features": features, "records": records,
                   "layer": layer, "portCode": port.locode}

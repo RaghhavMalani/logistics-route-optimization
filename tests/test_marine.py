@@ -35,6 +35,10 @@ from src.portwatch_os.world.route_exposure import (
     walk,
 )
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 FIXTURE = Path(__file__).parent / "fixtures" / "open_meteo_marine_sample.json"
 FETCHED = datetime(2026, 9, 13, 11, 20, tzinfo=timezone.utc)
 POINTS = (("HORMUZ", 26.6, 56.3), ("BAB_EL_MANDEB", 12.6, 43.3), ("SUEZ_SOUTH", 29.5, 32.6))

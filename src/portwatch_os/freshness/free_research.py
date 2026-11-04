@@ -57,5 +57,7 @@ def jobs():
         return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
     result.append(RefreshJob(policy=FreshnessPolicy(artifact='current_gdacs',label='GDACS regional context',provider='GDACS',
         fresh_for=timedelta(minutes=30),lead=timedelta(minutes=3),stale_after=timedelta(hours=1),max_attempts=2,
-        backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1)),probe=hazard_probe,run=hazard_run,eligibility=eligibility))
+        backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
+        rationale='Check regional hazard receipts frequently enough to flag stale context during an active event.'),
+        probe=hazard_probe,run=hazard_run,eligibility=eligibility))
     return result

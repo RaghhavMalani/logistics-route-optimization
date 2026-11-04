@@ -23,6 +23,10 @@ from src.portwatch_os.advisories.store import AdvisoryStore, probe_advisory_stor
 from src.portwatch_os.finance.basis import AssumptionJournal, assumption, observation
 from src.portwatch_os.ledger.store import LedgerError, SqliteLedgerStore, probe_ledger
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 
 class StoreProbeTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -150,7 +154,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn("path", stores["ledger"])
         self.assertIn("counts", stores["ledger"])
 
-    def test_a_corrupt_ledger_is_a_503_that_names_the_file_and_substitutes_nothing(self):
+    def test_a_corrupt_ledger_is_a_redacted_503_and_substitutes_nothing(self):
         from src.portwatch_os.ledger import store as ledger_store
 
         corrupt = Path(tempfile.mkdtemp(prefix="pw-corrupt-")) / "portwatch_ledger.db"
@@ -164,9 +168,10 @@ class ApiTests(unittest.TestCase):
                 response = self.client.get("/api/decisions/problems?limit=5")
                 self.assertEqual(response.status_code, 503, response.text)
                 body = response.json()
-                self.assertIn(str(corrupt), body["detail"])
-                self.assertIn("substituted", body["remedy"])
-                health = self.client.get("/api/health").json()
+                self.assertEqual(body, {"detail": "A durable identity or evidence store is unavailable"})
+                from backend.app.routes import health as health_route
+                with mock.patch.object(health_route, "_PROBE_CACHE", {"at": 0.0, "value": None}):
+                    health = self.client.get("/api/health").json()
                 self.assertFalse(health["durableStores"]["ledger"]["ok"])
                 self.assertEqual(health["status"], "degraded")
             finally:

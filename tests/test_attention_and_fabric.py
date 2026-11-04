@@ -75,6 +75,10 @@ from src.portwatch_os.world.cascade import propagate
 from src.portwatch_os.world.graph import EVENT, PORT, VESSEL, key
 from src.portwatch_os.world.quantity import HOURS, INR, RATIO, RISK, VESSELS, utc
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 NOW = utc()
 
 
@@ -984,6 +988,7 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual([i for i in body["items"] if i["source"] == "FEED"], [])
         self.assertTrue(all(i["source"] == "FLEET" for i in body["items"]))
 
+    @pytest.mark.usefixtures("fictional_fleet")
     def test_a_fleet_vessel_sharing_a_name_is_a_candidate_not_a_merge(self):
         from backend.app.routes.global_eye import _company_voyages
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from src.portwatch_os.agents.decision_tools import compared_actions, preference_of, wants_baseline, within_hours
 from src.portwatch_os.agents.orchestrator import classify_intent
@@ -48,6 +49,9 @@ class PhrasingTests(unittest.TestCase):
 class CopilotRunTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        mode = patch.dict(os.environ, {"PORTWATCH_IDENTITY_MODE": "asserted"})
+        mode.start()
+        cls.addClassCleanup(mode.stop)
         os.environ.setdefault("PORTWATCH_LICENCE_MODE", "DEMO")
         from fastapi.testclient import TestClient
 
