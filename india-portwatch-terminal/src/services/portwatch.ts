@@ -6,6 +6,7 @@
  * screen, it came through one of these calls.
  */
 
+import { getApi } from "./api-client";
 import { getJson, postJson } from "./api";
 import type {
   Benchmark,
@@ -72,7 +73,7 @@ export const fetchPorts = () => getJson<PortSnapshot[]>("/ports");
 export const fetchPort = (code: string) =>
   getJson<PortSnapshot>(`/ports/${encodeURIComponent(code)}`);
 export async function fetchPortRegistry(): Promise<PortRegistryEntry[]> {
-  const response = await getJson<unknown>("/ports/registry");
+  const response = await getApi("/api/ports/registry");
   const parsed = PortRegistryQualityResponseSchema.safeParse(response);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

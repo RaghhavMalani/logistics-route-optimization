@@ -14,6 +14,8 @@ from time import monotonic
 from urllib.parse import urlencode
 
 import brotli
+from backend.app.contracts import ScreenPayload
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from starlette.concurrency import run_in_threadpool
@@ -179,7 +181,7 @@ def _accepts_brotli(header: str):
     return False
 
 
-@router.get("/screens/{screen}")
+@router.get("/screens/{screen}", responses={200: {"model": ScreenPayload}})
 async def screen_snapshot(request: Request, screen: str, prefetch: bool = False, port: str | None = None):
     role = ROLES.get(screen)
     if not role:

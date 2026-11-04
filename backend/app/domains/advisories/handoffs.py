@@ -4,6 +4,8 @@ from time import monotonic
 from hashlib import sha256
 from urllib.parse import urlencode
 
+from backend.app.contracts import HandoffPayload
+
 from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
@@ -111,7 +113,7 @@ def link(workspace, **selection):
     return f"/{workspace}/advisories?{urlencode(selection)}"
 
 
-@router.get("/handoffs")
+@router.get("/handoffs", responses={200: {"model": HandoffPayload}})
 def handoffs():
     who = current_identity.get()
     sandbox = current_sandbox.get()

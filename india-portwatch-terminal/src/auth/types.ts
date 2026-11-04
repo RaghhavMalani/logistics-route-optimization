@@ -18,8 +18,9 @@
  * would sit on both ends of it.
  */
 
-export type Role =
-  "VESSEL_OPERATOR" | "SHIPPING_COMPANY" | "PORT_AUTHORITY" | "NATIONAL_ADMIN";
+import type { components } from "@/services/openapi.generated";
+
+export type Role = components["schemas"]["IdentityUser"]["role"];
 
 export const ROLES: Role[] = [
   "VESSEL_OPERATOR",
@@ -110,35 +111,9 @@ export function normaliseRole(value: string | null | undefined): Role | null {
 /** Where the identity came from. Never inferred — the adapter states it. */
 export type AuthMode = "demo" | "production";
 
-export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-  role: Role;
-  organisation: string;
-  /** Port authorities are scoped to one facility; null for the other roles. */
-  portCode: string | null;
-  /** Shipping companies and vessel operators are scoped to one carrier account. */
-  companyId: string | null;
-  /** Vessels this identity may respond to advisories for. */
-  vesselIds: string[];
-  canApprove?: boolean;
-}
-
-export interface Session {
-  /** Existing server-owned isolated visitor identifier; absent on older adapters. */
-  demoId?: string;
-  user: User;
-  mode: AuthMode;
-  issuedAt: string;
-  expiresAt: string;
-  accessToken?: string;
-}
-
-export interface Credentials {
-  email: string;
-  password: string;
-}
+export type User = components["schemas"]["IdentityUser"];
+export type Session = components["schemas"]["SessionPayload"];
+export type Credentials = components["schemas"]["Credentials"];
 
 export class AuthError extends Error {
   readonly code: "invalid_credentials" | "not_configured" | "expired";

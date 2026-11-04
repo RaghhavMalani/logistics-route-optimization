@@ -1,6 +1,8 @@
 """Explicit demo API. No forwarding to operational routes or their stores."""
 import secrets
 from typing import Literal
+from backend.app.contracts import SessionPayload
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from backend.app.services.demo_store import get_demo_store, ROLES, seed_world, utc_now
@@ -26,12 +28,12 @@ class RoleInput(BaseModel):
     role: Role
 
 
-@router.post("/session")
+@router.post("/session", responses={200: {"model": SessionPayload}})
 def create(body: RoleInput):
     return get_demo_store().create(body.role)
 
 
-@router.get("/session")
+@router.get("/session", responses={200: {"model": SessionPayload}})
 def restore(credential=Depends(token)):
     return get_demo_store().session(credential)
 
@@ -42,7 +44,7 @@ def logout(credential=Depends(token)):
     return {"revoked": True}
 
 
-@router.post("/role")
+@router.post("/role", responses={200: {"model": SessionPayload}})
 def switch(body: RoleInput, credential=Depends(token)):
     return get_demo_store().switch(credential, body.role)
 

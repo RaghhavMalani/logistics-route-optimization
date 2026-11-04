@@ -25,6 +25,8 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from backend.app.contracts import WorldClockPayload
+
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from backend.app.identity import verified_scope_key
@@ -291,7 +293,7 @@ def _subject(reached) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-@router.get("/world/clock")
+@router.get("/world/clock", responses={200: {"model": WorldClockPayload}})
 def world_clock() -> Dict[str, Any]:
     """What time it is in the world, and why.
 

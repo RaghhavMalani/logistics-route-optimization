@@ -10,6 +10,7 @@
  * hydrated tree identical.
  */
 
+import { postApi } from "@/services/api-client";
 import {
   createContext,
   useCallback,
@@ -193,12 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const startDemo = useCallback(
     async (role: Role) =>
-      adoptDemo(await postJson<Session>("/demo/session", { role })),
+      adoptDemo(await postApi("/api/demo/session", { role })),
     [adoptDemo],
   );
   const switchDemo = useCallback(
     async (role: Role) =>
-      adoptDemo(await postJson<Session>("/demo/role", { role })),
+      adoptDemo(await postApi("/api/demo/role", { role })),
     [adoptDemo],
   );
   const resetDemo = useCallback(async () => {

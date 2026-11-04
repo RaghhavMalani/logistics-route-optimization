@@ -1,18 +1,11 @@
+import { getApi, type ApiResponse } from "./api-client";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
-import { API_BASE, ApiError, getJson } from "@/services/api";
+import { API_BASE, ApiError } from "@/services/api";
 
-export interface HomeHandoff {
-  id: string;
-  vesselName: string;
-  portCode: string;
-  state: string;
-  summary?: string;
-  nextActor: string | null;
-  deepLink: string | null;
-  advisoryId?: string;
-}
+type HandoffPayload = ApiResponse<"/api/handoffs", "get">;
+export type HomeHandoff = HandoffPayload["items"][number];
 
 async function readEvents(
   response: Response,
@@ -38,7 +31,7 @@ async function readEvents(
           .filter((line) => line.startsWith("data:"))
           .map((line) => line.slice(5).trimStart())
           .join("\n");
-        const payload = JSON.parse(data) as { items: HomeHandoff[] };
+        const payload = JSON.parse(data) as HandoffPayload;
         if (Array.isArray(payload.items)) onItems(payload.items);
       }
     }
@@ -68,8 +61,8 @@ export function useWorkspaceHandoffs(enabled = true) {
     retry: false,
     queryFn: async ({ signal }) => {
       try {
-        const result = await getJson<{ items: HomeHandoff[] }>(
-          "/handoffs",
+        const result = await getApi(
+          "/api/handoffs",
           identityHeaders,
           { signal, bypassScreen: live },
         );

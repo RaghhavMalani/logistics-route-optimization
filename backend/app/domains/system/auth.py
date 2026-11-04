@@ -1,6 +1,8 @@
 """Verified sign-in; accounts and memberships are provisioned only on the server."""
 from datetime import datetime, timezone
 
+from backend.app.contracts import SessionPayload
+
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,14 +17,14 @@ class Credentials(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
-@router.post("/auth/login")
+@router.post("/auth/login", responses={200: {"model": SessionPayload}})
 def login(payload: Credentials, request: Request, response: Response,
           store: AuthStore = Depends(get_auth_store)) -> dict:
     response.headers["Cache-Control"] = "no-store"
     return store.login(payload.email, payload.password, request.client.host if request.client else "unknown")
 
 
-@router.get("/auth/session")
+@router.get("/auth/session", responses={200: {"model": SessionPayload}})
 def session(request: Request, response: Response) -> dict:
     response.headers["Cache-Control"] = "no-store"
     session = request.state.verified_session

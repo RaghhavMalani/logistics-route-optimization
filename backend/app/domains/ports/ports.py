@@ -9,6 +9,8 @@ kind of fabricated telemetry this system must not ship.
 
 from __future__ import annotations
 
+from backend.app.contracts import PortRegistryPayload
+
 from fastapi import APIRouter, HTTPException
 
 from backend.app.services import cache_service as cache
@@ -138,7 +140,7 @@ def list_ports() -> list[dict]:
     return sorted(snapshots, key=lambda x: x["name"])
 
 
-@router.get("/ports/registry")
+@router.get("/ports/registry", responses={200: {"model": list[PortRegistryPayload]}})
 def port_registry_listing() -> list[dict]:
     """The canonical port registry -- the single source of truth for codes."""
     return port_registry.to_dicts()

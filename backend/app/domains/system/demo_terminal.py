@@ -91,7 +91,7 @@ def install():
             if permitted:
                 router.add_api_route(route.path, route.endpoint, methods=list(route.methods),
                                      name="demo_terminal_" + route.name, response_model=route.response_model,
-                                     status_code=route.status_code)
+                                     status_code=route.status_code, responses=route.responses)
 
 
 install()

@@ -8,6 +8,7 @@
  * rewritten one. The hooks pass that through untouched.
  */
 
+import { getApi, type ApiResponse } from "./api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 
@@ -281,21 +282,9 @@ export function useRefreshArtifact(headers: Record<string, string>) {
 
 /* --------------------------------------------------------- world clock -- */
 
-export interface WorldClockState {
-  mode: "LIVE" | "REPLAY" | "HISTORICAL_MISSION" | "SCENARIO";
-  now: string;
-  wallNow: string;
-  anchor: string | null;
-  rate: number | null;
-  frozen: boolean;
-  setBy: string;
-  reason: string;
-  subject: Record<string, unknown>;
-  offsetFromWallSeconds: number;
-}
+export type WorldClockState = ApiResponse<"/api/world/clock", "get">;
 
-export const fetchWorldClock = (): Promise<WorldClockState> =>
-  getJson<WorldClockState>("/world/clock");
+export const fetchWorldClock = () => getApi("/api/world/clock");
 
 export const useWorldClock = (): UseQueryResult<WorldClockState> =>
   useQuery({
