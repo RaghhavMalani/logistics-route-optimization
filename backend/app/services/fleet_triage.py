@@ -156,40 +156,59 @@ def retained_snapshot(scoped, store, credential, identity):
 
 
 def cached_source_leads(world, environment_root, as_of):
-    """Existing exposure relations over retained catalogue bytes only."""
+    """Bounded regional warning context over retained catalogue bytes only."""
     coverage = {"status": "MISSING", "checkedAt": None,
         "reason": "No retained source catalogue available; missing coverage does not establish a clear route"}
     try:
-        from src.portwatch_os.intelligence.notice_catalogue import retained, exposure_rows
+        from src.portwatch_os.global_eye.exposure import TRADE_LANES
+        from src.portwatch_os.intelligence.indian_review import exposure
+        from src.portwatch_os.intelligence.notice_catalogue import retained
+        from src.portwatch_os.intelligence.timestamps import instant
+        from src.portwatch_os.intelligence.voyage_exposure import source_validity
         catalogue = retained(environment_root, as_of)
         notices = catalogue.get("notices")
         if not isinstance(notices, list):
             raise ValueError()
         if not notices: return [], coverage
-        rows = []
+        vessels_by_area = {"NHO_NAVAREA_VIII": [], "NHO_NAVAREA_IX": []}
+        for vessel in world.get("fleet", []):
+            if str(vessel.get("portCode") or "").startswith("IN"):
+                vessels_by_area["NHO_NAVAREA_VIII"].append(vessel)
+            lane = TRADE_LANES.get(vessel.get("laneCode"))
+            if lane and {"BAB_EL_MANDEB", "HORMUZ"}.intersection(lane.chokepoints):
+                vessels_by_area["NHO_NAVAREA_IX"].append(vessel)
+
+        candidates = []
         malformed = 0
         for notice in notices:
-            if not isinstance(notice, dict):
+            if not isinstance(notice, dict) or not isinstance(notice.get("title"), str):
                 malformed += 1
                 continue
+            vessels = vessels_by_area.get(notice.get("sourceFamily"))
+            if (not vessels or notice.get("status") != "REVIEW_CONTEXT"
+                    or source_validity(notice, as_of) != "CURRENT_PRODUCT_DATE"):
+                continue
             try:
-                candidates = exposure_rows([notice], world.get("fleet", []), as_of)
-                for candidate in candidates:
-                    required_text = ("noticeId", "title", "vesselId", "vesselName", "status", "sourceStatus", "reason", "calculationReason")
-                    if (all(isinstance(candidate.get(k), str) for k in required_text)
-                            and isinstance(candidate.get("missingInputs"), list)
-                            and all(isinstance(value, str) for value in candidate["missingInputs"])
-                            and isinstance(candidate.get("calculable"), bool)):
-                        rows.append(candidate)
-                    else:
-                        malformed += 1
+                issued = instant(notice["providerIssueAt"])
+                if issued > as_of:
+                    continue
+                for vessel in vessels:
+                    row = exposure(notice, vessel, as_of)
+                    candidates.append((row, issued))
             except (KeyError, ValueError, TypeError, AttributeError):
                 malformed += 1
-        rows.sort(key=lambda r: (-r["priority"]["score"], str(r.get("noticeId")), r["vesselId"]))
-        for rank, row in enumerate(rows, 1):
-            row["priority"]["rank"] = rank
+        relevance = {"DECLARED_REVIEW_CONTEXT": 0, "POSSIBLE_EXPOSURE": 1}
+        candidates.sort(key=lambda item: (relevance.get(item[0]["status"], 2),
+            -item[1].timestamp(), item[0]["noticeId"], item[0]["vesselId"]))
+        rows, seen = [], {}
+        for row, _ in candidates:
+            vessel_notices = seen.setdefault(row["vesselId"], set())
+            if len(vessel_notices) < 5 and row["noticeId"] not in vessel_notices:
+                vessel_notices.add(row["noticeId"])
+                row["priority"]["rank"] = len(rows) + 1
+                rows.append(row)
         return rows, {"status": "MALFORMED" if malformed else "RETAINED", "checkedAt": catalogue.get("checkedAt") if isinstance(catalogue.get("checkedAt"), str) else None,
-            "reason": f"Retained source leads only; {malformed} malformed catalogue records excluded. Geographic exposure and old heuristic priority are separate from current-plan triage."}
+            "reason": f"Up to five current NAVAREA VIII/IX warnings per voyage; {malformed} malformed catalogue records excluded. Regional context does not establish a crossing or a clear route."}
     except (OSError, ValueError, TypeError, AttributeError):
         return [], {**coverage, "status": "MALFORMED", "reason": "Retained source catalogue could not be read; source coverage is unknown"}
 

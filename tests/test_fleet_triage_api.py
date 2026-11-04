@@ -200,6 +200,53 @@ def test_malformed_optional_source_lead_does_not_remove_owned_fleet(tmp_path, mo
     client.close()
 
 
+def test_fleet_source_leads_limit_current_regional_warnings_per_vessel(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    from backend.app.services.fleet_triage import cached_source_leads
+    from src.portwatch_os.intelligence import notice_catalogue
+
+    now = datetime(2026, 11, 4, 10, tzinfo=timezone.utc)
+
+    def warning(ref, region="VIII", **changes):
+        return {
+            "noticeId": f"NHO_NAVAREA_{region}:{ref}",
+            "sourceFamily": f"NHO_NAVAREA_{region}",
+            "title": ref,
+            "status": "REVIEW_CONTEXT",
+            "sourceStatus": "CURRENT_PRODUCT_DATE",
+            "providerIssueAt": "2026-11-04T08:00:00+00:00",
+            **changes,
+        }
+
+    notices = [warning(f"{i}/26") for i in range(7)]
+    notices += [
+        warning("IX/26", "IX", portCodes=["INPRT"]),
+        warning("history/23", sourceStatus="HISTORICAL_PRODUCT"),
+        warning("cancelled/26", status="SOURCE_NOTICE_CANCELLED"),
+        warning("absent/26", status="NOT_LISTED"),
+        warning("future/26", providerIssueAt="2026-11-04T11:00:00+00:00"),
+        warning("expired/26", productThrough="2026-11-04T09:00:00+00:00"),
+        warning("US/26", sourceFamily="NAVCEN_MSI"),
+        notices[0],
+    ]
+    monkeypatch.setattr(notice_catalogue, "retained", lambda *_: {"notices": notices})
+    world = {"fleet": [
+        {"id": "east", "portCode": "INPRT", "laneCode": "SEA_IND"},
+        {"id": "gulf", "portCode": "INPRT", "laneCode": "GULF_IND"},
+        {"id": "unmapped"},
+    ]}
+
+    leads, coverage = cached_source_leads(world, tmp_path, now)
+    assert coverage["status"] == "RETAINED"
+    assert [row["title"] for row in leads if row["vesselId"] == "east"] == [
+        f"{i}/26" for i in range(5)
+    ]
+    assert [row["title"] for row in leads if row["vesselId"] == "gulf"] == [
+        "IX/26", *(f"{i}/26" for i in range(4))
+    ]
+    assert len(leads) == 10
+
+
 @pytest.mark.parametrize("broken", ["actor", "continuation"])
 def test_malformed_retained_optional_state_is_reported_per_record(tmp_path, monkeypatch, broken):
     store, client, token, headers, company, _body, _data = cargo_journey(tmp_path, monkeypatch, same_gate=True)
