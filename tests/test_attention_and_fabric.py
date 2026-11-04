@@ -75,6 +75,10 @@ from src.portwatch_os.world.cascade import propagate
 from src.portwatch_os.world.graph import EVENT, PORT, VESSEL, key
 from src.portwatch_os.world.quantity import HOURS, INR, RATIO, RISK, VESSELS, utc
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 NOW = utc()
 
 
@@ -650,15 +654,14 @@ class WorldApiTests(unittest.TestCase):
         self.assertTrue(body["evidence"])
         self.assertEqual(body["item"]["attentionId"], item_id)
 
+    @pytest.mark.usefixtures("red_sea_evidence")
     def test_the_evidence_chain_runs_from_the_event_not_just_the_last_hop(self):
         queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
-        if not queue["items"]:
-            self.skipTest("the queue is empty even at the events' own instant")
+        self.assertTrue(queue["items"])
         item = next(
             (i for i in queue["items"] if i["subjectType"] in (PORT, VESSEL)), None,
         )
-        if item is None:
-            self.skipTest("no port or vessel item in the queue")
+        self.assertIsNotNone(item)
         body = self.client.get(
             f"/api/attention/{item['attentionId']}?{self._at()}", headers=self.headers,
         ).json()
@@ -862,6 +865,7 @@ class WorldApiTests(unittest.TestCase):
         body = self.client.get("/api/world/state?mode=COMMERCIAL").json()
         self.assertEqual(body["summary"]["observedVessels"], 0)
 
+    @pytest.mark.usefixtures("red_sea_evidence")
     def test_an_observed_hull_is_reached_by_a_cascade_with_discounted_confidence(self):
         """The point of the exercise: consequence reaches a real hull, and the
         confidence on it is lower than on a fleet vessel by what was inferred."""
@@ -871,8 +875,7 @@ class WorldApiTests(unittest.TestCase):
         ).json()
         bab = [c for c in listing["cascades"] if c["live"] and "BAB_EL_MANDEB" in
                {s["id"] for s in c["affected"]["chokepoints"]}]
-        if not bab:
-            self.skipTest("no live Bab-el-Mandeb cascade in the register at this instant")
+        self.assertTrue(bab)
         detail = self.client.get(
             f"/api/world/cascades/{bab[0]['eventId']}?mode=RESEARCH&{self._at()}",
             headers=self.headers,
@@ -927,6 +930,7 @@ class WorldApiTests(unittest.TestCase):
                                             "Eta": {"Month": 9, "Day": 20, "Hour": 1, "Minute": 0}}}},
         ]
 
+    @pytest.mark.usefixtures("red_sea_evidence")
     def test_an_observed_hull_is_advised_not_ordered(self):
         """A national centre can tell a third-party hull about the water ahead;
         it cannot order it to divert, and the queue must not say it can."""
@@ -935,8 +939,7 @@ class WorldApiTests(unittest.TestCase):
             f"/api/attention?mode=RESEARCH&limit=25&{self._at()}", headers=self.headers,
         ).json()
         observed = [i for i in body["items"] if i["source"] == "OBSERVED_AIS"]
-        if not observed:
-            self.skipTest("no live Red Sea cascade reaches the hull at this instant")
+        self.assertTrue(observed)
         item = observed[0]
         self.assertEqual(item["provenance"]["mmsi"], "419001234")
         self.assertTrue(item["provenance"]["nameStated"])
@@ -984,6 +987,7 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual([i for i in body["items"] if i["source"] == "FEED"], [])
         self.assertTrue(all(i["source"] == "FLEET" for i in body["items"]))
 
+    @pytest.mark.usefixtures("fictional_fleet")
     def test_a_fleet_vessel_sharing_a_name_is_a_candidate_not_a_merge(self):
         from backend.app.routes.global_eye import _company_voyages
 

@@ -1,6 +1,7 @@
 """Read-only publication of visually reviewed official public port-call evidence."""
+from src.utils.settings import get_settings
+
 import json
-import os
 import re
 import sqlite3
 from datetime import timedelta
@@ -16,7 +17,7 @@ EVENTS = ("frozenEta", "reportedArrival", "reportedBerth")
 
 def publication(now):
     """A public-only immutable bundle keeps paper evidence available on new hosts."""
-    root = Path(os.getenv("PORTWATCH_PUBLIC_CASE_DIR") or Path(__file__).resolve().parents[3] / "data/public_port_cases")
+    root = Path(get_settings().PORTWATCH_PUBLIC_CASE_DIR or Path(__file__).resolve().parents[3] / "data/public_port_cases")
     if not (root / "current.json").is_file():
         return None, {"cases": [], "documents": []}
     pointer = json.loads((root / "current.json").read_text(encoding="utf-8"))

@@ -39,15 +39,25 @@ if (!local) {
   assert.equal(receipt.origin, origin);
   assert.equal(receipt.frontendSha, frontendSha);
   assert.equal(receipt.backendSha, backendSha);
-  if (production) assert.equal(receipt.target, "production");
+  assert.equal(receipt.target, production ? "production" : "preview");
   const healthResponse = await fetch(api + "/health", { signal: AbortSignal.timeout(15_000) });
   assert.equal(healthResponse.status, 200);
   const health = await healthResponse.json();
   assert.equal(health.status, "ok");
   assert.equal(health.artifact.applicationSha, backendSha);
   assert.equal(health.release.sha, backendSha);
-  assert.equal(health.release.provider.serviceId, "c7dfe1db-2fd0-4c24-8a59-dde1d34239c2");
-  assert.equal(health.release.provider.environmentId, "678352b2-e032-4c0c-b900-60f68fa3562f");
+  if (!production && receipt.releaseEnvironment) {
+    assert.match(receipt.releaseEnvironment, /^feature-integration-\d{8}$/);
+    assert.equal(health.release.environment, receipt.releaseEnvironment);
+    const providerId = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+    assert.match(receipt.railwayService, providerId);
+    assert.match(receipt.railwayEnvironment, providerId);
+    assert.equal(health.release.provider.serviceId, receipt.railwayService);
+    assert.equal(health.release.provider.environmentId, receipt.railwayEnvironment);
+  } else {
+    assert.equal(health.release.provider.serviceId, "c7dfe1db-2fd0-4c24-8a59-dde1d34239c2");
+    assert.equal(health.release.provider.environmentId, "678352b2-e032-4c0c-b900-60f68fa3562f");
+  }
   assert.equal(health.release.provider.deploymentId, receipt.railway);
 }
 const browser = await chromium.launch({ headless: !process.argv.includes("--headed") });

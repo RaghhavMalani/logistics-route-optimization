@@ -5,11 +5,12 @@ private fleet, financial, camera and session stores are never consulted.
 """
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import csv
 import hashlib
 import io
 import json
-import os
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -21,7 +22,7 @@ from src.portwatch_os.clock import LIVE, get_clock, wall_now, world_now
 from src.utils.config import STATE_DIR
 from src.portwatch_os.intelligence.data_truth import DataTruth
 
-ROOT = Path(os.getenv("PORTWATCH_FREE_SOURCE_DIR") or STATE_DIR / "public_products")
+ROOT = Path(get_settings().PORTWATCH_FREE_SOURCE_DIR or STATE_DIR / "public_products")
 LOCK = threading.RLock()
 # Intervals govern checks, not a promise that the publisher has new data.
 PRODUCTS = {

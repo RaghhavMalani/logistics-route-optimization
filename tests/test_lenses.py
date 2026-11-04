@@ -25,6 +25,10 @@ from src.portwatch_os.security.rules import AVAILABLE
 from src.portwatch_os.trade import CLASSES, port_classes, structural_exposure
 from src.portwatch_os.trade.catalogue import BPS_ROWS_PRESENT, ROW_CLASS, STATEMENTS
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 NOW = datetime(2026, 9, 14, 12, 0, tzinfo=timezone.utc)
 
 

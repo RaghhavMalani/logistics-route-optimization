@@ -200,10 +200,10 @@ def test_navigation_refresh_uses_its_reviewed_family_and_preserves_call(tmp_path
     step(client, path, headers, "REVIEWED")
     step(client, path, headers, "APPROVED", choice)
     updated = {**source, "revisionId": "synthetic-reviewed-revision-2", "previousRevisionId": source["revisionId"]}
-    monkeypatch.setattr(notices, "refresh", lambda *args, **kwargs: copy.deepcopy(updated))
+    monkeypatch.setattr(notices, "retained", lambda *args, **kwargs: copy.deepcopy(updated))
     def wrong_family(*args, **kwargs):
         raise AssertionError("Bridge evidence must not refresh through the Eastham adapter")
-    monkeypatch.setattr("src.portwatch_os.intelligence.operational_notices.refresh", wrong_family)
+    monkeypatch.setattr("src.portwatch_os.intelligence.operational_notices.retained", wrong_family)
     refreshed = client.post(path + "/refresh", headers=headers, json={})
     assert refreshed.status_code == 200, refreshed.text
     successor = refreshed.json()

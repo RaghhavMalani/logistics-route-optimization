@@ -15,7 +15,9 @@
     "test:browser:ci": "playwright test --project=desktop-1920 --project=laptop-1366",
     "test:browser:ui": "playwright test --ui",
     "qa:fixtures": "node qa/capture-fixtures.mjs",
-    "preview:stop": "node qa/stop-preview.mjs"
+    "preview:stop": "node qa/stop-preview.mjs",
+    "api:generate": "openapi-typescript ../backend/openapi.json -o src/services/openapi.generated.ts",
+    "api:check": "npm run api:generate -- --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -96,6 +98,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "nitro": "3.0.260603-beta",
+    "openapi-typescript": "7.13.0",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",

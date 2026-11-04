@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, main]
+    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, feat/backend-maintainability, main]
   workflow_dispatch:
 
 concurrency:
@@ -26,7 +26,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Compile the operations layer
         run: python -m compileall -q src/portwatch_os tests
@@ -75,7 +75,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Compile every module
         run: |
@@ -103,7 +103,16 @@ jobs:
       # and running them against a real artefact tree catches an import that
       # only works when nothing has been exported.
       - name: Run the full test suite
-        run: python -m unittest discover -s tests -p "test_*.py" -v
+        run: python -m scripts.test_suite --timeout=45 --timeout-method=signal --junitxml=backend-junit.xml -ra
+      - name: Verify checked-in OpenAPI
+        run: python -m scripts.export_openapi --check
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-evidence
+          path: backend-junit.xml
+          retention-days: 7
 
   terminal:
     name: Terminal typecheck and build
@@ -126,6 +135,8 @@ jobs:
           cache-dependency-path: india-portwatch-terminal/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Check generated client
+        run: npm run api:check
       - name: Typecheck
         run: npm run typecheck
       - name: Build

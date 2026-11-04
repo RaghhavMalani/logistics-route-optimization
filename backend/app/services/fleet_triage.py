@@ -4,11 +4,12 @@ No engine/store constructors, provider calls or recovery writes run here.
 The caller authenticates membership and holds the existing visitor mutation
 lock; repeated read snapshots detect writers outside that boundary.
 """
+from src.utils.settings import get_settings
+
 from copy import deepcopy
 from datetime import datetime
 import hashlib
 import json
-import os
 from pathlib import Path
 import sqlite3
 
@@ -217,8 +218,8 @@ def project_snapshot(snapshot, *, as_of: datetime, clock_mode, consistent):
     from src.portwatch_os.decision.fleet_triage import project_fleet_triage
     from src.portwatch_os.decision.triage_freshness import collect_retained_dependencies, evaluate_freshness
     project_root = Path(__file__).resolve().parents[3]
-    environment_root = Path(os.getenv("PORTWATCH_CURRENT_ENVIRONMENT_DIR") or project_root / "data/cache/current_environment")
-    public_db = Path(os.getenv("PORTWATCH_PUBLIC_FEEDBACK_DB") or Path(os.getenv("PORTWATCH_STATE_DIR") or project_root / "outputs") / "portwatch_ledger.db")
+    environment_root = Path(get_settings().PORTWATCH_CURRENT_ENVIRONMENT_DIR or project_root / "data/cache/current_environment")
+    public_db = Path(get_settings().PORTWATCH_PUBLIC_FEEDBACK_DB or Path(get_settings().PORTWATCH_STATE_DIR or project_root / "outputs") / "portwatch_ledger.db")
     world, decisions, advisories = snapshot["world"], snapshot["decisions"], snapshot["advisories"]
     retained = collect_retained_dependencies(decisions, environment_root=environment_root, public_feedback_db=public_db, as_of=as_of)
     freshness = {d["decisionId"]: evaluate_freshness(d, world, as_of=as_of, clock_mode=clock_mode, retained=retained) for d in decisions}

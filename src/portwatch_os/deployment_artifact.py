@@ -1,4 +1,6 @@
 """Verify clean image source bytes against its packaged Git-source manifest."""
+from src.utils.settings import get_settings
+
 from functools import lru_cache
 import hashlib,json,os,re
 from pathlib import Path,PurePosixPath
@@ -53,6 +55,6 @@ def retained_cache_time(path):
 def current():
     root=Path(__file__).resolve().parents[2];manifest=root/'data/preview_release/source-manifest.json'
     if not manifest.exists():
-        if os.getenv('PORTWATCH_REQUIRE_RELEASE_MANIFEST')=='1':raise RuntimeError('Required image source manifest is absent')
+        if get_settings().PORTWATCH_REQUIRE_RELEASE_MANIFEST=='1':raise RuntimeError('Required image source manifest is absent')
         return {'status':'UNCONFIGURED','applicationSha':'UNKNOWN','manifestSha256':None,'checkedFiles':0}
-    return verify(root,manifest,os.getenv('PORTWATCH_RELEASE_SHA') or None)
+    return verify(root,manifest,get_settings().PORTWATCH_RELEASE_SHA or None)

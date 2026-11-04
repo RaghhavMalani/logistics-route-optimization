@@ -24,6 +24,10 @@ import unittest
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 ADMIN = {"X-PortWatch-Role": "NATIONAL_ADMIN", "X-PortWatch-Actor": "fuzz.admin"}
 COMPANY = {"X-PortWatch-Role": "SHIPPING_COMPANY", "X-PortWatch-Actor": "fuzz.co", "X-PortWatch-Org": "PortWatch Demo Shipping"}
 PORT = {"X-PortWatch-Role": "PORT_AUTHORITY", "X-PortWatch-Actor": "fuzz.port", "X-PortWatch-Port": "INNSA"}
@@ -190,11 +194,11 @@ class MoneyFuzz(FuzzBase):
                                        {"base": "USD", "quote": "INR", "rate": 83.0, "source": "fuzz", "observedAt": instant})
             self.assertIn(status, (200, 400))
 
+    @pytest.mark.usefixtures("red_sea_evidence")
     def test_decision_scenario_assumptions_refuse_bad_rates(self):
         queue = self.client.get("/api/attention?mode=DEMO&limit=25", headers=COMPANY).json()
         item = next((i for i in queue["items"] if i.get("subjectType") == "vessel" and i.get("actionable")), None)
-        if item is None:
-            self.skipTest("no actionable hull")
+        self.assertIsNotNone(item, "fixture must expose an actionable hull")
         base = {"domain": "vessel", "eventId": item["cascadeId"].split(":")[-1], "vesselId": item["subjectId"], "mode": "DEMO"}
         for value in (-1, 0, "x", None, 1e309, "NaN"):
             status, _, _ = self._probe("POST", "/api/decisions/problems",
@@ -255,12 +259,17 @@ class IdentifierFuzz(FuzzBase):
                                        {"vesselId": "MSN-001", "optionId": option}, headers=COMPANY)
             self.assertIn(status, (200, 400, 404))
 
+    @pytest.mark.usefixtures("scenario_forecast")
     def test_scenario_options_and_branches(self):
         for intensity in HOSTILE_NUMBERS:
-            status, _, _ = self._probe("POST", "/api/scenarios/simulate", {"scenarioKey": "HORMUZ", "intensity": _json_safe(intensity)})
+            status, _, _ = self._probe(
+                "POST", "/api/scenarios/simulate", {"scenarioKey": "HORMUZ", "intensity": _json_safe(intensity)},
+            )
             self.assertIn(status, (200, 400, 404, 503))
         for key in HOSTILE_STRINGS:
-            status, _, _ = self._probe("POST", "/api/scenarios/simulate", {"scenarioKey": key})
+            status, _, _ = self._probe(
+                "POST", "/api/scenarios/simulate", {"scenarioKey": key},
+            )
             self.assertIn(status, (200, 400, 404, 503))
         for value in HOSTILE_NUMBERS:
             status, _, _ = self._probe("POST", "/api/world/branches",

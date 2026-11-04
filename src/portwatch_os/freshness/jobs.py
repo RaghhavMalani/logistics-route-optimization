@@ -36,6 +36,8 @@ anywhere except by producing a new artifact.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
 import logging
 import os
@@ -318,7 +320,7 @@ def probe_news() -> ArtifactProbe:
 
 
 def pipeline_eligibility() -> Optional[str]:
-    value = (os.getenv(PIPELINE_AUTOSTART_ENV) or "1").strip().lower()
+    value = (get_settings().get(PIPELINE_AUTOSTART_ENV) or "1").strip().lower()
     if value in ("0", "false", "no", "off"):
         return f"{PIPELINE_AUTOSTART_ENV}={value}: the pipeline is not started by the scheduler on this machine"
     return None
@@ -327,8 +329,8 @@ def pipeline_eligibility() -> Optional[str]:
 def refresh_pipeline(context: RefreshContext) -> JobOutcome:
     """Run the pipeline in a subprocess. Minutes, not seconds."""
     before = probe_pipeline_export().observed_at
-    source = os.getenv("PORTWATCH_SOURCE", "portwatch")
-    model = os.getenv("PORTWATCH_MODEL", "ensemble")
+    source = get_settings().get("PORTWATCH_SOURCE", "portwatch")
+    model = get_settings().get("PORTWATCH_MODEL", "ensemble")
     command = [sys.executable, str(ROOT / "run_award_demo.py"), "--source", source, "--model", model, "--refresh"]
     log.info("pipeline refresh: %s", " ".join(command))
     completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=45 * 60)
@@ -479,7 +481,7 @@ def product_jobs() -> list[RefreshJob]:
 def install_product_jobs(coordinator: RefreshCoordinator) -> RefreshCoordinator:
     from src.portwatch_os.freshness.free_research import jobs as research_jobs
     base_jobs=product_jobs()
-    if (os.getenv('PORTWATCH_RESEARCH_SOURCE_PROFILE') or os.getenv('PORTWATCH_LOCAL_PROVIDER_PROFILE'))=='1':
+    if (get_settings().PORTWATCH_RESEARCH_SOURCE_PROFILE or get_settings().PORTWATCH_LOCAL_PROVIDER_PROFILE)=='1':
         # This explicit profile collects public products only. It does not
         # rerun a forecasting pipeline or rewrite global CSV/support caches.
         base_jobs=[job for job in base_jobs if job.artifact.startswith('public_ports_')]

@@ -6,6 +6,8 @@ manufacture one. Readers do not write, fetch, or infer clocks from file mtime.
 """
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
@@ -35,7 +37,7 @@ def now_iso():
 
 
 def archive_root():
-    return Path(os.getenv("PORTWATCH_CURRENT_ENVIRONMENT_DIR") or DATA_DIR / "cache/current_environment")
+    return Path(get_settings().PORTWATCH_CURRENT_ENVIRONMENT_DIR or DATA_DIR / "cache/current_environment")
 
 
 def sidecar_path(cache):

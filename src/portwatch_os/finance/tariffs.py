@@ -24,8 +24,9 @@ the last approved figure is known, and it is no longer in force.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -126,7 +127,7 @@ def parse_schedule(body: Dict[str, Any]) -> CostSchedule:
 
 def load_public_tariffs(path: Optional[Path] = None) -> List[CostSchedule]:
     """Every schedule in the evidence file. Missing file, empty list."""
-    location = path or Path(os.getenv(ENV_PATH) or DEFAULT_PATH)
+    location = path or Path(get_settings().get(ENV_PATH) or DEFAULT_PATH)
     if not location.exists():
         return []
     with location.open("r", encoding="utf-8") as handle:
@@ -136,7 +137,7 @@ def load_public_tariffs(path: Optional[Path] = None) -> List[CostSchedule]:
 
 def investigation(path: Optional[Path] = None) -> List[Dict[str, Any]]:
     """The sources looked at, including the ones nothing was taken from."""
-    location = path or Path(os.getenv(ENV_PATH) or DEFAULT_PATH)
+    location = path or Path(get_settings().get(ENV_PATH) or DEFAULT_PATH)
     if not location.exists():
         return []
     with location.open("r", encoding="utf-8") as handle:

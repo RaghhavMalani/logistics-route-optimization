@@ -19,6 +19,8 @@ provider *status* rather than provider configuration.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -340,7 +342,7 @@ class OpenMeteoAdapter(BaseAdapter):
     @property
     def product_id(self) -> str:
         """The subscription when a key is configured; the free tier otherwise."""
-        return "open-meteo-customer" if os.getenv("OPEN_METEO_API_KEY") else "open-meteo-free"
+        return "open-meteo-customer" if get_settings().OPEN_METEO_API_KEY else "open-meteo-free"
 
     def licence_gate(self) -> Optional[Availability]:
         """The catalogue's verdict on the product the artefact was fetched with.

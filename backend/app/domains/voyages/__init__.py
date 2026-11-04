@@ -1,0 +1,1 @@
+"""Voyages API domain."""

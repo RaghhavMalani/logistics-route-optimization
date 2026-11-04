@@ -1,3 +1,4 @@
+import type { components } from "./openapi.generated";
 import { prewarmChart } from "@/components/map/chart-engine";
 
 /** Private boot packets are shared only by the authenticated browser session. */
@@ -10,8 +11,7 @@ const homes = {
 
 type HomeRole = keyof typeof homes;
 type Mode = "demo" | "production";
-type Section = { status: number; data: unknown };
-type Packet = { sections: Record<string, Section>; session?: unknown };
+type Packet = components["schemas"]["ScreenPayload"];
 
 type Entry = { token: string; until: number; packet: Promise<Packet | null> };
 const entries = new Map<string, Entry>();
@@ -99,7 +99,7 @@ export function invalidateHomePackets() {
   entries.clear();
 }
 
-export async function loadHomeSession<T>(
+export async function loadHomeSession(
   base: string,
   role: string,
   token: string,
@@ -108,7 +108,7 @@ export async function loadHomeSession<T>(
   if (!active(role)) return null;
   prewarmChart();
   const packet = await acquire(base, role, token, mode);
-  return (packet?.session as T | undefined) ?? null;
+  return packet?.session ?? null;
 }
 
 export function prefetchHome(base: string, role: string, token: string) {

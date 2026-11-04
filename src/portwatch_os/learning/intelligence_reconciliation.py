@@ -3,10 +3,11 @@
 No visitor worlds are enumerated. Quotes are observations. Only an explicitly
 frozen future persistence claim is scored when the matching release arrives.
 """
+from src.utils.settings import get_settings
+
 import io
 import json
 import logging
-import os
 from pathlib import Path
 import threading
 
@@ -18,7 +19,7 @@ from src.portwatch_os.intelligence.current_environment import ROOT
 from src.portwatch_os.learning import shared_feedback as feedback
 from src.portwatch_os.learning import economic_feedback as economic
 
-DB = Path(os.getenv('PORTWATCH_PUBLIC_FEEDBACK_DB') or DEFAULT_LEDGER_PATH)
+DB = Path(get_settings().PORTWATCH_PUBLIC_FEEDBACK_DB or DEFAULT_LEDGER_PATH)
 STOP = threading.Event()
 LOCK = threading.Lock()
 THREAD = None
@@ -353,7 +354,7 @@ def run_once():
             status["failures"].append({"source": "News source product", "reason": str(exc)[:180]})
         # Optional bounded family on the existing worker; no extra scheduler.
         # Context metadata is never collected as an actual closure/outcome claim.
-        if os.getenv("PORTWATCH_NHO_ENABLED", "0") == "1":
+        if get_settings().get("PORTWATCH_NHO_ENABLED", "0") == "1":
             from src.portwatch_os.intelligence import indian_notices
             indian = indian_notices.refresh()
             status["indianNavigation"] = {key: indian.get(key) for key in ("sourceStatus", "checkedAt", "lastSuccessfulReceiptAt", "productAsOfDate", "reason")}
@@ -372,7 +373,7 @@ def run_once():
 
 def start():
     global THREAD
-    if os.getenv("PORTWATCH_INTELLIGENCE_RECONCILIATION", "1").lower() in ("0", "false", "off"):
+    if get_settings().get("PORTWATCH_INTELLIGENCE_RECONCILIATION", "1").lower() in ("0", "false", "off"):
         return
     if THREAD and THREAD.is_alive():
         return

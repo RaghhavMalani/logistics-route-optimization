@@ -72,8 +72,10 @@ def main():
         record=row(target,content,kind='RETAINED_PUBLIC_RUNTIME_CACHE',retainedFileMtime=original.stat().st_mtime,
             timeBasis='Retained filesystem timestamp; not provider issue/publication/first-availability')
         caches.append(record);records['backend'].append(record)
-    required={'backend/app/routes/commercial.py','src/portwatch_os/decision/commercial_jobs.py','src/portwatch_os/decision/commercial_uncertainty.py'}
-    if not required.issubset({r['path'] for r in image}):raise ValueError('Chosen commit does not contain the completed commercial/compute capability')
+    paths={r['path'] for r in image}
+    commercial={'backend/app/routes/commercial.py','backend/app/domains/voyages/commercial.py'}
+    required={'src/portwatch_os/decision/commercial_jobs.py','src/portwatch_os/decision/commercial_uncertainty.py'}
+    if not commercial.intersection(paths) or not required.issubset(paths):raise ValueError('Chosen commit does not contain the completed commercial/compute capability')
     manifest={'version':'preview-image-source-v1','applicationSha':sha,'files':image,'runtimeCache':caches,
         'seedManifestSha256':qualified['id'],'seedSourceSha':qualified['manifest']['releaseSha']}
     content=json.dumps(manifest,sort_keys=True,indent=2).encode();target='data/preview_release/source-manifest.json'

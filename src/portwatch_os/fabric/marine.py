@@ -27,9 +27,10 @@ Three honesty rules shape what comes back:
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
 import logging
-import os
 import threading
 import urllib.parse
 import urllib.request
@@ -352,7 +353,7 @@ class MarineService:
         self._fetcher = fetcher or _http_fetch
         self.ttl = ttl
         self.cache_path = cache_path
-        self._api_key = api_key if api_key is not None else os.getenv(ENV_KEY)
+        self._api_key = api_key if api_key is not None else get_settings().get(ENV_KEY)
         self._grid: Optional[MarineGrid] = None
         self._lock = threading.Lock()
         self.last_error: Optional[str] = None

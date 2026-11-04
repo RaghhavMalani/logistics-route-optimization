@@ -12,8 +12,9 @@ InMemoryBus. Both expose the same tiny API:
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
-import os
 import queue
 from typing import Iterator, Optional, Tuple
 
@@ -99,7 +100,7 @@ class KafkaBus:
 
 def get_bus(topic: str = DEFAULT_TOPIC, force_memory: bool = False):
     """Return a Kafka bus if configured & reachable, else an in-memory bus."""
-    bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
+    bootstrap = get_settings().KAFKA_BOOTSTRAP_SERVERS
     if force_memory or not bootstrap:
         log.info("Streaming bus: in-memory (no KAFKA_BOOTSTRAP_SERVERS set).")
         return InMemoryBus(topic)

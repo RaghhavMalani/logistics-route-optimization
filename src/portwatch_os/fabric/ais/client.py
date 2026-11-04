@@ -27,10 +27,11 @@ appears in no payload, no log line and no status response.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import asyncio
 import json
 import logging
-import os
 import random
 import threading
 from dataclasses import dataclass, field
@@ -169,7 +170,7 @@ class AisStreamClient:
         self.bounding_boxes = bounding_boxes or DEFAULT_BOUNDING_BOX
         self.message_types = list(message_types)
         # The key never leaves this object. It is not in status, not in logs.
-        self._api_key = api_key if api_key is not None else os.getenv(self.ENV_KEY)
+        self._api_key = api_key if api_key is not None else get_settings().get(self.ENV_KEY)
         self._on_observation = on_observation
         # Injectable so the lifecycle can be tested without a network.
         self._connector = connector
@@ -491,7 +492,7 @@ def get_client() -> AisStreamClient:
     with _CLIENT_LOCK:
         if _CLIENT is None:
             boxes=None
-            configured=os.getenv('PORTWATCH_AIS_BOUNDING_BOXES')
+            configured=get_settings().PORTWATCH_AIS_BOUNDING_BOXES
             if configured:
                 boxes=json.loads(configured)
                 if not isinstance(boxes,list) or not 1<=len(boxes)<=3: raise ValueError('Use one to three bounded AIS regions')
@@ -557,7 +558,7 @@ def _recorder_from_env():
 
     from src.portwatch_os.fabric.ais.recorder import ObservationRecorder
 
-    target = os.getenv(RECORD_ENV)
+    target = get_settings().get(RECORD_ENV)
     return ObservationRecorder(path=Path(target) if target else None)
 
 
@@ -584,7 +585,7 @@ def start_client() -> AisStreamClient:
     from src.portwatch_os.fabric.ais.recorder import ObservationRecorder, replay
 
     client = get_client()
-    recording = os.getenv(REPLAY_ENV)
+    recording = get_settings().get(REPLAY_ENV)
     if recording:
         path = Path(recording)
         if path.exists():

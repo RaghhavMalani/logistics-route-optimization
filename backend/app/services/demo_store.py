@@ -4,9 +4,10 @@ Opaque demo credentials never enter AuthStore or current_identity. Every write
 holds one SQLite transaction and addresses only its authenticated session row.
 No production singleton, collector, clock, model or ledger is overridden.
 """
+from src.utils.settings import get_settings
+
 import hashlib
 import json
-import os
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -146,5 +147,5 @@ def describe_demo(demo_id, issued, expires, role, world):
 
 @lru_cache(maxsize=1)
 def get_demo_store():
-    root = Path(os.environ.get("PORTWATCH_STATE_DIR") or Path(__file__).resolve().parents[3]/"outputs")
+    root = Path(get_settings().PORTWATCH_STATE_DIR or Path(__file__).resolve().parents[3]/"outputs")
     return DemoStore(root/"demo"/"sessions.sqlite3")

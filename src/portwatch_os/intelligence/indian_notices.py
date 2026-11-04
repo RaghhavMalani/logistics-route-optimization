@@ -3,13 +3,14 @@
 Originals are retained locally for research audit and referenced at the issuer.
 This application does not republish the full bulletin or infer hazard clearance.
 """
+from src.utils.settings import get_settings
+
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 import hashlib
 import io
 import json
-import os
 import re
 import threading
 from urllib.parse import urljoin, urlparse
@@ -31,7 +32,7 @@ SOURCE_USE = {"status": "REFERENCE_METADATA_ONLY", "basis": "No product-specific
 
 
 def root_path():
-    base = os.getenv("PORTWATCH_CURRENT_ENVIRONMENT_DIR")
+    base = get_settings().PORTWATCH_CURRENT_ENVIRONMENT_DIR
     return (Path(base) if base else Path(__file__).resolve().parents[3] / "data/cache/current_environment") / "indian_notices"
 
 

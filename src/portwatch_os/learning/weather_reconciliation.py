@@ -5,6 +5,8 @@ Outcome receipt is first availability to this application, not publication time.
 """
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 from datetime import timedelta
 import hashlib
 import json
@@ -228,9 +230,8 @@ def reconcile(*, db=None, root=None, now=None, fetch=None):
 
 def start():
     """An independent worker runs even when the original fabric scheduler is off."""
-    import os
     global WORKER
-    if os.getenv("PORTWATCH_WEATHER_RECONCILIATION","1").lower() in ("0","false","off"): return
+    if get_settings().get("PORTWATCH_WEATHER_RECONCILIATION","1").lower() in ("0","false","off"): return
     if WORKER and WORKER.is_alive(): return
     STOP.clear()
     def run():

@@ -5,11 +5,12 @@ receipt, event definition, time zone and dataset entitlement remain unverified.
 Validation preserves naive provider clocks and never promotes these candidates
 to actual arrivals, all-fast, restrictions or numerically usable evidence.
 """
+from src.utils.settings import get_settings
+
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
-import os
 import re
 from urllib.request import Request
 from src.portwatch_os.clock import wall_now
@@ -89,7 +90,7 @@ def backend_configuration():
     Presence is not proof of entitlement, acceptance or successful access. No key
     value, length, fingerprint, environment dump or provider error is returned.
     """
-    return {"credentialConfigured": bool((os.getenv("OCEANS_X_API_KEY") or "").strip()),
+    return {"credentialConfigured": bool((get_settings().OCEANS_X_API_KEY or "").strip()),
         "enabled": False, "reason": "Authenticated response and semantic qualification required before collector activation"}
 
 
@@ -113,7 +114,7 @@ def build_request(product, requested_date, *, at=None):
         raise ValueError("OCEANS-X request clock must be timezone-aware")
     if abs((selected - now.astimezone(_SGT).date()).days) > 3:
         raise ValueError("OCEANS-X query date must be within three days of current SGT date")
-    key = (os.getenv("OCEANS_X_API_KEY") or "").strip()
+    key = (get_settings().OCEANS_X_API_KEY or "").strip()
     if not key:
         raise ValueError("OCEANS-X requires an issued backend API key and product subscription")
     if len(key) > 8192 or any(ord(c) < 33 or ord(c) > 126 for c in key):

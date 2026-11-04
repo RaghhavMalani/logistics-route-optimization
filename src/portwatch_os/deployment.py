@@ -18,7 +18,8 @@ module only judges.
 
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -126,7 +127,7 @@ def resolve_mode(mode: Optional[str], env: Optional[Dict[str, str]] = None) -> t
     An argument wins over the environment. Neither being set is a problem:
     the process would default to COMMERCIAL without anyone having said so.
     """
-    environ = os.environ if env is None else env
+    environ = get_settings() if env is None else env
     if mode:
         value = mode.strip().upper()
         if value not in MODES:
@@ -154,7 +155,7 @@ def validate(
     coordinator: Any = None,
 ) -> DeploymentReport:
     """Judge the configuration. Every check is recorded; nothing is fixed."""
-    environ = dict(os.environ if env is None else env)
+    environ = get_settings() if env is None else env
     active, source, problem = resolve_mode(mode, environ)
     report = DeploymentReport(mode=active, mode_source=source)
     rules = REQUIREMENTS[active]
