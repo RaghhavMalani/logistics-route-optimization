@@ -149,7 +149,7 @@ function VesselBridge() {
 
   return (
     <div className="absolute inset-0">
-      <h1 className="sr-only">Fleet Bridge</h1>
+      <h1 className="sr-only">Vessel Bridge</h1>
 
       <MaritimeMap
         layers={workspace.layers}
@@ -205,6 +205,7 @@ function VesselBridge() {
               <TimeTransport
                 timeline={workspace.timeline}
                 weatherAt={workspace.weatherAt}
+                className="flex-wrap [&>div:last-child]:basis-full"
               />
             </div>
 
