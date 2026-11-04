@@ -243,7 +243,7 @@ function VesselBridge() {
                     <dt>Passage weather</dt>
                     <dd>
                       {worst
-                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route samples`
+                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route ${exposure.length === 1 ? "sample" : "samples"}`
                         : "No forecast coverage for this passage"}
                     </dd>
                   </dl>

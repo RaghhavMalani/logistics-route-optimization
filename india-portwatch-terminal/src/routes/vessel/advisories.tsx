@@ -6,7 +6,6 @@ import {
   AdvisoryActions,
   advisoryLabel,
   advisoryTone,
-  AuditTrail,
 } from "@/components/advisory/AdvisoryPanels";
 import { Page, PageBody, PageHeader } from "@/components/kit/layout";
 import { formatUtc, Pill } from "@/components/kit/primitives";
@@ -116,6 +115,31 @@ function IssuedSummary({ advisory }: { advisory: Advisory }) {
   );
 }
 
+function VesselAudit({ advisory }: { advisory: Advisory }) {
+  const actor = { issuer: "Port", recipient: "Bridge", system: "System" };
+  return (
+    <ol className="space-y-2">
+      {advisory.audit.map((entry, index) => (
+        <li
+          key={`${entry.at}-${index}`}
+          className="border-l border-[var(--line-strong)] pl-2 text-xs"
+        >
+          <div className="flex flex-wrap justify-between gap-x-2">
+            <strong>{entry.action}</strong>
+            <time dateTime={entry.at}>{formatUtc(entry.at)}</time>
+          </div>
+          <p className="text-[var(--text-2)]">
+            {actor[entry.actor_role]} ·{" "}
+            {advisoryLabel(entry.from_state as Advisory["state"])} →{" "}
+            {advisoryLabel(entry.to_state as Advisory["state"])}
+          </p>
+          {entry.reason ? <p>{entry.reason}</p> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function VesselAdvisories() {
   const { session, identityHeaders } = useAuth();
   const client = useQueryClient();
@@ -191,6 +215,15 @@ function VesselAdvisories() {
         ) : null}
         {rows.map((advisory) => {
           const expanded = active === advisory.advisoryId;
+          const actions =
+            advisory.state === "issued"
+              ? {
+                  ...advisory,
+                  availableTransitions: advisory.availableTransitions.filter(
+                    (transition) => transition.target !== "accepted",
+                  ),
+                }
+              : advisory;
           return (
             <article
               data-testid="advisory-card"
@@ -238,8 +271,14 @@ function VesselAdvisories() {
                       <h3 className="mb-2 text-sm font-semibold">
                         Bridge response
                       </h3>
+                      {advisory.state === "issued" ? (
+                        <p className="mb-2 text-xs">
+                          Acknowledge receipt before accepting the
+                          recommendation.
+                        </p>
+                      ) : null}
                       <AdvisoryActions
-                        advisory={advisory}
+                        advisory={actions}
                         headers={identityHeaders}
                         onDone={changed}
                       />
@@ -251,7 +290,7 @@ function VesselAdvisories() {
                       <h3 className="mb-2 text-sm font-semibold">
                         Audit trail
                       </h3>
-                      <AuditTrail advisory={advisory} />
+                      <VesselAudit advisory={advisory} />
                     </section>
                   </aside>
                 </div>
