@@ -245,6 +245,7 @@ export const useAdvisoryPolicy = (): UseQueryResult<AdvisoryPolicy> =>
 export const useAdvisories = (
   headers: Record<string, string>,
   params: { state?: string; portCode?: string; vesselId?: string } = {},
+  refetchInterval?: number,
 ): UseQueryResult<AdvisoryList> =>
   useQuery({
     queryKey: [
@@ -259,6 +260,7 @@ export const useAdvisories = (
     ],
     queryFn: () => fetchAdvisories(headers, params),
     enabled: Boolean(headers["X-PortWatch-Actor"]),
+    refetchInterval,
     staleTime: 20_000,
     gcTime: 300_000,
   });

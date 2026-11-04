@@ -206,6 +206,7 @@ async function run(width, height) {
     await card.locator("button").first().click();
     await advisoryAction(card, "under_review", advisoryId);
     await advisoryAction(card, "issued", advisoryId);
+    await expect(panel.getByRole("button", { name: "Run frozen demo outcome" })).toBeDisabled();
     await shot("04-port-issued");
     passed("Vessel acknowledges and accepts");
     await role(page, /Vessel Bridge/);
@@ -238,7 +239,9 @@ async function run(width, height) {
     passed("Port records outcome");
     await open(page, "/port/advisories?proposal=" + encodeURIComponent(problem.decisionId));
     const outcomePending = postResponse("/" + review.decisionId + "/demo-outcome");
-    await page.getByRole("button", { name: "Run frozen demo outcome" }).click();
+    const runOutcome = page.getByRole("button", { name: "Run frozen demo outcome" });
+    await expect(runOutcome).toBeEnabled({ timeout: 20_000 });
+    await runOutcome.click();
     const outcome = (await read(outcomePending)).outcome;
     assert.equal(outcome.kind, "SIMULATED_DEMO_OUTCOME");
     assert.equal(outcome.eligibleForRealTarget, false);
@@ -252,6 +255,9 @@ async function run(width, height) {
     passed("Research");
     await open(page, "/research");
     await expect(page.getByRole("main").first()).toBeVisible();
+    const benchmark = page.getByRole("region", { name: "Decision policy benchmark" });
+    await expect(benchmark).toContainText("12.14 → 1.05 h");
+    await expect(benchmark).toContainText("42.1 → 0.0 h");
     await shot("10-research");
     assert.deepEqual(errors, []);
     passed("Done");

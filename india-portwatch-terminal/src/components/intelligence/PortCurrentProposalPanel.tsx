@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "@tanstack/react-router";
-import { useAuth } from "@/auth/AuthProvider";
+import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { Panel, Button } from "@/components/kit/layout";
 import { DecisionPanel } from "@/components/decision/DecisionPanel";
 import { FrozenWeatherBasis } from "./FrozenWeatherBasis";
@@ -10,6 +10,7 @@ import {
   type IntelligenceBasis,
 } from "./FrozenIntelligenceBasis";
 import { useDecision } from "@/services/decisions";
+import { useAdvisories } from "@/services/os-hooks";
 import { getJson, postJson } from "@/services/api";
 import type { FrozenEnvironment } from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
@@ -34,6 +35,7 @@ interface DemoOutcome {
 
 export function PortCurrentProposalPanel() {
   const { session, identityHeaders } = useAuth();
+  const { portCode } = useWorkspace();
   const client = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
   const [compare, setCompare] = useState(true);
@@ -66,6 +68,19 @@ export function PortCurrentProposalPanel() {
     (option) => option.optionId === proposal?.optionId,
   );
   const decision = useDecision(proposal?.reviewDecisionId ?? null);
+  const advisories = useAdvisories(identityHeaders, { portCode }, 8000);
+  const linkedAdvisories = decision.data?.evidence.advisories;
+  const vesselAccepted =
+    !advisories.isError &&
+    Array.isArray(linkedAdvisories) &&
+    linkedAdvisories.length > 0 &&
+    linkedAdvisories.every((id) =>
+      advisories.data?.advisories.some(
+        (row) =>
+          row.advisoryId === id &&
+          (row.state === "accepted" || row.state === "completed"),
+      ),
+    );
   const review = useMutation({
     mutationFn: () =>
       postJson<DecisionProblem>(
@@ -232,9 +247,7 @@ export function PortCurrentProposalPanel() {
             ) : (
               <>
                 <Button
-                  disabled={
-                    decision.data.workflow !== "PROPOSED" || outcome.isPending
-                  }
+                  disabled={!vesselAccepted || outcome.isPending}
                   onClick={() => outcome.mutate()}
                 >
                   Run frozen demo outcome
