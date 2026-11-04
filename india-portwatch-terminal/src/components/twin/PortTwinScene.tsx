@@ -5,6 +5,7 @@ import { createTwinWorld } from "./twin-world";
 import { twinSelection } from "./twin-selection";
 import type { TwinOverlay, TwinSelection } from "./twin-presentation";
 import type { TwinPlayback } from "./twin-playback";
+import type { TwinClock } from "./use-twin-clock";
 
 export interface PortTwinSceneProps {
   state: PortTwinState;
@@ -12,6 +13,7 @@ export interface PortTwinSceneProps {
   metrics?: TwinMetrics | null;
   playback?: TwinPlayback | null;
   simulationHour?: number;
+  clock?: TwinClock;
   selectedId?: string | null;
   onSelect?: (selection: TwinSelection | null) => void;
   className?: string;
@@ -66,12 +68,11 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       frame = 0;
       if (document.hidden) return;
       if (dirty) {
-        const { state, overlay, selectedId, playback, simulationHour } =
+        const { state, overlay, selectedId, playback, simulationHour, clock } =
           current.current;
+        const hour = clock?.read() ?? simulationHour;
         const model =
-          playback && simulationHour !== undefined
-            ? playback.sample(simulationHour)
-            : undefined;
+          playback && hour !== undefined ? playback.sample(hour) : undefined;
         world.draw(model?.state ?? state, overlay, selectedId ?? null, model);
         dirty = false;
       }
@@ -133,11 +134,11 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       );
       ray.setFromCamera(point, camera);
       const id = world.pick(ray);
-      const { state, playback, simulationHour, onSelect } = current.current;
+      const { state, playback, simulationHour, clock, onSelect } =
+        current.current;
+      const hour = clock?.read() ?? simulationHour;
       const visibleState =
-        playback && simulationHour !== undefined
-          ? playback.sample(simulationHour).state
-          : state;
+        playback && hour !== undefined ? playback.sample(hour).state : state;
       onSelect?.(id ? twinSelection(visibleState, id) : null);
     };
     const onCancel = () => {
@@ -197,6 +198,11 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       props.simulationHour,
     ],
   );
+
+  useEffect(() => {
+    if (!props.playback) return;
+    return props.clock?.subscribe(() => refresh.current?.());
+  }, [props.clock, props.playback]);
 
   if (failed) {
     return (
