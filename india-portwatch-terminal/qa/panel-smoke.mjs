@@ -11,6 +11,7 @@ const api = process.env.PORTWATCH_PANEL_API ?? (replay ? "http://127.0.0.1:9297/
 const originUrl = new URL(origin);
 const apiUrl = new URL(api);
 const local = [originUrl, apiUrl].every((url) => ["127.0.0.1", "localhost"].includes(url.hostname));
+if (process.argv.includes("preview") && local) throw new Error("Preview target needs a verified HTTPS origin.");
 if (!local) {
   const sha = process.env.PORTWATCH_PANEL_EXPECTED_SHA;
   const previewHost = /^india-portwatch-[a-z0-9]+-flash2404s-projects[.]vercel[.]app$/;
@@ -51,7 +52,12 @@ async function role(page, name) {
 }
 
 async function run(width, height) {
-  const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+  const videoDir = process.env.PORTWATCH_PANEL_VIDEO_DIR;
+  const context = await browser.newContext({
+    viewport: { width, height },
+    reducedMotion: videoDir ? "no-preference" : "reduce",
+    ...(videoDir ? { recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } } } : {}),
+  });
   const page = await context.newPage();
   page.setDefaultTimeout(35_000);
   const evidence = process.env.PORTWATCH_PANEL_EVIDENCE_DIR;
@@ -60,6 +66,7 @@ async function run(width, height) {
   const checks = [];
   const results = { origin, width, height, checks };
   const shot = async (name) => {
+    if (videoDir) await page.waitForTimeout(1700);
     if (!evidence) return;
     await mkdir(evidence, { recursive: true });
     await page.screenshot({ path: join(evidence, `${width}-${name}.png`), timeout: 15_000 });
@@ -95,6 +102,29 @@ async function run(width, height) {
     assert.equal(result.advisoryId, id);
   }
   try {
+    if (evidence || videoDir) {
+      await open(page, "/tour");
+      await page.getByRole("list", { name: "Voyage chapters" }).waitFor();
+      if (videoDir) {
+        await page.locator(".pw-tour canvas").waitFor({ timeout: 15_000 });
+        await page.getByRole("list", { name: "Voyage chapters" }).getByRole("button").nth(2).click();
+        await page.waitForTimeout(1000);
+        await page.evaluate(() => new Promise((resolve) => {
+          const scroller = document.querySelector(".pw-tour .scroller");
+          scroller.scrollTop = 0;
+          const start = performance.now();
+          const distance = (scroller.scrollHeight - scroller.clientHeight) * 0.4;
+          const frame = (time) => {
+            const fraction = Math.min(1, (time - start) / 8500);
+            scroller.scrollTop = distance * fraction;
+            if (fraction < 1) requestAnimationFrame(frame);
+            else resolve();
+          };
+          requestAnimationFrame(frame);
+        }));
+      }
+      await shot("00-tour");
+    }
     await open(page, "/login");
     const login = postResponse("/demo/session");
     await page.getByRole("button", { name: "Company demo", exact: true }).click();
@@ -151,17 +181,31 @@ async function run(width, height) {
     passed("Vessel acknowledges and accepts");
     await role(page, /Vessel Bridge/);
     await page.waitForURL("**/vessel/overview");
-    await open(page, "/vessel/advisories");
+    const bridge = page.getByRole("region", { name: "Needs your action" });
+    const advisoryLink = bridge.getByRole("link", { name: "Open advisory" });
+    await expect(advisoryLink).toHaveAttribute("href", "/vessel/advisories?advisory=" + advisoryId, { timeout: 25_000 });
+    await expect(page.getByRole("region", { name: "Passage at a glance" })).toBeVisible();
+    await shot("05-bridge");
+    await advisoryLink.click();
     card = page.getByTestId("advisory-card").filter({ hasText: "PW Meridian" }).first();
-    await card.locator("button").first().click();
+    const recommendation = card.getByRole("region", { name: "Issued recommendation" });
+    await expect(recommendation).toContainText("12 → 10 kn");
+    await expect(recommendation).toContainText(`${baseline.anchorageWaitHours.toFixed(2)} → ${selected.anchorageWaitHours.toFixed(2)} h`);
+    await expect(recommendation).toContainText("Same modeled approach window");
     await advisoryAction(card, "acknowledged", advisoryId);
-    await shot("05-vessel-acknowledged");
+    await expect(card.getByRole("region", { name: "Audit trail" })).toContainText(/acknowledged/i);
+    await shot("06-vessel-acknowledged");
     await advisoryAction(card, "accepted", advisoryId);
-    await page.getByRole("button", { name: /^Answered/ }).click();
-    await shot("06-vessel-accepted");
-    passed("Port records outcome");
+    await expect(card.getByRole("region", { name: "Audit trail" })).toContainText(/accepted/i);
+    await shot("07-vessel-accepted");
+    passed("Acceptance returns to Company and Port");
+    await role(page, /Fleet Command|Shipping Company/);
+    await page.waitForURL("**/company/overview");
+    await expect(page.getByRole("region", { name: "Accepted handoffs" })).toContainText("Accepted by Vessel", { timeout: 20_000 });
     await role(page, /Port Authority/);
     await page.waitForURL("**/port/overview");
+    await expect(page.getByRole("region", { name: "Needs your action" })).toContainText("Accepted by Vessel", { timeout: 20_000 });
+    passed("Port records outcome");
     await open(page, "/port/advisories?proposal=" + encodeURIComponent(problem.decisionId));
     const outcomePending = postResponse("/" + review.decisionId + "/demo-outcome");
     await page.getByRole("button", { name: "Run frozen demo outcome" }).click();
@@ -169,16 +213,16 @@ async function run(width, height) {
     assert.equal(outcome.kind, "SIMULATED_DEMO_OUTCOME");
     assert.equal(outcome.eligibleForRealTarget, false);
     await expect(page.getByTestId("current-demo-outcome")).toContainText("Simulated demo outcome");
-    await shot("07-port-outcome");
+    await shot("08-port-outcome");
     passed("Admin");
     await role(page, /National Command/);
     await page.waitForURL("**/admin/radar");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await shot("08-admin");
+    await shot("09-admin");
     passed("Research");
     await open(page, "/research");
     await expect(page.getByRole("main").first()).toBeVisible();
-    await shot("09-research");
+    await shot("10-research");
     passed("Done");
   } catch (error) {
     checks.push({ beat, result: "FAIL", message: error.message });
@@ -322,7 +366,9 @@ const failures = [];
 try {
   const matrix = replay ? [[1920, 1080, 100], [1366, 768, 100], [1280, 720, 100], [1280, 720, 125]]
     : [[1366, 768, 100], [1280, 720, 100]];
-  for (const [width, height, zoom] of matrix) {
+  const only = Number(process.env.PORTWATCH_PANEL_WIDTH || 0);
+  if (only && !matrix.some(([width]) => width === only)) throw new Error("Unknown panel viewport width");
+  for (const [width, height, zoom] of matrix.filter(([width]) => !only || width === only)) {
     try {
       if (replay) await runReplay(width, height, zoom);
       else await run(width, height);
