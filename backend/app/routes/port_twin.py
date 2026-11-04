@@ -9,7 +9,7 @@ overlays and the ``+2h / +6h / +12h / +24h`` controls consume
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -106,6 +106,7 @@ def port_twin_simulate(
     port_code: str,
     policy: str = Query("greedy", description="Scheduling policy to run."),
     horizon_hours: float = Query(24.0, ge=1.0, le=168.0),
+    include_timeline: Annotated[bool, Query(description="Include the modelled simulation steps.")] = False,
 ) -> Dict[str, Any]:
     """Run the twin forward and return the state at each overlay horizon."""
     if policy not in POLICY_REGISTRY:
@@ -113,14 +114,18 @@ def port_twin_simulate(
             status_code=400,
             detail=f"Unknown policy '{policy}'. Known: {', '.join(sorted(POLICY_REGISTRY))}",
         )
+    if include_timeline and horizon_hours > 48:
+        raise HTTPException(status_code=422, detail="A playback timeline is limited to 48 modelled hours.")
     state = build_state_for(port_code)
     chosen = build_policy(policy)
     result = simulate(
         state, chosen,
         SimulationConfig(horizon_hours=horizon_hours, record_trace=True),
         snapshot_hours=SNAPSHOT_HOURS,
+        capture_timeline=include_timeline,
     )
     return {
+        **({"timeline": result.timeline} if include_timeline else {}),
         "portCode": state.port_code,
         "portName": state.port_name,
         "policy": chosen.to_dict(),

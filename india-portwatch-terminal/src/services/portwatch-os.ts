@@ -151,7 +151,7 @@ export const fetchTwinSimulation = (
 ): Promise<TwinSimulation> =>
   getJson<TwinSimulation>(
     `/port-twin/${encodeURIComponent(portCode)}/simulate` +
-      `?policy=${encodeURIComponent(policy)}&horizon_hours=${horizonHours}`,
+      `?policy=${encodeURIComponent(policy)}&horizon_hours=${horizonHours}&include_timeline=true`,
   );
 
 export const fetchTwinOptimize = (

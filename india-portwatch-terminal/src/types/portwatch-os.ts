@@ -468,6 +468,7 @@ export interface TwinSimulation {
   rejectedActions: Array<Record<string, unknown>>;
   trace: Array<{ hour: number; kind: string; subject: string; detail: string }>;
   finalState: PortTwinState;
+  timeline?: PortTwinState[];
   geometryBasis: string;
   note: string;
 }

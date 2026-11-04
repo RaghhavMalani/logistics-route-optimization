@@ -3,7 +3,8 @@ import { createMiniatureBuilders } from "@/components/miniature/builders";
 import { createMiniatureLighting } from "@/components/miniature/lighting";
 import { BOXCOLS, COLORS } from "@/components/miniature/palette";
 import { seededRandom } from "@/components/miniature/rng";
-import type { PortTwinState } from "@/types/portwatch-os";
+import type { PortTwinState, TwinCall } from "@/types/portwatch-os";
+import type { TwinFrame } from "./twin-playback";
 import { TWIN_RAMP, type TwinOverlay } from "./twin-presentation";
 
 type Part = { matrix: T.Matrix4; color: T.Color; material: T.Material };
@@ -259,10 +260,45 @@ export function createTwinWorld(base: PortTwinState) {
   }
 
   const active = [pad, cranes, gantries, containers, hulls, buildings, trucks];
+  const anchorOrder = new Map(
+    [...base.calls]
+      .sort((a, b) => a.effectiveEta - b.effectiveEta)
+      .map((call, index) => [call.call_id, index]),
+  );
+  const craneSwing = new T.Matrix4();
+  const movingCrane = new T.Matrix4();
+  const smooth = (value: number) => {
+    const t = T.MathUtils.clamp(value, 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  function shipAt(
+    call: TwinCall,
+    x: number,
+    z: number,
+    heading: number,
+    selected: string | null,
+  ) {
+    model(
+      hulls,
+      hullParts,
+      pose(
+        x,
+        -1,
+        z,
+        call.loa_m / 38,
+        call.loa_m / 46,
+        call.loa_m / 46,
+        heading,
+      ),
+      call.call_id,
+      call.call_id === selected ? COLORS.signal : COLORS.shipContainer,
+    );
+  }
   function draw(
     state: PortTwinState,
     overlay: TwinOverlay,
     selectedId: string | null,
+    frame?: TwinFrame,
   ) {
     for (const item of active) item.reset();
     const calls = new Map(state.calls.map((call) => [call.call_id, call]));
@@ -289,6 +325,7 @@ export function createTwinWorld(base: PortTwinState) {
       );
       if (!berth.occupied_by) continue;
       const call = calls.get(berth.occupied_by);
+      if (frame && call) continue;
       const length = call?.loa_m ?? berth.length_m * 0.8;
       model(
         hulls,
@@ -299,20 +336,59 @@ export function createTwinWorld(base: PortTwinState) {
       );
     }
     let waiting = 0;
+    const berths = new Map(
+      state.berths.map((berth) => [berth.berth_id, berth]),
+    );
     for (const call of state.calls) {
-      if (call.state !== "waiting") continue;
-      const index = waiting++;
-      const x = quayStart + span * (0.17 + (index % 5) * 0.165);
-      const z = -260 - Math.floor(index / 5) * 165;
-      model(
-        hulls,
-        hullParts,
-        pose(x, -1, z, call.loa_m / 38, call.loa_m / 46, call.loa_m / 46, 0.13),
-        call.call_id,
-        call.call_id === selectedId ? COLORS.signal : COLORS.shipCargo,
-      );
+      if (!frame && call.state !== "waiting") continue;
+      const index = frame
+        ? (anchorOrder.get(call.call_id) ?? 0) % 15
+        : waiting++;
+      const x = quayStart + span * (0.16 + (index % 5) * 0.17);
+      const z = -250 - Math.floor(index / 5) * 135;
+      if (!frame || call.state === "waiting") {
+        shipAt(call, x, z, 0.12, selectedId);
+      } else if (
+        call.state === "approaching" &&
+        call.effectiveEta - frame.hour <= 2
+      ) {
+        const approach = smooth((frame.hour - call.effectiveEta + 2) / 2);
+        shipAt(
+          call,
+          x - (1 - approach) * 220,
+          z - (1 - approach) * 420,
+          -0.72,
+          selectedId,
+        );
+      } else {
+        const berth = call.berth_id ? berths.get(call.berth_id) : undefined;
+        if (!berth) continue;
+        if (call.state === "alongside" && call.berthed_hour !== null) {
+          const docking = smooth((frame.hour - call.berthed_hour) / 0.75);
+          shipAt(
+            call,
+            T.MathUtils.lerp(x, berth.x, docking),
+            T.MathUtils.lerp(z, -37, docking),
+            (1 - docking) * -0.55,
+            selectedId,
+          );
+        } else if (
+          call.state === "departed" &&
+          call.departed_hour !== null &&
+          frame.hour - call.departed_hour < 1.6
+        ) {
+          const leaving = smooth((frame.hour - call.departed_hour) / 1.6);
+          shipAt(
+            call,
+            berth.x + 320 * leaving,
+            -37 - 740 * leaving,
+            leaving * 0.93,
+            selectedId,
+          );
+        }
+      }
     }
-    for (const item of state.cranes) {
+    for (const [index, item] of state.cranes.entries()) {
       box(
         pad,
         item.x,
@@ -328,9 +404,25 @@ export function createTwinWorld(base: PortTwinState) {
             ),
         item.crane_id,
       );
-      const at = pose(item.x, 3, 6, 4, 4, 4, -Math.PI / 2);
+      const berth = item.assigned_berth
+        ? berths.get(item.assigned_berth)
+        : undefined;
+      const x = berth ? berth.x + (index % 2 === 0 ? -39 : 39) : item.x;
+      const at = pose(x, 3, 6, 4, 4, 4, -Math.PI / 2);
       model(cranes, craneFixed, at, item.crane_id);
-      model(cranes, craneMotion, at, item.crane_id);
+      const working = T.MathUtils.lerp(
+        item.working_hours,
+        frame?.next.cranes[index]?.working_hours ?? item.working_hours,
+        frame?.progress ?? 0,
+      );
+      const swing = berth ? Math.sin(working * Math.PI * 3) : 0;
+      craneSwing.makeTranslation(-8 + swing * 12, -Math.abs(swing) * 4, 0);
+      model(
+        cranes,
+        craneMotion,
+        movingCrane.multiplyMatrices(at, craneSwing),
+        item.crane_id,
+      );
     }
     for (const [index, block] of state.yardBlocks.entries()) {
       const value =
@@ -350,7 +442,10 @@ export function createTwinWorld(base: PortTwinState) {
         block.block_id === selectedId ? COLORS.signal : pressure(value),
         block.block_id,
       );
-      const count = Math.min(60, Math.round(60 * block.utilisation));
+      const count = Math.min(
+        60,
+        Math.round(60 * (frame?.yardFill[index] ?? block.utilisation)),
+      );
       for (let stack = 0; stack < count; stack++) {
         const slot = stack % 20;
         const tier = Math.floor(stack / 20);
@@ -467,6 +562,16 @@ export function createTwinWorld(base: PortTwinState) {
     }
     for (const vehicle of state.vehicles)
       truck(vehicle.x, vehicle.y, vehicle.assigned_block ?? "");
+    if (frame) {
+      for (const gate of state.gates) {
+        for (let i = 0; i < 8; i++) {
+          const phase = ((frame.hour * gate.trucks_per_hour) / 70 + i / 8) % 1;
+          const x = gate.x + Math.sin(phase * Math.PI * 2) * span * 0.2;
+          const z = 160 + (gate.y - 160) * (1 - Math.abs(2 * phase - 1));
+          truck(x, z, gate.gate_id);
+        }
+      }
+    }
     for (const item of active) item.commit();
   }
 

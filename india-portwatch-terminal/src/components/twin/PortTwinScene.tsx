@@ -4,11 +4,14 @@ import type { PortTwinState, TwinMetrics } from "@/types/portwatch-os";
 import { createTwinWorld } from "./twin-world";
 import { twinSelection } from "./twin-selection";
 import type { TwinOverlay, TwinSelection } from "./twin-presentation";
+import type { TwinPlayback } from "./twin-playback";
 
 export interface PortTwinSceneProps {
   state: PortTwinState;
   overlay: TwinOverlay;
   metrics?: TwinMetrics | null;
+  playback?: TwinPlayback | null;
+  simulationHour?: number;
   selectedId?: string | null;
   onSelect?: (selection: TwinSelection | null) => void;
   className?: string;
@@ -63,8 +66,13 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       frame = 0;
       if (document.hidden) return;
       if (dirty) {
-        const { state, overlay, selectedId } = current.current;
-        world.draw(state, overlay, selectedId ?? null);
+        const { state, overlay, selectedId, playback, simulationHour } =
+          current.current;
+        const model =
+          playback && simulationHour !== undefined
+            ? playback.sample(simulationHour)
+            : undefined;
+        world.draw(model?.state ?? state, overlay, selectedId ?? null, model);
         dirty = false;
       }
       renderer.render(world.scene, camera);
@@ -125,9 +133,12 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       );
       ray.setFromCamera(point, camera);
       const id = world.pick(ray);
-      current.current.onSelect?.(
-        id ? twinSelection(current.current.state, id) : null,
-      );
+      const { state, playback, simulationHour, onSelect } = current.current;
+      const visibleState =
+        playback && simulationHour !== undefined
+          ? playback.sample(simulationHour).state
+          : state;
+      onSelect?.(id ? twinSelection(visibleState, id) : null);
     };
     const onCancel = () => {
       down = null;
@@ -178,7 +189,13 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
 
   useEffect(
     () => refresh.current?.(),
-    [props.state, props.overlay, props.selectedId],
+    [
+      props.state,
+      props.overlay,
+      props.selectedId,
+      props.playback,
+      props.simulationHour,
+    ],
   );
 
   if (failed) {

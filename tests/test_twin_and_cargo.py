@@ -168,6 +168,26 @@ class StateTests(unittest.TestCase):
 
 
 class SimulationTests(unittest.TestCase):
+    def test_timeline_observes_the_same_engine_without_changing_results(self):
+        initial = small_state()
+        before = initial.to_dict()
+        config = SimulationConfig(horizon_hours=24)
+        for policy_id in ("fcfs", "lookahead"):
+            expected = simulate(initial, build_policy(policy_id), config)
+            run = simulate(initial, build_policy(policy_id), config, capture_timeline=True)
+            self.assertEqual(run.to_dict(), expected.to_dict())
+            self.assertEqual(run.final_state.to_dict(), expected.final_state.to_dict())
+            self.assertEqual(reward(run), reward(expected))
+            self.assertEqual(reward_breakdown(run), reward_breakdown(expected))
+            self.assertEqual(len(run.timeline), run.steps + 1)
+            self.assertEqual(run.timeline[-1], run.final_state.to_dict())
+            self.assertEqual([frame["hour"] for frame in run.timeline],
+                             [i * config.step_hours for i in range(run.steps + 1)])
+            first = run.timeline[0]["calls"]
+            self.assertTrue(any(row["state"] == ALONGSIDE for row in first))
+            self.assertTrue(any(row["state"] == DEPARTED for row in run.timeline[-1]["calls"]))
+        self.assertEqual(initial.to_dict(), before)
+
     def test_the_same_inputs_give_byte_identical_metrics(self):
         """Two policies can only be compared if the world is identical."""
         config = SimulationConfig(horizon_hours=24.0, seed=7, record_trace=False)

@@ -53,6 +53,8 @@ import {
   type TwinSelection,
 } from "./twin-presentation";
 
+import { createTwinPlayback } from "./twin-playback";
+
 /** Three is 1.1 MB. It loads when this screen does, and not before. */
 const PortTwinScene = lazy(() =>
   import("./PortTwinScene").then((module) => ({
@@ -82,6 +84,10 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
 
   const simulation = useTwinSimulation(portCode, policy, 24);
   const optimize = useTwinOptimize(portCode, 24);
+  const playback = useMemo(
+    () => (simulation.data ? createTwinPlayback(simulation.data) : null),
+    [simulation.data],
+  );
 
   // A port decision, when one is open: the scene shows the selected option's
   // berth plan, and the metrics strip its simulated figures.
@@ -106,8 +112,15 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
       return applyPortPlan(camera?.scenarioState ?? twin.data, decisionOption);
     }
     if (horizon === 0 || !simulation.data) return twin.data ?? null;
-    return simulation.data.finalState;
-  }, [decision.data, decisionOption, horizon, simulation.data, twin.data]);
+    return playback?.sample(horizon).state ?? simulation.data.finalState;
+  }, [
+    decision.data,
+    decisionOption,
+    horizon,
+    simulation.data,
+    twin.data,
+    playback,
+  ]);
 
   const metrics: TwinMetrics | null = useMemo(() => {
     if (decisionOption?.evaluation) {
@@ -192,7 +205,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
           <span className="font-semibold uppercase tracking-[0.06em] text-[var(--unc)]">
             Schematic digital twin — not a surveyed port plan.
           </span>{" "}
-          {twin.data.geometryDisclaimer}
+          {twin.data.geometryDisclaimer} Vessel and crane motion use modelled
+          simulation steps. Yard stacks and trucks illustrate modelled
+          throughput.
         </p>
       </div>
 
@@ -206,6 +221,8 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               state={state}
               overlay={overlay}
               metrics={metrics}
+              playback={horizon > 0 && !decisionOption ? playback : null}
+              simulationHour={horizon}
               selectedId={selection?.id ?? null}
               onSelect={setSelection}
               className="h-full w-full"
