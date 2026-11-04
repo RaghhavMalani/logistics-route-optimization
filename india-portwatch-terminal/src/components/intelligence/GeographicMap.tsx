@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   GlobeContext,
@@ -213,12 +214,12 @@ export function GeographicMap({
         drag.current = null;
       }}
     >
-      <rect x="0" y="0" width="360" height="180" fill="#071923" />
+      <rect x="0" y="0" width="360" height="180" fill={COLORS.sea} />
       {Array.from({ length: 25 }, (_, i) => (
         <path
           key={`x${i}`}
           d={`M${i * 15},0V180`}
-          stroke="#16323e"
+          stroke={COLORS.graticule}
           strokeWidth=".5"
           vectorEffect="non-scaling-stroke"
         />
@@ -227,7 +228,7 @@ export function GeographicMap({
         <path
           key={`y${i}`}
           d={`M0,${i * 15}H360`}
-          stroke="#16323e"
+          stroke={COLORS.graticule}
           strokeWidth=".5"
           vectorEffect="non-scaling-stroke"
         />
@@ -236,9 +237,9 @@ export function GeographicMap({
         <path
           key={i}
           d={d}
-          fill="#203744"
+          fill={COLORS.land}
           fillRule="evenodd"
-          stroke="#658596"
+          stroke={COLORS.coast}
           strokeWidth=".7"
           vectorEffect="non-scaling-stroke"
         />
@@ -250,7 +251,7 @@ export function GeographicMap({
             .map(([lat, lon]) => `${lon + 180},${90 - lat}`)
             .join(" ")}
           fill="none"
-          stroke={r.rejected ? "#d05a4c" : r.selected ? "#e2ad4e" : "#4c9fcb"}
+          stroke={r.rejected ? COLORS.crit : r.selected ? COLORS.action : COLORS.chart1}
           strokeWidth={r.selected ? 2 : 1.2}
           strokeDasharray={r.rejected ? "6 4" : undefined}
           vectorEffect="non-scaling-stroke"
@@ -271,8 +272,8 @@ export function GeographicMap({
           <circle r={12 * unit} fill="transparent" />
           <circle
             r={(p.code === portCode ? 5 : 3.5) * unit}
-            fill="#83c7d8"
-            stroke="#10212c"
+            fill={COLORS.info}
+            stroke={COLORS.panel}
             strokeWidth={unit}
           />
           {portLabels.has(p.code) ? (
@@ -280,7 +281,7 @@ export function GeographicMap({
               x={8 * unit}
               y={-8 * unit}
               fontSize={11 * unit}
-              fill="#a4bccc"
+              fill={COLORS.text2}
             >
               {p.code.slice(2)}
             </text>
@@ -304,7 +305,7 @@ export function GeographicMap({
             <path
               d="M0,-1L1,0L0,1L-1,0Z"
               transform={`scale(${6 * unit})`}
-              fill="#e2ad4e"
+              fill={COLORS.action}
             />
             <title>{e.title}</title>
           </g>
@@ -325,11 +326,11 @@ export function GeographicMap({
           <path
             d="M0,-1.1L.65,.7L0,.4L-.65,.7Z"
             transform={`rotate(${routeHeading(v, routes)}) scale(${9 * unit})`}
-            fill={v.id === selectedVesselId ? "#ffcf73" : "#4c9fcb"}
-            stroke="#071923"
+            fill={v.id === selectedVesselId ? COLORS.action : COLORS.chart1}
+            stroke={COLORS.sea}
             strokeWidth=".2"
           />
-          <text x={12 * unit} fontSize={11 * unit} fill="#e0ecf2">
+          <text x={12 * unit} fontSize={11 * unit} fill={COLORS.text}>
             {v.id === selectedVesselId ? v.name : ""}
           </text>
         </g>

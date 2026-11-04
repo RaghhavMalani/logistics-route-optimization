@@ -1,14 +1,14 @@
 # PortWatch X
 
-The public application now opens at [PortWatch](https://india-portwatch.vercel.app/) with one-action Company, Vessel, Port and Admin demos. Follow one visitor's proposal → port review → advisory → vessel acknowledgment → demonstration outcome using the existing globe, voyage engine and digital twin. Operator authentication remains separate. [Milestone A scope, verification and the remaining full-product work](docs/MILESTONE_A_ROLE_DEMOS.md) distinguish usable features, source dependencies and experiments. The recovered [Global Intelligence workspace](https://india-portwatch.vercel.app/explore) and [research evidence](https://india-portwatch.vercel.app/research) remain public.
+PortWatch retains Company, Vessel, Port and Admin demos with one visitor's proposal → port review → advisory → vessel acknowledgment → labelled simulated outcome. The globe, voyage engine and digital twin remain in the restored application. Operator authentication remains separate. The interface and commercial capability update is described in [UI upgrade](docs/UI_VISUAL_UPGRADE.md), [source coverage](docs/UI_AND_FREE_PROVIDER_COVERAGE.md) and [validation](docs/UI_UPGRADE_VALIDATION.md). The [isolated preview handoff](docs/INTEGRATED_PREVIEW_20261102.md) records the Railway Hobby release process. Production promotion remains deferred; local validation does not establish public availability.
 
-**A maritime operations system for Indian ports and the ships bound for them. It computes consequence, answers "what should we do?" with options it simulated and criticised, keeps the current plan unless an intervention survives not knowing how long the disruption will last, and traces every number to the measurement it came from — with a written refusal wherever there is none.**
+**A maritime planning and research application for Indian ports and connected voyages. It compares declared plans using retained source evidence, explicit assumptions and versioned calculations. Public forecasts, reports, transponder observations, operator declarations and simulation have distinct provenance; unavailable benefits remain unavailable.**
 
 ---
 
 ## What it is
 
-PortWatch X builds a live model of the world — chokepoints, trade lanes, hulls, quays, cargo — from public feeds, propagates every event through that world to the ports and vessels it actually reaches, ranks what needs attention now, and, for any hull, berth plan or consignment, computes the options an operator really has. Each option is simulated on its own branch of the observed world, ranked on a Pareto frontier, checked by a Critic, stress-tested against four horizons for how long the disruption might last, and put in front of a named person. What the person decides is written down before the world answers; when it does, the recommendation is scored against the outcome and the difference feeds the next decision.
+PortWatch combines a reference maritime network, fictional demonstration voyages and separately identified public evidence. Exposure is an inference from declared routes and source applicability. Supported calculations compare plans; source context alone does not establish a closure, delay or saving. Human approvals freeze the selected option and evidence. Suitable later observations can verify specific targets; simulated outcomes verify workflow/software behavior and do not establish operational accuracy.
 
 ```
 SENSE → UNDERSTAND → PREDICT → GENERATE OPTIONS → SIMULATE → OPTIMISE → STRESS → CRITIQUE
@@ -17,9 +17,14 @@ SENSE → UNDERSTAND → PREDICT → GENERATE OPTIONS → SIMULATE → OPTIMISE 
   └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Four roles share one world: **National Command** (every port, ranked by where intervention matters), a **Port Authority** (its own terminal as a 3D twin, its berth plan, its advisories to arriving ships), a **Shipping Company** (which of its hulls need intervention and by when the option closes) and a **Vessel** (its passage, its destination, the advisories it has been sent). Each sees the decisions it holds and no one else's; national command sees everything.
+Four roles share one visitor's isolated demo world: **National Command**, **Port Authority**, **Shipping Company** and **Vessel**. Each sees its authorized operational scope. Company-private contracts and financial declarations are not exposed to other roles, including Admin. The digital twin is a simulation, not observed terminal performance.
 
 ## What it answers
+
+The feature descriptions and benchmark results below include historical research
+milestones. They are not a live-source coverage report or evidence of realized
+shipping improvements. Consult the dated validation and product coverage above
+for the current local scope and unavailable sources.
 
 The first [global intelligence integration](docs/INTELLIGENCE_WORKSPACE.md) is available from **Global Eye → Open global intelligence** across all 13 registered ports: native globe, news/exposure, economic context, earthquakes, a scoped camera registry and weather forecast-error inspection. Weather learning records original forecasts before matching later outcomes. Evaluation now uses disjoint weight-fitting, calibration and holdout periods; older accuracy claims are withheld until rebuilt. The remaining global adapters, neural fusion and sequential RL are documented in the integration guide.
 
@@ -28,7 +33,7 @@ The first [global intelligence integration](docs/INTELLIGENCE_WORKSPACE.md) is a
 | *What is happening, where, and what does it touch?* | A live event register (GDELT, GDACS) propagated through chokepoints → lanes → vessels → ports, drawn on the chart as it is computed, with the full step trace behind every reached node |
 | *Which of our hulls, ports and cargoes need attention now?* | An attention queue ranked by consequence × confidence × urgency, cut when no option remains, with the deadline on every actionable row |
 | *What should this hull do?* | A DecisionProblem: every catalogue action marked available or not with a reason, each option simulated on its own branch, hard constraints that reject rather than penalise, a Pareto frontier with named picks, a Critic verdict naming the computation it read — and a **robust recommendation**: `ACT`, `KEEP_CURRENT_PLAN` or `WAIT_FOR_MORE_INFORMATION`, judged by minimax regret over four labelled stress horizons for the claim's duration, with the break-even closure length of every intervention and the reversibility of every option ([docs/ROBUST_DECISIONS.md](docs/ROBUST_DECISIONS.md)) |
-| *What should the port do about three ships arriving at once?* | Berth plans run through the port twin — first come first served, reassign by work, stagger arrivals, size the crane gangs, prioritise a commitment — measured on wait, turnaround and missed departures |
+| *What should the port do about three ships arriving at once?* | Berth plans run through the simulated port twin — first come first served, reassign by work, stagger arrivals, size the crane gangs, prioritise a commitment — compared on simulated wait, turnaround and missed departures |
 | *Will this consignment make its connection?* | Cargo options checked by real feasibility rules: capacity, reefer plugs, dangerous goods, deadweight, the cut-off window |
 | *What is it worth?* | A financial twin that prices only from a stated basis — a cited public tariff, a contract, or an operator's assumption labelled ASSUMPTION — and says "unknown" for everything else, never zero |
 | *Which Indian cargo categories are structurally exposed to this chokepoint?* | STRUCTURAL EXPOSURE: event → chokepoint → lane → port → commodity class, every link a catalogued fact with its source, no tonnage invented |

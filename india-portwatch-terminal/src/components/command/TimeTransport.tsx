@@ -28,6 +28,7 @@ import {
 } from "@/components/app/traffic-context";
 import type { WeatherTimeline } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
+import { MobileMapPanel, useMapPanelAccess } from "./MapPanelAccess";
 
 function clockLabel(ms: number): string {
   const date = new Date(ms);
@@ -67,9 +68,13 @@ export function TimeTransport({
 }) {
   const { clock } = useTraffic();
   const state = useClockState();
+  const access = useMapPanelAccess();
 
   const maxHours = state.maxOffsetHours;
-  const peak = Math.max(0.001, ...timeline.meanImpact);
+  const peak = Math.max(
+    0.001,
+    ...timeline.meanImpact.map((value) => value ?? 0),
+  );
   // Which bar in the impact strip the cursor is currently over, so the strip
   // reads as a position indicator rather than as decoration.
   const activeBar = timeline.meanImpact.length
@@ -79,11 +84,12 @@ export function TimeTransport({
       )
     : -1;
 
-  return (
+  const controls = (
     <div
       className={cn(
-        "pointer-events-auto flex items-center gap-3 rounded-[3px] border border-[var(--line-strong)]",
+        "pw-time-transport pointer-events-auto flex min-w-0 items-center gap-3 rounded-[3px] border border-[var(--line-strong)]",
         "bg-[var(--panel)]/95 px-2.5 py-1.5 backdrop-blur-[3px] shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
+        access?.mobile && "flex-wrap",
         className,
       )}
       data-testid="time-transport"
@@ -192,11 +198,13 @@ export function TimeTransport({
               key={index}
               className={cn(
                 "flex-1 rounded-[1px] transition-colors",
-                index === activeBar
-                  ? "bg-[var(--info)]"
-                  : "bg-[var(--info)]/35",
+                value === null
+                  ? "invisible"
+                  : index === activeBar
+                    ? "bg-[var(--info)]"
+                    : "bg-[var(--info)]/35",
               )}
-              style={{ height: `${Math.max(8, (value / peak) * 100)}%` }}
+              style={{ height: `${Math.max(8, ((value ?? 0) / peak) * 100)}%` }}
             />
           ))}
         </div>
@@ -244,5 +252,12 @@ export function TimeTransport({
         </span>
       ) : null}
     </div>
+  );
+  return access?.mobile ? (
+    <MobileMapPanel panel="timeline" title="Timeline controls">
+      {controls}
+    </MobileMapPanel>
+  ) : (
+    controls
   );
 }

@@ -25,16 +25,28 @@ const MARK_GLYPH: Record<TimelineMark["kind"], string> = {
   weather: "≋",
   ready: "●",
   sailing: "▲",
+  restriction_start: "▮",
+  restriction_end: "┃",
+  passage_request: "◆",
+  position: "●",
+  departure_reference: "○",
+  departure: "▶",
 };
 
 const MARK_LABEL: Record<TimelineMark["kind"], string> = {
   arrival: "arrival",
-  chokepoint: "reaches strait",
+  chokepoint: "passage request",
   deadline: "option closes",
   claim_lapses: "claim lapses",
   weather: "rough seas",
   ready: "cargo ready",
   sailing: "sails",
+  restriction_start: "restriction starts",
+  restriction_end: "published restriction ends; access unconfirmed",
+  passage_request: "declared passage request",
+  position: "declared position reference",
+  departure_reference: "declared departure reference",
+  departure: "remaining sailing starts",
 };
 
 export function DecisionTimeline({
@@ -88,6 +100,7 @@ export function DecisionTimeline({
             type="button"
             data-testid="timeline-row"
             data-option={option.optionId}
+            aria-pressed={selected}
             onClick={() => onSelect(option.optionId)}
             className="group relative h-[18px] w-full rounded text-left hover:bg-[var(--surface-2)]"
             title={option.label}
@@ -122,7 +135,7 @@ export function DecisionTimeline({
                           : style.colour,
                   opacity: selected ? 1 : 0.7,
                 }}
-                title={`${MARK_LABEL[mark.kind]} · ${mark.subject} · +${mark.hours.toFixed(1)} h${mark.waveM != null ? ` · ${mark.waveM} m` : ""}`}
+                title={`${mark.label ?? MARK_LABEL[mark.kind]} · ${mark.subject} · +${mark.hours.toFixed(1)} h${mark.at ? ` · ${mark.at}` : ""}${mark.waveM != null ? ` · ${mark.waveM} m` : ""}`}
               >
                 {MARK_GLYPH[mark.kind]}
               </span>
@@ -131,9 +144,10 @@ export function DecisionTimeline({
         );
       })}
       <p className="text-[10px] leading-snug text-[var(--text-3)]">
-        ▲ arrival · ◆ reaches the strait · ▮ option closes · ┃ claim lapses · ≋
-        rough seas. Same scale for every row; each mark is the engine's own
-        figure for that option.
+        ▲ arrival · ◆ passage request · ▮ deadline / restriction starts · ┃
+        claim lapses / restriction ends · ≋ weather · ● position reference · ○
+        departure reference · ▶ sailing starts. Same scale for every row; each
+        mark is the engine's own figure for that option.
       </p>
     </div>
   );

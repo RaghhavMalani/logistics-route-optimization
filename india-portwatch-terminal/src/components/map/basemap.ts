@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 /**
  * The chart the maritime picture is drawn on.
  *
@@ -136,7 +137,7 @@ export function buildStyle(): StyleSpecification {
       {
         id: "sea",
         type: "background",
-        paint: { "background-color": "#061520" },
+        paint: { "background-color": COLORS.sea },
       },
 
       /* --------------------------------------------------- shelf gradient -- */
@@ -148,7 +149,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "land",
         paint: {
-          "line-color": "#0a2433",
+          "line-color": COLORS.weatherMid,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 46, 8, 150],
           "line-blur": ["interpolate", ["linear"], ["zoom"], 3, 40, 8, 130],
           // The shelf is basin-scale orientation. Inside a harbour view the
@@ -172,7 +173,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "land",
         paint: {
-          "line-color": "#0d2b3c",
+          "line-color": COLORS.modelSea,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 18, 8, 60],
           "line-blur": ["interpolate", ["linear"], ["zoom"], 3, 16, 8, 52],
           "line-opacity": [
@@ -193,7 +194,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "land",
         paint: {
-          "line-color": "#103446",
+          "line-color": COLORS.weatherHigh,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 22],
           "line-blur": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 20],
           "line-opacity": [
@@ -215,7 +216,7 @@ export function buildStyle(): StyleSpecification {
         id: "land-fill",
         type: "fill",
         source: "land",
-        paint: { "fill-color": "#182634" },
+        paint: { "fill-color": COLORS.land },
       },
 
       /* -------------------------------------------------- weather raster -- */
@@ -290,15 +291,15 @@ export function buildStyle(): StyleSpecification {
             ["linear"],
             ["coalesce", ["get", "waveHeightM"], 0],
             0,
-            "#2b5f8c",
+            COLORS.info,
             1.5,
-            "#3f8fb8",
+            COLORS.weatherHigh,
             2.5,
-            "#d8b23c",
+            COLORS.warn,
             4,
-            "#e2622f",
+            COLORS.action,
             6,
-            "#c0223a",
+            COLORS.crit,
           ],
           "circle-opacity": [
             "case",
@@ -317,7 +318,7 @@ export function buildStyle(): StyleSpecification {
             7,
             ["+", 14, ["*", 7, ["coalesce", ["get", "waveHeightM"], 0]]],
           ],
-          "circle-stroke-color": "#dbe8f2",
+          "circle-stroke-color": COLORS.white,
           "circle-stroke-opacity": 0.35,
           "circle-stroke-width": 0.8,
         },
@@ -329,7 +330,7 @@ export function buildStyle(): StyleSpecification {
         filter: ["==", ["get", "kind"], "swell"],
         layout: { visibility: "none", "line-cap": "round" },
         paint: {
-          "line-color": "#d9c7ff",
+          "line-color": COLORS.unc,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1, 7, 1.8],
           "line-dasharray": [1.5, 1.5],
           "line-opacity": 0.85,
@@ -342,7 +343,7 @@ export function buildStyle(): StyleSpecification {
         filter: ["==", ["get", "kind"], "current"],
         layout: { visibility: "none", "line-cap": "round" },
         paint: {
-          "line-color": "#7fe0ff",
+          "line-color": COLORS.info,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1.2, 7, 2.2],
           "line-opacity": 0.9,
         },
@@ -354,7 +355,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "graticule",
         paint: {
-          "line-color": "#10222d",
+          "line-color": COLORS.graticule,
           "line-width": ["case", ["==", ["get", "kind"], "major"], 0.8, 0.45],
         },
       },
@@ -365,7 +366,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "corridors",
         paint: {
-          "line-color": "#1c4257",
+          "line-color": COLORS.coast,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1.4, 9, 4],
           "line-opacity": 0.55,
         },
@@ -377,7 +378,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "land",
         paint: {
-          "line-color": "#5b93b0",
+          "line-color": COLORS.coast,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 1, 8, 2.2],
         },
       },
@@ -386,7 +387,7 @@ export function buildStyle(): StyleSpecification {
         type: "line",
         source: "borders",
         paint: {
-          "line-color": "#233d4f",
+          "line-color": COLORS.controlLine,
           "line-width": 0.7,
           "line-dasharray": [3, 2],
         },
@@ -571,7 +572,7 @@ export function buildStyle(): StyleSpecification {
         source: "chokepoints",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4, 8, 6.5],
-          "circle-color": "#061520",
+          "circle-color": COLORS.sea,
           "circle-stroke-color": ["get", "color"],
           "circle-stroke-width": 1.4,
           "circle-opacity": 0.9,
@@ -627,7 +628,7 @@ export function buildStyle(): StyleSpecification {
         source: "ports",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4.2, 9, 8],
-          "circle-color": "#08161e",
+          "circle-color": COLORS.panel,
           "circle-stroke-color": ["get", "color"],
           "circle-stroke-width": [
             "case",
@@ -696,9 +697,9 @@ export function buildStyle(): StyleSpecification {
             40,
             17,
           ],
-          "circle-color": "#0b202c",
+          "circle-color": COLORS.panel,
           "circle-opacity": 0.88,
-          "circle-stroke-color": "#3f7f9e",
+          "circle-stroke-color": COLORS.info,
           "circle-stroke-width": 1,
         },
       },
@@ -759,8 +760,8 @@ export function buildStyle(): StyleSpecification {
           "line-color": [
             "case",
             ["==", ["get", "freshness"], "LIVE"],
-            "#3fd0c9",
-            "#8a97a3",
+            COLORS.action,
+            COLORS.chart2,
           ],
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 0.8, 8, 1.6],
           "line-opacity": 0.75,
@@ -773,13 +774,13 @@ export function buildStyle(): StyleSpecification {
         filter: ["==", ["get", "kind"], "mark"],
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3.2, 8, 6],
-          "circle-color": "#061520",
+          "circle-color": COLORS.sea,
           "circle-opacity": 0.9,
           "circle-stroke-color": [
             "case",
             ["==", ["get", "freshness"], "LIVE"],
-            "#3fd0c9",
-            "#8a97a3",
+            COLORS.action,
+            COLORS.chart2,
           ],
           "circle-stroke-width": [
             "case",

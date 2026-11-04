@@ -14,13 +14,14 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from backend.app.services import cache_service as cache
+from src.utils.source_quality import project
 
 router = APIRouter()
 
 
 @router.get("/provenance")
 def provenance() -> dict:
-    payload = cache.get_provenance()
+    payload = project(cache.get_provenance())
     if not payload.get("sources"):
         payload.setdefault("reason", cache.REBUILD_HINT)
     payload["cacheAgeSeconds"] = cache.artefact_age_seconds(cache.PROVENANCE_CACHE)

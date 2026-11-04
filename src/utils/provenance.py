@@ -92,9 +92,13 @@ class SourceRecord:
     fallback: Optional[str] = None
     rows: Optional[int] = None
     recorded_at: str = field(default_factory=lambda: _now().isoformat())
+    source_quality: Optional[dict] = None
 
     def to_dict(self) -> dict:
         payload = asdict(self)
+        quality = payload.pop("source_quality")
+        if quality is not None:
+            payload["sourceQuality"] = quality
         payload["isReal"] = self.status in _REAL_STATES
         payload["ageHours"] = (round(self.age_seconds / 3600.0, 2)
                                if self.age_seconds is not None else None)
@@ -142,7 +146,8 @@ def record(source: str,
            freshness_hours: float = DEFAULT_FRESHNESS_HOURS,
            fallback: Optional[str] = None,
            rows: Optional[int] = None,
-           confidence: Optional[float] = None) -> SourceRecord:
+           confidence: Optional[float] = None,
+           source_quality: Optional[dict] = None) -> SourceRecord:
     """Register a source. Returns the stored record (with the resolved state).
 
     A source declared LIVE or CACHED_LIVE whose newest observation is older than
@@ -174,6 +179,7 @@ def record(source: str,
         confidence=round(resolved_confidence, 3),
         fallback=fallback,
         rows=rows,
+        source_quality=source_quality,
     )
     _STATE[source] = entry
     return entry
@@ -205,7 +211,7 @@ def by_status(status: str) -> list[str]:
 
 
 def readiness_score() -> float:
-    """Confidence-weighted fraction of sources backed by real measurements."""
+    """Legacy status-weight heuristic; neither calibrated accuracy nor skill."""
     if not _STATE:
         return 0.0
     total = sum(STATE_CONFIDENCE.get(e.status, 0.0) for e in _STATE.values())

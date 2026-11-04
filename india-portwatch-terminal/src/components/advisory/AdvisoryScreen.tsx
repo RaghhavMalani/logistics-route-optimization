@@ -9,6 +9,7 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
@@ -32,6 +33,7 @@ import { generateAdvisories } from "@/services/portwatch-os";
 import { useAdvisories, useAdvisoryPolicy } from "@/services/os-hooks";
 import type { AdvisoryState } from "@/types/portwatch-os";
 import { PortCurrentProposalPanel } from "@/components/intelligence/PortCurrentProposalPanel";
+import { useWorkspaceHandoffs } from "@/services/handoffs";
 
 /** Which states a given side of the workflow actually cares about seeing. */
 const ISSUER_FILTERS: Array<{
@@ -87,13 +89,19 @@ export function AdvisoryScreen({
   context: string;
   side: "issuer" | "recipient";
 }) {
-  const { identityHeaders } = useAuth();
+  const { identityHeaders, session } = useAuth();
   const { portCode } = useWorkspace();
   const scope = side === "issuer" ? { portCode } : {};
   const query = useAdvisories(identityHeaders, scope);
   const policy = useAdvisoryPolicy();
-  const [filter, setFilter] = useState("open");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null | undefined>();
+  const search = useLocation({ select: (location) => location.searchStr });
+  const linkedId = new URLSearchParams(search).get("advisory");
+  const expandedId = expanded === undefined ? linkedId : expanded;
+  const handoffs = useWorkspaceHandoffs(
+    side === "issuer" && session?.mode === "demo",
+  );
   const queryClient = useQueryClient();
 
   /**
@@ -112,7 +120,6 @@ export function AdvisoryScreen({
   });
 
   const filters = side === "issuer" ? ISSUER_FILTERS : RECIPIENT_FILTERS;
-  const active = filters.find((f) => f.key === filter) ?? filters[0];
 
   if (!identityHeaders["X-PortWatch-Actor"]) {
     return (
@@ -128,7 +135,7 @@ export function AdvisoryScreen({
     );
   }
 
-  if (query.isLoading || query.isError) {
+  if (query.isLoading || (query.isError && !query.data)) {
     return (
       <ScreenFallback
         title={title}
@@ -142,8 +149,28 @@ export function AdvisoryScreen({
   }
 
   const all = query.data?.advisories ?? [];
+  const linked = all.find((row) => row.advisoryId === linkedId);
+  const active =
+    filters.find((f) =>
+      filter ? f.key === filter : linked && f.states.includes(linked.state),
+    ) ?? filters[0];
   const rows = all.filter((a) => active.states.includes(a.state));
   const counts = query.data?.counts ?? {};
+  const portHandoffs =
+    side === "issuer" && session?.mode === "demo"
+      ? (handoffs.data?.filter((row) => row.portCode === portCode) ?? [])
+      : [];
+  const proposalActions = portHandoffs.filter(
+    (row) =>
+      row.nextActor === "PORT_AUTHORITY" &&
+      row.deepLink?.startsWith("/port/advisories?proposal=") &&
+      !all.some(
+        (advisory) =>
+          advisory.advisoryId === row.advisoryId &&
+          ISSUER_FILTERS[0].states.includes(advisory.state),
+      ),
+  );
+  const pending = active.key === "open" ? proposalActions : [];
 
   return (
     <Page>
@@ -175,18 +202,19 @@ export function AdvisoryScreen({
             ) : null}
             <div className="flex overflow-hidden rounded-[2px] border border-[var(--line-strong)]">
               {filters.map((option) => {
-                const count = all.filter((a) =>
-                  option.states.includes(a.state),
-                ).length;
+                const count =
+                  all.filter((a) => option.states.includes(a.state)).length +
+                  (option.key === "open" ? proposalActions.length : 0);
                 return (
                   <button
                     key={option.key}
                     type="button"
-                    aria-pressed={filter === option.key}
+                    aria-label={`${option.label} ${count}`}
+                    aria-pressed={active.key === option.key}
                     onClick={() => setFilter(option.key)}
                     className={cn(
                       "px-2 py-[3px] text-[11px] transition-colors",
-                      filter === option.key
+                      active.key === option.key
                         ? "bg-[var(--panel-4)] text-[var(--text)]"
                         : "text-[var(--text-3)] hover:bg-[var(--panel-3)] hover:text-[var(--text-2)]",
                     )}
@@ -217,16 +245,35 @@ export function AdvisoryScreen({
       ) : null}
 
       <PageBody>
-        {side === "issuer" ? <PortCurrentProposalPanel /> : null}
+        {side === "issuer" ? (
+          <PortCurrentProposalPanel handoffs={portHandoffs} />
+        ) : null}
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
           <Panel
             title={active.label}
-            note={`${rows.length} advisor${rows.length === 1 ? "y" : "ies"}`}
+            note={`${rows.length} advisor${rows.length === 1 ? "y" : "ies"}${pending.length ? ` · ${pending.length} proposal${pending.length === 1 ? "" : "s"}` : ""}`}
             testId="advisory-register"
           >
-            {rows.length === 0 ? (
+            {pending.map((item) => (
+              <p
+                key={item.id}
+                className="border-b border-[var(--line)] p-2 text-xs"
+              >
+                <strong>{item.vesselName}</strong> ·{" "}
+                <a href={item.deepLink ?? undefined} className="underline">
+                  {item.state === "ACCEPTED"
+                    ? "Record accepted outcome"
+                    : "Review Company proposal"}
+                </a>
+              </p>
+            ))}
+            {rows.length === 0 && pending.length === 0 ? (
               <EmptyState
-                title={`Nothing ${active.label.toLowerCase()}`}
+                title={
+                  active.key === "open" && side === "issuer"
+                    ? "No proposals or advisories need action"
+                    : `No ${active.label.toLowerCase()} advisories`
+                }
                 detail={
                   side === "issuer"
                     ? "The decision engine has raised no draft for this facility, and nothing issued is awaiting a response."
@@ -240,10 +287,18 @@ export function AdvisoryScreen({
                     key={advisory.advisoryId}
                     advisory={advisory}
                     headers={identityHeaders}
-                    expanded={expanded === advisory.advisoryId}
+                    expanded={expandedId === advisory.advisoryId}
+                    onTransition={(next) => {
+                      if (side === "issuer" && next.state === "under_review") {
+                        setExpanded(next.advisoryId);
+                      }
+                      void queryClient.invalidateQueries({
+                        queryKey: ["workspace-handoffs"],
+                      });
+                    }}
                     onToggle={() =>
                       setExpanded(
-                        expanded === advisory.advisoryId
+                        expandedId === advisory.advisoryId
                           ? null
                           : advisory.advisoryId,
                       )

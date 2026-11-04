@@ -1,14 +1,24 @@
+import { ExposureScore } from "@/components/company/ExposureScore";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useWorkspace } from "@/auth/AuthProvider";
 import { exposureTone } from "@/components/globaleye/EventPanels";
-import { Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
 import { useCompanyRoutes } from "@/services/os-hooks";
 
-export const Route = createFileRoute("/company/routes")({ component: CompanyRoutes });
+export const Route = createFileRoute("/company/routes")({
+  head: () => ({ meta: [{ title: "PortWatch X — Routes" }] }),
+  component: CompanyRoutes,
+});
 
 /**
  * Lane-level exposure across the fleet.
@@ -39,7 +49,9 @@ function CompanyRoutes() {
     <Page>
       <PageHeader
         title="Routes"
-        context={<span>Trade lanes this fleet runs, and what threatens them</span>}
+        context={
+          <span>Trade lanes this fleet runs, and what threatens them</span>
+        }
         meta={<span className="num">{lanes.length} lanes</span>}
       />
       <PageBody>
@@ -56,9 +68,12 @@ function CompanyRoutes() {
                 title={lane.laneName}
                 note={
                   <span
-                    className={cn("num", `text-[var(--${exposureTone(lane.exposure)})]`)}
+                    className={cn(
+                      "num",
+                      `text-[var(--${exposureTone(lane.exposure)})]`,
+                    )}
                   >
-                    {lane.exposure.toFixed(2)}
+                    <ExposureScore value={lane.exposure} />
                   </span>
                 }
               >
@@ -68,13 +83,17 @@ function CompanyRoutes() {
                   </p>
                   <dl className="mt-1.5 space-y-[3px]">
                     <div className="flex items-baseline justify-between gap-2">
-                      <dt className="text-[10.5px] text-[var(--text-3)]">Primary</dt>
+                      <dt className="text-[10.5px] text-[var(--text-3)]">
+                        Primary
+                      </dt>
                       <dd className="num text-[11px] text-[var(--text)]">
                         {lane.primaryNm.toLocaleString()} nm
                       </dd>
                     </div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <dt className="text-[10.5px] text-[var(--text-3)]">Alternative</dt>
+                      <dt className="text-[10.5px] text-[var(--text-3)]">
+                        Alternative
+                      </dt>
                       <dd className="text-right text-[11px]">
                         {lane.alternative ? (
                           <span className="text-[var(--text)]">
@@ -84,12 +103,16 @@ function CompanyRoutes() {
                             </span>
                           </span>
                         ) : (
-                          <span className="text-[var(--crit)]">none exists</span>
+                          <span className="text-[var(--crit)]">
+                            none exists
+                          </span>
                         )}
                       </dd>
                     </div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <dt className="text-[10.5px] text-[var(--text-3)]">Chokepoints</dt>
+                      <dt className="text-[10.5px] text-[var(--text-3)]">
+                        Chokepoints
+                      </dt>
                       <dd className="num text-[10.5px] text-[var(--text-2)]">
                         {lane.chokepoints.length
                           ? lane.chokepoints.join(", ").replace(/_/g, "-")
@@ -121,7 +144,10 @@ function CompanyRoutes() {
                   <Section title="Events on this lane">
                     <ul className="space-y-1">
                       {lane.events.map((event) => (
-                        <li key={event.eventId} className="flex items-baseline gap-2">
+                        <li
+                          key={event.eventId}
+                          className="flex items-baseline gap-2"
+                        >
                           <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-2)]">
                             {event.title}
                           </span>
@@ -131,7 +157,7 @@ function CompanyRoutes() {
                               `text-[var(--${exposureTone(event.exposure)})]`,
                             )}
                           >
-                            {event.exposure.toFixed(2)}
+                            <ExposureScore value={event.exposure} />
                           </span>
                         </li>
                       ))}

@@ -1,0 +1,45 @@
+# Shared intelligence feedback preview
+
+Historical October 13 preview. The October 14 milestone corrects generated operational-call identity and scoped continuation dependencies, and removes FX-only vessel holds. See `FEEDBACK_CONSEQUENCE_PREVIEW.md` for the subsequent validated scope; this record retains the earlier preview's evidence and limitations.
+
+Continues `f876bcc` on `feat/portwatch-restored-intelligence`. The eight protected role/twin files still match `e906f6a`, including the original Company, Vessel, Port and Admin workspaces. The public release is not promoted by this update. No teammate coordination brief or message was created.
+
+Preview: https://india-portwatch-26o8q20yu-flash2404s-projects.vercel.app/login
+
+## Bounded implementation
+
+Claims, original source receipts, evidence vintages, verification assessments and consumed reliability versions are append-only records in the existing SQLite ledger. Visitor consumption and operational hypotheses use that visitor's existing ledger; the collector's public source records contain no visitor fleet or session credentials. All numerical resolution uses the existing Outcome Agent; contextual fitting uses the existing reliability machinery.
+
+The inspector is added to the existing Global Eye intelligence controls and Admin Learning panel. Frozen feedback is also visible in the existing comparison and advisory inspectors. It preserves claim wording/value, entity/scope, origin and target, first receipt, version, units, aggregation and inputs. Original CSV, news source product and authority PDF responses are downloadable with retained SHA-256 identifiers.
+
+- **News:** a reviewed headline adapter retains the existing CENTCOM/Hormuz cumulative-redirections headline as a reported announcement. Publisher publication time, exact reporting period and article body are unavailable. The GDELT-derived source product is retained. Its legacy closure classification is excluded from this comparison; it does not establish a blanket Hormuz closure. Other headline families require reviewed semantic adapters.
+- **Authority notices:** the existing Eastham notice supplies separate announcement and contingent actual-event targets for each explicit window. Literal PDF wording and originals are retained. The authority's own notice cannot independently corroborate itself. Actual closure/access records remain unavailable.
+- **Verification:** reviewed event/reference identity groups syndicated reports while retaining each source and lineage. Independent authority/operator evidence must address the same target, geography, entity, units and aggregation. Conflicts without an explicit evidence revision remain unresolved. Announcements cannot settle actual-event targets. Cancellation changes applicability to superseded while preserving any earlier corroborated announcement and assessment history.
+- **Economics:** only an explicitly prospective DEXINUS persistence forecast is scored. Historical FX quotes remain observations. Target dates, INR per USD, New York noon buying-rate aggregation, missing dates, weekly H.10 release delays and later revisions are retained. This is a reference rate, not an executable quote. The first retained preview forecast is **96.31 for October 14**, based on an older retained quote; its age is visible. Its real outcome is pending.
+- **Shipping impact:** option access times, waiting and schedule shifts are separate conditional predictions. Unselected counterfactuals cannot be scored. Suitable actual operational records are required; the connected demo's simulated outcome does not resolve these targets. The news/economic review hold is an operator assumption, not estimated event-caused delay. Unsupported cost, fuel and safety benefits remain unavailable.
+- **Learning:** independent target counts, signed bias and MAE are separated by numerical context, unit and aggregation. News reports show descriptive target agreement rather than invented probability calibration. Repeated refreshes do not multiply samples; revised numerical targets remain inspectable and are excluded from fitting. Reliability/corrections remain **COLLECTING**, with neutral consumed weight 1. No learned correction is promoted without chronological held-out improvement and calibration evidence.
+
+New feedback comparisons freeze the claim, verification and reliability version consumed. A changed consumed assessment/version blocks the next approval/issue action until Company explicitly refreshes a linked successor. Existing comparisons, approvals, advisories and issued evidence remain inspectable. Changing contextual news does not retroactively replace a calculated weather input.
+
+## Backend collection and preservation
+
+An independent startup/six-hour intelligence worker collects the supported source products, archives original responses and reconciles matching matured economic targets. Missing or unavailable releases remain pending; no newer forecast is treated as an outcome. First receipt is application availability, not reconstructed publisher release vintage.
+
+Weather reconciliation continues independently. The first retained weather targets become eligible October 17 and the five-day case around October 21, subject to provider availability. The older missing-original claim stays excluded. No daily weather correction alters hourly gust/visibility decisions. Both historical neural-fusion and constrained-RL candidates remain rejected. No RL policy was introduced.
+
+## Validation
+
+- 166 relevant feedback, weather, ledger, decision-engine, role-boundary, recovery and capability tests passed on the final source. These include both Company → Port → Vessel cases, resource eviction, source revisions/reversions, cancellation semantics, missing dates, future inputs, units, simulation exclusion and visitor isolation. Approved Company/Port copies and successors cannot multiply one independent actual operation.
+- Concurrent requests retain separate world snapshots and save callbacks while sharing that visitor's cached domain resources. A regression proves that a later map request cannot replace the inputs or save callback of a request already running. Freshness refusals show the exact frozen and current destination/ETA.
+- TypeScript and focused ESLint passed; the Vercel preview is built through the existing hosting configuration.
+- Existing preview volume and public evidence were retained; packaging includes reviewed source/public artifacts, excluding private credentials and operator/session databases. `work/shared-feedback-20261013/packaging.json` records hashes and restoration checks.
+
+Hosted validation results and deployment identifiers are recorded in `work/shared-feedback-20261013`. The `.private.json` files there hold test-session credentials and are excluded from Git and publication.
+
+Hosted tests completed both economic and news journeys (50 recorded API checks including preparation), with an actual preview backend restart after Company approval. Exact frozen approvals recovered; Port issue, Vessel acknowledgement/acceptance and labelled simulated outcomes completed. Advisory/outcome retries were idempotent, and a different visitor received 404 and no private impact records. These simulations left every operational evaluation target unresolved.
+
+Final frontend deployment: `dpl_AKexAHz1WiQuucKEvnptL8LsALZg`. Final isolated backend deployment: `0e64b980-cb1a-441d-b539-cafd9f4b381a`. Eight further API checks recovered the completed outcomes and frozen feedback after this backend restart. Eleven proxy checks verified the original four role contracts and the retained CSV SHA-256. Fifty additional API checks completed both news and economic journeys through the final Vercel proxy, including idempotent outcomes and visitor isolation. The observed public frontend (`dpl_A1h2oea2ujsFCgL5BCx3hYvjYyYQ`, created before this work) and backend (`3d01cead-9e3e-4e6b-a4ca-064461408f8c`) were not deployed or promoted by this task.
+
+Browser inspection verified the original four role workspaces, Company Global Eye feedback inspection, Admin Learning and the Port digital twin. At 390 × 844, the feedback dialog has no horizontal page overflow. The final browser journey completed Company approval → Port review/approval and issue → Vessel acknowledgement/acceptance → `SIMULATED_DEMO_OUTCOME`. Its frozen source and neutral collecting version remained visible through every role. Earlier comparisons and approvals remain saved and linked; the final successor consumed the current declared ETA. Private journey identifiers and screenshots are retained only in ignored `work/shared-feedback-20261013`. No production promotion was performed.
+
+Real news corroboration and later economic/operational outcomes remain pending. The preview does not present software fixtures or simulated journeys as real-world research evidence. There is no general-purpose arbitrary article/authority parser or public actual-record upload endpoint; new source families and authorized actual records need reviewed adapters.

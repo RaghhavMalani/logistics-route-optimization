@@ -34,6 +34,7 @@ india-portwatch-terminal/.tanstack/
 india-portwatch-terminal/qa/shots/
 india-portwatch-terminal/test-results/
 india-portwatch-terminal/playwright-report/
+india-portwatch-terminal/.playwright/
 
 # --- Local agent/editor scratch ---
 .claude/

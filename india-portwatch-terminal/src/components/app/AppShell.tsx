@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/miniature/BrandMark";
 /**
  * The application shell: one thin top strip, one icon rail, one status line.
  *
@@ -29,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
 import { useWorldClock } from "@/services/lenses";
+import { usePublicAis } from "@/services/public-ais";
 import {
   useObservedTracks,
   useSignalHealth,
@@ -58,11 +60,13 @@ function Menu({
   children,
   align = "right",
   width = 218,
+  ariaLabel,
 }: {
   label: ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   width?: number;
+  ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -74,7 +78,12 @@ function Menu({
         setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        ref.current
+          ?.querySelector<HTMLButtonElement>("button[aria-haspopup]")
+          ?.focus();
+      }
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -90,11 +99,12 @@ function Menu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={ariaLabel}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center gap-1.5 rounded-[2px] px-2 py-[3px] text-[11.5px] transition-colors",
+          "pw-shell-menu flex items-center gap-1.5 rounded-[2px] px-2 py-[3px] text-[11.5px] transition-colors",
           open
-            ? "bg-[var(--panel-3)] text-[var(--text)]"
+            ? "border-l-2 border-[var(--action)] bg-[var(--panel-3)] pl-[13px] font-semibold text-[var(--signal-ink)]"
             : "text-[var(--text-2)] hover:bg-[var(--panel-3)] hover:text-[var(--text)]",
         )}
       >
@@ -125,24 +135,7 @@ function Menu({
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2">
-      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
-        <path
-          d="M12 2 L21 12 L12 22 L3 12 Z"
-          fill="none"
-          stroke="var(--info)"
-          strokeWidth="1.6"
-        />
-        <path
-          d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z"
-          fill="var(--info)"
-          opacity="0.85"
-        />
-      </svg>
-      <span className="text-[12px] font-semibold tracking-[0.05em] text-[var(--text)]">
-        INDIA PORTWATCH
-      </span>
-    </div>
+    <div className="pw-brand"><BrandMark /></div>
   );
 }
 
@@ -152,7 +145,7 @@ function ContextCrumb() {
   const port = ports.data?.find((p) => p.code === portCode);
 
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
+    <div className="pw-shell-context flex min-w-0 items-center gap-1.5 text-[11px]">
       <span className="text-[var(--text-3)]">/</span>
       <span className="truncate font-medium uppercase tracking-[0.06em] text-[var(--text-2)]">
         {profile.label}
@@ -178,13 +171,14 @@ function RoleSwitcher() {
   return (
     <Menu
       align="left"
+      ariaLabel={`${mode === "demo" ? "Demo role" : "Workspace"}: ${ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}`}
       width={252}
       label={
         <span className="flex items-center gap-1.5">
           <span className="eyebrow text-[10px]">
-            {mode === "demo" ? "Demo role" : "View as"}
+            {mode === "demo" ? "Switch role" : "View as"}
           </span>
-          <span className="font-medium">
+          <span className="sr-only">
             {ROLE_PROFILE[viewAs ?? "NATIONAL_ADMIN"].label}
           </span>
         </span>
@@ -328,8 +322,8 @@ function SideNav({
     <nav
       aria-label="Workspace"
       className={cn(
-        "flex shrink-0 flex-col border-r border-[var(--line)] bg-[var(--panel)] transition-[width] duration-150",
-        collapsed ? "w-[46px]" : "w-[var(--nav-w)]",
+        "pw-side-nav flex shrink-0 flex-col border-r border-[var(--line)] bg-[var(--panel)] transition-[width] duration-150",
+        collapsed ? "w-[var(--nav-w-compact)]" : "w-[var(--nav-w)]",
       )}
     >
       <div className="flex-1 overflow-y-auto py-1">
@@ -341,16 +335,15 @@ function SideNav({
               key={item.to}
               to={item.to}
               title={collapsed ? `${item.label} — ${item.hint}` : item.hint}
+              aria-label={collapsed ? item.label : undefined}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "relative flex items-center gap-2.5 px-[15px] py-[7px] text-[12px] transition-colors",
                 isActive
-                  ? "bg-[var(--panel-3)] text-[var(--text)]"
+                  ? "border-l-2 border-[var(--action)] bg-[var(--panel-3)] pl-[13px] font-semibold text-[var(--signal-ink)]"
                   : "text-[var(--text-3)] hover:bg-[var(--panel-2)] hover:text-[var(--text-2)]",
               )}
             >
-              {isActive ? (
-                <span className="absolute inset-y-0 left-0 w-[2px] bg-[var(--info)]" />
-              ) : null}
               <Icon size={15} strokeWidth={1.7} className="shrink-0" />
               {collapsed ? null : (
                 <span className="truncate">{item.label}</span>
@@ -377,7 +370,8 @@ function SideNav({
 
 function StatusLine() {
   const health = useHealth();
-  const { source } = useTraffic();
+  const { source, dataView } = useTraffic();
+  const publicAis = usePublicAis(dataView === "provider");
   const clock = useClockState();
   const utc = useUtcClock();
   const data = health.data;
@@ -386,7 +380,10 @@ function StatusLine() {
   // however it was configured, and the strip must never say otherwise.
   const fabric = useSignalHealth("DEMO");
   useSignalRefreshListener();
-  const serverTraffic = fabric.data?.traffic ?? null;
+  const serverTraffic =
+    dataView === "provider"
+      ? (publicAis.data?.traffic ?? null)
+      : (fabric.data?.traffic ?? null);
   const observed = useObservedTracks(
     "DEMO",
     serverTraffic?.mode === "LIVE_AIS" || serverTraffic?.mode === "AIS_STALE",
@@ -418,7 +415,9 @@ function StatusLine() {
       ? "Simulated replay"
       : source.info.label;
   const observedCount =
-    observed.data?.count ?? serverTraffic?.vessels?.vessels ?? 0;
+    (dataView === "provider" ? publicAis.data?.count : observed.data?.count) ??
+    serverTraffic?.vessels?.vessels ??
+    0;
   const liveTraffic =
     serverTraffic?.mode === "LIVE_AIS" || serverTraffic?.mode === "AIS_STALE";
 
@@ -439,7 +438,7 @@ function StatusLine() {
           : "neutral";
 
   return (
-    <footer className="flex h-[var(--status-h)] shrink-0 items-center gap-3 border-t border-[var(--line)] bg-[var(--panel)] px-3 text-[10.5px] text-[var(--text-3)]">
+    <footer className="pw-status-line flex h-[var(--status-h)] shrink-0 items-center gap-3 border-t border-[var(--line)] bg-[var(--panel)] px-3 text-[10.5px] text-[var(--text-3)]">
       <span
         className="flex items-center gap-1.5"
         title={
@@ -517,8 +516,7 @@ function StatusLine() {
       <span className="h-3 w-px bg-[var(--line)]" />
 
       <Link to="/admin/data" className="hover:text-[var(--text-2)]">
-        Sources{" "}
-        {data ? `${(data.sources.readiness * 100).toFixed(0)}% ready` : "—"}
+        Sources evidence
       </Link>
 
       <span className="ml-auto flex items-center gap-1.5">
@@ -570,7 +568,7 @@ function WorldClockChip() {
             : "world clock"
       }
     >
-      <span className="eyebrow text-[10px]">World</span>
+      <span className="eyebrow text-[10px]">World clock:</span>
       <Pill tone={unreachable ? "crit" : mode === "LIVE" ? "ok" : "info"}>
         {unreachable ? "Unreachable" : label}
       </Pill>
@@ -585,6 +583,12 @@ function WorldClockChip() {
 
 function Chrome({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(true);
+  const { role, profile } = useWorkspace();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const pageTitle = activeNavItem(NAVIGATION[role], pathname)?.label ?? profile.label;
+  useEffect(() => {
+    document.title = `PortWatch X — ${pageTitle}`;
+  }, [pageTitle]);
 
   // The rail costs horizontal pixels the chart wants. It opens on the widest
   // screens and stays as icons everywhere else; the labels are one click away.
@@ -597,8 +601,11 @@ function Chrome({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[var(--bg)]">
-      <header className="flex h-[var(--topbar-h)] shrink-0 items-center gap-3 border-b border-[var(--line)] bg-[var(--panel)] px-3">
+    <div className="pw-shell fixed inset-0 flex flex-col bg-[var(--bg)]">
+      <a href="#workspace-content" className="pw-skip-link">
+        Skip to workspace
+      </a>
+      <header className="pw-shell-header flex h-[var(--topbar-h)] shrink-0 items-center gap-3 border-b border-[var(--line)] bg-[var(--panel)] px-3">
         <Brand />
         <ContextCrumb />
         <RoleSwitcher />
@@ -612,7 +619,11 @@ function Chrome({ children }: { children: ReactNode }) {
           collapsed={collapsed}
           onToggle={() => setCollapsed((v) => !v)}
         />
-        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        <main
+          id="workspace-content"
+          tabIndex={-1}
+          className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+        >
           {children}
         </main>
       </div>

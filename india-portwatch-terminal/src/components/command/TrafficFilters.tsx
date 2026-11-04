@@ -10,6 +10,8 @@
  */
 
 import { useState } from "react";
+import { useTraffic } from "@/components/app/traffic-context";
+import { usePublicAis } from "@/services/public-ais";
 
 import type { LayerKey } from "@/components/map/basemap";
 import { legendStops } from "@/components/map/weather-layers";
@@ -29,6 +31,7 @@ import { formatAge, formatInstant } from "@/components/fabric/signal-format";
 import { Pill } from "@/components/kit/primitives";
 import { Chip, FloatPanel, PanelSection } from "./panels";
 import type { WorkspaceMap } from "./useWorkspaceMap";
+import { MobileMapPanel, useMapPanelAccess } from "./MapPanelAccess";
 
 const LAYER_LABELS: Array<{ key: LayerKey; label: string }> = [
   { key: "traffic", label: "Vessel traffic" },
@@ -55,18 +58,53 @@ export function TrafficFilters({
   defaultOpen?: boolean;
 }) {
   const [showFields, setShowFields] = useState(false);
+  const access = useMapPanelAccess();
+  const { dataView, setDataView, colorByType, setColorByType } = useTraffic();
+  const publicAis = usePublicAis(dataView === "provider");
 
-  return (
-    <FloatPanel
-      title="Layers and filters"
-      note={
-        workspace.filterActive ? <Pill tone="warn">filtered</Pill> : undefined
-      }
-      collapsible
-      defaultOpen={defaultOpen}
-      width={216}
-      className={cn("max-h-[calc(100%-16px)]", className)}
-    >
+  const controls = (
+    <>
+      <PanelSection title="Chart traffic basis">
+        <fieldset className="pw-chart-basis">
+          <legend className="sr-only">Choose a traffic view</legend>
+          <label>
+            <input
+              type="radio"
+              name="chart-traffic-view"
+              checked={dataView === "scenario"}
+              onChange={() => setDataView("scenario")}
+            />{" "}
+            Scenario · simulated ships
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="chart-traffic-view"
+              checked={dataView === "provider"}
+              onChange={() => setDataView("provider")}
+            />{" "}
+            Provider · transponder observations
+          </label>
+        </fieldset>
+        <label className="my-2 flex items-center gap-2 text-[var(--text-2)]">
+          <input type="checkbox" checked={colorByType} onChange={(event) => setColorByType(event.target.checked)} />
+          Colour vessels by class
+        </label>
+        {dataView === "provider" ? (
+          <p className="pw-meta" role="status">
+            {publicAis.isError
+              ? "Public AIS unavailable; no generated substitute."
+              : publicAis.data
+                ? `${publicAis.data.freshness} · ${publicAis.data.count} retained observations. ${publicAis.data.traffic.statement}`
+                : "Connecting to retained public AIS status; no observations yet."}
+          </p>
+        ) : (
+          <p className="pw-meta">
+            Fictional demo fleet and generated traffic; not observed AIS. Public
+            weather/report context is separate.
+          </p>
+        )}
+      </PanelSection>
       <PanelSection
         title="Vessel class"
         right={
@@ -185,6 +223,26 @@ export function TrafficFilters({
           ))}
         </div>
       </PanelSection>
+    </>
+  );
+  if (access?.mobile)
+    return (
+      <MobileMapPanel panel="layers" title="Layers and filters">
+        {controls}
+      </MobileMapPanel>
+    );
+  return (
+    <FloatPanel
+      title="Layers and filters"
+      note={
+        workspace.filterActive ? <Pill tone="warn">filtered</Pill> : undefined
+      }
+      collapsible
+      defaultOpen={defaultOpen}
+      width={216}
+      className={cn("max-h-[calc(100%-16px)]", className)}
+    >
+      {controls}
     </FloatPanel>
   );
 }
@@ -242,7 +300,7 @@ export function EnvironmentLegend({
             derived
           </Pill>
         ) : (
-          <Pill tone="ok">observed</Pill>
+          <Pill tone="unc">origin unknown</Pill>
         )}
       </div>
 
@@ -300,7 +358,7 @@ export function EnvironmentLegend({
           Storm cell
           {storms ? <span className="num">{storms}</span> : null}
         </span>
-        <span className="num">{covered} stations</span>
+        <span className="num">{covered} port grid points</span>
       </div>
 
       {workspace.layers.seastate ? (
@@ -408,6 +466,7 @@ function SeaStateLegend({ workspace }: { workspace: WorkspaceMap }) {
 
 /** The class key, so a reader can decode the colours on the chart. */
 export function VesselClassLegend({ className }: { className?: string }) {
+  const { colorByType } = useTraffic();
   return (
     <div
       className={cn(
@@ -416,7 +475,7 @@ export function VesselClassLegend({ className }: { className?: string }) {
         className,
       )}
     >
-      {Object.values(VESSEL_CLASSES).map((spec) => (
+      {colorByType && Object.values(VESSEL_CLASSES).map((spec) => (
         <span
           key={spec.key}
           className="flex items-center gap-1 text-[10.5px] text-[var(--text-3)]"
@@ -432,12 +491,12 @@ export function VesselClassLegend({ className }: { className?: string }) {
       <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[10.5px] text-[var(--text-3)]">
         <span
           aria-hidden
-          className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#93a7b8]"
+          className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[var(--text-2)]"
         />
         under way
         <span
           aria-hidden
-          className="ml-1 h-[8px] w-[8px] rounded-full border border-[#93a7b8]"
+          className="ml-1 h-[8px] w-[8px] rounded-full border border-[var(--text-2)]"
         />
         stopped
       </span>

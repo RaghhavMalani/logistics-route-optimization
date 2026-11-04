@@ -9,10 +9,11 @@ verified session. Authentication uses wall time independently of replay.
 
 from __future__ import annotations
 
+import json
 import os
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Mapping, Optional, Tuple
 
 from fastapi import HTTPException
 
@@ -31,6 +32,14 @@ REQUIRED = "required"
 VERIFIED = "verified"
 IDENTITY_MODES: Tuple[str, ...] = (ASSERTED, REQUIRED, VERIFIED)
 current_identity: ContextVar[Optional["Identity"]] = ContextVar("verified_identity", default=None)
+
+
+def verified_scope_key() -> Optional[str]:
+    identity = current_identity.get()
+    if identity is None or not identity.verified:
+        return None
+    return json.dumps([identity.actor, identity.role, identity.organisation, identity.port_code,
+                       sorted(identity.port_codes), sorted(identity.vessel_ids)], separators=(",", ":"))
 
 
 def identity_mode() -> str:
@@ -113,6 +122,7 @@ class Identity:
     vessel_ids: Tuple[str, ...] = field(default_factory=tuple)
     port_codes: Tuple[str, ...] = field(default_factory=tuple)
     verified: bool = False
+    can_approve: bool = True
 
     @property
     def is_admin(self) -> bool:
@@ -153,7 +163,23 @@ def require_verified() -> Identity:
 
 
 def _same(a: Optional[str], b: Optional[str]) -> bool:
-    return bool(a) and bool(b) and a.strip().casefold() == b.strip().casefold()
+    left = (a or "").strip().casefold()
+    return bool(left) and left == (b or "").strip().casefold()
+
+
+def may_see_vessel(identity: Optional[Identity], vessel: Mapping[str, Optional[str]]) -> bool:
+    """Authorize a hull from canonical ID, operator organisation and destination."""
+    if identity is None or not identity.verified:
+        return False
+    if identity.is_admin:
+        return True
+    if identity.role == SHIPPING_COMPANY:
+        return _same(identity.organisation, vessel.get("operatorOrganisation"))
+    if identity.role == VESSEL_OPERATOR:
+        return vessel.get("id") in identity.vessel_ids
+    if identity.role == PORT_AUTHORITY:
+        return _same(identity.port_code, vessel.get("destinationPort"))
+    return False
 
 
 def may_see_decision(identity: Identity, actor: dict, subject: dict, domain: str) -> bool:
@@ -179,6 +205,8 @@ def may_see_decision(identity: Identity, actor: dict, subject: dict, domain: str
     if identity.role == SHIPPING_COMPANY:
         return held_role in (SHIPPING_COMPANY, VESSEL_OPERATOR) and _same(held_org, identity.organisation)
     if identity.role == VESSEL_OPERATOR:
+        if identity.verified:
+            return held_role == VESSEL_OPERATOR and subject_id in identity.vessel_ids
         if subject_id and subject_id in identity.vessel_ids:
             return True
         return held_role in (SHIPPING_COMPANY, VESSEL_OPERATOR) and _same(held_org, identity.organisation)
@@ -195,6 +223,7 @@ __all__ = [
     "identity_from_headers",
     "identity_mode",
     "may_see_decision",
+    "may_see_vessel",
     "require_roles",
     "require_verified",
     "resolve_role",

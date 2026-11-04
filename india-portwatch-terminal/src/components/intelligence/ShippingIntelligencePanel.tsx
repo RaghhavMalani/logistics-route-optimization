@@ -1,11 +1,45 @@
-import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { formatUtc } from "@/components/kit/primitives";
 import type { DecisionProblem } from "@/types/decisions";
 import { OperationalNoticePanel } from "./OperationalNoticePanel";
+import { PortOperationalContext } from "./PortOperationalContext";
+import { PublicProductStatus } from "./PublicProductStatus";
+import { reviewSelection } from "@/services/rolling-intelligence";
+import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
+import { NavigationRestrictionPanel } from "./NavigationRestrictionPanel";
+import { IntelligenceReviewTasks } from "./IntelligenceReviewTasks";
+import { OperationalEvidencePanel } from "./OperationalEvidencePanel";
+import { DemonstrationScenarios } from "./DemonstrationScenarios";
+
+function EvidenceDisclosure({
+  title,
+  initiallyOpen = false,
+  children,
+}: {
+  title: string;
+  initiallyOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [loaded, setLoaded] = useState(initiallyOpen);
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <details
+      className="pw-source-detail"
+      open={open}
+      onToggle={(e) => {
+        setOpen(e.currentTarget.open);
+        if (e.currentTarget.open) setLoaded(true);
+      }}
+    >
+      <summary>{title}</summary>
+      {loaded ? children : null}
+    </details>
+  );
+}
 
 interface Signal {
   id?: string;
@@ -31,15 +65,35 @@ interface Signal {
     cargo: { vesselId: string; description: string }[];
   };
 }
+function hasRestrictionBasis(problem: DecisionProblem) {
+  const basis = problem.evidence.intelligenceBasis;
+  return (
+    typeof basis === "object" &&
+    basis !== null &&
+    "kind" in basis &&
+    basis.kind === "NOTICE_RESTRICTION"
+  );
+}
 export function ShippingIntelligencePanel({
   onDecision,
+  view = "sources",
 }: {
   onDecision?: (problem: DecisionProblem) => void;
+  view?: "sources" | "learning" | "scenarios";
 }) {
   const { identityHeaders, session } = useAuth();
+  const client = useQueryClient();
   const [selected, setSelected] = useState("");
-  const [vesselId, setVesselId] = useState("");
-  const [hold, setHold] = useState(6);
+  const [visited, setVisited] = useState<string[]>(["sources"]);
+  useEffect(() => {
+    setVisited((previous) =>
+      previous.includes(view) ? previous : [...previous, view],
+    );
+  }, [view]);
+  const [vesselId, setVesselId] = useState(
+    () => reviewSelection().vesselId || "",
+  );
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [digest, setDigest] = useState<string | null>(null);
   const raw = useQuery({
     queryKey: ["shipping-evidence", digest, identityHeaders],
@@ -88,201 +142,248 @@ export function ShippingIntelligencePanel({
   });
   const create = useMutation({
     mutationFn: () =>
-      postJson<DecisionProblem>(
-        "/intelligence/shipping-comparison",
-        { signalId: selected, vesselId, assumedHoldHours: hold },
+      postJson<{ id: string; status: string }>(
+        "/intelligence/review-tasks",
+        { signalId: selected, vesselId, requestId },
         identityHeaders,
       ),
-    onSuccess: (problem) => onDecision?.(problem),
+    onSuccess: () => {
+      void client.invalidateQueries({
+        queryKey: ["intelligence-review-tasks"],
+      });
+      setRequestId(crypto.randomUUID());
+    },
   });
   if (session?.mode !== "demo") return null;
   return (
     <section
-      className="mt-3 border border-[var(--line)] p-3 text-[11px]"
+      className="pw-evidence-section"
       data-testid="shipping-intelligence"
     >
-      <OperationalNoticePanel onDecision={onDecision} />
-      <h3 className="text-xs">
-        Reported intelligence → shipping exposure → action comparison
-      </h3>
-      {(saved.data?.problems ?? [])
-        .filter(
-          (p) =>
-            p.evidence.intelligenceBasis && p.actor.role === "SHIPPING_COMPANY",
-        )
-        .map((p) => (
-          <div
-            key={p.decisionId}
-            className="border-b border-[var(--line)] py-2"
-          >
-            <span>
-              Saved intelligence: {p.subject.label} · {p.workflow} ·{" "}
-              {formatUtc(p.createdAt)}
-            </span>{" "}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={resume.isPending}
-              onClick={() => resume.mutate(p.decisionId)}
-            >
-              Resume saved intelligence comparison
-            </Button>{" "}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={refresh.isPending}
-              onClick={() => refresh.mutate(p.decisionId)}
-            >
-              Refresh to linked intelligence comparison
-            </Button>
-          </div>
-        ))}
-      {resume.isError || refresh.isError ? (
-        <p role="alert">{resume.error?.message ?? refresh.error?.message}</p>
-      ) : null}
-      {(saved.data?.problems ?? []).some(
-        (p) => p.evidence.intelligenceBasis,
-      ) ? (
-        <p>
-          Refresh refreezes the scenario against the current voyage. The
-          source's original receipt and validity stay visible; prior approvals
-          and advisories are preserved.
-        </p>
-      ) : null}
-      {q.isPending ? (
-        <p>Checking source receipts and visitor fleet exposure…</p>
-      ) : q.isError ? (
-        <p role="alert">Sources unavailable: {q.error.message}</p>
-      ) : (
-        <>
-          <p className="my-2">{q.data.note}</p>
-          {q.data.signals.map((s, i) => (
-            <details
-              key={s.id ?? `${s.category}-${i}`}
-              className="border-t border-[var(--line)] py-2"
-            >
-              <summary>
-                {s.category} · {s.title} · {s.status}
-              </summary>
-              <p>Reported fact: {s.fact ?? s.reason ?? "Unavailable"}</p>
-              <p>
-                Observed/published{" "}
-                {formatUtc(s.observedAt ?? s.publishedAt ?? null)} · first
-                receipt {formatUtc(s.availableAt ?? null)}
-                {s.validThrough
-                  ? ` · valid through ${formatUtc(s.validThrough)}`
-                  : ""}
-                .
-              </p>
-              {s.source ? (
-                <a
-                  href={s.source}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  Provider source
-                </a>
-              ) : null}
-              {(s.parentResponseSha256 ?? s.responseSha256) ? (
-                <button
-                  className="underline ml-3"
-                  onClick={() =>
-                    setDigest(s.parentResponseSha256 ?? s.responseSha256!)
-                  }
-                >
-                  Inspect retained source response
-                </button>
-              ) : null}
-              <p>Transmission: {s.mechanism ?? "No supported mechanism"}</p>
-              <p>{s.relationship}</p>
-              <p>
-                Inferred exposure: ports {s.exposure.ports.join(", ") || "none"}
-                ; routes {s.exposure.routes.join(", ") || "none"}; vessels{" "}
-                {s.exposure.vessels.map((v) => v.name).join(", ") || "none"};
-                cargo{" "}
-                {s.exposure.cargo.map((c) => c.description).join(", ") ||
-                  "unavailable"}
-                .
-              </p>
-              {s.comparisonAvailable &&
-              onDecision &&
-              session.user.role === "SHIPPING_COMPANY" ? (
+      <div hidden={view !== "scenarios"}>
+        {view === "scenarios" || visited.includes("scenarios") ? (
+          <DemonstrationScenarios onDecision={onDecision} />
+        ) : null}
+      </div>
+      <div hidden={view !== "learning"}>
+        {view === "learning" || visited.includes("learning") ? (
+          <SharedFeedbackPanel
+            onDecision={onDecision}
+            vesselId={vesselId}
+            onVesselChange={setVesselId}
+          />
+        ) : null}
+      </div>
+      <div hidden={view !== "sources"}>
+        <EvidenceDisclosure title="Free provider coverage and receipts">
+          <PublicProductStatus />
+        </EvidenceDisclosure>
+        <PortOperationalContext
+          vesselId={vesselId}
+          onVesselChange={setVesselId}
+        />
+        <EvidenceDisclosure title="Retained port records and original evidence">
+          <OperationalEvidencePanel />
+        </EvidenceDisclosure>
+        <EvidenceDisclosure
+          title="Navigation restrictions and operational notices"
+          initiallyOpen={Boolean(reviewSelection().noticeId)}
+        >
+          <NavigationRestrictionPanel onDecision={onDecision} />
+          <OperationalNoticePanel onDecision={onDecision} />
+        </EvidenceDisclosure>
+        <EvidenceDisclosure title="News, economic signals and source-review tasks">
+          <h3 className="text-xs">
+            Reported intelligence → possible exposure → verification
+          </h3>
+          {(saved.data?.problems ?? [])
+            .filter(
+              (p) =>
+                p.evidence.intelligenceBasis &&
+                p.actor.role === "SHIPPING_COMPANY",
+            )
+            .map((p) => (
+              <div
+                key={p.decisionId}
+                className="border-b border-[var(--line)] py-2"
+              >
+                <span>
+                  Saved intelligence: {p.subject.label} · {p.workflow} ·{" "}
+                  {formatUtc(p.createdAt)}
+                </span>{" "}
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    setSelected(s.id!);
-                    setVesselId(s.exposure.vessels[0].id);
-                  }}
+                  disabled={resume.isPending}
+                  onClick={() => resume.mutate(p.decisionId)}
                 >
-                  Select for shipping comparison
-                </Button>
-              ) : null}
-            </details>
-          ))}
-        </>
-      )}
-      {digest ? (
-        <details open className="max-h-48 overflow-auto">
-          <summary>Retained source response · {digest}</summary>
-          {raw.isError ? (
-            <p role="alert">Source response unavailable.</p>
+                  Resume saved intelligence comparison
+                </Button>{" "}
+                {hasRestrictionBasis(p) ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={refresh.isPending}
+                    onClick={() => refresh.mutate(p.decisionId)}
+                  >
+                    Refresh to linked intelligence comparison
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          {resume.isError || refresh.isError ? (
+            <p role="alert">
+              {resume.error?.message ?? refresh.error?.message}
+            </p>
+          ) : null}
+          {(saved.data?.problems ?? []).some(
+            (p) => p.evidence.intelligenceBasis,
+          ) ? (
+            <p>
+              Refresh refreezes the scenario against the current voyage. The
+              source's original receipt and validity stay visible; prior
+              approvals and advisories are preserved.
+            </p>
+          ) : null}
+          {q.isPending ? (
+            <p>Checking source receipts and visitor fleet exposure…</p>
+          ) : q.isError ? (
+            <p role="alert">Sources unavailable: {q.error.message}</p>
           ) : (
-            <pre className="whitespace-pre-wrap break-all">
-              {JSON.stringify(raw.data, null, 2)}
-            </pre>
-          )}
-        </details>
-      ) : null}
-      {chosen ? (
-        <fieldset className="border border-[var(--line)] p-2 space-y-2">
-          <legend>Explicit operator scenario · {chosen.title}</legend>
-          <label className="block">
-            Affected voyage{" "}
-            <select
-              aria-label="Intelligence voyage"
-              value={vesselId}
-              onChange={(e) => setVesselId(e.target.value)}
-              className="bg-[var(--panel-2)]"
-            >
-              {chosen.exposure.vessels.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
+            <>
+              <p className="my-2">{q.data.note}</p>
+              {q.data.signals.map((s, i) => (
+                <details
+                  key={s.id ?? `${s.category}-${i}`}
+                  className="border-t border-[var(--line)] py-2"
+                >
+                  <summary>
+                    {s.category} · {s.title} · {s.status}
+                  </summary>
+                  <p>Reported fact: {s.fact ?? s.reason ?? "Unavailable"}</p>
+                  <p>
+                    Observed/published{" "}
+                    {formatUtc(s.observedAt ?? s.publishedAt ?? null)} · first
+                    receipt {formatUtc(s.availableAt ?? null)}
+                    {s.validThrough
+                      ? ` · valid through ${formatUtc(s.validThrough)}`
+                      : ""}
+                    .
+                  </p>
+                  {s.source ? (
+                    <a
+                      href={s.source}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      Provider source
+                    </a>
+                  ) : null}
+                  {(s.parentResponseSha256 ?? s.responseSha256) ? (
+                    <button
+                      className="underline ml-3"
+                      onClick={() =>
+                        setDigest(s.parentResponseSha256 ?? s.responseSha256!)
+                      }
+                    >
+                      Inspect retained source response
+                    </button>
+                  ) : null}
+                  <p>Transmission: {s.mechanism ?? "No supported mechanism"}</p>
+                  <p>{s.relationship}</p>
+                  <p>
+                    Inferred exposure: ports{" "}
+                    {s.exposure.ports.join(", ") || "none"}; routes{" "}
+                    {s.exposure.routes.join(", ") || "none"}; vessels{" "}
+                    {s.exposure.vessels.map((v) => v.name).join(", ") || "none"}
+                    ; cargo{" "}
+                    {s.exposure.cargo.map((c) => c.description).join(", ") ||
+                      "unavailable"}
+                    .
+                  </p>
+                  {s.category === "news" &&
+                  s.id &&
+                  s.exposure.vessels.length > 0 &&
+                  onDecision &&
+                  session.user.role === "SHIPPING_COMPANY" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelected(s.id!);
+                        setVesselId(s.exposure.vessels[0].id);
+                        setRequestId(crypto.randomUUID());
+                      }}
+                    >
+                      Select report for verification
+                    </Button>
+                  ) : null}
+                </details>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            Assumed review hold (h){" "}
-            <input
-              aria-label="Assumed intelligence review hold"
-              type="number"
-              min={1}
-              max={24}
-              value={hold}
-              onChange={(e) => setHold(Number(e.target.value))}
-              className="w-16 bg-[var(--panel-2)]"
-            />
-          </label>
-          <p>
-            This bounded hold is an operator demo assumption for further
-            verification. The source does not establish event-caused delay, a
-            closure, safer passage or savings. Compare continuing the plan with
-            requesting a later arrival.
-          </p>
-          <Button
-            size="sm"
-            disabled={create.isPending || !vesselId || hold < 1 || hold > 24}
-            onClick={() => create.mutate()}
-          >
-            {create.isPending
-              ? "Freezing comparison…"
-              : "Compare shipping actions"}
-          </Button>
-        </fieldset>
-      ) : null}
-      {create.isError ? <p role="alert">{create.error.message}</p> : null}
+            </>
+          )}
+          {digest ? (
+            <details open className="max-h-48 overflow-auto">
+              <summary>Retained source response · {digest}</summary>
+              {raw.isError ? (
+                <p role="alert">Source response unavailable.</p>
+              ) : (
+                <pre className="whitespace-pre-wrap break-all">
+                  {JSON.stringify(raw.data, null, 2)}
+                </pre>
+              )}
+            </details>
+          ) : null}
+          {chosen ? (
+            <fieldset className="border border-[var(--line)] p-2 space-y-2">
+              <legend>
+                Request source/exposure verification · {chosen.title}
+              </legend>
+              <label className="block">
+                Affected voyage{" "}
+                <select
+                  aria-label="Intelligence voyage"
+                  value={vesselId}
+                  onChange={(e) => {
+                    setVesselId(e.target.value);
+                    setRequestId(crypto.randomUUID());
+                  }}
+                  className="bg-[var(--panel-2)]"
+                >
+                  {chosen.exposure.vessels.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p>
+                Ask for independent source and passage confirmation. Broad lane
+                or destination membership is a review lead. No delay, closure,
+                arrival change or savings is calculated from this report.
+              </p>
+              <Button
+                size="sm"
+                disabled={create.isPending || !vesselId}
+                onClick={() => create.mutate()}
+              >
+                {create.isPending
+                  ? "Recording review request…"
+                  : "Request source and exposure verification"}
+              </Button>
+            </fieldset>
+          ) : null}
+          {create.isError ? <p role="alert">{create.error.message}</p> : null}
+          {create.isSuccess ? (
+            <p role="status">
+              Verification requested · {create.data.status}. No operational
+              target or vessel hold was created.
+            </p>
+          ) : null}
+          <IntelligenceReviewTasks />
+        </EvidenceDisclosure>
+      </div>
     </section>
   );
 }

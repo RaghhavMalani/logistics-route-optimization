@@ -20,6 +20,7 @@ import type {
   PortRegistryEntry,
   PortSnapshot,
   Provenance,
+  ProvenanceSource,
   RegimeState,
   ScenarioDefinition,
   ScenarioResult,
@@ -27,19 +28,60 @@ import type {
   WeatherIntelligence,
   WeatherSignal,
 } from "@/types/portwatch";
+import {
+  PortRegistryQualityResponseSchema,
+  parseSourceQuality,
+} from "@/types/source-quality";
 
 /* --------------------------------------------------------------- system --- */
 
 export const fetchHealth = () => getJson<Health>("/health");
-export const fetchProvenance = () => getJson<Provenance>("/provenance");
+export async function fetchProvenance(): Promise<Provenance> {
+  const provenance = await getJson<Provenance>("/provenance");
+  const parseSources = (rows: Record<string, ProvenanceSource> = {}) =>
+    Object.fromEntries(
+      Object.entries(rows).map(([key, source]) => {
+        if (source.sourceQuality == null) return [key, source];
+        const parsed = parseSourceQuality(source.sourceQuality);
+        return [
+          key,
+          parsed.ok
+            ? {
+                ...source,
+                sourceQuality: parsed.value,
+                sourceQualityError: null,
+              }
+            : {
+                ...source,
+                sourceQuality: null,
+                sourceQualityError: parsed.reason,
+              },
+        ];
+      }),
+    );
+  return {
+    ...provenance,
+    sources: parseSources(provenance.sources),
+    sourceQualityProducts: parseSources(provenance.sourceQualityProducts),
+  };
+}
 
 /* ---------------------------------------------------------------- ports --- */
 
 export const fetchPorts = () => getJson<PortSnapshot[]>("/ports");
 export const fetchPort = (code: string) =>
   getJson<PortSnapshot>(`/ports/${encodeURIComponent(code)}`);
-export const fetchPortRegistry = () =>
-  getJson<PortRegistryEntry[]>("/ports/registry");
+export async function fetchPortRegistry(): Promise<PortRegistryEntry[]> {
+  const response = await getJson<unknown>("/ports/registry");
+  const parsed = PortRegistryQualityResponseSchema.safeParse(response);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Error(
+      `Port registry response rejected: ${issue?.path.join(".") || "response"}: ${issue?.message ?? "invalid response"}`,
+    );
+  }
+  return parsed.data;
+}
 
 /* ---------------------------------------------------------------- model --- */
 
@@ -80,8 +122,7 @@ export const fetchFleet = () => getJson<FleetRow[]>("/fleet");
 
 /* ------------------------------------------------------------ scenarios --- */
 
-export const fetchScenarios = () =>
-  getJson<ScenarioDefinition[]>("/scenarios");
+export const fetchScenarios = () => getJson<ScenarioDefinition[]>("/scenarios");
 
 export const runScenario = (
   scenarioKey: string,

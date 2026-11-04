@@ -12,6 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
 
 const FIXTURES = path.resolve(
@@ -68,6 +69,17 @@ export const ACCOUNTS: Record<Role, Record<string, unknown>> = {
   },
 };
 
+function fixtureSession(role: Role, mode: "production" | "demo") {
+  return {
+    user: ACCOUNTS[role],
+    mode,
+    issuedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 12 * 3_600_000).toISOString(),
+    accessToken: `playwright-${randomUUID()}`,
+    ...(mode === "demo" ? { demoId: randomUUID() } : {}),
+  };
+}
+
 /**
  * Routes whose last segment is an identifier the backend generated.
  *
@@ -82,7 +94,7 @@ const GET_FALLBACKS: Array<[RegExp, string]> = [
 ];
 
 function fixtureFor(pathname: string): string | null {
-  const route = pathname.replace(/^.*\/api/, "");
+  const route = pathname.replace(/^.*\/api(?:\/demo\/terminal)?/, "");
   const file = path.join(
     FIXTURES,
     `${route.replace(/^\//, "").replace(/\//g, "_") || "root"}.json`,
@@ -111,11 +123,44 @@ const POST_FIXTURES: Array<[RegExp, string]> = [
 
 /** Replay the recorded API. Anything not recorded answers 404, as the real one would. */
 export async function mockApi(context: BrowserContext): Promise<void> {
+  const demos = new Map<string, ReturnType<typeof fixtureSession>>();
   await context.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    const method = request.method();
+    const token = request.headers().authorization?.replace(/^Bearer /, "");
+    if (url.pathname.endsWith("/api/auth/login") && method === "POST") {
+      await route.fulfill({
+        status: 401,
+        json: { detail: "Invalid credentials" },
+      });
+      return;
+    }
+    if (url.pathname.endsWith("/api/demo/session")) {
+      if (method === "POST") {
+        const role = request.postDataJSON()?.role as Role;
+        if (Object.hasOwn(ACCOUNTS, role)) {
+          const session = fixtureSession(role, "demo");
+          demos.set(session.accessToken, session);
+          await route.fulfill({ json: session });
+          return;
+        }
+      }
+      const session = token && demos.get(token);
+      await route.fulfill(
+        session
+          ? { json: session }
+          : { status: 401, json: { detail: "Invalid demo session" } },
+      );
+      return;
+    }
+    if (url.pathname.endsWith("/api/demo/logout") && method === "POST") {
+      if (token) demos.delete(token);
+      await route.fulfill({ json: {} });
+      return;
+    }
 
-    if (request.method() === "POST") {
+    if (method === "POST") {
       const match = POST_FIXTURES.find(([pattern]) =>
         pattern.test(url.pathname),
       );
@@ -207,21 +252,43 @@ export async function seedSession(
   context: BrowserContext,
   role: Role,
 ): Promise<void> {
-  const now = Date.now();
+  // Recorded operational fixtures use verified account routes. Visitor demo
+  // entry, role switching and expiry are covered separately via normal sign-in.
+  const session = fixtureSession(role, "production");
+  const authorization = `Bearer ${session.accessToken}`;
+  let active = true;
+  await context.route("**/api/auth/session", async (route) => {
+    const request = route.request();
+    const verified =
+      active &&
+      request.method() === "GET" &&
+      request.headers().authorization === authorization;
+    await route.fulfill(
+      verified
+        ? { json: session }
+        : { status: 401, json: { detail: "Invalid fixture session" } },
+    );
+  });
+  await context.route("**/api/auth/logout", (route) => {
+    const request = route.request();
+    if (
+      request.method() === "POST" &&
+      request.headers().authorization === authorization
+    ) {
+      active = false;
+    }
+    return route.fulfill({ json: {} });
+  });
   await context.addInitScript(
-    ([session, viewAs]) => {
-      window.localStorage.setItem("portwatch.session.v1", session as string);
-      window.localStorage.setItem("portwatch.viewAs.v1", viewAs as string);
+    ({ session, role }) => {
+      // Both storage keys are seeded because Playwright can drive either the
+      // local fixture build or the production-auth build of the same client.
+      for (const storage of [window.localStorage, window.sessionStorage]) {
+        storage.setItem("portwatch.session.v1", JSON.stringify(session));
+        storage.setItem("portwatch.viewAs.v1", JSON.stringify(role));
+      }
     },
-    [
-      JSON.stringify({
-        user: ACCOUNTS[role],
-        mode: "demo",
-        issuedAt: new Date(now).toISOString(),
-        expiresAt: new Date(now + 12 * 3_600_000).toISOString(),
-      }),
-      JSON.stringify(role),
-    ],
+    { session, role },
   );
 }
 
@@ -277,12 +344,12 @@ export async function horizontalOverflow(page: Page): Promise<number> {
 
 /** `test` with the API replayed for every case. */
 export const test = base.extend<{ recorder: Recorder }>({
-  context: async ({ context }, use) => {
+  context: async ({ context }, provide) => {
     await mockApi(context);
-    await use(context);
+    await provide(context);
   },
-  recorder: async ({ page }, use) => {
-    await use(record(page));
+  recorder: async ({ page }, provide) => {
+    await provide(record(page));
   },
 });
 

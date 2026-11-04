@@ -7,7 +7,8 @@ Critic, ledger, human review and advisory boundary carry the result.
 from datetime import timedelta
 import hashlib
 import json
-from src.portwatch_os.intelligence.current_environment import bundle, instant, finite
+from src.portwatch_os.intelligence.current_environment import retained_bundle as bundle, instant, finite
+from src.portwatch_os.intelligence.operational_quality import freeze_activity_context
 from src.portwatch_os.decision.model import (
     DecisionProblem, DecisionOption, DecisionEvaluation, DecisionObjective,
     ConstraintResult, OBJECTIVES, VESSEL_ROUTING, FEASIBLE, known, unknown,
@@ -18,13 +19,18 @@ from src.utils import port_registry
 
 def build_arrival_problem(vessel, request, actor, state, at):
     port = port_registry.resolve(vessel.destination_port)
-    data = bundle(port)
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if request.get('inputView', 'scenario') not in ('provider', 'scenario'):
+        raise ValueError('Choose a provider-backed or explicit scenario input view')
+    fixture = (scoped.world.get('illustrativeInputs', {}).get('forecast') if request.get('inputView') != 'provider' and scoped and scoped.world.get('demoScenario') else None)
+    data = fixture if fixture and fixture.get('portCode') == port.locode else bundle(port)
     source = data["sources"]["surface"]
-    if source["status"] != "CURRENT":
+    if source["status"] != "CURRENT" and not (fixture and source['status']=='SIMULATED'):
         raise ValueError("Current surface forecast required; a stale receipt cannot drive this comparison")
     earliest = instant(vessel.eta)
     planned = instant(request.get("plannedArrival") or vessel.eta)
-    if earliest <= at or planned < earliest or planned > earliest+timedelta(hours=72):
+    if earliest <= at or planned <= at or (planned < earliest and not isinstance(request.get("passagePlan"),dict)) or planned > earliest+timedelta(hours=72):
         raise ValueError("Demo arrival must be future, no earlier than the voyage ETA, and within 72h of it")
     gust_limit = request.get("maxGustKn", 15)
     visibility_limit = request.get("minVisibilityM", 5000)
@@ -41,7 +47,8 @@ def build_arrival_problem(vessel, request, actor, state, at):
         raise ValueError("No two consecutive clear forecast hours in the next 48h; no bounded arrival alternative")
     safe_at = max(planned, instant(rows[index]["validAt"]))
     wait = (safe_at-planned).total_seconds()/3600
-    frozen = {"portCode": port.locode, "voyageId": vessel.vessel_id, "source": source["source"],
+    frozen = {"evidenceVersion": "current-weather-approach-v2", "inputView": request.get('inputView','scenario'), "portCode": port.locode,
+        "voyageId": vessel.vessel_id, "source": source["source"],
         "snapshotId": source["snapshotId"], "responseSha256": source["responseSha256"],
         "issuedAt": source["issuedAt"], "observedAt": None, "availableAt": source["availableAt"],
         "earliestVoyageArrival": earliest.isoformat(), "plannedArrival": planned.isoformat(),
@@ -52,8 +59,23 @@ def build_arrival_problem(vessel, request, actor, state, at):
             "scope": "Port approach only; not an official JNPA limit, berth guarantee or bridge navigation instruction."},
         "hazardSnapshotId": data["sources"]["hazards"].get("snapshotId"),
         "hazardRelationship": "Regional context only; no hazard-to-delay formula used.",
-        "activityObservation": "2026-10-02; not refreshed or used as current approach weather",
+        # Context is frozen for inspection only, after all hourly gate calculations.
+        # It is not a continuation dependency, a delay input or a daily correction.
+        "activityContext": freeze_activity_context(port.locode, now=at),
         "meaning": "Current public forecast applied to a fictional voyage under explicit operating assumptions. Forecast-driven simulated wait, not observed delay."}
+    if fixture and fixture.get('portCode') == port.locode:
+        frozen.update(evidenceKind='SOFTWARE_LIFECYCLE_FIXTURE', scenario=copy_fixture_marker(scoped.world),
+                      meaning='Explicit software forecast fixture and fictional voyage assumptions; not provider weather, verification, actual closure or measured saving.')
+    if scoped is not None:
+        from src.portwatch_os.decision.episodes import ensure_episode
+        owned = next(v for v in scoped.world["fleet"] if v["id"] == vessel.vessel_id)
+        frozen["operationalEpisode"] = ensure_episode(scoped, owned)
+        if request.get("sourceReviews") is not None:
+            from src.portwatch_os.intelligence.indian_review import freeze
+            frozen["sourceReviewBindings"] = freeze(scoped, vessel.vessel_id, request["sourceReviews"], at=at)
+        if request.get('portContextReviews') is not None:
+            from src.portwatch_os.intelligence.port_context_review import freeze as freeze_port_context
+            frozen['portContextBindings'] = freeze_port_context(scoped, vessel.vessel_id, request['portContextReviews'], at=at)
     frozen["evidenceId"] = hashlib.sha256(json.dumps(frozen,sort_keys=True).encode()).hexdigest()
     decision_id = "dec-arrival-" + hashlib.sha256((frozen["evidenceId"]+actor.role+at.isoformat()).encode()).hexdigest()[:20]
     options = []
@@ -81,7 +103,7 @@ def build_arrival_problem(vessel, request, actor, state, at):
             timeline=[{"at": arrival.isoformat(), "kind": "arrival", "label": "Requested demo arrival"},
                       {"at": safe_at.isoformat(), "kind": "weather", "label": "First forecast-clear approach under assumed limits"}])
         options.append(option)
-    return DecisionProblem(decision_id=decision_id,created_at=at.isoformat(),domain=VESSEL_ROUTING,
+    problem = DecisionProblem(decision_id=decision_id,created_at=at.isoformat(),domain=VESSEL_ROUTING,
         world_revision=state.summary()["revision"],world_state_id=state.state_id+":"+frozen["evidenceId"],
         subject_type="vessel",subject_id=vessel.vessel_id,subject_label=vessel.name,actor=actor,at=at.isoformat(),
         objectives=[DecisionObjective("eta","Clear approach shift","hours","min","Time to a clear approach under the assumed forecast gate"), OBJECTIVES["port_wait"]],
@@ -92,3 +114,17 @@ def build_arrival_problem(vessel, request, actor, state, at):
         headline=f"{vessel.name}: current forecast versus an assumed approach gate at {port.locode}",
         do_nothing_statement=f"Without this weather gate: 0h assumed weather wait. With the consumed forecast: {wait:.1f}h at anchor, clear at {safe_at.isoformat()}.",
         notes=[frozen["meaning"],"No berth assignment or whole-voyage weather safety claim is made."])
+    if request.get("passagePlan") is not None:
+        from .passage import extend_arrival_problem
+        problem = extend_arrival_problem(problem, request["passagePlan"], data, at=at)
+        if planned < earliest and problem.evidence.get('passagePlanningUnavailable'):
+            raise ValueError('An earlier requested approach requires a valid physical passage declaration; arrival-only fallback cannot advance the voyage ETA')
+    if request.get("cargoCommitment") is not None:
+        from .passage_cargo_integration import extend_with_cargo
+        problem = extend_with_cargo(problem, request["cargoCommitment"], at=at)
+    return problem
+
+
+def copy_fixture_marker(world):
+    import copy
+    return copy.deepcopy(world['demoScenario'])

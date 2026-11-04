@@ -1,0 +1,105 @@
+{
+  "baseSha": "350b14a4d04e4046489e528bca9c6b9c20a40921",
+  "seed": 20261102,
+  "referenceHtmlSha256": "2f733a2dc55f00777b8803034588a9454dd648f9ba722930072b3848585ed784",
+  "referenceComparison": "Same viewport, camera keyframe and animation time zero. Software WebGL rendering for reproducible paired captures.",
+  "frames": [
+    {
+      "file": "tour-1440-0.jpg",
+      "bytes": 170056,
+      "sha256": "d5a0dc5c426d48bdd2f3f0911690ccfc5341b89d1806952dba9a470e551e89d1"
+    },
+    {
+      "file": "tour-1440-1.jpg",
+      "bytes": 117907,
+      "sha256": "356cfe0db366bd16967c14341e71546a5563a5eb37499248cc4e727de4fb1b36"
+    },
+    {
+      "file": "tour-1440-2.jpg",
+      "bytes": 126973,
+      "sha256": "ab8a32bdab0f7b6262a396977d4b832a8d256e5d3625d563936deb4acfda8e1d"
+    },
+    {
+      "file": "tour-1440-3.jpg",
+      "bytes": 175374,
+      "sha256": "c26abd98ee8cd2ad7ae2f25ad7a33d674485c641f79a31d287ec4f58ad126134"
+    },
+    {
+      "file": "tour-1440-4.jpg",
+      "bytes": 271248,
+      "sha256": "14fd7eb71773495ae0cd5f3e9f8adb125e1c37bbe0cc63014cc5c9d24a7b7580"
+    },
+    {
+      "file": "tour-1440-5.jpg",
+      "bytes": 259738,
+      "sha256": "85509ed0bc18087a2a66c5ff1dee15b55d61cca5b5af6aa5ad67e10d6747718a"
+    },
+    {
+      "file": "tour-390-0.jpg",
+      "bytes": 60214,
+      "sha256": "2bde0ff938d741771502a5959e99377eed2fdcd823b6428b33c4da6f511a6ec3"
+    },
+    {
+      "file": "tour-390-3.jpg",
+      "bytes": 64575,
+      "sha256": "75870448f921f642d00edca00d54d2cab9a9d5b7288c6f7381dc931a4aa32ef4"
+    }
+  ],
+  "referenceViewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "chapters": [0, 1, 2, 3, 4, 5]
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "chapters": [0, 3]
+    }
+  ],
+  "scope": "API-free illustrative composite only; no sessions or commercial records",
+  "benchmark": {
+    "sha256": "ccc1422385d4c888e57cd28c9eb0197c2b4eb97cb5be68b14221e40695eb0ddf",
+    "basis": "Original historical synthetic vessel test corpus, not newly held out or measured savings",
+    "cases": 200,
+    "unscored": 10
+  },
+  "bundle": [
+    {
+      "label": "baseline",
+      "route": "/login",
+      "bytes": 498419,
+      "gzip": 154763,
+      "cls": 0.00012399901506505057
+    },
+    {
+      "label": "tour-branch",
+      "route": "/login",
+      "bytes": 499307,
+      "gzip": 154965,
+      "cls": 0.00010512650101273147
+    },
+    {
+      "label": "tour-branch",
+      "route": "/tour",
+      "bytes": 985381,
+      "gzip": 278748,
+      "cls": 0
+    }
+  ],
+  "tests": {
+    "tourCases": 16,
+    "retries": 0,
+    "profiles": ["production authentication + isolated QA backend"],
+    "inheritedGuardCases": {
+      "passed": 14,
+      "failed": 68
+    },
+    "publicCombinedCases": {
+      "passed": 24,
+      "failed": 8,
+      "notRun": 6,
+      "tourOverlap": 16
+    }
+  }
+}

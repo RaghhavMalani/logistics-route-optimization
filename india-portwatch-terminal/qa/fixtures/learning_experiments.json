@@ -1,0 +1,5 @@
+{
+  "neural_fusion": { "status": "REJECTED", "shadowInferenceAvailable": false },
+  "constrained_rl": { "status": "REJECTED" },
+  "freshness": { "forecastOriginStatus": "UNAVAILABLE", "forecastOriginAgeHours": null }
+}

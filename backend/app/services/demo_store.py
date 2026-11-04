@@ -14,17 +14,24 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import HTTPException
+from src.portwatch_os.clock import wall_now
 
 ROLES = ("SHIPPING_COMPANY", "VESSEL_OPERATOR", "PORT_AUTHORITY", "NATIONAL_ADMIN")
 LABELS = dict(zip(ROLES, ("Company", "Vessel", "Port", "Admin")))
 
 
 def utc_now():
-    return datetime.now(timezone.utc)  # wall-clock: actual demo session expiry and action receipt.
+    # wall-clock: real credential expiry and visitor action receipts cannot move with a replay seek.
+    return wall_now()
 
 
 def seed_world(at):
-    return {"version": "role-demo-v1", "epoch": at, "meaning": "FICTIONAL DEMONSTRATION; not observed AIS, berth records or operational outcomes.",
+    from src.portwatch_os.panel_runtime import snapshot_at
+
+    anchor = snapshot_at()
+    if anchor is not None:
+        at = anchor.isoformat()
+    return {**({"generation": secrets.token_hex(8)} if anchor is not None else {}),"version": "role-demo-v1", "epoch": at, "meaning": "FICTIONAL DEMONSTRATION; not observed AIS, berth records or operational outcomes.",
         "organisation": "PortWatch Demo Shipping", "portCode": "INNSA", "selectedVessel": "PWD-001",
         "event": {"id": "demo-suez-restriction", "title": "Assumed Suez restriction", "source": "DEMO_SCENARIO", "chokepoint": "SUEZ", "closureHours": 72},
         "fleet": [
@@ -75,10 +82,12 @@ class DemoStore:
         with self.connect() as db:
             row = self.row(db, token)
         role = row["role"]
+        selected_port = json.loads(row["world"]).get("portCode", "INNSA")
+        if selected_port not in ("INNSA", "INPRT", "INMAA"): selected_port = "INNSA"
         return {"mode": "demo", "demoId": row["id"], "issuedAt": row["issued"], "expiresAt": row["expires"],
             "user": {"id": "demo-"+LABELS[role].lower(), "email": LABELS[role].lower()+"@portwatch.demo", "displayName": LABELS[role]+" demonstrator", "role": role,
-                "organisation": "PortWatch Demo Shipping" if role in ROLES[:2] else "Demo JNPA planning desk", "companyId": "portwatch-demo-shipping" if role in ROLES[:2] else None,
-                "portCode": "INNSA" if role == "PORT_AUTHORITY" else None, "vesselIds": ["PWD-001"] if role == "VESSEL_OPERATOR" else []}}
+                "organisation": "PortWatch Demo Shipping" if role in ROLES[:2] else "Demo Paradip planning desk" if selected_port == "INPRT" else "Demo JNPA planning desk", "companyId": "portwatch-demo-shipping" if role in ROLES[:2] else None,
+                "portCode": selected_port if role == "PORT_AUTHORITY" else None, "vesselIds": ["PWD-001"] if role == "VESSEL_OPERATOR" else []}}
 
     def read(self, token):
         with self.connect() as db:

@@ -62,8 +62,10 @@ def build_state_for(port_code: str) -> PortState:
     scoped = current_sandbox.get()
     if scoped is not None and port_code.upper() == scoped.world["portCode"]:
         from backend.app.routes.demo import twin_state
-        state = twin_state(scoped.world)
-        owned = {v["id"] for v in scoped.world["fleet"]}
+        from backend.app.services.demo_terminal import demo_hulls
+        hulls = demo_hulls(scoped.world)
+        state = twin_state({**scoped.world, "fleet": hulls})
+        owned = {v["id"] for v in hulls}
         for call in state.calls:
             if call.vessel_id in owned:
                 call.call_id = call.vessel_id
@@ -88,7 +90,15 @@ def build_state_for(port_code: str) -> PortState:
 def port_twin(port_code: str) -> Dict[str, Any]:
     """The twin's logical state. What the 3D renderer projects."""
     state = build_state_for(port_code)
-    return state.to_dict()
+    result = state.to_dict()
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped:
+        proposal = scoped.world.get("terminalProposal") or scoped.world.get("proposal") or {}
+        for call in result["calls"]:
+            if call["vessel_id"] == proposal.get("vesselId") and call["state"] == "approaching":
+                call["company_proposal"] = True
+    return result
 
 
 @router.get("/port-twin/{port_code}/simulate")

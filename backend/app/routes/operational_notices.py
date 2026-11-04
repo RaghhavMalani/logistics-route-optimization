@@ -6,8 +6,9 @@ import math
 import re
 from fastapi import APIRouter, Body, HTTPException
 from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from backend.app.routes.shipping_intelligence import scoped_world
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import wall_now, world_now, get_clock
 from src.portwatch_os.intelligence import operational_notices as notices
 from src.portwatch_os.intelligence.current_environment import instant
 from src.portwatch_os.decision.model import (DecisionProblem,DecisionOption,DecisionActor,DecisionEvaluation,
@@ -27,7 +28,7 @@ def company():
 def listing():
     scoped=scoped_world();notice=notices.refresh()
     rows=[{'id':v['id'],'name':v['name'],'laneCode':v['laneCode'],'portCode':v['portCode'],
-        'cargo':v['cargo'],'declaredPassage':v.get('declaredPassage')} for v in scoped.world['fleet']]
+        'cargo':v['cargo'],'declaredPassage':v.get('declaredPassage')} for v in demo_hulls(scoped.world)]
     return {'notices':[notice],'voyages':rows,
         'meaning':'Authority facts and operator-declared future voyage plans are separate. No broad lane match establishes lock exposure.'}
 
@@ -48,13 +49,16 @@ def original(digest:str):
 
 @router.post('/intelligence/notice-passage-plan')
 def declare(payload:dict=Body(...)):
+    query_at = world_now()
     scoped,who=company()
     row=next((v for v in scoped.world['fleet'] if v['id']==payload.get('vesselId')),None)
     if not row: raise HTTPException(404,'Voyage not owned by this visitor')
+    from src.portwatch_os.decision.episodes import ensure_episode
+    episode = ensure_episode(scoped, row)
     if row['laneCode']!='EUR_IND': raise HTTPException(409,'This declaration needs the Europe–India voyage; Gulf membership does not establish Eastham exposure')
     try:
         passage=instant(payload['passageAt'])
-        if passage<=wall_now() or passage>wall_now()+timedelta(days=365): raise ValueError('Declare a future passage within one year')
+        if passage<=query_at or passage>query_at+timedelta(days=365): raise ValueError('Declare a future passage within one year')
         hours=payload['postPassageHours']
         if isinstance(hours,bool) or not isinstance(hours,(int,float)) or not math.isfinite(hours) or not 24<=hours<=720: raise ValueError('Post-passage travel assumption must be 24–720 h')
         chars=payload['characteristics']
@@ -65,11 +69,14 @@ def declare(payload:dict=Body(...)):
         if payload.get('alternativeAccess')!='NOT_VERIFIED': raise ValueError('Alternate lock suitability/booking need separate evidence; no alternative access inferred')
         if payload.get('declarationConfirmed') is not True: raise ValueError('Confirm these are operator-declared fictional voyage inputs')
     except (KeyError,TypeError,ValueError) as exc: raise HTTPException(422,str(exc))
+    # wall-clock: operator declaration receipt is an actual audit time, separate from the scheduled passage.
+    declared_at = wall_now().isoformat()
     plan={'areaId':'EASTHAM_80_LOCK','direction':'OUTBOUND','origin':'Manchester Ship Canal upstream of Eastham 80-foot Lock',
+        'operationalEpisode':episode,
         'route':['EASTHAM_80_LOCK','SUEZ',row['portCode']],'passageAt':passage.isoformat(),
         'postPassageHours':hours,'characteristics':{k:chars[k] for k in ('loaM','beamM','draughtM','airDraughtM')},
         'alternativeAccess':'NOT_VERIFIED','source':'OPERATOR_DECLARED_FICTIONAL_VOYAGE',
-        'declaredAt':wall_now().isoformat(),'actor':who.actor}
+        'declaredAt':declared_at,'actor':who.actor}
     plan['id']=hashlib.sha256(json.dumps(plan,sort_keys=True).encode()).hexdigest()
     arrival=passage+timedelta(hours=hours)
     def save(world):
@@ -87,23 +94,29 @@ def declare(payload:dict=Body(...)):
 
 @router.post('/intelligence/notice-comparison')
 def comparison(payload:dict=Body(...)):
+    at = world_now()
     scoped,who=company();row=next((v for v in scoped.world['fleet'] if v['id']==payload.get('vesselId')),None)
     if not row: raise HTTPException(404,'Voyage not owned by this visitor')
     plan=row.get('declaredPassage')
     if not plan: raise HTTPException(409,'Declare the route, characteristics and future passage first')
+    from src.portwatch_os.decision.episodes import ensure_episode
+    episode = ensure_episode(scoped, row)
     notice=notices.refresh(force=payload.get('refreshSource') is True)
     if notice.get('revisionId')!=payload.get('revisionId'): raise HTTPException(409,'Notice revision changed; inspect the current original before comparing')
     try:
         result=notices.planned_consequence(notice,plan)
-        if instant(plan['passageAt'])<=wall_now(): raise ValueError('Declared passage is no longer future')
+        if instant(plan['passageAt'])<=at: raise ValueError('Declared passage is no longer future')
     except (ValueError,KeyError) as exc: raise HTTPException(409,str(exc))
     from backend.app.services.demo_terminal import company_for
     vessel=company_for(scoped.world).vessel(row['id']);eta=instant(vessel.eta)
     expected=instant(plan['passageAt'])+timedelta(hours=plan['postPassageHours'])
     if eta!=expected: raise HTTPException(409,'Declared arrival has changed; save a fresh passage plan before comparison')
-    at=wall_now();wait=result['calculatedWaitHours'];earliest=eta+timedelta(hours=wait)
+    wait=result['calculatedWaitHours'];earliest=eta+timedelta(hours=wait)
+    # wall-clock: retained comparison availability is creation receipt, distinct from its scenario evaluation instant.
+    created_at = wall_now().isoformat()
     frozen={'kind':'NOTICE_RESTRICTION','portCode':row['portCode'],'voyageId':row['id'],
-        'availableAt':at.isoformat(),'earliestVoyageArrival':eta.isoformat(),'plannedArrival':eta.isoformat(),
+        'operationalEpisode':episode,
+        'availableAt':created_at,'evaluatedAt':at.isoformat(),'earliestVoyageArrival':eta.isoformat(),'plannedArrival':eta.isoformat(),
         'firstClearApproach':earliest.isoformat(),'forecastGateWaitHours':wait,
         'reportedFact':{**notice,'title':'Peel Ports MNTM 2026-18 · Eastham lock restriction',
             'fact':'Eastham 80-foot Lock closed '+result['window']['closureStartDate']+' through '+result['window']['closureEndDate']+'; first operational tide '+result['window']['localDate']+' '+result['window']['localEnd']+' '+result['window']['timeZone']+'. Queen Elizabeth II Lock is unaffected.'},
@@ -116,6 +129,15 @@ def comparison(payload:dict=Body(...)):
         'meaning':'Conditional schedule calculation from the authority’s first published operational tide and declared lock route. Both options have the same scheduled access and destination shift; revising the request relocates planned waiting. Alternative lock, actual slot and reopening are unavailable. Simulated, not measured.'}
     try: notices.require_revision(frozen)
     except ValueError as exc: raise HTTPException(409,str(exc))
+    from src.portwatch_os.learning import intelligence_reconciliation as collector
+    from backend.app.routes.shared_feedback import consumption
+    public = collector.open_public()
+    try:
+        claims = collector.collect_notice(public, notice)
+        ids = [c['id'] for c in claims if c['target']['from'] == result['window']['start']]
+    finally:
+        public.close()
+    frozen['feedbackConsumption'] = consumption(ids)
     frozen['evidenceId']=hashlib.sha256(json.dumps(frozen,sort_keys=True).encode()).hexdigest()
     did='dec-notice-'+frozen['evidenceId'][:20];options=[]
     for baseline,action,label in ((True,KEEP_PLAN,'Keep requested passage; wait for first operational tide'),(False,DELAY_ARRIVAL,'Request passage at first published operational tide')):
@@ -135,7 +157,7 @@ def comparison(payload:dict=Body(...)):
                 computed_at=at.isoformat()),timeline=[{'at':passage.isoformat(),'kind':'passage_request','label':'Requested lock passage'},
                     {'at':result['earliestScheduledAccess'],'kind':'scheduled_access','label':'First published operational tide; operator confirmation required'},
                     {'at':earliest.isoformat(),'kind':'arrival','label':'Conditional destination arrival'}]))
-    problem=DecisionProblem(decision_id=did,created_at=at.isoformat(),domain=VESSEL_ROUTING,world_revision={'mode':'LIVE'},world_state_id=scoped.world['epoch']+frozen['evidenceId'],
+    problem=DecisionProblem(decision_id=did,created_at=created_at,domain=VESSEL_ROUTING,world_revision={'mode':get_clock().state.mode},world_state_id=scoped.world['epoch']+frozen['evidenceId'],
         subject_type='vessel',subject_id=row['id'],subject_label=row['name'],actor=DecisionActor(role=who.role,organisation=who.organisation),at=at.isoformat(),
         objectives=[DecisionObjective('eta','Total schedule shift','hours','min','Published window and fixed onward travel assumption'),
                     DecisionObjective('port_wait','Scheduled lock waiting','hours','min','Requested passage versus scheduled access')],

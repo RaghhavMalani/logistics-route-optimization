@@ -9,9 +9,10 @@
  */
 
 import { ChevronDown, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { useMapPanelAccess } from "./MapPanelAccess";
 
 export function FloatPanel({
   title,
@@ -26,6 +27,8 @@ export function FloatPanel({
   scroll = true,
   footer,
   testId,
+  mapControls,
+  collapseWhen,
 }: {
   title?: ReactNode;
   note?: ReactNode;
@@ -40,22 +43,30 @@ export function FloatPanel({
   footer?: ReactNode;
   /** Stable hook for the browser suite. */
   testId?: string;
+  mapControls?: boolean;
+  collapseWhen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    if (collapseWhen !== undefined) setOpen(!collapseWhen);
+  }, [collapseWhen]);
+  const mapPanels = useMapPanelAccess();
 
   return (
     <section
       data-testid={testId}
+      data-open={open}
       style={width ? { width } : undefined}
       className={cn(
-        "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-[3px]",
+        "pw-float-panel pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-[3px]",
         "border border-[var(--line-strong)] bg-[var(--panel)]/95 backdrop-blur-[3px]",
         "shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
+        mapPanels?.mobile && "ml-auto max-w-[calc(100vw-64px)]",
         className,
       )}
     >
       {title ? (
-        <header className="flex h-[26px] shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-2)]/85 px-2">
+        <header className="pw-float-header flex h-[26px] shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-2)]/85 px-2 max-[700px]:h-auto max-[700px]:min-h-10 max-[700px]:flex-wrap max-[700px]:py-1">
           {collapsible ? (
             /* The whole header is the control when a panel folds: a bare
                chevron has no accessible name, and "the thing you click to open
@@ -86,6 +97,28 @@ export function FloatPanel({
             </span>
           ) : null}
           {actions}
+          {mapPanels?.mobile && (mapControls ?? !collapsible) ? (
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2"
+                onClick={(event) =>
+                  mapPanels.open("layers", event.currentTarget)
+                }
+              >
+                Layers and filters
+              </button>
+              <button
+                type="button"
+                className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs focus-visible:outline focus-visible:outline-2"
+                onClick={(event) =>
+                  mapPanels.open("timeline", event.currentTarget)
+                }
+              >
+                Timeline controls
+              </button>
+            </div>
+          ) : null}
           {onClose ? (
             <button
               type="button"
@@ -112,7 +145,7 @@ export function FloatPanel({
         </div>
       ) : null}
       {open && footer ? (
-        <div className="shrink-0 border-t border-[var(--line)] bg-[var(--panel-2)]/70 px-2 py-1 text-[10.5px] leading-snug text-[var(--text-3)]">
+        <div className="pw-float-footer shrink-0 border-t border-[var(--line)] bg-[var(--panel-2)]/70 px-2 py-1 text-[10.5px] leading-snug text-[var(--text-3)]">
           {footer}
         </div>
       ) : null}
@@ -132,7 +165,7 @@ export function PanelTabs<T extends string>({
   return (
     <div
       role="tablist"
-      className="flex shrink-0 border-b border-[var(--line)] bg-[var(--panel-2)]/60"
+      className="pw-panel-tabs flex shrink-0 border-b border-[var(--line)] bg-[var(--panel-2)]/60"
     >
       {tabs.map((tab) => {
         const active = tab.value === value;
@@ -179,7 +212,7 @@ export function Field({
   return (
     <div
       title={hint}
-      className="flex items-baseline justify-between gap-3 border-b border-[var(--line)]/50 py-[3.5px] last:border-0"
+      className="pw-field flex items-baseline justify-between gap-3 border-b border-[var(--line)]/50 py-[3.5px] last:border-0"
     >
       <span className="min-w-0 truncate text-[10.5px] text-[var(--text-3)]">
         {label}
@@ -235,6 +268,7 @@ export function Chip({
       type="button"
       title={title}
       disabled={disabled}
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-[2px] border px-1.5 py-[2px] text-[10px] transition-colors",

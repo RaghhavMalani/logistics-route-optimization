@@ -60,6 +60,16 @@ checks this table against the code.
 | AGENTS | GET | `/api/agents/tools` | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW |
 | LENSES | GET | `/api/security/lens` | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW |
 
+Private hull reads use `backend.app.identity.may_see_vessel`. A verified
+National Admin can see all hulls. A Company sees hulls operated by its
+organisation, a Vessel operator sees its assigned hull IDs, and a Port
+authority sees hulls with its primary port as their declared destination.
+A missing assignment or destination grants no access. Company query
+parameters cannot widen those scopes. Hidden hull details return 404.
+Asserted identities receive no private hulls. Visitor demos apply the same
+rules within the server-owned fictional fleet. Public map replay uses a
+separate simulated traffic dataset.
+
 Scoping rules (`backend.app.identity.may_see_decision`, the advisory store's
 `visible_to_recipient`):
 

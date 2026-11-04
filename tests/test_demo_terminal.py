@@ -6,6 +6,8 @@ from backend.app.services.demo_terminal import resources
 
 
 def setup(tmp_path, monkeypatch):
+    monkeypatch.setattr("src.portwatch_os.learning.intelligence_reconciliation.DB", tmp_path / "public-source-ledger.sqlite3")
+    monkeypatch.setattr("src.portwatch_os.learning.intelligence_reconciliation.ROOT", tmp_path / "sources")
     store = DemoStore(tmp_path / "demo" / "sessions.sqlite3")
     monkeypatch.setenv("PORTWATCH_IDENTITY_MODE", "verified")
     monkeypatch.setenv("PORTWATCH_AUTH_DB", str(tmp_path / "identity.sqlite3"))
@@ -15,6 +17,27 @@ def setup(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.app.routes.demo.get_demo_store", lambda: store)
     monkeypatch.setattr("backend.app.routes.demo_terminal.get_demo_store", lambda: store)
     return store, TestClient(app)
+
+
+def test_concurrent_request_snapshots_keep_world_and_save_callback(tmp_path):
+    import copy
+    from backend.app.services.demo_terminal import bind
+    store = DemoStore(tmp_path / "demo" / "sessions.sqlite3")
+    session = store.create("SHIPPING_COMPANY")
+    original = store.read(session["accessToken"])
+    first = bind(session, original, store)
+    first.save_world = lambda change: "first request"
+    newer = copy.deepcopy(original)
+    newer["fleet"][0]["etaHours"] += 48
+    second = bind(session, newer, store)
+    second.save_world = lambda change: "second request"
+    assert first.world["fleet"][0]["etaHours"] == 180
+    assert second.world["fleet"][0]["etaHours"] == 228
+    assert first.save_world(None) == "first request"
+    assert second.save_world(None) == "second request"
+    shared = first.resource("request-isolation-test", object)
+    assert second.resource("request-isolation-test", object) is shared
+    resources.cache_clear()
 
 
 def test_original_contracts_and_scope(tmp_path, monkeypatch):

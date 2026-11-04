@@ -9,11 +9,12 @@ route here.
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.portwatch_os.fleet.company import (
     COMPANY_DISCLAIMER,
@@ -36,6 +37,61 @@ from src.portwatch_os.clock import wall_now
 
 router = APIRouter()
 
+_OPERATIONAL_HULL_FIELDS = frozenset({"vessel_id", "name", "imo", "vessel_class", "loa_m", "beam_m",
+                                      "draught_m", "service_speed_kn", "flag", "origin_port",
+                                      "destination_port", "lane_code", "laneName", "eta",
+                                      "hours_to_chokepoint", "position_source", "lat", "lon"})
+
+
+def configured_fleet() -> bool:
+    return bool(os.getenv("PORTWATCH_FLEET_PROVIDER"))
+
+
+def _fleet_row(vessel):
+    from backend.app.identity import current_identity
+
+    row = vessel.to_dict()
+    identity = current_identity.get()
+    if identity and identity.verified and identity.role in ("VESSEL_OPERATOR", "PORT_AUTHORITY"):
+        return {key: value for key, value in row.items() if key in _OPERATIONAL_HULL_FIELDS}
+    return row
+
+
+@router.get("/company/decision-triage")
+async def fleet_decision_triage(request: Request):
+    """Read-only Company projection; mounted by the existing demo read allowlist."""
+    import asyncio
+    import sqlite3
+    from starlette.concurrency import run_in_threadpool
+    from backend.app.identity import current_identity
+    from backend.app.routes.demo_terminal import _mutation_locks, get_demo_store
+    from backend.app.services.fleet_triage import retained_snapshot, project_snapshot
+    from src.portwatch_os.sandbox import current_sandbox
+    from src.portwatch_os.clock import get_clock
+    scoped, who = current_sandbox.get(), current_identity.get()
+    if scoped is None or who is None or who.role != "SHIPPING_COMPANY":
+        raise HTTPException(403, "The fleet worklist belongs to the authenticated Company's isolated visitor world")
+    if request.query_params:
+        raise HTTPException(400, "The fleet worklist reads the authenticated visitor's whole fleet; caller-supplied scope identifiers are not accepted")
+    credential = request.headers.get("authorization", "").partition(" ")[2]
+    key = str(scoped.root)
+    mutation_lock = _mutation_locks.get(key)
+    if mutation_lock is None:
+        mutation_lock = asyncio.Lock()
+        _mutation_locks[key] = mutation_lock
+    try:
+        async with mutation_lock:
+            # wall-clock: actual receipt age and workflow deadlines; traffic replay is separate.
+            as_of = wall_now()
+            snapshot, consistent = await run_in_threadpool(retained_snapshot,
+                scoped, get_demo_store(), credential, who)
+            return await run_in_threadpool(project_snapshot, snapshot,
+                as_of=as_of, clock_mode=get_clock().state.mode, consistent=consistent)
+    except (OSError, sqlite3.DatabaseError, ValueError) as exc:
+        # Do not expose private archive paths or return a reassuring empty
+        # fleet when its durable basis is unavailable.
+        raise HTTPException(503, "Retained fleet state is unavailable or updating; refresh to inspect the current basis") from exc
+
 #: Anchor for the demo fleet's ETAs. Read from the pipeline's forecast origin so
 #: the fleet screen agrees with the port state beside it and a screenshot is
 #: reproducible.
@@ -57,24 +113,35 @@ def resolve_company(company_id: Optional[str] = None) -> Optional[CompanyProfile
     of the process, so the fleet clock drifted away from the port state shown
     beside it.
     """
+    from backend.app.identity import current_identity, may_see_vessel
     from src.portwatch_os.sandbox import current_sandbox
+    identity = current_identity.get()
     scoped = current_sandbox.get()
     if scoped is not None:
         if company_id and company_id != DEMO_COMPANY_ID:
             raise HTTPException(404, "Company is outside this fictional demo")
-        from backend.app.services.demo_terminal import company_for
-        return company_for(scoped.world)
+        from backend.app.services.demo_terminal import company_for, demo_hulls
+        return company_for(scoped.world, allowed_ids={row["id"] for row in demo_hulls(scoped.world, identity)})
+    if identity is None or not identity.verified:
+        return None
     provider_path = os.getenv("PORTWATCH_FLEET_PROVIDER")
-    if provider_path and os.path.exists(provider_path):
+    if provider_path:
         try:
             stamp = os.path.getmtime(provider_path)
         except OSError:
-            stamp = None
-        return _from_provider_file(company_id, provider_path, stamp)
-
-    if company_id and company_id != DEMO_COMPANY_ID:
-        return None
-    return _demo_at(_epoch_ms())
+            return None
+        profile = _from_provider_file(company_id, provider_path, stamp)
+    else:
+        profile = _demo_at(_epoch_ms()) if company_id in (None, DEMO_COMPANY_ID) else None
+    if profile is None or identity.is_admin:
+        return profile
+    vessels = [vessel for vessel in profile.vessels if may_see_vessel(identity, {
+        "id": vessel.vessel_id, "operatorOrganisation": profile.company_id,
+        "destinationPort": vessel.destination_port,
+    })]
+    if identity.role == "SHIPPING_COMPANY" and may_see_vessel(identity, {"operatorOrganisation": profile.company_id}):
+        return profile
+    return replace(profile, home_ports=[], vessels=vessels) if vessels else None
 
 
 @lru_cache(maxsize=4)
@@ -114,6 +181,8 @@ def _epoch_ms() -> int:
 def _require(company_id: Optional[str]) -> CompanyProfile:
     profile = resolve_company(company_id)
     if profile is None:
+        if configured_fleet():
+            raise HTTPException(404, "Fleet is unavailable in this workspace")
         raise HTTPException(
             status_code=404,
             detail=(
@@ -153,7 +222,7 @@ def _events():
 @router.get("/company")
 def company_profile(company_id: Optional[str] = None) -> Dict[str, Any]:
     profile = _require(company_id)
-    return profile.to_dict()
+    return {**profile.to_dict(), "vessels": [_fleet_row(v) for v in profile.vessels]}
 
 
 @router.get("/company/fleet")
@@ -165,7 +234,7 @@ def company_fleet(company_id: Optional[str] = None) -> Dict[str, Any]:
         "verified": profile.verified,
         "positionSource": profile.position_source,
         "disclaimer": profile.disclaimer,
-        "vessels": [v.to_dict() for v in profile.vessels],
+        "vessels": [_fleet_row(v) for v in profile.vessels],
         "lanes": [
             {"code": lane.code, "name": lane.name,
              "chokepoints": list(lane.chokepoints),
@@ -246,11 +315,11 @@ def company_risk(
 
 @router.get("/company/vessels/{vessel_id}")
 def company_vessel(vessel_id: str, company_id: Optional[str] = None) -> Dict[str, Any]:
-    profile = _require(company_id)
-    vessel = profile.vessel(vessel_id)
+    profile = resolve_company(company_id)
+    vessel = profile.vessel(vessel_id) if profile is not None else None
     if vessel is None:
         raise HTTPException(
-            status_code=404, detail=f"{vessel_id} is not in the {profile.name} fleet"
+            status_code=404, detail="Voyage is unavailable in this workspace"
         )
 
     events = _events()
@@ -272,7 +341,7 @@ def company_vessel(vessel_id: str, company_id: Optional[str] = None) -> Dict[str
 
     lane = TRADE_LANES.get(vessel.lane_code or "")
     return {
-        "vessel": vessel.to_dict(),
+        "vessel": _fleet_row(vessel),
         "companyId": profile.company_id,
         "companyName": profile.name,
         "lane": (
@@ -352,7 +421,11 @@ def company_cargo(
     from backend.app.routes.port_twin import build_state_for
     from src.portwatch_os.cargo.model import CARGO_DISCLAIMER, demo_manifest, zones_from_state
     from src.portwatch_os.cargo.optimizer import opportunities
+    from backend.app.identity import current_identity
 
+    identity = current_identity.get()
+    if configured_fleet() and identity and identity.verified and identity.role not in ("SHIPPING_COMPANY", "NATIONAL_ADMIN"):
+        raise HTTPException(403, "Carrier cargo planning requires Company scope")
     profile = _require(company_id)
     state = build_state_for(port_code)
     manifest = [s for s in demo_manifest(port_code) if s.inbound_vessel_id]

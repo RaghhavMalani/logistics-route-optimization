@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
 import requests
 from src.utils import port_registry
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import wall_now, world_now
 
 PACKAGED = Path(__file__).resolve().parents[3] / "data/cache/current_environment"
 ROOT = Path(os.getenv("PORTWATCH_CURRENT_ENVIRONMENT_DIR") or PACKAGED)
@@ -69,7 +69,12 @@ def _path(kind, port):
 
 
 def dated(snapshot, now=None):
-    now = now or wall_now()
+    now = world_now() if now is None else now
+    if not isinstance(now, datetime) or now.tzinfo is None:
+        raise ValueError("Source age requires an aware query instant")
+    if instant(snapshot["availableAt"]) > now:
+        return {**snapshot, "rows": [], "ageHours": None, "status": "UNAVAILABLE",
+                "reason": "This source response was not available at the query instant"}
     age = max(0, (now - instant(snapshot["availableAt"])).total_seconds())
     return {**snapshot, "ageHours": round(age/3600, 2),
             "status": "CURRENT" if age <= TTL[snapshot["kind"]] else "STALE"}
@@ -122,12 +127,15 @@ def refresh(kind, port, *, force=False):
     try:
         response = requests.get(URLS[kind], params=params, headers={"User-Agent": "PortWatch-Capstone/1.0"}, timeout=(4, 18))
         response.raise_for_status()
+        # wall-clock: this is when the actual provider response first arrived, not its issue or valid time.
         at = wall_now()
         if kind == "hazards":
             rows = _hazards(response.text, at)
             units = {}
+            grid = None
         else:
             data = response.json(); hourly = data["hourly"]; units = data["hourly_units"]
+            grid = {key: data.get(key) for key in ("latitude", "longitude", "elevation")}
             expected = {"wind_speed_10m":"kn", "wind_gusts_10m":"kn", "wind_direction_10m":"°", "precipitation":"mm", "visibility":"m"} if kind == "surface" else {"wave_height":"m"}
             fields = list(expected)
             if not hourly["time"] or any(field not in hourly or units.get(field) != unit for field, unit in expected.items()):
@@ -138,9 +146,12 @@ def refresh(kind, port, *, force=False):
         snapshot = {"kind": kind, "portCode": port.locode if kind != "hazards" else None,
                     "source": URLS[kind], "issuedAt": None, "observedAt": None,
                     "availableAt": at.isoformat(), "fetchedAt": at.isoformat(), "rows": rows, "units": units,
-                    "request": params, "responseSha256": hashlib.sha256(response.content).hexdigest(),
+                    "request": params, "returnedGrid": grid, "responseSha256": hashlib.sha256(response.content).hexdigest(),
                     "timeBasis": "Forecast issue time unavailable; response receipt is availability. Hazard event/publication clocks are retained per item.",
                     "rights": "Open-Meteo non-commercial API / CC BY 4.0" if kind != "hazards" else "GDACS public alert feed; linked source notices apply."}
+        if previous.get('responseSha256') == snapshot['responseSha256'] and previous.get('availableAt'):
+            snapshot['availableAt']=previous['availableAt']
+        snapshot['lastSuccessfulCheckAt']=at.isoformat()
         snapshot["snapshotId"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
         with LOCK:
             ROOT.mkdir(parents=True, exist_ok=True)
@@ -182,19 +193,23 @@ def bundle(port, *, allow_fetch=True):
 
 def map_signals():
     """The original renderer's contract, with actual hourly forecast fields."""
+    query_at = world_now()
     signals = []
     for port in port_registry.PORTS:
         data = bundle(port, allow_fetch=False)
         if data["sources"]["surface"]["status"] != "CURRENT":
             continue
-        rows = [r for r in data["hourly"] if instant(r["validAt"]) >= wall_now().replace(minute=0, second=0, microsecond=0)]
+        marine_current = data["sources"]["marine"]["status"] == "CURRENT"
+        rows = [{**r, "wave_height": r.get("wave_height") if marine_current else None} for r in data["hourly"]
+                if instant(r["validAt"]) >= query_at.replace(minute=0, second=0, microsecond=0)]
         if not rows: continue
         first = rows[0]
+        rain = next((row["rainfall"] for row in data["daily"] if row["date"] == first["validAt"][:10]), None)
         signals.append({"portCode": port.locode, "name": port.name, "observedAt": None,
             "forecastFrom": first["validAt"], "availableAt": data["sources"]["surface"]["availableAt"],
             "sourceState": "FORECAST", "hourly": rows, "forecast": [], "impactScore": 0,
             "windKnots": first["wind_speed_10m"], "gustKnots": first["wind_gusts_10m"],
-            "rainfallMm24h": data["daily"][0]["rainfall"], "waveHeightM": first.get("wave_height"),
+            "rainfallMm24h": rain, "waveHeightM": first.get("wave_height"),
             "visibilityKm": first["visibility"]/1000 if finite(first["visibility"]) else None,
             "seaState": None, "windRisk": None, "rainRisk": None, "waveRisk": None, "stormRisk": None,
             "confidence": None, "weatherRegime": None, "shockScore": None, "persistenceScore": None,
@@ -203,12 +218,18 @@ def map_signals():
     return signals
 
 
+def retained_bundle(port):
+    """Projection/decision adapter: no provider request or feedback-ledger write."""
+    return bundle(port,allow_fetch=False)
+
+
 def ensure_current():
     """Warm expired fixed public sources without blocking the original map contract.
 
     Three workers, one task per port, five-minute retry backoff after failures.
     Old receipt times survive refresh errors and are never presented as current.
     """
+    # wall-clock: collector cadence measures elapsed time since actual successful receipts.
     now = wall_now()
     def collect(port):
         try:
@@ -236,6 +257,8 @@ def ensure_current():
 
 def retain_feedback(port):
     """Receipt clock is the archive's available forecast origin, not provider issue time."""
+    # wall-clock: recording an already received forecast is an actual archive operation, not a replay event.
+    retained_at = wall_now()
     import pandas as pd
     from src.portwatch_os.ledger.store import SqliteLedgerStore
     from src.portwatch_os.learning.weather_feedback import WeatherFeedback
@@ -250,7 +273,7 @@ def retain_feedback(port):
             source = data["sources"][kind]
             if source["status"] == "CURRENT":
                 feedback.record_frame(frame, issued_at=instant(source["availableAt"]), provider=provider,
-                    source_state="CACHED_LIVE", variables=variables, now=wall_now(),provenance={
+                    source_state="CACHED_LIVE", variables=variables, now=retained_at,provenance={
                         "snapshotId":source.get("snapshotId"),"responseSha256":source.get("responseSha256"),
                         "requestLocation":{k:source.get("request",{}).get(v) for k,v in (("lat","latitude"),("lon","longitude"))},
                         "completeHours":24,"aggregation":"complete UTC day"})

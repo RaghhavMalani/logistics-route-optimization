@@ -57,7 +57,8 @@ class AuthStore:
             raise LedgerError("identity store cannot be opened") from exc
 
     def provision(self, email: str, password: str, *, role: str, display_name: str,
-                  ports: tuple[str, ...] = (), organisation: str = "", vessel_ids: tuple[str, ...] = ()) -> dict:
+                  ports: tuple[str, ...] = (), organisation: str = "", vessel_ids: tuple[str, ...] = (),
+                  can_approve: bool = True) -> dict:
         if not is_workspace_role(role) or len(password) < 12 or len(password) > 256:
             raise ValueError("use a workspace role and a password of 12–256 characters")
         if not email.strip() or "@" not in email or not display_name.strip():
@@ -80,7 +81,8 @@ class AuthStore:
                 account_id = old[0] if old else str(uuid.uuid4())
                 profile = {"id": account_id, "email": email.strip().lower(), "displayName": display_name.strip(),
                            "role": role, "portCode": members[0] if members else None, "portCodes": members,
-                           "organisation": organisation, "companyId": organisation or None, "vesselIds": list(vessel_ids)}
+                           "organisation": organisation, "companyId": organisation or None, "vesselIds": list(vessel_ids),
+                           "canApprove": can_approve}
                 conn.execute("INSERT INTO accounts VALUES (?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET "
                              "salt=excluded.salt,password_hash=excluded.password_hash,profile=excluded.profile,enabled=1",
                              (account_id, profile["email"], salt.hex(), hashed, json.dumps(profile)))

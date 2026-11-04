@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./styles/operations.css";
+@import "./components/miniature/palette.css";
 
 /**
  * India PortWatch — operations design system.
@@ -18,8 +20,10 @@
  */
 
 @theme inline {
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Archivo Miniature", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "IBM Plex Mono Miniature", "JetBrains Mono", ui-monospace, SFMono-Regular,
+    Menlo, monospace;
 
   --radius-sm: 2px;
   --radius-md: 3px;
@@ -49,8 +53,8 @@
   --color-card-foreground: var(--text);
   --color-popover: var(--panel-2);
   --color-popover-foreground: var(--text);
-  --color-primary: var(--info);
-  --color-primary-foreground: #04121b;
+  --color-primary: var(--signal-ink);
+  --color-primary-foreground: var(--on-signal);
   --color-secondary: var(--panel-3);
   --color-secondary-foreground: var(--text);
   --color-muted: var(--panel-2);
@@ -58,42 +62,59 @@
   --color-accent: var(--panel-3);
   --color-accent-foreground: var(--text);
   --color-destructive: var(--crit);
-  --color-destructive-foreground: #ffffff;
+  --color-destructive-foreground: var(--on-signal);
   --color-border: var(--line);
   --color-input: var(--line-strong);
-  --color-ring: var(--info);
+  --color-ring: var(--signal-ink);
   --color-sidebar: var(--panel);
   --color-sidebar-foreground: var(--text-2);
-  --color-sidebar-primary: var(--info);
-  --color-sidebar-primary-foreground: #04121b;
+  --color-sidebar-primary: var(--signal-ink);
+  --color-sidebar-primary-foreground: var(--on-signal);
   --color-sidebar-accent: var(--panel-3);
   --color-sidebar-accent-foreground: var(--text);
   --color-sidebar-border: var(--line);
-  --color-sidebar-ring: var(--info);
-  --color-chart-1: var(--info);
-  --color-chart-2: var(--ok);
-  --color-chart-3: var(--warn);
-  --color-chart-4: var(--crit);
-  --color-chart-5: var(--unc);
+  --color-sidebar-ring: var(--signal-ink);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 }
 
 :root {
+  color-scheme: light;
+  --radius: 3px;
+  --nav-w: 188px;
+  --nav-w-compact: 52px;
+  --topbar-h: 3.25rem;
+  --status-h: 1.75rem;
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+  --surface-3: var(--panel-3);
+  --shadow-floating: 0 12px 36px var(--shadow-color);
+}
+
+/* Archived original values; intentionally inactive, with no theme switch. */
+:root[data-theme="terminal-dark"] {
   color-scheme: dark;
 
   /* ---------------------------------------------------------- surfaces -- */
   --bg: #071017;
   --bg-deep: #050c12;
-  --panel: #0e1821;
-  --panel-2: #101c26;
-  --panel-3: #14212c;
-  --panel-4: #1a2a36;
+  --panel: #0e1923;
+  --panel-2: #13222e;
+  --panel-3: #192c3a;
+  --panel-4: #21394a;
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+  --surface-3: var(--panel-3);
   --line: #1b2b38;
   --line-strong: #294050;
 
   /* ------------------------------------------------------------- text --- */
-  --text: #dde7ee;
-  --text-2: #9cb0c0;
-  --text-3: #6a8093;
+  --text: #e4edf4;
+  --text-2: #a9bfce;
+  --text-3: #7f9aac;
 
   /* ----------------------------------------------------------- status --- */
   --ok: #56b28d;
@@ -110,12 +131,12 @@
 
   /* ---------------------------------------------------------- geometry -- */
   --radius: 3px;
-  --nav-w: 196px;
-  --nav-w-compact: 46px;
+  --nav-w: 188px;
+  --nav-w-compact: 52px;
   /* Chrome is deliberately thin: this is a map product, and every pixel the
      shell keeps is a pixel of ocean the operator does not get. */
-  --topbar-h: 38px;
-  --status-h: 24px;
+  --topbar-h: 3.25rem;
+  --status-h: 1.75rem;
 
   /* map palette — a working nautical chart, not a satellite photograph */
   --sea: #061520;
@@ -150,8 +171,10 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow: hidden;
@@ -175,7 +198,7 @@
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #35505f;
+    background: var(--text-2);
     background-clip: content-box;
   }
   ::-webkit-scrollbar-corner {
@@ -183,8 +206,8 @@
   }
 
   :focus-visible {
-    outline: 1px solid var(--info);
-    outline-offset: 1px;
+    outline: 2px solid var(--signal-ink);
+    outline-offset: 3px;
   }
 
   input,
@@ -268,7 +291,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* ------------------------------------------------------------ animation -- */
@@ -335,7 +358,6 @@
   }
 }
 
-
 /* ------------------------------------------------------------- scrubber -- */
 
 /**
@@ -359,8 +381,8 @@
   width: 11px;
   height: 11px;
   border-radius: 2px;
-  background: var(--info);
-  border: 1px solid #06121a;
+  background: var(--signal-ink);
+  border: 1px solid var(--panel);
   cursor: grab;
 }
 
@@ -368,13 +390,13 @@
   width: 11px;
   height: 11px;
   border-radius: 2px;
-  background: var(--info);
-  border: 1px solid #06121a;
+  background: var(--signal-ink);
+  border: 1px solid var(--panel);
   cursor: grab;
 }
 
 .pw-scrub:focus-visible::-webkit-slider-thumb {
-  outline: 1px solid var(--info);
+  outline: 1px solid var(--signal-ink);
   outline-offset: 2px;
 }
 

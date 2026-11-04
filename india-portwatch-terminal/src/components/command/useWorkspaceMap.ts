@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useClockState, useTraffic } from "@/components/app/traffic-context";
+import { usePublicAis } from "@/services/public-ais";
 import type {
   MapBounds,
   MapFocus,
@@ -530,6 +531,7 @@ export function useWorkspaceMap(
   const [hoveredVesselId, setHoveredVesselId] = useState<string | null>(null);
 
   const [focus, setFocus] = useState<MapFocus | null>(null);
+  const [constraintLabel, setConstraintLabel] = useState<MapLabel | null>(null);
   const token = useRef(0);
   const flyTo = useCallback((center: [number, number], zoom?: number) => {
     token.current += 1;
@@ -539,6 +541,32 @@ export function useWorkspaceMap(
     token.current += 1;
     setFocus({ bounds, padding, token: token.current });
   }, []);
+  useEffect(() => {
+    const focusConstraint = (event: Event) => {
+      const asset = (event as CustomEvent).detail;
+      if (
+        !asset ||
+        !Number.isFinite(asset.lat) ||
+        !Number.isFinite(asset.lon) ||
+        Math.abs(asset.lat) > 90 ||
+        Math.abs(asset.lon) > 180
+      )
+        return;
+      setConstraintLabel({
+        id: String(asset.id),
+        text: String(asset.name),
+        sub: String(asset.period ?? asset.basis),
+        lon: asset.lon,
+        lat: asset.lat,
+        color: "#e0533d",
+        emphasis: true,
+      });
+      flyTo([asset.lon, asset.lat], 10);
+    };
+    window.addEventListener("portwatch:focus-constraint", focusConstraint);
+    return () =>
+      window.removeEventListener("portwatch:focus-constraint", focusConstraint);
+  }, [flyTo]);
 
   /* --------------------------------------------------------------- sources -- */
   const zonePort = options.zonesFor
@@ -557,14 +585,21 @@ export function useWorkspaceMap(
   // Observed AIS is polled only while the server says the source is observed;
   // a replay deployment asks once and stops.
   const fabricHealth = useSignalHealth("DEMO");
-  const trafficMode = fabricHealth.data?.traffic.mode ?? null;
+  const { dataView } = useTraffic();
+  const publicAis = usePublicAis(dataView === "provider");
+  const trafficMode =
+    dataView === "provider"
+      ? (publicAis.data?.traffic.mode ?? null)
+      : (fabricHealth.data?.traffic.mode ?? null);
   const observedQuery = useObservedTracks(
     "DEMO",
     trafficMode === "LIVE_AIS" || trafficMode === "AIS_STALE",
   );
   const observedTracks =
     trafficMode === "LIVE_AIS" || trafficMode === "AIS_STALE"
-      ? (observedQuery.data ?? null)
+      ? dataView === "provider"
+        ? (publicAis.data ?? null)
+        : (observedQuery.data ?? null)
       : null;
 
   const data = useMemo(
@@ -650,7 +685,7 @@ export function useWorkspaceMap(
     showWind,
     setShowWind,
     data,
-    labels,
+    labels: constraintLabel ? [...labels, constraintLabel] : labels,
     marine,
     observedTracks,
     selectedObservedMmsi,

@@ -15,6 +15,10 @@ import {
 
 import { getJson, postJson } from "./api";
 import type {
+  CargoCommitmentDeclaration,
+  DeclaredPassagePlan,
+} from "./current-inputs";
+import type {
   DecisionHandoff,
   DecisionLearning,
   DecisionList,
@@ -29,6 +33,7 @@ import type {
 /* ------------------------------------------------------------- decisions -- */
 
 export interface CreateDecisionPayload {
+  predecessorDecisionId?: string;
   domain: "vessel" | "port" | "cargo";
   vesselId?: string;
   eventId?: string;
@@ -39,9 +44,12 @@ export interface CreateDecisionPayload {
   bunchArrivals?: number;
   cameraPlanning?: { evidenceId: string; berthId: string; holdHours: number };
   currentArrival?: {
+    inputView?: "provider" | "scenario";
     plannedArrival: string;
     maxGustKn: number;
     minVisibilityM: number;
+    passagePlan?: DeclaredPassagePlan;
+    cargoCommitment?: CargoCommitmentDeclaration;
   };
   horizonHours?: number;
   attentionId?: string;
@@ -270,6 +278,7 @@ export function useDecisionWorkflow(headers: Record<string, string>) {
   const settle = (problem: DecisionProblem) => {
     client.setQueryData(["decision", problem.decisionId], problem);
     void client.invalidateQueries({ queryKey: ["decisions"] });
+    void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
   };
   const transition = useMutation({
     mutationFn: (args: {
@@ -295,6 +304,7 @@ export function useDecisionWorkflow(headers: Record<string, string>) {
         queryKey: ["decision", result.decision.decisionId],
       });
       void client.invalidateQueries({ queryKey: ["advisories"] });
+      void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
     },
   });
   const outcome = useMutation({

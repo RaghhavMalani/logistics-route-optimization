@@ -1,0 +1,526 @@
+.pw-tour {
+  --paper: var(--bg);
+  --card: var(--panel);
+  --ink: var(--text);
+  --ink-2: var(--text-2);
+  --font-display: var(--font-sans);
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
+.pw-tour {
+  background: var(--paper);
+  color: var(--ink);
+}
+.pw-tour {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.pw-tour::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 30;
+  background: var(--card);
+}
+
+.pw-tour canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+.pw-tour .scroller section {
+  height: 100vh;
+  height: 100svh;
+}
+.pw-tour .bar {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-block: 10px;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.pw-tour .mark {
+  text-decoration: none;
+}
+.pw-tour .bar nav {
+  display: flex;
+  gap: 20px;
+  font-size: 13.5px;
+}
+.pw-tour .bar nav a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.pw-tour .bar nav a:hover {
+  color: var(--ink);
+}
+.pw-tour .bar .go {
+  margin-left: auto;
+}
+.pw-tour .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  font: 600 13.5px/1 var(--font-display);
+  padding: 10px 14px;
+  border: 1px solid transparent;
+}
+.pw-tour .btn.solid {
+  background: var(--signal-deep);
+  color: var(--on-signal);
+}
+.pw-tour .btn.solid:hover {
+  background: var(--signal-deep);
+}
+.pw-tour .btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.pw-tour .btn.ghost:hover {
+  background: var(--ink);
+  color: var(--card);
+}
+.pw-tour a:focus-visible,
+.pw-tour button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.pw-tour .card {
+  box-sizing: content-box;
+  position: fixed;
+  z-index: 10;
+  left: calc(var(--gutter-l) + 8px);
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  width: min(440px, calc(100% - 48px));
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 40px -24px var(--shadow-color);
+  padding: 22px 24px 20px;
+  display: grid;
+  gap: 12px;
+}
+.pw-tour .card > * {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+.pw-tour .card.out > * {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.pw-tour .kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.pw-tour .kicker::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--signal);
+}
+.pw-tour .card h1,
+.pw-tour .card h2 {
+  margin: 0;
+  font-size: clamp(22px, 1rem + 1.15vw, 31px);
+  line-height: 1.08;
+  font-weight: 740;
+  font-stretch: 112%;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+.pw-tour .card p {
+  margin: 0;
+  color: var(--ink-2);
+  max-width: 60ch;
+}
+.pw-tour .facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font: 400 12px/1.45 var(--font-mono);
+  color: var(--ink);
+}
+.pw-tour .facts li {
+  min-width: 0;
+}
+.pw-tour .stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.pw-tour .stat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.pw-tour .stat dt {
+  font: 500 10.5px/1.2 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.pw-tour .stat dd {
+  margin: 0;
+  font: 500 15px/1.2 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.pw-tour .stat dd s {
+  color: var(--ink-2);
+  text-decoration-thickness: 1px;
+}
+.pw-tour .stat dd b {
+  font-weight: 500;
+  color: var(--signal-deep);
+}
+.pw-tour .note {
+  font: 400 11.5px/1.45 var(--font-mono);
+  color: var(--ink-2);
+}
+.pw-tour .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pw-tour .hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 12px/1 var(--font-mono);
+  color: var(--ink-2);
+}
+.pw-tour .hint span {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: var(--ink-2);
+  animation: drip 1.8s ease-in-out infinite;
+  transform-origin: top;
+}
+@keyframes drip {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.pw-tour .rail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+  padding-block: 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--paper) 92%, transparent),
+    transparent
+  );
+}
+.pw-tour .rail ol {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 760px;
+}
+.pw-tour .rail button {
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  color: var(--ink-2);
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+}
+.pw-tour .rail button .track {
+  height: 3px;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+.pw-tour .rail button .fill {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.pw-tour .rail button[aria-current="step"] {
+  color: var(--ink);
+}
+.pw-tour .rail button[aria-current="step"] .fill {
+  background: var(--signal);
+}
+.pw-tour .rail .credit {
+  flex: none;
+  max-width: 300px;
+  text-align: right;
+  font: 400 11px/1.4 var(--font-mono);
+  color: var(--ink-2);
+}
+.pw-tour .pins {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.pw-tour .pin {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 6px 16px -6px var(--shadow-color);
+  font: 400 18px/28px var(--font-mono);
+  padding: 0;
+  transition:
+    opacity 0.25s ease,
+    background 0.15s;
+}
+.pw-tour .pin::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid var(--card);
+  opacity: 0.8;
+  animation: halo 2.4s ease-out infinite;
+}
+.pw-tour .pin[aria-expanded="true"] {
+  background: var(--ink);
+  color: var(--card);
+}
+.pw-tour .pin[hidden] {
+  display: none !important;
+}
+@keyframes halo {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.pw-tour .pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 248px;
+  pointer-events: auto;
+  background: var(--ink);
+  color: var(--card);
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+  box-shadow: 0 16px 36px -18px var(--shadow-color);
+}
+.pw-tour .pop b {
+  font: 600 13.5px/1.25 var(--font-display);
+  font-stretch: 108%;
+}
+.pw-tour .pop span {
+  font: 400 12px/1.5 var(--font-mono);
+  color: color-mix(in srgb, var(--card) 82%, transparent);
+}
+.pw-tour .nogl {
+  position: fixed;
+  top: 80px;
+  right: var(--gutter-r);
+  z-index: 6;
+  font: 400 12px/1.4 var(--font-mono);
+  color: var(--ink-2);
+  max-width: 280px;
+}
+
+@media (max-width: 860px) {
+  .pw-tour .bar nav {
+    display: none;
+  }
+  .pw-tour .rail .credit {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .pw-tour .bar {
+    gap: 12px;
+  }
+  .pw-tour .bar .go .label-long {
+    display: none;
+  }
+  .pw-tour .card {
+    left: var(--gutter-l);
+    right: var(--gutter-r);
+    width: auto;
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 16px 14px;
+    gap: 10px;
+    max-height: 50svh;
+    overflow: auto;
+  }
+  .pw-tour .card p {
+    font-size: 14px;
+  }
+  .pw-tour .rail {
+    gap: 0;
+  }
+  .pw-tour .rail button {
+    white-space: nowrap;
+  }
+  .pw-tour .rail button .num-label {
+    display: none;
+  }
+  .pw-tour .rail button[aria-current="step"] .num-label {
+    display: inline;
+  }
+  .pw-tour .pop {
+    width: 210px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pw-tour .card > * {
+    transition: none;
+  }
+  .pw-tour .pin::after,
+  .pw-tour .hint span {
+    animation: none;
+  }
+}
+
+.pw-tour {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 40;
+}
+.pw-tour .scroller {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.pw-tour .card[data-changing="true"] > * {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.pw-tour .pop {
+  z-index: 15;
+}
+.pw-tour .pop button {
+  color: inherit;
+  border: 1px solid currentColor;
+  padding: 4px 8px;
+  justify-self: start;
+  background: none;
+  cursor: pointer;
+}
+.pw-tour .skip {
+  position: fixed;
+  left: 16px;
+  top: -100px;
+  z-index: 40;
+  background: var(--card);
+  color: var(--ink);
+  padding: 8px;
+}
+.pw-tour .skip:focus {
+  top: 64px;
+}
+.pw-tour .card {
+  pointer-events: auto;
+}
+.pw-tour .rail button {
+  min-height: 36px;
+}
+.pw-tour .pin {
+  width: 32px;
+  height: 32px;
+  margin: -16px;
+}
+.pw-tour .nogl {
+  padding: 12px;
+  background: var(--card);
+}
+.pw-tour .point-index {
+  display: none;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.pw-tour .point-index summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pw-tour .point-index dl {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.pw-tour .point-index dt {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pw-tour .point-index dd {
+  margin: 3px 0 0;
+}
+.pw-tour[data-webgl="unavailable"] .point-index {
+  display: block;
+}
+@media (max-width: 860px) {
+  .pw-tour .point-index {
+    display: block;
+  }
+}

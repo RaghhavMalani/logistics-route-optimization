@@ -4,16 +4,14 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "has": [{ "type": "host", "value": "india-portwatch.vercel.app" }],
-      "destination": "https://india-portwatch-api.up.railway.app/api/:path*"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "https://api-restored-preview-restored-preview.up.railway.app/api/:path*"
+      "destination": "https://api-integrated-20261102-integrated-preview-20261102.up.railway.app/api/:path*"
     }
   ],
   "headers": [
-    { "source": "/api/:path*", "headers": [{ "key": "Cache-Control", "value": "private, no-store" }] }
+    {
+      "source": "/api/:path*",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
+    }
   ],
   "build": {
     "env": {

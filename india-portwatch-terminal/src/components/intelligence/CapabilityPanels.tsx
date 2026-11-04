@@ -8,6 +8,7 @@ import { getJson } from "@/services/api";
 import type { WeatherInspection, PortCamera } from "@/services/intelligence";
 import { useRegisterCamera } from "@/services/intelligence";
 import { WeatherVerificationPanel } from "./WeatherVerificationPanel";
+import { SharedFeedbackPanel } from "./SharedFeedbackPanel";
 
 interface Feedback {
   forecasts: WeatherInspection[];
@@ -50,11 +51,12 @@ interface Experiment {
 export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
   const { identityHeaders } = useAuth();
   const [variable, setVariable] = useState("wind_speed");
+  const [archiveLocation, setArchiveLocation] = useState(portCode ?? "INNSA");
   const result = useQuery({
-    queryKey: ["weather-feedback", portCode, variable],
+    queryKey: ["weather-feedback", archiveLocation, variable, identityHeaders],
     queryFn: ({ signal }) =>
       getJson<Feedback>(
-        `/weather/feedback?variable=${variable}${portCode ? `&portCode=${portCode}` : ""}&limit=100`,
+        `/weather/feedback?variable=${encodeURIComponent(variable)}&portCode=${encodeURIComponent(archiveLocation)}&limit=100`,
         identityHeaders,
         { signal },
       ),
@@ -64,6 +66,8 @@ export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
     <Panel
       title="Weather-error learning"
       note="Original → corrected → observed"
+      className="shrink-0"
+      bodyClassName="flex-none overflow-visible"
     >
       <Section title="Forecast inspection">
         <label className="text-xs">
@@ -98,8 +102,15 @@ export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
         ) : null}
         {result.data ? (
           <>
-            <WeatherVerificationPanel portCode={portCode} variable={variable} />
+            <WeatherVerificationPanel
+              key={`${archiveLocation}-${variable}`}
+              portCode={portCode}
+              variable={variable}
+              selectedLocation={archiveLocation}
+              onLocationChange={setArchiveLocation}
+            />
             <p className="my-2 text-[11px] text-[var(--text-3)]">
+              {archiveLocation} · {variable.replaceAll("_", " ")} ·{" "}
               {result.data.total} retained forecasts · {result.data.resolved}{" "}
               matched forecast snapshots. Independent target counts appear
               below. Corrections use only outcomes available before the forecast
@@ -190,6 +201,7 @@ export function WeatherLearningPanel({ portCode }: { portCode?: string }) {
           </>
         ) : null}
       </Section>
+      <SharedFeedbackPanel />
     </Panel>
   );
 }

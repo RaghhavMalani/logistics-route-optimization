@@ -29,6 +29,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -212,7 +213,7 @@ def _spawn(command: Sequence[str], *, cwd: Path, env: Dict[str, str], log: Path)
     if os.name == "nt":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         kwargs["shell"] = True
-        return subprocess.Popen(" ".join(command), **kwargs)
+        return subprocess.Popen(subprocess.list2cmdline(command), **kwargs)
     kwargs["start_new_session"] = True
     return subprocess.Popen(list(command), **kwargs)
 
@@ -228,14 +229,24 @@ def _terminate(pid: int) -> None:
 
 
 def start_backend(mode: str, port: int, env: Dict[str, str]) -> subprocess.Popen:
-    command = [sys.executable, "-m", "uvicorn", "backend.app.main:app", "--host", "127.0.0.1", "--port", str(port)]
+    module = "src.portwatch_os.panel_runtime" if env.get("PORTWATCH_PANEL_SNAPSHOT_AT") else "uvicorn"
+    command = [sys.executable, "-m", module, "backend.app.main:app", "--host", "127.0.0.1", "--port", str(port)]
     return _spawn(command, cwd=ROOT, env=env, log=LOG_DIR / "api.log")
 
 
 def start_terminal(port: int, api_base: str, env: Dict[str, str]) -> subprocess.Popen:
     env = {**env, "VITE_PORTWATCH_API_BASE": api_base}
-    npm = shutil.which("npm") or "npm"
-    command = [npm, "run", "dev", "--", "--port", str(port), "--host", "127.0.0.1"]
+    node = shutil.which("node") or "node"
+    vite = str(TERMINAL / "node_modules" / "vite" / "bin" / "vite.js")
+    if env.get("PORTWATCH_PANEL_SNAPSHOT_AT"):
+        env.update(NITRO_PRESET="node-server", PORT=str(port), HOST="127.0.0.1")
+        with (LOG_DIR / "terminal-build.log").open("w", encoding="utf-8") as log:
+            result = subprocess.run([node, vite, "build"], cwd=TERMINAL, env=env, stdout=log, stderr=subprocess.STDOUT)
+        if result.returncode:
+            raise DemoError(f"panel terminal build failed (log: {LOG_DIR / 'terminal-build.log'})")
+        command = [node, str(TERMINAL / ".output" / "server" / "index.mjs")]
+    else:
+        command = [node, vite, "dev", "--port", str(port), "--host", "127.0.0.1", "--strictPort"]
     return _spawn(command, cwd=TERMINAL, env=env, log=LOG_DIR / "terminal.log")
 
 
@@ -358,11 +369,27 @@ def cmd_start(args: argparse.Namespace) -> int:
         say("  REFUSED -- fix the configuration above; nothing was started.")
         return 2
 
-    say("")
-    say("Caches")
-    refresh_caches(run_pipeline=args.pipeline, allow_network=not args.offline)
-
     env = {**os.environ, "PORTWATCH_LICENCE_MODE": mode}
+    panel = args.panel or os.environ.get("PORTWATCH_PANEL") == "1"
+    if panel:
+        if mode != "DEMO" or args.pipeline:
+            say("  REFUSED -- panel mode requires DEMO and a retained snapshot.")
+            return 2
+        try:
+            snapshot = json.loads((ROOT / "data/cache/provenance.json").read_text(encoding="utf-8-sig"))
+            at = datetime.fromisoformat(snapshot["forecastOrigin"])
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            say(f"  [FAIL] panel snapshot: {exc}")
+            return 2
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        env.update(PORTWATCH_PANEL_SNAPSHOT_AT=at.isoformat(), PORTWATCH_FRESHNESS_SCHEDULER="0",
+                   PORTWATCH_STATE_DIR=str(RUN_DIR / "panel-state"), PORTWATCH_IDENTITY_MODE="verified")
+        row("PANEL", "REPLAY", at.isoformat())
+    else:
+        say("")
+        say("Caches")
+        refresh_caches(run_pipeline=args.pipeline, allow_network=not args.offline)
     api = f"http://127.0.0.1:{args.api_port}/api"
     terminal_url = None if args.no_terminal else f"http://127.0.0.1:{args.terminal_port}"
     children: Dict[str, subprocess.Popen] = {}
@@ -385,7 +412,13 @@ def cmd_start(args: argparse.Namespace) -> int:
 
         say("")
         say("Signals")
-        honest = report(api, terminal_url=terminal_url, mode=mode)
+        if panel:
+            clock = get(api, "/health").get("worldClock") or {}
+            honest = clock.get("mode") == "REPLAY"
+            if honest:
+                row("TERMINAL" if terminal_url else "API", "READY", terminal_url or api)
+        else:
+            honest = report(api, terminal_url=terminal_url, mode=mode)
         if not honest:
             stop_all()
             return 2
@@ -460,6 +493,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     common(start)
     start.add_argument("--terminal-port", type=int, default=8080)
     start.add_argument("--pipeline", action="store_true", help="run the two-minute pipeline even when a forecast exists")
+    start.add_argument("--panel", action="store_true", help="start a cache-only, pinned DEMO rehearsal")
     start.add_argument("--offline", action="store_true", help="do not refresh anything over the network")
     start.add_argument("--timeout", type=float, default=240.0, help="seconds to wait for each service")
     start.add_argument("--detach", action="store_true", help="leave the services running and return")

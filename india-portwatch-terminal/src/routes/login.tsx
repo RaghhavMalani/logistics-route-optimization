@@ -1,12 +1,14 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { BrandMark } from "@/components/miniature/BrandMark";
+import ports from "@/components/miniature/ports.generated.json";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { lazy, Suspense, useState, type FormEvent } from "react";
 
 import { AUTH_MODE, DEMO_ROSTER } from "@/auth/adapters";
 import { useAuth } from "@/auth/AuthProvider";
 import { PublicOnly } from "@/auth/guards";
 import { ROLE_PROFILE, ROLES, isRoleAllowed, type Role } from "@/auth/types";
 import { Button } from "@/components/kit/layout";
-import { Pill, formatUtc } from "@/components/kit/primitives";
+import { Pill } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +18,7 @@ interface LoginSearch {
 }
 
 export const Route = createFileRoute("/login")({
+  head: () => ({ meta: [{ title: "PortWatch X — Sign in" }] }),
   validateSearch: (search: Record<string, unknown>): LoginSearch =>
     typeof search.next === "string" ? { next: search.next } : {},
   component: () => (
@@ -25,80 +28,9 @@ export const Route = createFileRoute("/login")({
   ),
 });
 
-/**
- * A chart plate rather than an illustration: graticule, rhumb lines from a
- * compass rose, depth-contour furniture. It carries no measurement and claims
- * none -- it reads as the back of a navigation chart, which is the point.
- */
-function ChartPlate() {
-  const rhumb = Array.from({ length: 16 }, (_, i) => (i * 360) / 16);
-  return (
-    <svg
-      viewBox="0 0 600 600"
-      className="absolute inset-0 h-full w-full"
-      aria-hidden
-      preserveAspectRatio="xMidYMid slice"
-    >
-      <defs>
-        <radialGradient id="plate-vignette" cx="42%" cy="38%" r="72%">
-          <stop offset="0%" stopColor="#0d1c26" />
-          <stop offset="100%" stopColor="#060e14" />
-        </radialGradient>
-      </defs>
-      <rect width="600" height="600" fill="url(#plate-vignette)" />
-
-      {Array.from({ length: 13 }, (_, i) => i * 50).map((v) => (
-        <g key={v} stroke="#162a36" strokeWidth="0.6">
-          <line x1={v} y1="0" x2={v} y2="600" />
-          <line x1="0" y1={v} x2="600" y2={v} />
-        </g>
-      ))}
-
-      {rhumb.map((angle) => {
-        const rad = (angle * Math.PI) / 180;
-        return (
-          <line
-            key={angle}
-            x1={260}
-            y1={300}
-            x2={260 + Math.cos(rad) * 640}
-            y2={300 + Math.sin(rad) * 640}
-            stroke="#18303e"
-            strokeWidth={angle % 90 === 0 ? 0.9 : 0.5}
-          />
-        );
-      })}
-
-      {[70, 130, 200, 280].map((r) => (
-        <circle
-          key={r}
-          cx={260}
-          cy={300}
-          r={r}
-          fill="none"
-          stroke="#173040"
-          strokeWidth="0.6"
-          strokeDasharray={r % 2 === 0 ? "3 5" : undefined}
-        />
-      ))}
-
-      <circle cx={260} cy={300} r={3} fill="#2b6a86" />
-      <circle cx={260} cy={300} r={9} fill="none" stroke="#2b6a86" strokeWidth="0.9" />
-
-      {/* Depth-contour motif — chart furniture, carrying no measurement. */}
-      {[0, 1, 2].map((index) => (
-        <path
-          key={index}
-          d={`M -20 ${430 + index * 54} C 120 ${390 + index * 54}, 220 ${470 + index * 54}, 340 ${412 + index * 54} S 540 ${360 + index * 54}, 640 ${400 + index * 54}`}
-          fill="none"
-          stroke="#152c39"
-          strokeWidth="0.8"
-        />
-      ))}
-
-    </svg>
-  );
-}
+const LoginMiniature = lazy(
+  () => import("@/components/miniature/LoginMiniature"),
+);
 
 function LoginScreen() {
   const { signIn, startDemo, mode, adapterDescription } = useAuth();
@@ -106,7 +38,9 @@ function LoginScreen() {
   const search = Route.useSearch();
   const health = useHealth();
 
-  const [email, setEmail] = useState(mode === "demo" ? "admin@portwatch.demo" : "");
+  const [email, setEmail] = useState(
+    mode === "demo" ? "admin@portwatch.demo" : "",
+  );
   const [password, setPassword] = useState(mode === "demo" ? "portwatch" : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,67 +76,61 @@ function LoginScreen() {
     }
   };
 
-  const serviceTone = health.isError ? "crit" : health.isLoading ? "neutral" : "ok";
+  const serviceTone = health.isError
+    ? "crit"
+    : health.isLoading
+      ? "neutral"
+      : "ok";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
       ? "Checking"
       : "Reachable";
 
+  const forecast = health.isError ? undefined : health.data;
+  const originAt = Date.parse(forecast?.forecastOrigin ?? "");
+  const originStatus = {
+    LIVE: "Current", CACHED_LIVE: "Cached", STALE: "Stale",
+    SYNTHETIC: "Synthetic", UNAVAILABLE: "Unavailable",
+  }[forecast?.forecastOriginStatus ?? "UNAVAILABLE"];
+  const targets = {
+    CURRENT_HORIZON: "Current horizon", PARTIAL_HORIZON: "Partial horizon",
+    EXPIRED: "Expired", UNAVAILABLE: "Unavailable",
+  }[forecast?.targetStatus ?? "UNAVAILABLE"];
+
   return (
     <div className="fixed inset-0 grid grid-cols-1 bg-[var(--bg)] lg:grid-cols-[1fr_minmax(420px,520px)]">
       {/* ------------------------------------------------------------ left -- */}
       <section className="relative hidden overflow-hidden border-r border-[var(--line)] lg:block">
-        <ChartPlate />
+        <Suspense fallback={null}>
+          <LoginMiniature />
+        </Suspense>
         <div className="relative flex h-full flex-col justify-between p-10">
-          <div className="flex items-center gap-3">
-            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
-              <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.4" />
-              <path d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z" fill="var(--info)" opacity="0.85" />
-            </svg>
-            <span className="text-[15px] font-semibold tracking-[0.08em] text-[var(--text)]">
-              INDIA PORTWATCH
-            </span>
-          </div>
+          <div><BrandMark /></div>
 
-          <div className="max-w-[430px]">
+          <div className="max-w-[410px] self-start border border-[var(--line)] bg-[var(--map-overlay)] p-5 shadow-[var(--shadow-floating)]">
             <p className="text-[17px] leading-snug text-[var(--text)]">
-              Predictive maritime operations intelligence for Indian ports.
+              Maritime decisions for Indian ports.
             </p>
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-[var(--text-3)]">
-              Satellite-AIS port activity, marine weather and maritime events, resolved
-              into a ten-day forecast with calibrated uncertainty and a bounded
-              operational instruction per port.
+              Compare passage, berth and cargo plans with source-linked weather,
+              port activity and maritime intelligence. Data availability varies
+              by source.
             </p>
           </div>
 
-          {/* The first two describe *this run*, so they appear only when the
-              service answered; the last two describe the system either way. */}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10.5px] uppercase tracking-[0.1em] text-[var(--text-3)]">
-            {health.data?.ports != null ? <span>{health.data.ports} ports</span> : null}
-            {health.data?.horizonDays != null ? (
-              <span>{health.data.horizonDays}-day horizon</span>
-            ) : null}
-            <span>q10 / q50 / q90</span>
-            <span>Walk-forward validated</span>
-          </div>
+          <div />
         </div>
       </section>
 
       {/* ----------------------------------------------------------- right -- */}
-      <section className="flex min-h-0 flex-col justify-center overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
-        <div className="mx-auto w-full max-w-[380px]">
-          <div className="lg:hidden">
-            <div className="mb-6 flex items-center gap-2.5">
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
-                <path d="M12 2 L21 12 L12 22 L3 12 Z" fill="none" stroke="var(--info)" strokeWidth="1.4" />
-                <path d="M12 7.5 L16.5 12 L12 16.5 L7.5 12 Z" fill="var(--info)" opacity="0.85" />
-              </svg>
-              <span className="text-[13px] font-semibold tracking-[0.07em]">INDIA PORTWATCH</span>
-            </div>
-          </div>
+      <section className="flex min-h-0 flex-col overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
+        <div className="m-auto w-full max-w-[380px]">
+          <div className="mb-6 lg:hidden"><BrandMark /></div>
 
-          <h1 className="text-[15px] font-semibold text-[var(--text)]">Secure sign-in</h1>
+          <h1 className="text-[15px] font-semibold text-[var(--text)]">
+            Secure sign-in
+          </h1>
           <p className="mt-1 text-[12px] text-[var(--text-3)]">
             Operations terminal · access is scoped to your role.
           </p>
@@ -210,11 +138,27 @@ function LoginScreen() {
           <div className="mt-4 border-y border-[var(--line)] py-3">
             <div className="eyebrow mb-2">Explore a fictional demo</div>
             <div className="grid grid-cols-2 gap-2">
-              {ROLES.map((role) => <Button key={role} disabled={busy} onClick={() => void openDemo(role)}>
-                {({ SHIPPING_COMPANY: "Company", VESSEL_OPERATOR: "Vessel", PORT_AUTHORITY: "Port", NATIONAL_ADMIN: "Admin" })[role]} demo
-              </Button>)}
+              {ROLES.map((role) => (
+                <Button
+                  key={role}
+                  disabled={busy}
+                  onClick={() => void openDemo(role)}
+                >
+                  {
+                    {
+                      SHIPPING_COMPANY: "Company",
+                      VESSEL_OPERATOR: "Vessel",
+                      PORT_AUTHORITY: "Port",
+                      NATIONAL_ADMIN: "Admin",
+                    }[role]
+                  }{" "}
+                  demo
+                </Button>
+              ))}
             </div>
-            <p className="mt-2 text-[10.5px] text-[var(--text-3)]">Your own sandbox, with the original maps and workflows.</p>
+            <p className="mt-2 text-[10.5px] text-[var(--text-3)]">
+              Your own sandbox, with the original maps and workflows.
+            </p>
           </div>
           <form className="mt-4 flex flex-col gap-3.5" onSubmit={submit}>
             <label className="flex flex-col gap-1.5">
@@ -256,7 +200,12 @@ function LoginScreen() {
               </div>
             ) : null}
 
-            <Button type="submit" variant="primary" disabled={busy} className="mt-1 py-2">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={busy}
+              className="mt-1 py-2"
+            >
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
@@ -265,7 +214,9 @@ function LoginScreen() {
             <div className="mt-6 border-t border-[var(--line)] pt-4">
               <div className="mb-2 flex items-center gap-2">
                 <Pill tone="unc">Demo environment</Pill>
-                <span className="text-[10.5px] text-[var(--text-3)]">password: portwatch</span>
+                <span className="text-[10.5px] text-[var(--text-3)]">
+                  password: portwatch
+                </span>
               </div>
               <div className="flex flex-col divide-y divide-[var(--line)]/70 overflow-hidden rounded-[2px] border border-[var(--line)]">
                 {DEMO_ROSTER.map((account) => (
@@ -304,6 +255,12 @@ function LoginScreen() {
           ) : null}
 
           {/* ----------------------------------------------- system footer -- */}
+          <Link
+            to="/tour"
+            className="mt-5 inline-block text-[12px] text-[var(--text-2)] underline underline-offset-4"
+          >
+            Take the tour →
+          </Link>
           <div className="mt-7 border-t border-[var(--line)] pt-3.5">
             <div className="eyebrow mb-2">Environment</div>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[11px]">
@@ -317,14 +274,27 @@ function LoginScreen() {
               </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">
-                {formatUtc(health.data?.forecastOrigin ?? null)}
+                {Number.isFinite(originAt)
+                  ? `${new Date(originAt).toISOString().slice(0, 16).replace("T", " ")}Z · ${originStatus ?? "Unknown"}`
+                  : "Unavailable"}
+              </dd>
+              <dt className="text-[var(--text-3)]">Forecast targets</dt>
+              <dd className="num text-right text-[var(--text-2)]">
+                {targets}{forecast?.targetThrough && targets !== "Unavailable" ? ` · through ${forecast.targetThrough}` : ""}
+              </dd>
+              <dt className="text-[var(--text-3)]">Port coverage</dt>
+              <dd className="num text-right text-[var(--text-2)]">
+                {ports.length} registered
+                {forecast?.ports != null ? ` · ${forecast.ports} in forecast export` : ""}
               </dd>
               <dt className="text-[var(--text-3)]">Model</dt>
               <dd className="num text-right text-[var(--text-2)]">
                 {health.data?.model ?? "—"}
               </dd>
               <dt className="text-[var(--text-3)]">Auth mode</dt>
-              <dd className="num text-right text-[var(--text-2)]">{AUTH_MODE}</dd>
+              <dd className="num text-right text-[var(--text-2)]">
+                {AUTH_MODE}
+              </dd>
             </dl>
           </div>
         </div>

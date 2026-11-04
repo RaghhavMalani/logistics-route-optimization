@@ -30,6 +30,24 @@ OBSERVATION_KINDS = ("station", "operator_measurement", "reanalysis")
 MODEL_VERSION = "weather-residual-v3"
 MIN_SAMPLES = 32
 MIN_VALIDATION = 8
+CONSUMPTION_MODE = "SHADOW_ONLY"
+ADOPTION_STATUS = "NOT_ADOPTED"
+
+
+def consumed_value(raw_value: float, correction: dict[str, Any] | None = None) -> float:
+    """Return the operational daily value under the current shadow-only policy.
+
+    Archived ``VALIDATED``/``decisionEligible`` flags describe the residual
+    candidate's replay evaluation. They are not an approval to adopt it. No
+    audited adoption mechanism is implemented, so neither old candidate flags
+    nor an untrusted correction dictionary may change a new decision input.
+    The optional correction is accepted so every consumer can use this guard
+    without changing the preserved forecast or its candidate evidence.
+    """
+    value = float(raw_value)
+    if not np.isfinite(value):
+        raise ValueError("a consumed weather forecast must be finite")
+    return value
 
 
 def instant(value: str | datetime) -> datetime:
@@ -160,7 +178,7 @@ class WeatherFeedback:
     def record_frame(self, frame: pd.DataFrame, *, issued_at: datetime, provider: str,
                      source_state: str, variables: tuple[str, ...] | None = None,
                      now: datetime | None = None, provenance: dict | None = None) -> pd.DataFrame:
-        """Persist raw values before applying corrections to future daily rows."""
+        """Persist raw forecasts and separate shadow candidates; consume raw values."""
         issued_at = instant(issued_at)
         now = instant(now or world_now())
         if issued_at > now:
@@ -184,21 +202,36 @@ class WeatherFeedback:
                 prediction_id = _stable_id("wx", code, variable, provider, issued_at.isoformat(), valid_at)
                 existing = self.ledger.get_prediction(prediction_id)
                 if existing is not None:
-                    out.at[index, variable] = existing.context.extra.get("correctedValue", existing.predicted_value)
+                    # Preserve older claims and their frozen candidate values,
+                    # but do not treat their historical replay flags as adoption.
+                    out.at[index, variable] = consumed_value(existing.predicted_value, existing.context.extra.get("correction"))
                     continue
                 learned = self.correction(code, variable, provider, horizon, issued_at)
+                candidate = max(0.0, float(value) + learned["bias"])
+                candidate_low = max(0.0, candidate + learned["lowerResidual"]) if learned["lowerResidual"] is not None else None
+                candidate_high = max(candidate, candidate + learned["upperResidual"]) if learned["upperResidual"] is not None else None
+                shadow = {**learned, "candidateEligible": learned.get("decisionEligible", False),
+                          "decisionEligible": False, "mode": CONSUMPTION_MODE,
+                          "adoptionStatus": ADOPTION_STATUS, "candidateValue": candidate,
+                          "candidateLow": candidate_low, "candidateHigh": candidate_high}
                 if learned.get("modelId") and hasattr(self.ledger,"path"):
                     from src.portwatch_os.learning.weather_reconciliation import WeatherEvidenceStore
                     evidence=WeatherEvidenceStore(self.ledger.path)
                     try:
                         with evidence.conn:
                             import json
+                            # A correction version describes the frozen model,
+                            # not one future forecast's derived candidate value.
+                            version = {key: val for key, val in shadow.items()
+                                       if key not in ("candidateValue", "candidateLow", "candidateHigh")}
                             evidence.conn.execute("INSERT OR IGNORE INTO weather_correction_versions(id,cohort,body) VALUES (?,?,?)",
-                                (learned["modelId"],json.dumps([code,variable,provider,horizon,learned.get("outcomeSource")]),json.dumps(learned)))
+                                (learned["modelId"],json.dumps([code,variable,provider,horizon,learned.get("outcomeSource")]),json.dumps(version)))
                     finally: evidence.close()
-                corrected = max(0.0, float(value) + learned["bias"])
-                low = max(0.0, corrected + learned["lowerResidual"]) if learned["lowerResidual"] is not None else None
-                high = max(corrected, corrected + learned["upperResidual"]) if learned["upperResidual"] is not None else None
+                corrected = consumed_value(value, shadow)
+                consumed_correction = {**learned, "bias": 0.0, "lowerResidual": None, "upperResidual": None,
+                    "decisionEligible": False, "mode": CONSUMPTION_MODE, "adoptionStatus": ADOPTION_STATUS,
+                    "modelId": None, "candidateModelId": learned.get("modelId"),
+                    "reason": "The candidate remains in shadow; no correction adoption is recorded. " + learned["reason"]}
                 record = PredictionRecord(
                     prediction_id=prediction_id, domain=DOMAIN_WEATHER, kind=CONTINUOUS,
                     target=variable, subject=code, model=provider, model_version=MODEL_VERSION,
@@ -208,8 +241,10 @@ class WeatherFeedback:
                         season=season(issued_at), source_state=source_state,
                         extra={"unit": VARIABLES[variable], "horizonDays": horizon,
                                "targetDate": day.date().isoformat(), "aggregation": "daily", "statistic":STATISTICS[variable],
-                               "correctedValue": corrected, "correctedLow": low, "correctedHigh": high,
-                               "correction": learned}),
+                               "correctedValue": corrected, "correctedLow": None, "correctedHigh": None,
+                               "consumptionMode": CONSUMPTION_MODE, "adoptionStatus": ADOPTION_STATUS,
+                               "correctionConsumed": False, "correction": consumed_correction,
+                               "shadowCorrection": shadow}),
                     provenance={"provider": provider, "issueTimeBasis": "response_retrieved_at",
                                 "providerRunTime": None, "state": source_state, **(provenance or {})},
                 )
@@ -287,6 +322,9 @@ class WeatherFeedback:
                 "targetDate": extra.get("targetDate"), "horizonDays": extra.get("horizonDays"),
                 "unit": extra.get("unit"), "original": row.predicted_value,
                 "corrected": extra.get("correctedValue", row.predicted_value),
+                "consumedValue": consumed_value(row.predicted_value, extra.get("correction")),
+                "correctionConsumed": False, "consumptionMode": "SHADOW_ONLY", "adoptionStatus": "NOT_ADOPTED",
+                "shadowCorrection": extra.get("shadowCorrection"),
                 "low": extra.get("correctedLow"), "high": extra.get("correctedHigh"),
                 "observed": row.observed_value if known else None,
                 "observedAt": row.observed_at if known else None, "statistic":extra.get("statistic",STATISTICS[row.target]),

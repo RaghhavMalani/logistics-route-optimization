@@ -32,7 +32,6 @@ import { TimeTransport } from "@/components/command/TimeTransport";
 import { EnvironmentLegend } from "@/components/command/TrafficFilters";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { Pill } from "@/components/kit/primitives";
-import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { cascadeLayers } from "@/lib/maritime/cascade-layers";
 import { cn } from "@/lib/utils";
@@ -66,6 +65,8 @@ import { EvidenceDrawer } from "./EvidenceDrawer";
 import { useCascadeReveal } from "./useCascadeReveal";
 import { GlobalIntelligenceControl } from "@/components/intelligence/GlobalIntelligenceControl";
 import { CurrentInputControl } from "@/components/intelligence/CurrentInputControl";
+import { FleetReviewLinkControl } from "@/components/intelligence/FleetReviewLinkControl";
+import type { DecisionProblem } from "@/types/decisions";
 
 export type GlobalEyeScope = "national" | "company" | "port";
 
@@ -73,7 +74,7 @@ export type GlobalEyeScope = "national" | "company" | "port";
 const PROJECTION_OFFSETS = [0, 3, 6, 12, 24, 48, 72] as const;
 
 /** Room for the action rail on the left and the decision panel on the right. */
-const DECISION_PADDING = { top: 56, bottom: 72, left: 372, right: 412 };
+const DECISION_PADDING = { top: 56, bottom: 110, left: 64, right: 452 };
 
 export function GlobalEyeScreen({
   scope,
@@ -87,7 +88,7 @@ export function GlobalEyeScreen({
   const workspace = useWorkspaceMap({
     layerOverrides: { events: true, routes: true, cascade: true },
   });
-  const { identityHeaders } = useAuth();
+  const { identityHeaders, session } = useAuth();
   const { role } = useWorkspace();
 
   // Selection, lens and horizon live in the world context rather than here, so
@@ -143,6 +144,51 @@ export function GlobalEyeScreen({
   const createDecision = useCreateDecision(identityHeaders);
   const decision = useDecision(world.decisionId);
   const decisionOpen = Boolean(world.decisionId);
+  const [currentInputsOpen, setCurrentInputsOpen] = useState(false);
+  const [fleetLinked, setFleetLinked] = useState(false);
+  const [railExpanded, setRailExpanded] = useState(true);
+  useEffect(() => {
+    if (decisionOpen || evidenceOpen) setRailExpanded(false);
+  }, [decisionOpen, evidenceOpen]);
+  const selectFleetMapVessel = workspace.setSelectedVesselId;
+  const selectFleetVessel = world.selectVessel;
+  const selectFleetPort = world.selectPort;
+  const openFleetPlan = world.openDecision;
+  const openFleetDecision = useCallback(
+    (problem: DecisionProblem, optionId: string) => {
+      selectFleetMapVessel(problem.subject.id);
+      selectFleetVessel(problem.subject.id);
+      selectFleetPort(
+        (
+          problem.evidence.currentEnvironment as
+            { portCode?: string } | undefined
+        )?.portCode ?? null,
+      );
+      openFleetPlan(problem.decisionId, optionId, true);
+      setFleetLinked(true);
+    },
+    [selectFleetMapVessel, selectFleetVessel, selectFleetPort, openFleetPlan],
+  );
+  const openFleetInputs = useCallback(
+    (vesselId: string) => {
+      selectFleetMapVessel(vesselId);
+      selectFleetVessel(vesselId);
+      openFleetPlan(null);
+      setCurrentInputsOpen(true);
+      setFleetLinked(true);
+    },
+    [selectFleetMapVessel, selectFleetVessel, openFleetPlan],
+  );
+  const leaveFleetLink = useCallback(() => {
+    openFleetPlan(null);
+    setCurrentInputsOpen(false);
+    setFleetLinked(false);
+  }, [openFleetPlan]);
+  // These controls share the inspector's map space. The weather action moves
+  // into the inspector while it is open rather than floating over its results.
+  const inspectorOpen = Boolean(
+    decisionOpen || evidenceOpen || workspace.selectedObservedMmsi,
+  );
   const decisionLayerData = useMemo(
     () =>
       decisionLayers(
@@ -343,19 +389,6 @@ export function GlobalEyeScreen({
     }
   }, [world.vesselId, world.portCode, world.chokepoint, affected, workspace]);
 
-  if (cascades.isLoading || cascades.isError) {
-    return (
-      <ScreenFallback
-        title={title}
-        context={<span>World events and their maritime consequence</span>}
-        isLoading={cascades.isLoading}
-        error={cascades.error}
-        retry={() => void cascades.refetch()}
-        label="Propagating world consequence"
-      />
-    );
-  }
-
   const totals = cascade.data?.totals ?? {};
   const selectedCascade = cascade.data;
   const lensDefinition = LENS_DEFINITIONS[lens];
@@ -363,7 +396,14 @@ export function GlobalEyeScreen({
   return (
     <div className="absolute inset-0">
       <h1 className="sr-only">{title}</h1>
+      <FleetReviewLinkControl
+        enabled={scope === "company" && session?.mode === "demo"}
+        onDecision={openFleetDecision}
+        onInputs={openFleetInputs}
+        onLeave={leaveFleetLink}
+      />
       <GlobalIntelligenceControl
+        hideLauncher={inspectorOpen}
         onDecision={
           scope === "company"
             ? (problem) => {
@@ -394,6 +434,11 @@ export function GlobalEyeScreen({
       />
       {scope === "company" ? (
         <CurrentInputControl
+          open={currentInputsOpen}
+          onOpenChange={setCurrentInputsOpen}
+          hideLauncher={inspectorOpen}
+          initialVesselId={world.vesselId}
+          sourceComparison={decision.data}
           onDecision={(problem) => {
             world.selectVessel(problem.subject.id);
             world.openDecision(
@@ -453,7 +498,20 @@ export function GlobalEyeScreen({
               height pushes the register out of the column entirely. The rail
               scrolls inside its cap instead.
             */}
-            <div className="pointer-events-none absolute bottom-[184px] left-2.5 top-2.5 z-20 flex w-[300px] flex-col gap-2 overflow-hidden">
+            <button
+              type="button"
+              className="pw-rail-toggle pointer-events-auto"
+              aria-expanded={railExpanded}
+              onClick={() => setRailExpanded(!railExpanded)}
+            >
+              {railExpanded
+                ? "Hide action queue"
+                : `Action queue · ${attention.data?.actionable ?? 0}`}
+            </button>
+            <div
+              hidden={!railExpanded}
+              className="pw-action-rail pointer-events-none absolute bottom-[184px] left-2.5 top-14 z-20 flex w-[300px] flex-col gap-2 overflow-hidden"
+            >
               <FloatPanel
                 title="Action required"
                 note={
@@ -496,11 +554,32 @@ export function GlobalEyeScreen({
               {/* ------------------------------------------- world events -- */}
               <FloatPanel
                 title="Live consequence"
-                note={<span className="num">{live.length}</span>}
+                note={
+                  <span className="num">
+                    {cascades.isError
+                      ? "Unavailable"
+                      : cascades.isLoading
+                        ? "Checking"
+                        : live.length}
+                  </span>
+                }
                 testId="cascade-register"
                 className="pointer-events-auto min-h-[168px] flex-1"
               >
-                {live.length === 0 ? (
+                {cascades.isError ? (
+                  <div role="status" className="space-y-2 p-2 text-xs">
+                    <p>Shipping consequence feed unavailable.</p>
+                    <button
+                      type="button"
+                      className="underline"
+                      onClick={() => void cascades.refetch()}
+                    >
+                      Retry consequence feed
+                    </button>
+                  </div>
+                ) : cascades.isLoading ? (
+                  <EmptyNote>Propagating world consequence…</EmptyNote>
+                ) : live.length === 0 ? (
                   <EmptyNote>
                     No event in the register propagates consequence at this
                     instant. Scrub back toward now to see live events.
@@ -526,16 +605,36 @@ export function GlobalEyeScreen({
 
             {/* ------------------------------------------------- decision -- */}
             {decisionOpen ? (
-              <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] max-w-[calc(100%_-_20px)] flex-col">
+              <div className="pw-map-inspector pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-30 flex w-[372px] max-w-[calc(100%_-_20px)] flex-col">
                 <FloatPanel
                   title="Decision"
                   note={<span className="num">{world.decisionId}</span>}
                   className="pointer-events-auto min-h-0 flex-1"
                   scroll={false}
                   testId="decision-float"
-                  onClose={() => world.openDecision(null)}
+                  onClose={() => {
+                    world.openDecision(null);
+                    if (fleetLinked) {
+                      window.location.hash = "";
+                      setFleetLinked(false);
+                    }
+                  }}
                   footer="Every figure is a measure the engine produced on that option's branch; unavailable means unavailable."
                 >
+                  {fleetLinked ? (
+                    <div className="shrink-0 border-b border-[var(--line)] px-2 py-2 text-xs">
+                      <a
+                        href="/company/overview#fleet-queue"
+                        className="underline focus-visible:outline focus-visible:outline-2"
+                      >
+                        Return to fleet review queue
+                      </a>
+                      <p>
+                        Exact retained comparison; the highlighted option does
+                        not change server triage.
+                      </p>
+                    </div>
+                  ) : null}
                   {decision.data ? (
                     <DecisionPanel
                       problem={decision.data}
@@ -544,8 +643,24 @@ export function GlobalEyeScreen({
                       onSelectOption={world.selectDecisionOption}
                       onToggleCompare={world.setDecisionCompare}
                       canHandoff={canHandoff}
+                      onNewComparison={
+                        scope === "company"
+                          ? (problem) =>
+                              openFleetDecision(
+                                problem,
+                                problem.recommendation?.optionId ??
+                                  problem.baselineOptionId ??
+                                  problem.options[0].optionId,
+                              )
+                          : undefined
+                      }
                       onRecompute={recompute}
                       recomputing={createDecision.isPending}
+                      onEditCurrentInputs={
+                        scope === "company" && session?.mode === "demo"
+                          ? () => setCurrentInputsOpen(true)
+                          : undefined
+                      }
                     />
                   ) : decision.isError ? (
                     <p className="px-2 py-3 text-[10.5px] text-[var(--crit)]">
@@ -667,7 +782,7 @@ export function GlobalEyeScreen({
                     ) : null}
                     {totals.hours ? (
                       <span className="num" data-testid="total-hours">
-                        {totals.hours.value.toFixed(0)} h aggregate shift
+                        {totals.hours.value.toFixed(0)} h total modelled arrival shift across affected vessels
                       </span>
                     ) : null}
                     {totals.ratio ? (

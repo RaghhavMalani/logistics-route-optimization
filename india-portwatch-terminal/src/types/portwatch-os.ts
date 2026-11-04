@@ -1305,7 +1305,7 @@ export interface ObservedPosition {
   navStatus: string | null;
   destinationText: string | null;
   etaText: string | null;
-  sourceTimestamp: string;
+  sourceTimestamp: string | null;
   ingestedAt: string;
   rawRef: string;
   provenance: Record<string, unknown>;

@@ -26,7 +26,9 @@ import { cn } from "@/lib/utils";
 import { useBenchmark, usePipeline, useProvenance } from "@/services/hooks";
 import type { BenchmarkRow, PipelineNode } from "@/types/portwatch";
 
-export const Route = createFileRoute("/admin/model")({ component: ModelIntelligence });
+export const Route = createFileRoute("/admin/model")({
+  component: ModelIntelligence,
+});
 
 type Drilldown = "horizon" | "port" | "regime";
 
@@ -54,9 +56,11 @@ function StageColumn({
   isLast: boolean;
 }) {
   const total = stage.count ?? stage.nodes.length;
-  const available = stage.available ?? stage.nodes.filter((node) => node.available).length;
+  const available =
+    stage.available ?? stage.nodes.filter((node) => node.available).length;
   const meanConfidence = stage.nodes.length
-    ? stage.nodes.reduce((sum, node) => sum + (node.confidence ?? 0), 0) / stage.nodes.length
+    ? stage.nodes.reduce((sum, node) => sum + (node.confidence ?? 0), 0) /
+      stage.nodes.length
     : null;
 
   return (
@@ -71,10 +75,15 @@ function StageColumn({
             : "border-[var(--line)] bg-[var(--panel-2)] hover:border-[var(--line-strong)]",
         )}
       >
-        <span className="eyebrow truncate" style={active ? { color: "var(--info)" } : undefined}>
+        <span
+          className="eyebrow truncate"
+          style={active ? { color: "var(--info)" } : undefined}
+        >
           {stage.label}
         </span>
-        <span className="text-[12px] leading-snug text-[var(--text-2)]">{stage.caption}</span>
+        <span className="text-[12px] leading-snug text-[var(--text-2)]">
+          {stage.caption}
+        </span>
         <span className="mt-auto flex items-baseline gap-2 pt-1">
           <span className="metric-lg text-[var(--text)]">{total}</span>
           <span className="text-[10.5px] text-[var(--text-3)]">
@@ -87,12 +96,19 @@ function StageColumn({
         </span>
         {meanConfidence != null ? (
           <span className="w-full">
-            <MiniBar value={meanConfidence} tone={meanConfidence >= 0.7 ? "ok" : "warn"} />
+            <MiniBar
+              value={meanConfidence}
+              tone={meanConfidence >= 0.7 ? "ok" : "warn"}
+            />
           </span>
         ) : null}
       </button>
       {isLast ? null : (
-        <ChevronRight size={14} className="shrink-0 text-[var(--text-3)]" aria-hidden />
+        <ChevronRight
+          size={14}
+          className="shrink-0 text-[var(--text-3)]"
+          aria-hidden
+        />
       )}
     </>
   );
@@ -111,11 +127,17 @@ function ModelIntelligence() {
 
   const stages = useMemo<Stage[]>(() => {
     const nodes = pipeline.data ?? [];
-    const experts = nodes.filter((node) => node.kind !== "model" && node.kind !== "decision");
+    const experts = nodes.filter(
+      (node) => node.kind !== "model" && node.kind !== "decision",
+    );
     const models = nodes.filter((node) => node.kind === "model");
     const decisions = nodes.filter((node) => node.kind === "decision");
-    const regime = models.filter((node) => /regime|hsmm/i.test(node.key + node.name));
-    const forecast = models.filter((node) => !/regime|hsmm/i.test(node.key + node.name));
+    const regime = models.filter((node) =>
+      /regime|hsmm/i.test(node.key + node.name),
+    );
+    const forecast = models.filter(
+      (node) => !/regime|hsmm/i.test(node.key + node.name),
+    );
 
     return [
       {
@@ -124,7 +146,8 @@ function ModelIntelligence() {
         caption: "Live and cached feeds entering the panel",
         nodes: [],
         count: feeds.length,
-        available: feeds.filter((source) => source.status !== "UNAVAILABLE").length,
+        available: feeds.filter((source) => source.status !== "UNAVAILABLE")
+          .length,
       },
       {
         key: "experts",
@@ -157,7 +180,9 @@ function ModelIntelligence() {
     return (
       <ScreenFallback
         title="Model Intelligence"
-        context={<span>What the system runs, and what it measured itself at</span>}
+        context={
+          <span>What the system runs, and what it measured itself at</span>
+        }
         isLoading={pipeline.isLoading}
         error={pipeline.error}
         retry={() => void pipeline.refetch()}
@@ -172,7 +197,8 @@ function ModelIntelligence() {
   const sources = provenance.data?.sources ?? {};
   const sourceCount = Object.keys(sources).length;
 
-  const activeStage = stages.find((stage) => stage.key === stageKey) ?? stages[1];
+  const activeStage =
+    stages.find((stage) => stage.key === stageKey) ?? stages[1];
   const drilldownRows: BenchmarkRow[] =
     (drilldown === "horizon"
       ? bench?.byHorizon
@@ -180,7 +206,11 @@ function ModelIntelligence() {
         ? bench?.byPort
         : bench?.byRegime) ?? [];
   const drilldownKey =
-    drilldown === "horizon" ? "horizon_day" : drilldown === "port" ? "port_id" : "regime";
+    drilldown === "horizon"
+      ? "horizon_day"
+      : drilldown === "port"
+        ? "port_id"
+        : "regime";
 
   const modelColumns: Array<Column<BenchmarkRow>> = [
     {
@@ -197,18 +227,69 @@ function ModelIntelligence() {
           >
             {row.model}
           </span>
-          {row.model === summary?.bestModel ? <Pill tone="ok">leader</Pill> : null}
+          {row.model === summary?.bestModel ? (
+            <Pill tone="ok">leader</Pill>
+          ) : null}
         </span>
       ),
       sort: (row) => row.model,
     },
-    { key: "n", header: "n", align: "right", width: 82, render: (row) => <Num value={row.n} digits={0} />, sort: (row) => row.n },
-    { key: "mae", header: "MAE", align: "right", width: 92, render: (row) => <Num value={row.mae} digits={3} />, sort: (row) => row.mae },
-    { key: "rmse", header: "RMSE", align: "right", width: 92, render: (row) => <Num value={row.rmse} digits={3} />, sort: (row) => row.rmse },
-    { key: "mape", header: "MAPE %", align: "right", width: 96, render: (row) => <Num value={row.mape_pct} digits={2} />, sort: (row) => row.mape_pct },
-    { key: "p10", header: "Pinball q10", align: "right", width: 110, render: (row) => <Num value={row.pinball_q10} digits={3} />, sort: (row) => row.pinball_q10 },
-    { key: "p50", header: "Pinball q50", align: "right", width: 110, render: (row) => <Num value={row.pinball_q50} digits={3} />, sort: (row) => row.pinball_q50 },
-    { key: "p90", header: "Pinball q90", align: "right", width: 110, render: (row) => <Num value={row.pinball_q90} digits={3} />, sort: (row) => row.pinball_q90 },
+    {
+      key: "n",
+      header: "n",
+      align: "right",
+      width: 82,
+      render: (row) => <Num value={row.n} digits={0} />,
+      sort: (row) => row.n,
+    },
+    {
+      key: "mae",
+      header: "MAE",
+      align: "right",
+      width: 92,
+      render: (row) => <Num value={row.mae} digits={3} />,
+      sort: (row) => row.mae,
+    },
+    {
+      key: "rmse",
+      header: "RMSE",
+      align: "right",
+      width: 92,
+      render: (row) => <Num value={row.rmse} digits={3} />,
+      sort: (row) => row.rmse,
+    },
+    {
+      key: "mape",
+      header: "MAPE %",
+      align: "right",
+      width: 96,
+      render: (row) => <Num value={row.mape_pct} digits={2} />,
+      sort: (row) => row.mape_pct,
+    },
+    {
+      key: "p10",
+      header: "Pinball q10",
+      align: "right",
+      width: 110,
+      render: (row) => <Num value={row.pinball_q10} digits={3} />,
+      sort: (row) => row.pinball_q10,
+    },
+    {
+      key: "p50",
+      header: "Pinball q50",
+      align: "right",
+      width: 110,
+      render: (row) => <Num value={row.pinball_q50} digits={3} />,
+      sort: (row) => row.pinball_q50,
+    },
+    {
+      key: "p90",
+      header: "Pinball q90",
+      align: "right",
+      width: 110,
+      render: (row) => <Num value={row.pinball_q90} digits={3} />,
+      sort: (row) => row.pinball_q90,
+    },
     {
       key: "cov",
       header: "80% coverage",
@@ -230,19 +311,37 @@ function ModelIntelligence() {
       ),
       sort: (row) => row.coverage_80pct,
     },
-    { key: "width", header: "Band width", align: "right", width: 108, render: (row) => <Num value={row.interval_width} digits={2} />, sort: (row) => row.interval_width },
-    { key: "cal", header: "Calib. error", align: "right", width: 110, render: (row) => <Num value={row.calibration_error} digits={3} />, sort: (row) => row.calibration_error },
+    {
+      key: "width",
+      header: "Band width",
+      align: "right",
+      width: 108,
+      render: (row) => <Num value={row.interval_width} digits={2} />,
+      sort: (row) => row.interval_width,
+    },
+    {
+      key: "cal",
+      header: "Calib. error",
+      align: "right",
+      width: 110,
+      render: (row) => <Num value={row.calibration_error} digits={3} />,
+      sort: (row) => row.calibration_error,
+    },
   ];
 
   return (
     <Page>
       <PageHeader
         title="Model Intelligence"
-        context={<span>What the system runs, and what it measured itself at</span>}
+        context={
+          <span>What the system runs, and what it measured itself at</span>
+        }
         meta={
           <>
             <span className="num">{bench?.version ?? "no benchmark"}</span>
-            <span className="num">generated {formatUtc(bench?.generatedAt ?? null)}</span>
+            <span className="num">
+              generated {formatUtc(bench?.generatedAt ?? null)}
+            </span>
           </>
         }
       />
@@ -254,7 +353,9 @@ function ModelIntelligence() {
             label: "Leading model",
             value: summary?.bestModel ?? "n/a",
             tone: "ok",
-            note: summary ? `${summary.folds} expanding walk-forward folds` : "benchmark not run",
+            note: summary
+              ? `${summary.folds} expanding walk-forward folds`
+              : "benchmark not run",
           },
           {
             label: "MAE",
@@ -318,17 +419,26 @@ function ModelIntelligence() {
               <div className="mt-3 border-t border-[var(--line)] pt-3">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 xl:grid-cols-3">
                   {Object.values(sources).map((source) => (
-                    <div key={source.source} className="flex items-baseline justify-between gap-2">
+                    <div
+                      key={source.source}
+                      className="flex items-baseline justify-between gap-2"
+                    >
                       <span className="min-w-0 truncate text-[11.5px] text-[var(--text-2)]">
                         {source.source}
                       </span>
-                      <ProvenanceTag status={source.status} ageHours={source.ageHours} />
+                      <ProvenanceTag
+                        status={source.status}
+                        ageHours={source.ageHours}
+                      />
                     </div>
                   ))}
                 </div>
                 <p className="mt-2 text-[11.5px] text-[var(--text-3)]">
                   {sourceCount} feeds. Full provenance is on{" "}
-                  <Link to="/admin/data" className="text-[var(--info)] hover:underline">
+                  <Link
+                    to="/admin/data"
+                    className="text-[var(--info)] hover:underline"
+                  >
                     Data Sources
                   </Link>
                   .
@@ -337,15 +447,23 @@ function ModelIntelligence() {
             ) : activeStage && activeStage.nodes.length ? (
               <div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-2 border-t border-[var(--line)] pt-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {activeStage.nodes.map((node) => (
-                  <div key={node.key} className="min-w-0 border-b border-[var(--line)]/50 pb-2">
+                  <div
+                    key={node.key}
+                    className="min-w-0 border-b border-[var(--line)]/50 pb-2"
+                  >
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-[12px] font-medium text-[var(--text)]">
                         {node.name}
                       </span>
-                      <ProvenanceTag status={node.dataStatus} ageHours={node.ageHours} />
+                      <ProvenanceTag
+                        status={node.dataStatus}
+                        ageHours={node.ageHours}
+                      />
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="w-14 text-[10.5px] text-[var(--text-3)]">signal</span>
+                      <span className="w-14 text-[10.5px] text-[var(--text-3)]">
+                        signal
+                      </span>
                       <span className="flex-1">
                         <MiniBar
                           value={node.score}
@@ -358,10 +476,16 @@ function ModelIntelligence() {
                           }
                         />
                       </span>
-                      <Num value={node.score} digits={3} className="w-12 text-right text-[11px]" />
+                      <Num
+                        value={node.score}
+                        digits={3}
+                        className="w-12 text-right text-[11px]"
+                      />
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="w-14 text-[10.5px] text-[var(--text-3)]">confidence</span>
+                      <span className="w-14 text-[10.5px] text-[var(--text-3)]">
+                        confidence
+                      </span>
                       <span className="flex-1">
                         <MiniBar value={node.confidence} tone="ok" />
                       </span>
@@ -382,7 +506,8 @@ function ModelIntelligence() {
               </div>
             ) : (
               <p className="mt-3 border-t border-[var(--line)] pt-3 text-[11.5px] text-[var(--text-3)]">
-                No pipeline node is registered for this stage in the current run.
+                No pipeline node is registered for this stage in the current
+                run.
               </p>
             )}
           </div>
@@ -402,12 +527,14 @@ function ModelIntelligence() {
                 rowKey={(row) => row.model}
                 initialSort="mae"
                 initialDirection="asc"
-                rowTone={(row) => (row.model === summary?.bestModel ? "var(--ok)" : null)}
+                rowTone={(row) =>
+                  row.model === summary?.bestModel ? "var(--ok)" : null
+                }
               />
               <p className="border-t border-[var(--line)] px-3 py-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                {bench.protocol ?? "Expanding-window walk-forward."} A training row is used
-                only where its label was observable at the fold cutoff, and every model in
-                this table saw the same frame.
+                {bench.protocol ?? "Expanding-window walk-forward."} A training
+                row is used only where its label was observable at the fold
+                cutoff, and every model in this table saw the same frame.
               </p>
             </Panel>
 
@@ -440,34 +567,63 @@ function ModelIntelligence() {
                       {
                         key: "bucket",
                         header:
-                          drilldown === "horizon" ? "Horizon" : drilldown === "port" ? "Port" : "Regime",
+                          drilldown === "horizon"
+                            ? "Horizon"
+                            : drilldown === "port"
+                              ? "Port"
+                              : "Regime",
                         width: 110,
                         render: (row) => (
                           <span className="num text-[var(--text-2)]">
                             {drilldown === "horizon"
                               ? `+${row.horizon_day}d`
-                              : String(row[drilldownKey as keyof BenchmarkRow] ?? "n/a")}
+                              : String(
+                                  row[drilldownKey as keyof BenchmarkRow] ??
+                                    "n/a",
+                                )}
                           </span>
                         ),
                         sort: (row) =>
                           drilldown === "horizon"
                             ? (row.horizon_day ?? null)
-                            : String(row[drilldownKey as keyof BenchmarkRow] ?? ""),
+                            : String(
+                                row[drilldownKey as keyof BenchmarkRow] ?? "",
+                              ),
                       },
                       {
                         key: "model",
                         header: "Model",
-                        render: (row) => <span className="text-[var(--text-2)]">{row.model}</span>,
+                        render: (row) => (
+                          <span className="text-[var(--text-2)]">
+                            {row.model}
+                          </span>
+                        ),
                         sort: (row) => row.model,
                       },
-                      { key: "mae", header: "MAE", align: "right", width: 90, render: (row) => <Num value={row.mae} digits={3} />, sort: (row) => row.mae },
-                      { key: "rmse", header: "RMSE", align: "right", width: 90, render: (row) => <Num value={row.rmse} digits={3} />, sort: (row) => row.rmse },
+                      {
+                        key: "mae",
+                        header: "MAE",
+                        align: "right",
+                        width: 90,
+                        render: (row) => <Num value={row.mae} digits={3} />,
+                        sort: (row) => row.mae,
+                      },
+                      {
+                        key: "rmse",
+                        header: "RMSE",
+                        align: "right",
+                        width: 90,
+                        render: (row) => <Num value={row.rmse} digits={3} />,
+                        sort: (row) => row.rmse,
+                      },
                       {
                         key: "cov",
                         header: "80% coverage",
                         align: "right",
                         width: 118,
-                        render: (row) => <Num value={row.coverage_80pct} digits={3} />,
+                        render: (row) => (
+                          <Num value={row.coverage_80pct} digits={3} />
+                        ),
                         sort: (row) => row.coverage_80pct,
                       },
                     ]}
@@ -501,35 +657,53 @@ function ModelIntelligence() {
                           </tr>
                         </thead>
                         <tbody>
-                          {Object.entries(bench.calibration.models).map(([model, entries]) => (
-                            <tr key={model} className="border-b border-[var(--line)]/45 last:border-0">
-                              <td className="px-2 py-[5px] text-[11.5px] text-[var(--text-2)]">
-                                {model}
-                              </td>
-                              {entries.map((entry) => (
-                                <td key={entry.nominal} className="px-2 py-[5px] text-right">
-                                  <Num
-                                    value={entry.empirical}
-                                    digits={3}
-                                    tone={Math.abs(entry.error) <= 0.05 ? "ok" : "crit"}
-                                  />
+                          {Object.entries(bench.calibration.models).map(
+                            ([model, entries]) => (
+                              <tr
+                                key={model}
+                                className="border-b border-[var(--line)]/45 last:border-0"
+                              >
+                                <td className="px-2 py-[5px] text-[11.5px] text-[var(--text-2)]">
+                                  {model}
                                 </td>
-                              ))}
-                            </tr>
-                          ))}
+                                {entries.map((entry) => (
+                                  <td
+                                    key={entry.nominal}
+                                    className="px-2 py-[5px] text-right"
+                                  >
+                                    <Num
+                                      value={entry.empirical}
+                                      digits={3}
+                                      tone={
+                                        Math.abs(entry.error) <= 0.05
+                                          ? "ok"
+                                          : "crit"
+                                      }
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ),
+                          )}
                         </tbody>
                       </table>
                       <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                        A well-calibrated model sits on the header value. Green is within
-                        five points of nominal.
+                        A well-calibrated model sits on the header value. Green
+                        is within five points of nominal.
                       </p>
                     </div>
                   ) : (
-                    <EmptyState title="Not exported" detail="The benchmark carried no calibration table." />
+                    <EmptyState
+                      title="Not exported"
+                      detail="The benchmark carried no calibration table."
+                    />
                   )}
                 </Panel>
 
-                <Panel title="Ensemble policy" note={weights?.fitted ? "fitted" : "default"}>
+                <Panel
+                  title="Ensemble policy"
+                  note={weights?.fitted ? "fitted" : "default"}
+                >
                   {weights ? (
                     <div className="p-3">
                       <BarRanking
@@ -538,7 +712,9 @@ function ModelIntelligence() {
                           value: weights.globalWeights[member] ?? null,
                           tone: "info" as const,
                         }))}
-                        valueFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+                        valueFormatter={(value) =>
+                          `${(value * 100).toFixed(0)}%`
+                        }
                       />
                       <div className="mt-3 border-t border-[var(--line)] pt-2">
                         <SeriesChart
@@ -551,7 +727,10 @@ function ModelIntelligence() {
                               area: true,
                               points: Object.entries(weights.conformalByHorizon)
                                 .sort((a, b) => Number(a[0]) - Number(b[0]))
-                                .map(([day, value]) => ({ label: `+${day}`, value })),
+                                .map(([day, value]) => ({
+                                  label: `+${day}`,
+                                  value,
+                                })),
                             },
                           ]}
                         />
@@ -563,7 +742,9 @@ function ModelIntelligence() {
                           </span>
                         </KeyValue>
                         <KeyValue label="Fitted on" dense>
-                          <span className="num text-[11.5px]">{weights.folds} folds</span>
+                          <span className="num text-[11.5px]">
+                            {weights.folds} folds
+                          </span>
                         </KeyValue>
                         <KeyValue label="Source" dense>
                           <span className="text-[11px]">{weights.source}</span>
@@ -571,7 +752,10 @@ function ModelIntelligence() {
                       </div>
                     </div>
                   ) : (
-                    <EmptyState title="No weights" detail="The run carried no ensemble weight artefact." />
+                    <EmptyState
+                      title="No weights"
+                      detail="The run carried no ensemble weight artefact."
+                    />
                   )}
                 </Panel>
               </div>
@@ -591,7 +775,10 @@ function ModelIntelligence() {
         )}
 
         {/* ------------------------------------------------- provenance -- */}
-        <Panel title="Artefact provenance" note={`readiness ${((provenance.data?.readiness ?? 0) * 100).toFixed(0)}%`}>
+        <Panel
+          title="Artefact provenance"
+          note={`${Object.keys(sources).length} source products · inspect receipt and coverage`}
+        >
           <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 p-3 lg:grid-cols-3 2xl:grid-cols-4">
             {Object.values(sources).map((source) => (
               <div key={source.source} className="min-w-0">
@@ -602,7 +789,8 @@ function ModelIntelligence() {
                   <Pill tone={statusTone(source.status)}>{source.status}</Pill>
                 </div>
                 <p className="num mt-0.5 truncate text-[10px] text-[var(--text-3)]">
-                  {source.rows ?? "n/a"} rows · observed {formatUtc(source.observed_at)}
+                  {source.rows ?? "n/a"} rows · observed{" "}
+                  {formatUtc(source.observed_at)}
                 </p>
               </div>
             ))}

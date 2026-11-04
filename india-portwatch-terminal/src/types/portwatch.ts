@@ -7,6 +7,8 @@
  * number, which is the whole point of the provenance model.
  */
 
+import type { SourceQualityDTO } from "./source-quality";
+
 export type RiskLevel = "normal" | "congested" | "severe";
 export type OperationalRiskLevel = "normal" | "medium" | "high" | "severe";
 export type Coast = "west" | "east" | "south";
@@ -48,6 +50,8 @@ export interface Health {
   forecastOrigin: string | null;
   forecastOriginStatus: DataStatus | null;
   forecastOriginAgeHours: number | null;
+  targetThrough?: string | null;
+  targetStatus?: "EXPIRED" | "PARTIAL_HORIZON" | "CURRENT_HORIZON" | "UNAVAILABLE" | null;
   horizonDays: number | null;
   ports: number | null;
   availablePorts: string[];
@@ -91,6 +95,10 @@ export interface ProvenanceSource {
   fallback: string | null;
   rows: number | null;
   isReal: boolean;
+  /** Optional versioned quality metadata; legacy provenance remains supported. */
+  sourceQuality?: SourceQualityDTO | null;
+  /** Set when an optional source-quality payload fails runtime validation. */
+  sourceQualityError?: string | null;
 }
 
 export interface Provenance {
@@ -103,6 +111,14 @@ export interface Provenance {
   synthetic?: string[];
   unavailable?: string[];
   sources: Record<string, ProvenanceSource>;
+  /** Retained product diagnostics; excluded from legacy numerical readiness. */
+  sourceQualityProducts?: Record<string, ProvenanceSource>;
+  sourceQualityProjection?: {
+    version: string;
+    readOnly: boolean;
+    legacyReadinessMeaning: string;
+    unavailableProjections: string[];
+  };
   forecastOrigin?: string | null;
   cacheAgeSeconds?: number | null;
   reason?: string;

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { FinanceBasisPanel } from "@/components/decision/FinanceBasisPanel";
 import {
@@ -22,8 +22,13 @@ import {
 } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
-import { useHealth, useProvenance } from "@/services/hooks";
-import type { DataStatus, ProvenanceSource } from "@/types/portwatch";
+import { SourceQualityInspector } from "@/components/intelligence/SourceQualityInspector";
+import { useHealth, usePortRegistry, useProvenance } from "@/services/hooks";
+import type {
+  DataStatus,
+  Provenance,
+  ProvenanceSource,
+} from "@/types/portwatch";
 
 export const Route = createFileRoute("/admin/data")({ component: DataSources });
 
@@ -35,14 +40,51 @@ const ORDER: Record<DataStatus, number> = {
   LIVE: 4,
 };
 
+function downloadSourceReport(
+  provenance: Provenance,
+  rows: ProvenanceSource[],
+) {
+  const report = {
+    schemaVersion: 1,
+    reportType: "source-quality-diagnostics",
+    scope: "Admin Data source register",
+    generatedAt: provenance.generatedAt,
+    exportedAt: new Date().toISOString(),
+    limitation:
+      "Diagnostic snapshot only. Fetch status does not make an older source observation current; unknown values remain null.",
+    projection: provenance.sourceQualityProjection ?? null,
+    legacyStatusReadiness: provenance.readiness,
+    sources: rows.map((source) => ({ ...source })),
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `portwatch-source-quality-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function DataSources() {
   const provenance = useProvenance();
   const health = useHealth();
+  const portRegistry = usePortRegistry();
 
   const rows = useMemo(
-    () => Object.values(provenance.data?.sources ?? {}),
+    () =>
+      Object.values({
+        ...provenance.data?.sources,
+        ...provenance.data?.sourceQualityProducts,
+      }),
     [provenance.data],
   );
+  const sourceReport = provenance.data;
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const returnFocusToSource = useRef<string | null>(null);
+  const selected =
+    rows.find((source) => source.source === selectedSource) ?? null;
 
   if (provenance.isLoading || provenance.isError) {
     return (
@@ -57,7 +99,10 @@ function DataSources() {
     );
   }
 
-  const counts = provenance.data?.counts ?? {};
+  const counts = rows.reduce<Record<string, number>>((totals, source) => {
+    totals[source.status] = (totals[source.status] ?? 0) + 1;
+    return totals;
+  }, {});
   const readiness = provenance.data?.readiness ?? 0;
   const overdue = rows.filter(
     (source) =>
@@ -68,12 +113,49 @@ function DataSources() {
 
   const columns: Array<Column<ProvenanceSource>> = [
     {
+      key: "inspect",
+      header: "Evidence",
+      width: 82,
+      render: (row) => (
+        <button
+          type="button"
+          ref={(button) => {
+            if (button && returnFocusToSource.current === row.source) {
+              button.focus();
+              returnFocusToSource.current = null;
+            }
+          }}
+          aria-label={`Inspect evidence for ${row.source}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            returnFocusToSource.current = null;
+            setSelectedSource(row.source);
+          }}
+          className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] text-[var(--text-2)] hover:border-[var(--info)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--info)]"
+        >
+          Inspect
+        </button>
+      ),
+    },
+    {
       key: "source",
       header: "Source",
+      width: 220,
       render: (row) => (
-        <span className="text-[var(--text)]" title={row.detail}>
-          {row.source}
-        </span>
+        <div className="w-[200px] whitespace-normal" title={row.detail}>
+          <span className="text-[var(--text)]">{row.source}</span>
+          <span
+            className="mt-0.5 block text-[10px] leading-snug text-[var(--text-3)]"
+            style={{
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
+              overflow: "hidden",
+            }}
+          >
+            {row.detail}
+          </span>
+        </div>
       ),
       sort: (row) => row.source,
     },
@@ -88,11 +170,29 @@ function DataSources() {
     },
     {
       key: "status",
-      header: "Status",
+      header: "Declared status",
       width: 128,
-      render: (row) => (
-        <Pill tone={statusTone(row.status)}>{STATUS_LABEL[row.status]}</Pill>
-      ),
+      render: (row) => {
+        const historicalArchive =
+          row.sourceQuality?.temporalRole === "HISTORICAL" ||
+          (row.sourceQuality == null &&
+            /\b(history|archive)\b/i.test(row.source));
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <Pill tone={statusTone(row.status)}>
+              {STATUS_LABEL[row.status]}
+            </Pill>
+            {historicalArchive ? (
+              <span
+                className="text-[9px] uppercase tracking-wide text-[var(--text-3)]"
+                title="Historical archive role; status above describes fetch freshness."
+              >
+                Archive
+              </span>
+            ) : null}
+          </div>
+        );
+      },
       sort: (row) => ORDER[row.status],
     },
     {
@@ -102,7 +202,13 @@ function DataSources() {
       width: 130,
       render: (row) => (
         <span className="num text-[var(--text-2)]">
-          {formatUtc(row.observed_at)}
+          {row.sourceQuality
+            ? row.sourceQuality.coverage.observedThrough == null
+              ? "Unknown"
+              : row.sourceQuality.coverage.datePrecision === "DATE_ONLY"
+                ? `${row.sourceQuality.coverage.observedThrough} (date only)`
+                : formatUtc(row.sourceQuality.coverage.observedThrough)
+            : formatUtc(row.observed_at)}
         </span>
       ),
       sort: (row) => row.observed_at,
@@ -114,7 +220,11 @@ function DataSources() {
       width: 130,
       render: (row) => (
         <span className="num text-[var(--text-3)]">
-          {formatUtc(row.fetched_at)}
+          {formatUtc(
+            row.sourceQuality
+              ? row.sourceQuality.receipt.lastFetchedAt
+              : row.fetched_at,
+          )}
         </span>
       ),
       sort: (row) => row.fetched_at,
@@ -147,11 +257,14 @@ function DataSources() {
     },
     {
       key: "confidence",
-      header: "Confidence",
+      header: "Status weight",
       align: "right",
       width: 118,
       render: (row) => (
-        <span className="flex items-center justify-end gap-2">
+        <span
+          className="flex items-center justify-end gap-2"
+          title="Legacy status heuristic, not calibrated source accuracy. Additional diagnostic products have no model weight."
+        >
           <span className="w-10">
             <MiniBar
               value={row.confidence}
@@ -199,22 +312,22 @@ function DataSources() {
         size="sm"
         items={[
           {
-            label: "Feed readiness",
-            value: `${(readiness * 100).toFixed(0)}%`,
-            tone: readiness >= 0.8 ? "ok" : readiness >= 0.5 ? "warn" : "crit",
-            note: `${rows.length} sources registered`,
+            label: "Source products in scope",
+            value: Object.keys(provenance.data?.sources ?? {}).length,
+            tone: "info",
+            note: "Recorded product states below; inspect receipt and coverage",
           },
           {
             label: "Live",
             value: counts.LIVE ?? 0,
             tone: "ok",
-            note: "fetched inside its budget",
+            note: "recorded status; inspect receipt separately",
           },
           {
             label: "Cached",
             value: counts.CACHED_LIVE ?? 0,
             tone: "info",
-            note: "served from the local response cache",
+            note: "recorded cache/product status",
           },
           {
             label: "Stale",
@@ -237,31 +350,57 @@ function DataSources() {
         ]}
       />
 
-      <PageBody padded={false} className="flex min-h-0 overflow-hidden">
+      <PageBody
+        padded={false}
+        className="flex min-h-0 flex-col overflow-hidden lg:flex-row"
+      >
         <Panel
           title="Source register"
           note={`${rows.length} feeds`}
+          actions={
+            sourceReport ? (
+              <button
+                type="button"
+                aria-label="Download source quality report as JSON"
+                onClick={() => downloadSourceReport(sourceReport, rows)}
+                className="rounded border border-[var(--line)] px-2 py-1 text-[10px] text-[var(--text-2)] hover:border-[var(--info)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--info)]"
+              >
+                Download report
+              </button>
+            ) : null
+          }
           className="min-w-0 flex-1 rounded-none border-0 border-r border-[var(--line)]"
         >
-          <DataTable
-            rows={rows}
-            columns={columns}
-            rowKey={(row) => row.source}
-            initialSort="status"
-            initialDirection="asc"
-            rowTone={(row) =>
-              row.status === "UNAVAILABLE"
-                ? "var(--crit)"
-                : row.status === "STALE"
-                  ? "var(--warn)"
-                  : row.status === "SYNTHETIC"
-                    ? "var(--unc)"
-                    : null
-            }
-          />
+          {selected ? (
+            <SourceQualityInspector
+              source={selected}
+              portRegistry={portRegistry.data ?? null}
+              onClose={() => {
+                returnFocusToSource.current = selected.source;
+                setSelectedSource(null);
+              }}
+            />
+          ) : (
+            <DataTable
+              rows={rows}
+              columns={columns}
+              rowKey={(row) => row.source}
+              initialSort="status"
+              initialDirection="asc"
+              rowTone={(row) =>
+                row.status === "UNAVAILABLE"
+                  ? "var(--crit)"
+                  : row.status === "STALE"
+                    ? "var(--warn)"
+                    : row.status === "SYNTHETIC"
+                      ? "var(--unc)"
+                      : null
+              }
+            />
+          )}
         </Panel>
 
-        <aside className="flex w-[400px] shrink-0 flex-col overflow-y-auto 2xl:w-[440px]">
+        <aside className="flex max-h-[38vh] w-full shrink-0 flex-col overflow-y-auto border-t border-[var(--line)] lg:max-h-none lg:w-[400px] lg:border-t-0 2xl:w-[440px]">
           <FinanceBasisPanel scope="INNSA" />
           <Panel
             title="What the states mean"

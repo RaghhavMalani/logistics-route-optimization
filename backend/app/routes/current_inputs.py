@@ -3,11 +3,12 @@ import copy
 from datetime import timedelta
 from fastapi import APIRouter, Body, HTTPException, Query
 from backend.app.identity import current_identity
+from backend.app.services.demo_terminal import demo_hulls
 from src.utils import port_registry
 from src.portwatch_os.clock import get_clock, LIVE, wall_now
 from src.portwatch_os.sandbox import current_sandbox
 from src.portwatch_os.decision.continuation import connected_basis
-from src.portwatch_os.intelligence.current_environment import bundle, map_signals, instant, ensure_current, retain_feedback
+from src.portwatch_os.intelligence.current_environment import retained_bundle as bundle, map_signals, instant
 
 router = APIRouter()
 
@@ -20,22 +21,24 @@ def public_mode():
 
 
 @router.get("/intelligence/current")
-def current(portCode: str = Query("INNSA")):
+def current(portCode: str = Query("INNSA"), view: str = Query("scenario", pattern="^(provider|scenario)$")):
     public_mode()
     port = port_registry.resolve(portCode)
     if port is None: raise HTTPException(404,"Port is not registered")
+    scoped = current_sandbox.get()
+    fixture = scoped.world.get('illustrativeInputs', {}).get('forecast') if view == 'scenario' and scoped and scoped.world.get('demoScenario') else None
+    if fixture and fixture.get('portCode') == port.locode:
+        result = copy.deepcopy(fixture); result.pop('fixtureOriginal', None)
+        return result
     if get_clock().state.mode != LIVE:
         return {"status":"HISTORICAL_UNAVAILABLE","portCode":port.locode,"sources":{},"hourly":[],"daily":[],"regionalHazards":[]}
-    result = bundle(port)
-    retain_feedback(port)
-    return result
+    return bundle(port)
 
 
 @router.get("/weather/current-map")
 def weather_map():
     public_mode()
     if get_clock().state.mode != LIVE: return []
-    ensure_current()
     return map_signals()
 
 
@@ -56,15 +59,16 @@ def proposals():
     latest = scoped.world.get("terminalProposal") or {}
     if latest.get("environmentEvidenceId"):
         journeys.setdefault(latest["decisionId"], {"proposal":latest,"reviewDecisionId":scoped.world.get("currentArrivalReview")})
+    allowed = {row["id"] for row in demo_hulls(scoped.world)}
     rows = []
     for key, journey in reversed(list(journeys.items())):
         proposal = journey.get("proposal")
         source = get_engine().get(key)
-        if not proposal or source is None: continue
+        if not proposal or source is None or proposal.get("vesselId") not in allowed: continue
         env = connected_basis(source)
         if who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code: continue
         rows.append({**proposal,"subject":source.subject_label,"evidence":env,
-                     "evidenceKind":"restriction" if env.get('kind')=='NOTICE_RESTRICTION' else "intelligence" if source.evidence.get("intelligenceBasis") else "weather",
+                     "evidenceKind":"restriction" if env.get('kind') in ('NOTICE_RESTRICTION', 'PARADIP_ENTRY_RESTRICTION') else "intelligence" if source.evidence.get("intelligenceBasis") else "weather",
                      "reviewDecisionId":journey.get("reviewDecisionId") or (scoped.world.get("currentArrivalReview") if key == latest.get("decisionId") else None)})
     return {"proposals":rows}
 
@@ -83,18 +87,24 @@ def review_proposal(payload: dict = Body(...)):
         raise HTTPException(409,"The Company proposal must have a computed, approved decision")
     env = connected_basis(source)
     existing = journey.get("reviewDecisionId") or (scoped.world.get("currentArrivalReview") if (scoped.world.get("terminalProposal") or {}).get("decisionId")==source.decision_id else None)
+    if (who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code) or not any(
+        row["id"] == proposal.get("vesselId") for row in demo_hulls(scoped.world)
+    ):
+        raise HTTPException(404,"No submitted current-input proposal in this visitor's world")
     if existing and engine.get(existing): return engine.get(existing).to_dict()
-    if who.role == "PORT_AUTHORITY" and env["portCode"] != who.port_code:
-        raise HTTPException(403,"This proposal belongs to another port")
     from src.portwatch_os.decision.continuation import require_current
     require_current(source)
     problem = copy.deepcopy(source)
     problem.decision_id = source.decision_id+"-port"
     problem.actor = DecisionActor(role=who.role,organisation=who.organisation,port_code=env["portCode"])
     problem.workflow, problem.workflow_history, problem.human_choice = COMPUTED, [], None
+    # wall-clock: Port review creation is a new actual audit action over frozen domain evidence.
     problem.created_at = wall_now().isoformat()
     problem.evidence["companyProposal"] = {"decisionId":source.decision_id,"optionId":proposal["optionId"],
         "environmentEvidenceId":env["evidenceId"],"meaning":"Port review of the identical frozen Company input/assumptions"}
+    if env.get("operationalEpisode"):
+        problem.evidence["companyProposal"].update(operationalEpisode=env["operationalEpisode"],
+            approvedAction=proposal.get("approvedAction"))
     for option in problem.options: option.actor = who.role
     problem = engine.finish(problem)
     def save(world):
@@ -131,6 +141,9 @@ def demo_outcome(decision_id: str):
         def recover(world):
             if (world.get("terminalProposal") or {}).get("environmentEvidenceId") == saved["environmentEvidenceId"]:
                 world["currentArrivalOutcome"] = saved
+            if saved.get("simulatedAction"):
+                action = saved["simulatedAction"]
+                world.setdefault("operationalActions", {})[action["id"]] = action
         scoped.save_world(recover)
         return {"outcome":saved,"advisories":[r.to_dict() for r in rows]}
     if not env or not rows or any(r is None or r.state not in ("accepted", "completed") for r in rows):
@@ -140,17 +153,60 @@ def demo_outcome(decision_id: str):
     if any((connected_basis(r) or {}).get("evidenceId") != env["evidenceId"] for r in rows):
         raise HTTPException(409,"Frozen input evidence no longer matches the advisory")
     choice = problem.option(problem.human_choice)
-    outcome = {"kind":"SIMULATED_DEMO_OUTCOME","environmentEvidenceId":env["evidenceId"],
+    outcome = {"kind":"SIMULATED_DEMO_OUTCOME","recordKind":"SIMULATED_DEMO_OUTCOME","environmentEvidenceId":env["evidenceId"],
         "requestedArrival":choice.evaluation.derived["arrivalAt"],"clearApproachAt":env.get("firstClearApproach"),
         "baselineAssumedWaitHours":env.get("forecastGateWaitHours",0),
         "selectedAssumedWaitHours":choice.evaluation.objectives["eta"].value if problem.evidence.get("intelligenceBasis") else choice.evaluation.objectives["port_wait"].value,
         "evidenceKind":"intelligence" if problem.evidence.get("intelligenceBasis") else "weather",
         "note":env["meaning"] if problem.evidence.get("intelligenceBasis") else "Reproduced from the frozen forecast/approach assumptions; not an independent observed outcome, forecast verification, berth guarantee or measured saving."}
+    if env.get("passagePlan"):
+        # A speed/departure alternative can clear a different forecast hour
+        # than the baseline. Reproduce the selected frozen calculation only.
+        derived = choice.evaluation.derived
+        baseline = problem.baseline
+        baseline_derived = baseline.evaluation.derived if baseline and baseline.evaluation else {}
+        outcome.update(
+            evidenceKind="passage", clearApproachAt=derived.get("approachClearAt"),
+            baselineAssumedWaitHours=baseline_derived.get("anchorageWaitHours"),
+            selectedAssumedWaitHours=derived.get("anchorageWaitHours"),
+            selectedAction=choice.action, selectedParameters=copy.deepcopy(choice.params),
+            passagePlan=copy.deepcopy(env["passagePlan"]),
+            passageComparisonVersion=(env.get("passageComparison") or {}).get("version"),
+            selectedPassage=copy.deepcopy(derived),
+            totalScheduleShiftHours=derived.get("scheduleShiftHours"),
+            financial=copy.deepcopy(choice.evaluation.financial),
+            note="Reproduces the accepted frozen passage, hourly approach assumptions and modeled fuel/cost components in this fictional visitor world; not actual vessel execution, measured savings, weather verification or a navigation command.")
+    if env.get("cargoCommitment"):
+        outcome.update(cargoCommitment=copy.deepcopy(env["cargoCommitment"]),
+            cargoComparisonVersion=env["cargoComparison"]["version"],
+            selectedCargoAssessment=copy.deepcopy(choice.evaluation.derived["cargoAssessment"]),
+            cargoExecutionStatus="NOT_EXECUTED", cargoBookingStatus="NOT_RESERVED",
+            finalDeliveryAt=None)
+    from backend.app.routes.decisions import _approved_operational_action
+    approved = _approved_operational_action(problem, choice)
+    if approved:
+        from src.portwatch_os.learning.shared_feedback import identifier
+        # wall-clock: the simulated-action audit is recorded now; simulatedTargetAt remains a separate schedule.
+        recorded_at = wall_now().isoformat()
+        action = {**approved, "kind": "SIMULATED_DEMO_ACTION", "recordKind": "SIMULATED_OPERATIONAL_RECORD",
+            "id": "sim-action-" + identifier([decision_id, approved["operationalActionId"]]),
+            "recordedAt": recorded_at, "simulatedTargetAt": choice.evaluation.derived.get("requestedPassageAt") or choice.evaluation.derived["arrivalAt"],
+            "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None,
+            "eligibleForRealTarget": False,
+            "meaning": "Reproduces the accepted conditional plan in this fictional visitor world; no real vessel action or actual operational record is asserted."}
+        outcome.update(operationalEpisode=env["operationalEpisode"],
+            operationalActionId=approved["operationalActionId"], simulatedAction=action,
+            realOutcomeStatus="PENDING_ACTUAL_RECORDS", eligibleForRealTarget=False)
     if env.get('kind')=='NOTICE_RESTRICTION':
         outcome.update(evidenceKind='restriction',selectedAssumedWaitHours=choice.evaluation.objectives['port_wait'].value,
             requestedPassage=choice.evaluation.derived['requestedPassageAt'],earliestScheduledAccess=env['restriction']['earliestScheduledAccess'],
             totalScheduleShiftHours=env['restriction']['totalScheduleShiftHours'],noticeRevisionId=env['restriction']['revisionId'],
             calculation=env['restriction'])
+    if env.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+        outcome.update(evidenceKind='paradip_entry', requestedArrival=choice.evaluation.derived['requestedEntryAt'],
+            baselineAssumedWaitHours=None, selectedAssumedWaitHours=None, actualEarliestPermittedAccess=None,
+            totalScheduleShiftHours=None, selectedAction='HOLD_AND_REFER',
+            noticeRevisionId=env['reportedFact']['revisionId'], actualExecutionStatus='NOT_OBSERVED', eligibleForRealTarget=False)
     principal = principal_from_request(who.actor,who.role,who.port_code,who.organisation,None)
     for row in rows:
         row.evidence["demoOutcome"] = outcome
@@ -164,6 +220,9 @@ def demo_outcome(decision_id: str):
     problem.evidence["demoOutcome"] = outcome
     engine._record(problem)
     def save_outcome(world):
+        if outcome.get("simulatedAction"):
+            action = outcome["simulatedAction"]
+            world.setdefault("operationalActions", {})[action["id"]] = action
         source = (problem.evidence.get("companyProposal") or {}).get("decisionId")
         if source: world.setdefault("weatherJourneys", {}).setdefault(source, {})["outcome"] = outcome
         if (world.get("terminalProposal") or {}).get("environmentEvidenceId") == env["evidenceId"]:
@@ -173,7 +232,7 @@ def demo_outcome(decision_id: str):
 
 
 @router.post("/decisions/problems/{decision_id}/refresh")
-def refresh_comparison(decision_id: str):
+def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
     scoped, who = current_sandbox.get(), current_identity.get()
     if scoped is None or who is None or who.role != "SHIPPING_COMPANY":
         raise HTTPException(403,"Company refreshes its own frozen comparison")
@@ -183,22 +242,63 @@ def refresh_comparison(decision_id: str):
     if source is None or not connected_basis(source) or source.actor.role != who.role:
         raise HTTPException(404,"No Company connected comparison in this visitor's records")
     _visible_or_403(source, who)
+    override = payload.get("currentArrival")
+    if override is not None and not isinstance(override, dict):
+        raise HTTPException(400,"currentArrival refresh inputs must be an object")
     previous = source.evidence.get("successorDecisionId")
-    if previous and engine.get(previous):
+    if override is None and previous and engine.get(previous):
         return engine.get(previous).to_dict()
     env = connected_basis(source)
-    if env.get('kind')=='NOTICE_RESTRICTION':
-        from backend.app.routes.operational_notices import comparison
-        from src.portwatch_os.intelligence.operational_notices import refresh
-        latest=refresh(force=True)
-        result=comparison({'vesselId':source.subject_id,'revisionId':latest.get('revisionId')})
+    if override is not None and (env.get('kind')=='NOTICE_RESTRICTION' or source.evidence.get("intelligenceBasis")):
+        raise HTTPException(400,"Edited currentArrival inputs apply to a weather/passage comparison")
+    if env.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+        from backend.app.routes.navigation_restrictions import paradip_entry_comparison
+        vessel = next((row for row in scoped.world['fleet'] if row['id'] == source.subject_id), {})
+        if (vessel.get('operationalEpisode') or {}).get('id') != env['operationalEpisode']['id']:
+            raise HTTPException(409, 'Declare a new comparison for the current Paradip call')
+        result = paradip_entry_comparison({'confirmed': True})
+    elif env.get('kind')=='NOTICE_RESTRICTION':
+        if env['restriction'].get('sourceFamily') == 'NAVCEN_MSI':
+            from backend.app.routes.navigation_restrictions import comparison
+            from src.portwatch_os.intelligence.navigation_restrictions import refresh
+            notice_id=env['reportedFact'].get('noticeId') or env['reportedFact'].get('providerNoticeId')
+            latest=refresh(force=True,**({'notice_id':notice_id} if notice_id else {}))
+        else:
+            from backend.app.routes.operational_notices import comparison
+            from src.portwatch_os.intelligence.operational_notices import refresh
+            latest=refresh(force=True)
+        result=comparison({'vesselId':source.subject_id,'revisionId':latest.get('revisionId'),
+            **({'noticeId':latest.get('noticeId')} if latest.get('noticeId') else {})})
     elif source.evidence.get("intelligenceBasis"):
         from backend.app.routes.shipping_intelligence import comparison
         result=comparison({"signalId":env["reportedFact"]["id"],"vesselId":source.subject_id,
-                           "assumedHoldHours":env["assumptions"]["assumedHoldHours"]})
+                           "assumedHoldHours":env["assumptions"]["assumedHoldHours"],
+                           "feedbackClaimIds":[i["claim"]["id"] for i in env.get("feedbackConsumption",{}).get("inputs",[])]})
     else:
+        inputs = copy.deepcopy(override) if override is not None else {
+            "plannedArrival":env["plannedArrival"], "inputView":env.get('inputView','scenario'), **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")},
+            **({"passagePlan":copy.deepcopy(env["passagePlan"])} if env.get("passagePlan") else {}),
+            **({"cargoCommitment":copy.deepcopy(env["cargoCommitment"])} if env.get("cargoCommitment") else {})}
+        if env.get('sourceReviewBindings') and override is None:
+            raise HTTPException(409,'Refresh requires explicit review of the current Indian-source revision in the input editor; the approved predecessor remains saved.')
+        if env.get('portContextBindings') and override is None:
+            raise HTTPException(409,'Explicitly review the current daily port metric and operator criterion in the input editor before creating a successor.')
+        if env.get("passagePlan"):
+            # Frozen assumptions stay inspectable, but an expired position or
+            # declaration cannot silently turn a passage refresh into the older
+            # arrival-window-only capability.
+            from src.portwatch_os.decision.passage import validate_plan
+            from src.portwatch_os.clock import wall_now as current_wall
+            from backend.app.services.demo_terminal import company_for
+            current_voyage = company_for(scoped.world).vessel(source.subject_id)
+            if current_voyage is None:
+                raise HTTPException(404,"The declared voyage is no longer in this visitor's fleet")
+            try:
+                validate_plan(inputs.get("passagePlan"), at=current_wall(), voyage_eta=current_voyage.eta)
+            except ValueError as exc:
+                raise HTTPException(409,"Refresh requires an explicit current passage declaration/position: " + str(exc) + ". Supply updated currentArrival.passagePlan inputs; the original comparison and approvals remain saved.") from None
         result = create_problem({"domain":"vessel", "vesselId":source.subject_id,
-            "currentArrival":{"plannedArrival":env["plannedArrival"], **{k:env["assumptions"][k] for k in ("maxGustKn","minVisibilityM")}}},
+            "currentArrival":inputs,"predecessorDecisionId":source.decision_id},
             actor_name=who.actor, role=who.role, header_port=who.port_code, organisation=who.organisation,
             vessel_ids=",".join(who.vessel_ids))
     successor = engine.get(result["decisionId"])

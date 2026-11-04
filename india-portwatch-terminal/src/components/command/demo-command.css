@@ -24,14 +24,14 @@
 .command-search input {
   width: 100%;
   height: 30px;
-  background: #0c1c27ed;
+  background: var(--map-overlay);
   border: 1px solid var(--line-strong);
   padding: 6px 9px;
   font-size: 12px;
 }
 .command-search details {
   margin-top: 6px;
-  background: #0c1c27ed;
+  background: var(--map-overlay);
   border: 1px solid var(--line-strong);
   padding: 6px 9px;
   font-size: 11px;
@@ -86,9 +86,9 @@
   display: block;
   width: 100%;
   padding: 7px 9px;
-  background: #253f4b;
-  border: 1px solid #58788a;
-  color: #e1edf4;
+  background: var(--panel-2);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
   font-size: 12px;
   margin: 8px 0;
   cursor: pointer;
@@ -108,9 +108,9 @@
 .command-fields input {
   display: block;
   width: 100%;
-  background: #0a1923;
-  border: 1px solid #304856;
-  color: #dce8ef;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
   padding: 6px;
   margin-top: 3px;
 }
@@ -129,15 +129,15 @@
   margin-top: 2px;
 }
 .command-option[aria-pressed="true"] {
-  background: #293e43;
-  border-left: 2px solid #e2ad4e;
+  background: var(--panel-2);
+  border-left: 2px solid var(--signal-ink);
 }
 .command-voyage-strip {
   position: absolute;
   left: 10px;
   bottom: 49px;
   right: 325px;
-  background: #0c1c27ed;
+  background: var(--map-overlay);
   border: 1px solid var(--line);
   padding: 7px 9px;
   display: flex;
@@ -174,7 +174,7 @@
   position: absolute;
   top: 15px;
   left: 18px;
-  background: #0c1c27dd;
+  background: var(--map-overlay);
   padding: 8px 12px;
   max-width: 420px;
 }
@@ -210,8 +210,8 @@
   width: 340px;
   overflow: auto;
   padding: 20px;
-  border: 1px solid #304959;
-  background: #0d1d28f5;
+  border: 1px solid var(--line-strong);
+  background: var(--map-overlay);
 }
 .entry-console h2 {
   font-size: 18px;
@@ -224,22 +224,22 @@
   grid-template-columns: 1fr;
   gap: 0;
   margin: 18px 0;
-  border-top: 1px solid #304959;
+  border-top: 1px solid var(--line-strong);
 }
 .entry-console .demo-entry-buttons button {
   min-height: 76px;
   background: transparent;
   border: 0;
   border-radius: 0;
-  border-bottom: 1px solid #304959;
+  border-bottom: 1px solid var(--line-strong);
   padding: 12px 0;
 }
 .entry-console .demo-entry-buttons button:hover {
-  background: #1b303e;
+  background: var(--panel-2);
 }
 .entry-console .demo-entry-buttons strong {
   font-size: 13px;
-  color: #dbe8ef;
+  color: var(--text);
   margin-bottom: 5px;
 }
 .entry-console .demo-entry-buttons span {
@@ -314,7 +314,7 @@
     right: 8px;
     bottom: 10px;
     width: auto;
-    background: #0b1a25;
+    background: var(--panel);
   }
   .fleet-command-preview[data-pane="inspector"] .command-inspector {
     display: flex;

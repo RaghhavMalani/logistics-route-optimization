@@ -332,6 +332,9 @@ class DecisionEngine:
         })
         self._store(problem)
         self._record(problem)
+        if self.ledger is not None and problem.evidence.get("intelligenceBasis"):
+            from src.portwatch_os.learning.shared_feedback import record_operational_targets
+            record_operational_targets(self.ledger, problem)
         return problem
 
     def choose_expected(self, problem: DecisionProblem, ranking: Dict[str, Any]):
@@ -516,6 +519,9 @@ class DecisionEngine:
     def _record(self, problem: DecisionProblem, *, outcome: bool = False) -> None:
         if self.ledger is None:
             return
+        if problem.evidence.get("intelligenceBasis"):
+            from src.portwatch_os.learning.shared_feedback import select_operational_targets
+            select_operational_targets(self.ledger, problem)
         from src.portwatch_os.decision.ledger import record_problem, resolve_problem
 
         from src.portwatch_os.sandbox import current_sandbox

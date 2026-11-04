@@ -458,9 +458,11 @@ def invalidate_world(changed_by: str) -> None:
 
 def product_jobs() -> list[RefreshJob]:
     from src.portwatch_os.freshness.public_ports import public_port_jobs
+    from src.portwatch_os.intelligence.operational_feed import operational_feed_jobs
     from src.portwatch_os.intelligence.vesselfinder import vessel_jobs
     return [
         *public_port_jobs(),
+        *operational_feed_jobs(),
         *vessel_jobs(),
         RefreshJob(policy=EVENTS_POLICY, probe=probe_events, run=refresh_events),
         RefreshJob(policy=MARINE_POLICY, probe=probe_marine, run=refresh_marine, eligibility=marine_eligibility),
@@ -475,7 +477,13 @@ def product_jobs() -> list[RefreshJob]:
 
 
 def install_product_jobs(coordinator: RefreshCoordinator) -> RefreshCoordinator:
-    for job in product_jobs():
+    from src.portwatch_os.freshness.free_research import jobs as research_jobs
+    base_jobs=product_jobs()
+    if (os.getenv('PORTWATCH_RESEARCH_SOURCE_PROFILE') or os.getenv('PORTWATCH_LOCAL_PROVIDER_PROFILE'))=='1':
+        # This explicit profile collects public products only. It does not
+        # rerun a forecasting pipeline or rewrite global CSV/support caches.
+        base_jobs=[job for job in base_jobs if job.artifact.startswith('public_ports_')]
+    for job in [*base_jobs, *research_jobs()]:
         if job.artifact not in coordinator.artifacts():
             coordinator.register(job)
     return coordinator

@@ -5,7 +5,7 @@ export const Route = createFileRoute("/research")({
   component: PublicResearch,
   head: () => ({
     meta: [
-      { title: "PortWatch — Research results" },
+      { title: "PortWatch X — Research results" },
       {
         name: "description",
         content:

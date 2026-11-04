@@ -35,10 +35,15 @@ import type {
 } from "@/types/decisions";
 
 import { DecisionTimeline } from "./DecisionTimeline";
+import { CommercialReview } from "./CommercialReview";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
 import { FrozenWeatherBasis } from "@/components/intelligence/FrozenWeatherBasis";
+import {
+  PassageDecisionSummary,
+  PassageRecommendation,
+} from "@/components/intelligence/PassageDecisionSummary";
 import {
   FrozenIntelligenceBasis,
   type IntelligenceBasis,
@@ -46,7 +51,14 @@ import {
 import type { FrozenEnvironment } from "@/services/current-inputs";
 
 type Tab =
-  "options" | "robust" | "frontier" | "timeline" | "money" | "why" | "workflow";
+  | "options"
+  | "robust"
+  | "frontier"
+  | "timeline"
+  | "money"
+  | "why"
+  | "workflow"
+  | "business";
 
 const VERDICT_TONE: Record<CriticVerdict, Tone> = {
   PASS: "ok",
@@ -146,10 +158,13 @@ export function DecisionPanel({
   onSelectOption,
   onToggleCompare,
   onClose,
+  onEditCurrentInputs,
+  onNewComparison,
   canHandoff = false,
   onRecompute,
   recomputing = false,
   compact = false,
+  closedWindowStatus,
 }: {
   problem: DecisionProblem;
   selectedOptionId: string | null;
@@ -157,6 +172,9 @@ export function DecisionPanel({
   onSelectOption: (optionId: string) => void;
   onToggleCompare: (compare: boolean) => void;
   onClose?: () => void;
+  /** Open the existing input editor without a floating control over the inspector. */
+  onEditCurrentInputs?: () => void;
+  onNewComparison?: (problem: DecisionProblem) => void;
   /** Whether the signed-in actor may hand an approved option into the advisory boundary. */
   canHandoff?: boolean;
   /** Re-run the decision priced with scenario assumptions; absent, the Money tab offers no form. */
@@ -164,10 +182,18 @@ export function DecisionPanel({
   recomputing?: boolean;
   /** Fewer tabs, for a replay or a twin sidebar. */
   compact?: boolean;
+  closedWindowStatus?: string;
 }) {
-  const { identityHeaders } = useAuth();
+  const { identityHeaders, session } = useAuth();
   const workflow = useDecisionWorkflow(identityHeaders);
   const [tab, setTab] = useState<Tab>("options");
+  useEffect(() => {
+    document
+      .querySelector<HTMLElement>(
+        `[data-testid="decision-panel"][data-decision="${CSS.escape(problem.decisionId)}"]`,
+      )
+      ?.focus();
+  }, [problem.decisionId]);
   // The first two objectives every feasible option is measured on, in the
   // engine's frontier order: a chart over an axis half the options lack
   // would open on an apology.
@@ -206,17 +232,22 @@ export function DecisionPanel({
     FrozenEnvironment | undefined;
   const intelligence = problem.evidence?.intelligenceBasis as
     IntelligenceBasis | undefined;
+  const passageUnavailable = problem.evidence.passagePlanningUnavailable as
+    { reason: string; fallback: string; meaning: string } | undefined;
   const columns = currentWeather
     ? [
         { key: "eta", label: "Clear approach shift" },
         { key: "port_wait", label: "Assumed wait" },
         { key: "weather", label: "Wave" },
+        ...(currentWeather.passageComparison
+          ? [{ key: "fuel", label: "Modeled fuel" }]
+          : []),
         { key: "cost", label: "Cost" },
       ]
     : intelligence?.kind === "NOTICE_RESTRICTION"
       ? [
           { key: "eta", label: "Total schedule shift" },
-          { key: "port_wait", label: "Planned lock wait" },
+          { key: "port_wait", label: "Planned access wait" },
           { key: "fuel", label: "Fuel" },
           { key: "cost", label: "Cost" },
         ]
@@ -229,25 +260,36 @@ export function DecisionPanel({
     <div
       ref={rootRef}
       data-testid="decision-panel"
+      tabIndex={-1}
+      role="region"
+      aria-label="Decision comparison"
       data-decision={problem.decisionId}
+      data-passage={Boolean(currentWeather?.passageComparison)}
       data-layout={stacked ? "stacked" : "table"}
-      className="flex min-h-0 flex-1 flex-col"
+      className="pw-decision-panel flex min-h-0 flex-1 flex-col"
     >
       {/* ------------------------------------------------------- header -- */}
-      <div className="border-b border-[var(--line)] px-2 py-1.5">
+      <div className="pw-decision-header border-b border-[var(--line)] px-2 py-1.5">
         <div className="flex items-center gap-1.5">
           <Pill
             tone={
-              problem.decisionWindowHours != null &&
-              problem.decisionWindowHours < 3
-                ? "crit"
-                : "warn"
+              closedWindowStatus
+                ? "info"
+                : problem.decisionWindowHours != null &&
+                    problem.decisionWindowHours < 3
+                  ? "crit"
+                  : "warn"
             }
             solid
           >
-            Action required
+            {closedWindowStatus ?? "Action required"}
           </Pill>
-          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-[var(--text)]">
+          <span
+            className={cn(
+              "min-w-0 flex-1 text-[11px] font-medium text-[var(--text)]",
+              currentWeather?.passageComparison ? "break-words" : "truncate",
+            )}
+          >
             {problem.subject.label}
           </span>
           {onClose ? (
@@ -262,27 +304,31 @@ export function DecisionPanel({
           ) : null}
         </div>
         <p className="mt-0.5 truncate text-[10px] text-[var(--text-2)]">
-          {problem.headline.split(" · ").slice(1).join(" · ") ||
-            problem.headline}
+          {currentWeather?.passageComparison
+            ? "Declared passage · conditional port approach"
+            : problem.headline.split(" · ").slice(1).join(" · ") ||
+              problem.headline}
         </p>
         <div className="mt-1 flex items-center gap-3 text-[10.5px] text-[var(--text-3)]">
-          <span>
-            Decision window{" "}
-            <span
-              className="num text-[var(--text)]"
-              data-testid="decision-countdown"
-            >
-              {/* A replay's deadline is historical: the window is stated from its clock, not counted down from ours. */}
-              {isReplay
-                ? problem.decisionWindowHours != null
-                  ? `${problem.decisionWindowHours.toFixed(1)} h from the replay clock`
-                  : "open"
-                : (countdown ??
-                  (problem.decisionWindowHours != null
-                    ? `${problem.decisionWindowHours.toFixed(1)} h`
-                    : "open"))}
+          {!closedWindowStatus ? (
+            <span>
+              Decision window{" "}
+              <span
+                className="num text-[var(--text)]"
+                data-testid="decision-countdown"
+              >
+                {/* A replay's deadline is historical: the window is stated from its clock, not counted down from ours. */}
+                {isReplay
+                  ? problem.decisionWindowHours != null
+                    ? `${problem.decisionWindowHours.toFixed(1)} h from the replay clock`
+                    : "open"
+                  : (countdown ??
+                    (problem.decisionWindowHours != null
+                      ? `${problem.decisionWindowHours.toFixed(1)} h`
+                      : "open"))}
+              </span>
             </span>
-          </span>
+          ) : null}
           {isReplay ? <Pill tone="info">Replay</Pill> : null}
           <span className="num ml-auto">
             {problem.counts.feasible} feasible · {problem.counts.rejected}{" "}
@@ -293,23 +339,46 @@ export function DecisionPanel({
           className="mt-1 text-[10px] leading-snug text-[var(--text-2)]"
           data-testid="do-nothing"
         >
-          {problem.doNothingStatement}
+          {currentWeather?.passageComparison
+            ? "Current plan and alternatives use frozen declarations and forecast hours."
+            : problem.doNothingStatement}
         </p>
       </div>
 
-      {problem.evidence.currentEnvironment ? (
-        <p className="px-2 py-2 text-xs">
-          Forecast approach comparison: both options reach the same clear
-          approach time. Later arrival reduces assumed anchorage waiting. The
-          closure-duration stress model does not apply; calibrated uncertainty
-          is unavailable.
+      {currentWeather?.passageComparison ? (
+        <p className="pw-mixed-basis">
+          {currentWeather.evidenceKind === "SOFTWARE_LIFECYCLE_FIXTURE"
+            ? "Software forecast fixture"
+            : "Provider forecast"}{" "}
+          + declared voyage · modeled approach, demo review
+        </p>
+      ) : problem.evidence.currentEnvironment ? (
+        <p className="px-2 py-1 text-xs">
+          {currentWeather?.passageComparison ? (
+            <>
+              Proposed arrival plan; Port review is advisory. Navigation remains
+              the operator's decision.
+            </>
+          ) : (
+            <>
+              Forecast approach comparison: both options reach the same clear
+              approach time. Later arrival reduces assumed anchorage waiting.
+              The closure-duration stress model does not apply; calibrated
+              uncertainty is unavailable.
+            </>
+          )}
         </p>
       ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
         <p className="p-2 text-xs">
-          Published lock restriction and declared voyage timing. Both options
-          use the same first operational tide and conditional destination
-          arrival. Revising the request relocates planned waiting; actual access
-          and operational benefits remain unavailable.
+          Published authority restriction and declared voyage timing. Both
+          options use the same published access boundary and conditional
+          destination arrival. Revising the request relocates planned waiting;
+          actual access and operational benefits remain unavailable.
+        </p>
+      ) : intelligence?.kind === "PARADIP_ENTRY_RESTRICTION" ? (
+        <p className="p-2 text-xs">
+          The only eligible option is referral for human review. Entry,
+          pilotage, and the schedule effect remain unknown.
         </p>
       ) : intelligence ? (
         <p className="p-2 text-xs">
@@ -320,155 +389,279 @@ export function DecisionPanel({
       ) : (
         <RobustHeadline problem={problem} />
       )}
+      {passageUnavailable ? (
+        <p
+          role="status"
+          className="border-b border-[var(--line)] px-2 py-2 text-xs"
+        >
+          Passage planning unavailable: {passageUnavailable.reason}. Fallback:
+          arrival-window comparison only. {passageUnavailable.meaning}
+        </p>
+      ) : null}
 
-      <PanelTabs
-        value={tab}
-        onChange={setTab}
-        tabs={
-          compact
-            ? [
-                { value: "options", label: "Options", count: feasible.length },
-                { value: "robust", label: "Robust" },
-                { value: "frontier", label: "Frontier" },
-                { value: "why", label: "Why" },
-              ]
-            : [
-                { value: "options", label: "Options", count: feasible.length },
-                { value: "robust", label: "Robust" },
-                { value: "frontier", label: "Frontier" },
-                { value: "timeline", label: "Timeline" },
-                { value: "money", label: "Money" },
-                { value: "why", label: "Why" },
-                { value: "workflow", label: "Decide" },
-              ]
+      {onEditCurrentInputs ? (
+        <button
+          type="button"
+          data-current-inputs-trigger
+          onClick={onEditCurrentInputs}
+          className="mx-2 mb-1 min-h-8 rounded border border-[var(--line-strong)] px-2 py-1 text-left text-xs text-[var(--text)] hover:bg-[var(--surface-2)]"
+        >
+          Edit inputs / saved comparisons
+        </button>
+      ) : null}
+      <div
+        className={
+          currentWeather?.passageComparison
+            ? "[&_[role=tablist]]:flex-wrap [&_[role=tab]]:flex-auto"
+            : undefined
         }
-      />
+      >
+        <PanelTabs
+          value={tab}
+          onChange={setTab}
+          tabs={
+            compact
+              ? [
+                  {
+                    value: "options",
+                    label: "Options",
+                    count: feasible.length,
+                  },
+                  { value: "robust", label: "Robust" },
+                  { value: "frontier", label: "Frontier" },
+                  { value: "why", label: "Why" },
+                ]
+              : [
+                  {
+                    value: "options",
+                    label: "Options",
+                    count: feasible.length,
+                  },
+                  { value: "robust", label: "Robust" },
+                  { value: "frontier", label: "Frontier" },
+                  { value: "timeline", label: "Timeline" },
+                  { value: "money", label: "Money" },
+                  ...(onNewComparison &&
+                  currentWeather?.passageComparison &&
+                  session?.user.role === "SHIPPING_COMPANY"
+                    ? [{ value: "business" as const, label: "Business" }]
+                    : []),
+                  { value: "why", label: "Why" },
+                  { value: "workflow", label: "Decide" },
+                ]
+          }
+        />
+      </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {currentWeather ? (
+      <div key={tab} className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "business" && onNewComparison ? (
+          <CommercialReview
+            key={problem.decisionId}
+            problem={problem}
+            onSuccessor={onNewComparison}
+          />
+        ) : null}
+        {currentWeather &&
+        !currentWeather.passageComparison &&
+        tab === "options" ? (
           <FrozenWeatherBasis evidence={currentWeather} />
         ) : null}
         {intelligence ? (
           <FrozenIntelligenceBasis evidence={intelligence} />
         ) : null}
         {tab === "options" ? (
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
-              <Chip
-                active={compare}
-                onClick={() => onToggleCompare(!compare)}
-                title="Draw every feasible option on the water at once"
-              >
-                Compare
-              </Chip>
-              {recommendation ? (
-                <span className="ml-auto truncate text-[10.5px] text-[var(--text-3)]">
-                  {recommendation.kind && recommendation.kind !== "ACT"
-                    ? kindLabel(recommendation.kind)
-                    : "Recommended"}
-                  :{" "}
-                  <span className="text-[var(--text-2)]">
-                    {
-                      problem.options.find(
-                        (o) => o.optionId === recommendation.optionId,
-                      )?.label
-                    }
-                  </span>
-                </span>
-              ) : (
-                <span className="ml-auto text-[10.5px] italic text-[var(--text-3)]">
-                  no feasible option survived
-                </span>
-              )}
-            </div>
-            {stacked ? null : (
-              <div className="grid grid-cols-[18px_minmax(0,1fr)_repeat(5,44px)] items-center gap-x-1 border-b border-[var(--line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
-                <span />
-                <span>Option</span>
-                {columns.map((c) => (
-                  <span key={c.key} className="truncate text-right">
-                    {c.label}
-                  </span>
-                ))}
+          currentWeather?.passageComparison ? (
+            <>
+              <div className="border-b border-[var(--line)] px-2 py-1">
+                <Chip
+                  active={compare}
+                  onClick={() => onToggleCompare(!compare)}
+                  title="Draw every feasible option on the water at once"
+                >
+                  Compare on map
+                </Chip>
               </div>
-            )}
-            {[
-              ...(baseline ? [baseline] : []),
-              ...feasible.filter((o) => !o.isBaseline),
-            ].map((option) => (
-              <OptionRow
-                key={option.optionId}
-                option={option}
-                letter={styles.get(option.optionId)!.letter}
-                colour={styles.get(option.optionId)!.colour}
-                columns={columns}
-                selected={option.optionId === selectedOptionId}
-                recommended={recommendation?.optionId === option.optionId}
-                dominatedBy={
-                  problem.frontier?.dominated[option.optionId] ?? null
-                }
-                stacked={stacked}
-                onSelect={() => onSelectOption(option.optionId)}
+              <PassageDecisionSummary
+                problem={problem}
+                evidence={currentWeather}
+                selectedOptionId={selectedOptionId}
+                onSelectOption={onSelectOption}
               />
-            ))}
-            {rejected.length ? (
-              <div className="border-t border-[var(--line)]">
-                <p className="px-2 pt-1.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
-                  Rejected · impossible, not merely worse
-                </p>
-                {rejected.map((option) => (
-                  <div
-                    key={option.optionId}
-                    data-testid="rejected-option"
-                    className="px-2 py-1"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Pill tone="crit">Rejected</Pill>
-                      <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-2)]">
-                        {option.label}
-                      </span>
-                    </div>
-                    {option.rejectedBy.map((c) => (
-                      <p
-                        key={c.key}
-                        className="pl-1 text-[10px] leading-snug text-[var(--text-3)]"
-                      >
-                        {c.label}: {c.detail}
-                      </p>
-                    ))}
-                    {!option.rejectedBy.length &&
-                    option.critic?.blocking?.length ? (
-                      <p className="pl-1 text-[10px] leading-snug text-[var(--text-3)]">
-                        Critic: {option.critic.blocking[0].detail}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
+              <details className="min-w-0 border-t border-[var(--line)] px-2 py-2 text-xs [overflow-wrap:anywhere]">
+                <summary className="cursor-pointer font-medium">
+                  Full passage schedule and evidence
+                </summary>
+                <FrozenWeatherBasis evidence={currentWeather} />
+              </details>
+              {notOffered.length ? (
+                <details className="border-t border-[var(--line)] px-2 py-2 text-xs [overflow-wrap:anywhere]">
+                  <summary>Other action availability</summary>
+                  {notOffered.map((action) => (
+                    <p key={action.kind}>
+                      {action.label}: {action.availability.status} ·{" "}
+                      {action.availability.reason}
+                    </p>
+                  ))}
+                </details>
+              ) : null}
+            </>
+          ) : (
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1">
+                <Chip
+                  active={compare}
+                  onClick={() => onToggleCompare(!compare)}
+                  title="Draw every feasible option on the water at once"
+                >
+                  Compare
+                </Chip>
+                {recommendation ? (
+                  <span className="ml-auto truncate text-[10.5px] text-[var(--text-3)]">
+                    {recommendation.kind && recommendation.kind !== "ACT"
+                      ? kindLabel(recommendation.kind)
+                      : "Recommended"}
+                    :{" "}
+                    <span className="text-[var(--text-2)]">
+                      {
+                        problem.options.find(
+                          (o) => o.optionId === recommendation.optionId,
+                        )?.label
+                      }
+                    </span>
+                  </span>
+                ) : (
+                  <span className="ml-auto text-[10.5px] italic text-[var(--text-3)]">
+                    {intelligence?.kind === "PARADIP_ENTRY_RESTRICTION"
+                      ? "Manual review required"
+                      : "no feasible option survived"}
+                  </span>
+                )}
               </div>
-            ) : null}
-            {notOffered.length ? (
-              <div className="border-t border-[var(--line)] px-2 py-1.5">
-                <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
-                  Not offered
-                </p>
-                {notOffered.map((row) => (
-                  <p
-                    key={row.kind}
-                    data-testid="not-offered"
-                    className="text-[10px] leading-snug text-[var(--text-3)]"
-                  >
-                    <span className="text-[var(--text-2)]">{row.label}</span> ·{" "}
-                    {row.availability.status.toLowerCase().replace("_", " ")} —{" "}
-                    {row.availability.reason}
+              {stacked ? null : (
+                <div className="grid grid-cols-[18px_minmax(0,1fr)_repeat(5,44px)] items-center gap-x-1 border-b border-[var(--line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
+                  <span />
+                  <span>Option</span>
+                  {columns.map((c) => (
+                    <span key={c.key} className="truncate text-right">
+                      {c.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {[
+                ...(baseline ? [baseline] : []),
+                ...feasible.filter((o) => !o.isBaseline),
+              ].map((option) => (
+                <OptionRow
+                  key={option.optionId}
+                  option={option}
+                  letter={styles.get(option.optionId)!.letter}
+                  colour={styles.get(option.optionId)!.colour}
+                  columns={columns}
+                  selected={option.optionId === selectedOptionId}
+                  recommended={recommendation?.optionId === option.optionId}
+                  dominatedBy={
+                    problem.frontier?.dominated[option.optionId] ?? null
+                  }
+                  stacked={stacked}
+                  onSelect={() => onSelectOption(option.optionId)}
+                />
+              ))}
+              {rejected.length ? (
+                <div className="border-t border-[var(--line)]">
+                  <p className="px-2 pt-1.5 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
+                    Rejected · impossible, not merely worse
                   </p>
-                ))}
-              </div>
-            ) : null}
-          </div>
+                  {rejected.map((option) => (
+                    <div
+                      key={option.optionId}
+                      data-testid="rejected-option"
+                      className="px-2 py-1"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Pill tone="crit">Rejected</Pill>
+                        <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--text-2)]">
+                          {option.label}
+                        </span>
+                      </div>
+                      {option.rejectedBy.map((c) => (
+                        <p
+                          key={c.key}
+                          className="pl-1 text-[10px] leading-snug text-[var(--text-3)]"
+                        >
+                          {c.label}: {c.detail}
+                        </p>
+                      ))}
+                      {!option.rejectedBy.length &&
+                      option.critic?.blocking?.length ? (
+                        <p className="pl-1 text-[10px] leading-snug text-[var(--text-3)]">
+                          Critic: {option.critic.blocking[0].detail}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {notOffered.length ? (
+                <div className="border-t border-[var(--line)] px-2 py-1.5">
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-3)]">
+                    Not offered
+                  </p>
+                  {notOffered.map((row) => (
+                    <p
+                      key={row.kind}
+                      data-testid="not-offered"
+                      className="text-[10px] leading-snug text-[var(--text-3)]"
+                    >
+                      <span className="text-[var(--text-2)]">{row.label}</span>{" "}
+                      ·{" "}
+                      {row.availability.status.toLowerCase().replace("_", " ")}{" "}
+                      — {row.availability.reason}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )
         ) : null}
 
         {tab === "robust" ? (
-          problem.evidence.currentEnvironment ? (
+          currentWeather?.passageComparison ? (
+            <div
+              className="space-y-2 p-2 text-xs"
+              data-testid="passage-policy-explanation"
+            >
+              <p>
+                <PassageRecommendation problem={problem} />
+              </p>
+              <p>
+                Closure-duration stress horizons are not used for this declared
+                hourly approach comparison. Partial monetary components do not
+                establish a total cost or cheapest plan.
+              </p>
+              <p>
+                Hourly gust and visibility at the port, the declared passage and
+                operator limits determine conditional approach timing. Daily
+                corrections, regional hazards and activity layers do not enter
+                this calculation. Calibrated uncertainty remains unavailable.
+              </p>
+              <details>
+                <summary>Original recommendation and ranking basis</summary>
+                <p className="whitespace-pre-wrap break-words">
+                  {problem.recommendation?.statement ??
+                    "No original recommendation retained."}
+                </p>
+                <p>{problem.recommendation?.why}</p>
+                <pre className="whitespace-pre-wrap break-words">
+                  {JSON.stringify(
+                    problem.recommendation?.rankingBasis ?? {},
+                    null,
+                    2,
+                  )}
+                </pre>
+              </details>
+            </div>
+          ) : problem.evidence.currentEnvironment ? (
             <p className="p-2 text-xs">
               This comparison uses hourly gust and visibility with explicit
               operator limits. Both options reach the same forecast-clear
@@ -478,7 +671,7 @@ export function DecisionPanel({
             </p>
           ) : intelligence?.kind === "NOTICE_RESTRICTION" ? (
             <p className="p-2 text-xs">
-              This calculation uses the authority's published lock schedule,
+              This calculation uses the authority's published access schedule,
               declared passage and fixed onward travel assumption. Both options
               have the same total schedule shift. Actual reopening, slot,
               clearance, berth, fuel, cost and safety effects are unavailable;
@@ -568,14 +761,54 @@ export function DecisionPanel({
         ) : null}
 
         {tab === "why" ? (
-          <CriticView problem={problem} option={selected ?? baseline} />
+          <>
+            {currentWeather?.passageComparison ? (
+              <div className="space-y-2 p-2 text-xs [overflow-wrap:anywhere]">
+                <p>
+                  <PassageRecommendation problem={problem} />
+                </p>
+                <p>
+                  Anchorage waiting includes requested-window waiting and the
+                  subsequent hourly forecast gate. Sailing and permitted
+                  departure holding are separate. Lower modeled fuel cannot
+                  excuse a hard deadline miss.
+                </p>
+                {currentWeather.passageComparison.limitations.map(
+                  (text, index) => (
+                    <p key={index}>{text}</p>
+                  ),
+                )}
+              </div>
+            ) : null}
+            <CriticView problem={problem} option={selected ?? baseline} />
+            {currentWeather ? (
+              <details className="min-w-0 border-t border-[var(--line)] px-2 py-2 text-xs [overflow-wrap:anywhere]">
+                <summary className="cursor-pointer font-medium">
+                  Frozen weather and passage evidence
+                </summary>
+                <FrozenWeatherBasis evidence={currentWeather} />
+                <p>Original headline: {problem.headline}</p>
+                <p>
+                  Original current-plan statement: {problem.doNothingStatement}
+                </p>
+                <p>
+                  Original recommendation:{" "}
+                  {problem.recommendation?.statement ?? "Unavailable"}
+                </p>
+                <pre className="whitespace-pre-wrap break-words">
+                  {JSON.stringify(currentWeather, null, 2)}
+                </pre>
+              </details>
+            ) : null}
+          </>
         ) : null}
 
         {tab === "workflow" ? (
           <WorkflowView
             problem={problem}
             selected={selected}
-            canHandoff={canHandoff}
+            canHandoff={canHandoff && session?.user.canApprove !== false}
+            canApprove={session?.user.canApprove !== false}
             onReview={() =>
               workflow.transition.mutate({
                 decisionId: problem.decisionId,
@@ -624,6 +857,19 @@ export function DecisionPanel({
           />
         ) : null}
       </div>
+      {tab === "options" &&
+      (currentWeather?.passageComparison ||
+        intelligence?.kind === "PARADIP_ENTRY_RESTRICTION") ? (
+        <div className="pw-next-action shrink-0">
+          <button
+            type="button"
+            onClick={() => setTab("workflow")}
+            className="w-full rounded border px-3 py-2"
+          >
+            Continue to Decide
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -920,6 +1166,7 @@ function WorkflowView({
   problem,
   selected,
   canHandoff,
+  canApprove,
   onReview,
   onApprove,
   onDecline,
@@ -932,6 +1179,7 @@ function WorkflowView({
   problem: DecisionProblem;
   selected: DecisionOption | null;
   canHandoff: boolean;
+  canApprove: boolean;
   onReview: () => void;
   onApprove: () => void;
   onDecline: () => void;
@@ -961,7 +1209,7 @@ function WorkflowView({
       className="flex flex-col gap-2 px-2 py-1.5"
       data-testid="decision-workflow"
     >
-      <ol className="flex items-center gap-0.5">
+      <ol className="flex flex-wrap items-center gap-0.5">
         {WORKFLOW.map((step, index) => (
           <li key={step.state} className="flex items-center gap-0.5">
             <span
@@ -1006,10 +1254,12 @@ function WorkflowView({
         <div className="flex gap-1">
           <button
             type="button"
-            disabled={busy || !selected || selected.status !== "FEASIBLE"}
+            disabled={
+              busy || !canApprove || !selected || selected.status !== "FEASIBLE"
+            }
             onClick={onApprove}
             data-testid="decision-approve"
-            className="flex-1 rounded bg-[var(--accent)] px-2 py-1 text-[10px] font-medium text-[var(--surface)] disabled:opacity-50"
+            className="flex-1 rounded bg-[var(--action)] px-2 py-1 text-[10px] font-medium text-[var(--on-signal)] hover:bg-[var(--signal-ink)] disabled:opacity-50"
           >
             Approve{" "}
             {selected

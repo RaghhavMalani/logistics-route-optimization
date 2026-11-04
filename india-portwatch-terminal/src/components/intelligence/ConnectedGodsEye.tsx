@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Cesium from "cesium";
 import { createApplication } from "gods-eye-view/application";
@@ -12,6 +13,7 @@ import {
 import { createBundledCableSource } from "gods-eye-view/layers/submarine-cables/source";
 import { useFixes, useTraffic } from "@/components/app/traffic-context";
 import { getJson } from "@/services/api";
+import { formatUtc } from "@/components/kit/primitives";
 import type { IntelligenceContext } from "@/services/intelligence";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import {
@@ -62,6 +64,7 @@ export default function ConnectedGodsEye({
   const trafficLabel = source.info.label;
   const [ready, setReady] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const [quakeReceipt, setQuakeReceipt] = useState<string | null>(null);
   const latest = useRef({ onPort, onEvent, onVessel });
   latest.current = { onPort, onEvent, onVessel };
   const satellites = useMemo(
@@ -119,10 +122,10 @@ export default function ConnectedGodsEye({
         v.scene.globe.showGroundAtmosphere = false;
         if (v.scene.skyAtmosphere) v.scene.skyAtmosphere.show = false;
         if (v.scene.skyBox) v.scene.skyBox.show = false;
-        v.scene.backgroundColor = Cesium.Color.fromCssColorString("#08121e");
+        v.scene.backgroundColor = Cesium.Color.fromCssColorString(COLORS.paper);
         v.targetFrameRate = 30;
         const base = await Cesium.SingleTileImageryProvider.fromUrl(
-          "/maps/nautical-world.png",
+          "/maps/miniature-world.png",
           {
             credit:
               "Natural Earth · geographic context, not a navigation chart",
@@ -152,15 +155,23 @@ export default function ConnectedGodsEye({
       createData({ defer }) {
         const v = viewer.current!;
         const source = createUsgsEarthquakeSource({
-          fetchImpl: async (_input, init) =>
-            new Response(
-              JSON.stringify(
-                await getJson("/intelligence/earthquakes", undefined, {
-                  signal: init?.signal as AbortSignal | undefined,
-                }),
-              ),
-              { status: 200, headers: { "Content-Type": "application/json" } },
-            ),
+          fetchImpl: async (_input, init) => {
+            const payload = await getJson<GeoJSON.FeatureCollection & {
+              portwatch?: { status?: string; fetchedAt?: string };
+            }>("/intelligence/earthquakes", undefined, {
+              signal: init?.signal as AbortSignal | undefined,
+            });
+            const receipt = payload.portwatch;
+            if (!stopped && Array.isArray(payload.features)) {
+              setQuakeReceipt(
+                `${payload.features.length} USGS events · ${receipt?.status ?? "status unknown"} snapshot · retrieved ${formatUtc(receipt?.fetchedAt)}`,
+              );
+            }
+            return new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          },
         });
         quakes.current = createEarthquakesLayer({
           source,
@@ -241,7 +252,7 @@ export default function ConnectedGodsEye({
         p.name,
         p.location.lat,
         p.location.lon,
-        "#60bdff",
+        COLORS.info,
         8,
       ),
     );
@@ -252,7 +263,7 @@ export default function ConnectedGodsEye({
           e.title,
           e.coordinates.lat,
           e.coordinates.lon,
-          "#f79b69",
+          COLORS.warn,
           9,
         );
     });
@@ -263,7 +274,7 @@ export default function ConnectedGodsEye({
         f.name + " · " + trafficLabel,
         f.lat,
         f.lon,
-        f.owned ? "#f1d173" : "#77afa9",
+        f.owned ? COLORS.action : COLORS.modelInk,
         f.owned ? 7 : 3,
       ),
     );
@@ -273,7 +284,7 @@ export default function ConnectedGodsEye({
         c.name + " · " + c.coverage,
         c.lat,
         c.lon,
-        "#b0a0ea",
+        COLORS.unc,
         8,
       ),
     );
@@ -287,7 +298,7 @@ export default function ConnectedGodsEye({
         s.name + " · SGP4 estimate · " + at.toISOString(),
         degreesLat(pos.latitude),
         degreesLong(pos.longitude),
-        "#dad0ff",
+        COLORS.unc,
         6,
         pos.height * 1000,
       );
@@ -299,10 +310,10 @@ export default function ConnectedGodsEye({
         f.lat,
         f.lon,
         f.kind === "aircraft"
-          ? "#fafafa"
+          ? COLORS.panel
           : f.kind === "cyclone"
-            ? "#f09271"
-            : "#8cafde",
+            ? COLORS.warn
+            : COLORS.info,
         5,
         typeof f.altitudeFt === "number" && Number.isFinite(f.altitudeFt)
           ? f.altitudeFt * 0.3048
@@ -316,7 +327,7 @@ export default function ConnectedGodsEye({
             positions: Cesium.Cartesian3.fromDegreesArray(f.geometry.flat()),
             width: 1.5,
             material: Cesium.Color.fromCssColorString(
-              f.kind === "rail" ? "#e1b980" : "#8cafde",
+              f.kind === "rail" ? COLORS.warn : COLORS.info,
             ),
           },
         });
@@ -347,7 +358,7 @@ export default function ConnectedGodsEye({
     };
   }, [ready, cables]);
   return (
-    <div className="relative h-[450px] min-h-64 bg-[#08121e]">
+    <div className="relative h-[450px] min-h-64 bg-[var(--bg)]">
       <div ref={host} className="absolute inset-0" />
       <div
         ref={credit}
@@ -361,6 +372,7 @@ export default function ConnectedGodsEye({
       <p className="absolute top-2 left-2 bg-[var(--panel)]/90 p-1 text-[10px]">
         God’s Eye View · MIT · original traffic provider · {fixes.length}{" "}
         vessels · {trafficLabel}
+        {quake && quakeReceipt ? <span className="block">{quakeReceipt}</span> : null}
       </p>
     </div>
   );

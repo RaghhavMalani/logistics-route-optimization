@@ -16,13 +16,18 @@ same store, under the same authorisation, and nothing else can.
 
 from __future__ import annotations
 
-from datetime import datetime
+import copy
+import hashlib
+import json
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from src.portwatch_os.decision.continuation import connected_basis
+from src.portwatch_os.decision.continuation import connected_basis, panel_fixture_at
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
-from backend.app.identity import Identity, identity_from_headers, may_see_decision, resolve_role
+from backend.app.identity import (
+    Identity, current_identity, identity_from_headers, may_see_decision, resolve_role, verified_scope_key,
+)
 from backend.app.routes.world import _at, _event_or_404, _mode, _scope, _world_build
 from src.portwatch_os.decision.actions import CATALOGUE, SHIFT_ARRIVAL_SLOT
 from src.portwatch_os.decision.critic import DecisionCritic
@@ -90,10 +95,27 @@ def _identity(role: Optional[str], actor: Optional[str], port_code: Optional[str
     return identity_from_headers(role, actor, port_code, organisation, vessel_ids)
 
 
+def _visible_hull_subject(identity: Identity, subject: dict) -> bool:
+    if subject.get("type") != "vessel":
+        return True
+    from src.portwatch_os.sandbox import current_sandbox
+    scoped = current_sandbox.get()
+    if scoped is None:
+        return True
+    from backend.app.services.demo_terminal import demo_hulls
+    return any(row["id"] == subject.get("id") for row in demo_hulls(scoped.world, identity))
+
+
+def _visible_decision(identity: Identity, actor: dict, subject: dict, domain: str) -> bool:
+    return _visible_hull_subject(identity, subject) and may_see_decision(identity, actor, subject, domain)
+
+
 def _visible_or_403(problem: DecisionProblem, identity: Identity) -> DecisionProblem:
     """A decision is read and moved only by the people it belongs to."""
-    if not may_see_decision(identity, problem.actor.to_dict(),
-                            {"type": problem.subject_type, "id": problem.subject_id}, problem.domain):
+    subject = {"type": problem.subject_type, "id": problem.subject_id}
+    if not _visible_hull_subject(identity, subject):
+        raise HTTPException(404, "Decision unavailable")
+    if not may_see_decision(identity, problem.actor.to_dict(), subject, problem.domain):
         raise HTTPException(
             status_code=403,
             detail=f"decision {problem.decision_id} is held by {problem.actor.role}"
@@ -102,6 +124,15 @@ def _visible_or_403(problem: DecisionProblem, identity: Identity) -> DecisionPro
                    + f"; {identity.role} may not read or move it",
         )
     return problem
+
+
+def _require_workflow_authority(problem: DecisionProblem, identity: Identity, *, approval=False):
+    if not identity.verified:
+        return
+    if identity.role != problem.actor.role and not identity.is_admin:
+        raise HTTPException(403, "Only the decision holder's workspace may move it")
+    if approval and not identity.can_approve:
+        raise HTTPException(403, "This account cannot approve or hand off decisions")
 
 
 def _domain_allowed_or_403(domain: str, identity: Identity) -> None:
@@ -258,6 +289,10 @@ def create_problem(
     every figure built on one is labelled ASSUMPTION. ``at`` moves the world
     clock, as it does everywhere else.
     """
+    return _create_problem(payload, actor_name, role, header_port, organisation, vessel_ids)
+
+
+def _create_problem(payload, actor_name, role, header_port, organisation, vessel_ids, *, panel_fixture=False):
     engine = get_engine()
     domain = str(payload.get("domain") or "vessel").lower()
     moment = _at(payload.get("at"))
@@ -265,10 +300,44 @@ def create_problem(
     _domain_allowed_or_403(domain, _identity(role, actor_name, header_port, organisation, vessel_ids))
     basis = _basis_with_assumptions(engine, payload.get("assumptions") or [], actor_name or "operator")
     mode = payload.get("mode")
+    predecessor = None
+    successor_key = None
+    if payload.get("predecessorDecisionId"):
+        from src.portwatch_os.sandbox import current_sandbox
+        identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
+        if current_sandbox.get() is None or identity.role != "SHIPPING_COMPANY":
+            raise HTTPException(403,"Company creates linked successors in its own visitor world")
+        if domain != "vessel" or not isinstance(payload.get("currentArrival"), dict):
+            raise HTTPException(400,"A connected voyage successor requires currentArrival inputs")
+        predecessor = engine.get(str(payload["predecessorDecisionId"]))
+        if predecessor is None:
+            raise HTTPException(404,"No predecessor comparison in this visitor's records")
+        _visible_or_403(predecessor, identity)
+        if not connected_basis(predecessor) or predecessor.actor.role != "SHIPPING_COMPANY" or predecessor.subject_id != payload.get("vesselId"):
+            raise HTTPException(409,"The predecessor must be this Company's connected comparison for the same voyage")
+        required_sources = {r.get('noticeId') for r in connected_basis(predecessor).get('sourceReviewBindings',[]) if isinstance(r,dict)}
+        source_reviews = payload['currentArrival'].get('sourceReviews', [])
+        if not isinstance(source_reviews, list) or any(not isinstance(r,dict) or not isinstance(r.get('noticeId'),str) for r in source_reviews):
+            raise HTTPException(422,'Source reviews must be a list of exact retained notice identities and revisions')
+        reviewed_sources = {r['noticeId'] for r in source_reviews}
+        if not required_sources.issubset(reviewed_sources):
+            raise HTTPException(409,'Explicitly review the current revision/status of every consumed Indian-source identity; a successor cannot silently discard that basis.')
+        if connected_basis(predecessor).get('portContextBindings') and not payload['currentArrival'].get('portContextReviews'):
+            raise HTTPException(409,'Explicitly review the consumed daily port context and operator criterion; a successor cannot silently discard it.')
+        try:
+            successor_key = hashlib.sha256(json.dumps({
+                "vesselId": payload.get("vesselId"), "currentArrival": payload["currentArrival"],
+                "assumptions": payload.get("assumptions") or [],
+            }, sort_keys=True, allow_nan=False).encode()).hexdigest()
+        except (ValueError, TypeError):
+            raise HTTPException(400,"Successor inputs must contain finite JSON values") from None
+        prior_id = (predecessor.evidence.get("successorRequests") or {}).get(successor_key)
+        if prior_id and engine.get(prior_id):
+            return engine.get(prior_id).to_dict()
 
     try:
         if domain == "vessel":
-            problem = _vessel_problem(engine, payload, actor, moment, basis, mode)
+            problem = _vessel_problem(engine, payload, actor, moment, basis, mode, panel_fixture=panel_fixture)
         elif domain == "port":
             problem = _port_problem(engine, payload, actor, moment, basis, mode, header_port)
         elif domain == "cargo":
@@ -279,28 +348,55 @@ def create_problem(
         raise HTTPException(status_code=400, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    if predecessor is not None:
+        problem.evidence["predecessorDecisionId"] = predecessor.decision_id
+        predecessor.evidence["successorDecisionId"] = problem.decision_id
+        successors = predecessor.evidence.setdefault("successorDecisionIds", [])
+        if problem.decision_id not in successors:
+            successors.append(problem.decision_id)
+        predecessor.evidence.setdefault("successorRequests", {})[successor_key] = problem.decision_id
+        engine._record(problem)
+        engine._record(predecessor)
     return problem.to_dict()
 
 
-def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProblem:
+def _vessel_problem(engine, payload, actor, moment, basis, mode, *, panel_fixture=False) -> DecisionProblem:
+    from backend.app.routes.company import resolve_company
+    from src.portwatch_os.sandbox import current_sandbox
+
     vessel_id = str(payload.get("vesselId") or "").strip()
     if not vessel_id:
         raise HTTPException(status_code=400, detail="vesselId is required for a vessel decision")
+    identity = current_identity.get()
+    if current_sandbox.get() is not None or (identity and identity.verified):
+        profile = resolve_company(payload.get("companyId"))
+        if profile is None or profile.vessel(vessel_id) is None:
+            raise HTTPException(404, "Voyage is unavailable in this workspace")
     if payload.get("currentArrival") is not None:
-        from src.portwatch_os.sandbox import current_sandbox
         from src.portwatch_os.clock import get_clock, LIVE
-        from backend.app.routes.company import resolve_company
         from src.portwatch_os.decision.current_arrival import build_arrival_problem
         if current_sandbox.get() is None:
             raise HTTPException(403,"The current approach comparison is an isolated demo capability")
-        if get_clock().state.mode != LIVE or payload.get("at"):
+        if (get_clock().state.mode != LIVE and not panel_fixture) or payload.get("at"):
             raise HTTPException(409,"Current forecasts cannot be injected into a historical or projected decision clock")
         profile = resolve_company(payload.get("companyId"))
         vessel = next((v for v in profile.vessels if v.vessel_id == vessel_id),None)
         if vessel is None:
             raise HTTPException(404,"Voyage is not in this demo fleet")
         _build, _events, state = _observed_state(payload.get("companyId"),mode,moment)
-        return engine.finish(build_arrival_problem(vessel,payload["currentArrival"],actor,state,moment))
+        problem = build_arrival_problem(vessel,payload["currentArrival"],actor,state,moment)
+        if panel_fixture and panel_fixture_at(connected_basis(problem)) is None:
+            raise HTTPException(409, "Only the pinned fictional S10 fixture is available in panel replay")
+        if connected_basis(problem).get("cargoCommitment"):
+            from src.portwatch_os.decision.passage_cargo_integration import bind_declaration
+            bind_declaration(problem, predecessor_id=payload.get("predecessorDecisionId"), persist=False)
+            # Persist the frozen assessment first. An interrupted mirror save
+            # may leave an inspectable unused comparison, never a declaration
+            # pointing to a comparison which the ledger cannot recover.
+            problem = engine.finish(problem)
+            bind_declaration(problem, predecessor_id=payload.get("predecessorDecisionId"))
+            return problem
+        return engine.finish(problem)
     branch_id = payload.get("branchId")
     grid, marine = _marine_grid(mode)
     # Figures the hull does not declare, supplied for this scenario. Numbers
@@ -316,7 +412,7 @@ def _vessel_problem(engine, payload, actor, moment, basis, mode) -> DecisionProb
             raise HTTPException(status_code=400, detail=f"vessel assumption {name} must be positive")
         attributes[str(name)] = number
     if branch_id:
-        held = get_registry().get(str(branch_id))
+        held = get_registry().get(str(branch_id), owner=verified_scope_key())
         if held is None:
             raise HTTPException(status_code=404, detail=f"no branch {branch_id}")
         seeds = dict(held.seeds)
@@ -404,7 +500,7 @@ def _port_problem(engine, payload, actor, moment, basis, mode, header_port) -> D
 
 
 def _cargo_problem(engine, payload, actor, moment, basis, mode, header_port) -> DecisionProblem:
-    from backend.app.routes.company import resolve_company
+    from backend.app.routes.company import configured_fleet, resolve_company
     from backend.app.routes.port_twin import build_state_for
     from src.portwatch_os.cargo.model import demo_manifest, zones_from_state
     from src.portwatch_os.fleet.company import capacities_for
@@ -412,6 +508,9 @@ def _cargo_problem(engine, payload, actor, moment, basis, mode, header_port) -> 
     port_code = str(payload.get("portCode") or header_port or "").strip().upper()
     if not port_code:
         raise HTTPException(status_code=400, detail="portCode is required for a cargo decision")
+    identity = current_identity.get()
+    if configured_fleet() and identity and identity.verified and identity.role not in ("SHIPPING_COMPANY", "NATIONAL_ADMIN"):
+        raise HTTPException(403, "Carrier cargo planning requires Company scope")
     profile = resolve_company(payload.get("companyId"))
     if profile is None:
         raise HTTPException(status_code=404, detail="no company account to read capacities from")
@@ -482,7 +581,7 @@ def list_problems(
     identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
     engine = get_engine()
     rows = [p.to_dict(include_options=False) for p in engine.all()
-            if may_see_decision(identity, p.actor.to_dict(), {"type": p.subject_type, "id": p.subject_id}, p.domain)]
+            if _visible_decision(identity, p.actor.to_dict(), {"type": p.subject_type, "id": p.subject_id}, p.domain)]
     rows.reverse()
     held = {r["decisionId"] for r in rows} | {p.decision_id for p in engine.all()}
     restored = 0
@@ -492,7 +591,7 @@ def list_problems(
         # and never reads a body to do it. This process's own problems are
         # in the ledger too: they are asked for on top and skipped.
         def visible(actor: Dict[str, Any], subject: Dict[str, Any], domain: str) -> bool:
-            return may_see_decision(identity, actor, subject, domain)
+            return _visible_decision(identity, actor, subject, domain)
 
         for problem_id in engine.ledger.visible_decision_problem_ids(visible, limit=limit + len(held)):
             if len(rows) >= limit:
@@ -500,7 +599,7 @@ def list_problems(
             if problem_id in held:
                 continue
             body = _from_ledger(engine, problem_id) or {}
-            if not may_see_decision(identity, body.get("actor") or {}, body.get("subject") or {}, str(body.get("domain") or "")):
+            if not _visible_decision(identity, body.get("actor") or {}, body.get("subject") or {}, str(body.get("domain") or "")):
                 continue
             body.pop("options", None)
             rows.append(body)
@@ -526,7 +625,10 @@ def get_problem(
     restored = _from_ledger(engine, decision_id)
     if restored is None:
         raise HTTPException(status_code=404, detail=f"no decision {decision_id} in this process or its ledger")
-    if not may_see_decision(identity, restored.get("actor") or {}, restored.get("subject") or {},
+    subject = restored.get("subject") or {}
+    if not _visible_hull_subject(identity, subject):
+        raise HTTPException(404, "Decision unavailable")
+    if not may_see_decision(identity, restored.get("actor") or {}, subject,
                             str(restored.get("domain") or "")):
         raise HTTPException(status_code=403, detail=f"decision {decision_id} is not held by {identity.role}")
     return restored
@@ -546,22 +648,21 @@ def transition_problem(
     engine = get_engine()
     name = _require_actor_name(actor_name)
     target = str(payload.get("target") or "").upper()
-    held = _visible_or_403(_problem_or_404(engine, decision_id),
-                           _identity(role, actor_name, header_port, organisation, vessel_ids))
+    identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
+    held = _visible_or_403(_problem_or_404(engine, decision_id), identity)
+    _require_workflow_authority(held, identity, approval=target == APPROVED)
     current_revision = None
     from src.portwatch_os.decision.continuation import connected_basis
     environment = connected_basis(held)
     if target == APPROVED and environment:
+        proposal = held.evidence.get("companyProposal") or {}
+        if environment.get("passagePlan") and proposal and payload.get("optionId") != proposal.get("optionId"):
+            raise HTTPException(409,"Port review must preserve the Company's selected passage plan. Company must create and approve a linked successor to propose a different plan.")
         from src.portwatch_os.decision.continuation import require_current
         require_current(held)
-        from src.portwatch_os.intelligence.current_environment import instant
-        from src.portwatch_os.clock import wall_now, get_clock, LIVE
-        from datetime import timedelta
-        if get_clock().state.mode != LIVE or instant(environment["plannedArrival"]) <= wall_now() or wall_now()-instant(environment["availableAt"]) > timedelta(hours=1):
-            raise HTTPException(409,"The frozen weather receipt or planned arrival has expired; recompute this comparison")
         # This comparison consumes approach weather and explicit limits, not the
         # unrelated Suez cascade/fleet revision. Preserve that boundary in audit.
-        held.evidence["approvalBasis"] = {"scope":"FROZEN_AUTHORITY_RESTRICTION" if environment.get('kind')=='NOTICE_RESTRICTION' else "FROZEN_INTELLIGENCE_SCENARIO" if held.evidence.get("intelligenceBasis") else "FROZEN_APPROACH_WEATHER", "environmentEvidenceId":environment["evidenceId"],
+        held.evidence["approvalBasis"] = {"scope":"FROZEN_AUTHORITY_RESTRICTION" if environment.get('kind') in ('NOTICE_RESTRICTION', 'PARADIP_ENTRY_RESTRICTION') else "FROZEN_INTELLIGENCE_SCENARIO" if held.evidence.get("intelligenceBasis") else "FROZEN_APPROACH_WEATHER", "environmentEvidenceId":environment["evidenceId"],
             "availableAt":environment["availableAt"], "note":"Only frozen inputs and explicit assumptions drive this comparison; ambient cascade revisions are not consumed."}
     elif target == APPROVED and held.world_revision.get("mode") not in (None, "REPLAY"):
         # The live world's revision now, so an approval on a world that has
@@ -597,6 +698,9 @@ def transition_problem(
                 proposal.update(etaShiftHours=chosen.evaluation.derived["arrivalShiftHours"],
                     arrivalAt=chosen.evaluation.derived["arrivalAt"],portCode=chosen.evaluation.derived["destinationPort"],
                     environmentEvidenceId=connected_basis(problem)["evidenceId"])
+                action = _approved_operational_action(problem, chosen)
+                if action:
+                    proposal.update(operationalEpisode=action["operationalEpisode"], approvedAction=action)
             def update(world):
                 history = world.setdefault("weatherJourneys", {})
                 if connected_basis(problem):
@@ -640,8 +744,9 @@ def handoff_problem(
 
     engine = get_engine()
     name = _require_actor_name(actor_name)
-    problem = _visible_or_403(_problem_or_404(engine, decision_id),
-                              _identity(role, actor_name, header_port, organisation, None))
+    identity = _identity(role, actor_name, header_port, organisation, None)
+    problem = _visible_or_403(_problem_or_404(engine, decision_id), identity)
+    _require_workflow_authority(problem, identity, approval=True)
     if connected_basis(problem) and problem.evidence.get("advisories"):
         acting = principal_from_request(name, role, header_port, organisation, None)
         rows = [get_advisory_store().require(i) for i in problem.evidence["advisories"]]
@@ -691,6 +796,7 @@ def handoff_problem(
                 recipient["organisation"] = scoped.world["organisation"]
     if not recipients:
         raise HTTPException(status_code=400, detail="the approved option names no vessel to advise")
+    approved_action = _approved_operational_action(problem, option)
     for recipient in recipients:
         advisory = Advisory(
             advisory_id=Advisory.make_id(port_code, recipient["vesselId"], recipient["kind"],
@@ -705,12 +811,17 @@ def handoff_problem(
                    f"Decision {decision_id}, option {option.option_id}, approved by {name}.",
             model_confidence=None if option.evaluation is None else option.evaluation.weakest_confidence,
             evidence={"decisionId": decision_id, "optionId": option.option_id,
+                      **({"approvedAction": approved_action} if approved_action else {}),
                       **({"intelligenceBasis" if problem.evidence.get("intelligenceBasis") else "currentEnvironment":connected_basis(problem)} if connected_basis(problem) else {}),
+                      **({"commercialReview":problem.evidence["commercialReview"]} if problem.evidence.get("commercialReview") else {}),
                       **{k: m.value for k, m in (option.evaluation.objectives.items() if option.evaluation else [])
                          if m.available}},
             critic_verdict=(option.critic or {}).get("verdict"),
             critic_reasons=list((option.critic or {}).get("reasons") or []),
-            valid_until=payload.get("validUntil") or _default_validity(),
+            valid_until=payload.get("validUntil") or (
+                (datetime.fromisoformat(created) + timedelta(hours=24)).isoformat()
+                if panel_fixture_at(connected_basis(problem)) is not None else _default_validity()
+            ),
         )
         try:
             store.create(advisory, principal=acting)
@@ -740,11 +851,67 @@ def handoff_problem(
     return {"decision": problem.to_dict(include_options=False), "advisories": advisories}
 
 
+def _approved_operational_action(problem: DecisionProblem, option) -> Optional[Dict[str, Any]]:
+    """Identify the chosen plan while keeping approval separate from execution."""
+    basis = connected_basis(problem) or {}
+    episode = basis.get("operationalEpisode")
+    if not episode or basis.get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+        return None
+    from src.portwatch_os.learning.shared_feedback import (
+        identifier, operational_action_basis, operational_action_id, operational_metric_basis)
+    action_id = operational_action_id(basis, option)
+    targets = {}
+    for metric in ("SCHEDULE_SHIFT", "WAITING", "ACCESS_TIME"):
+        metric_basis = operational_metric_basis(basis, option, metric)
+        targets[metric] = {"metricBasis": metric_basis, "metricBasisSha256": identifier(metric_basis),
+                           "independentTargetKey": identifier([episode["namespace"], episode["id"], metric])}
+    return {"contractVersion": "operational-action-v1", "kind": "APPROVED_CONDITIONAL_PLAN",
+            "operationalEpisode": episode,
+            "operationalActionId": action_id, "actionBasisSha256": action_id,
+            "actionBasis": operational_action_basis(basis, option),
+            "measurementTargets": targets,
+            "action": option.action, "parameters": option.params, "decisionId": problem.decision_id,
+            "optionId": option.option_id, "evidenceId": basis["evidenceId"],
+            **({"passageCalculation": {
+                "version": (basis.get("passageComparison") or {}).get("version"),
+                "inputVersion": (basis.get("passageComparison") or {}).get("inputVersion") or option.params.get("passagePlanVersion"),
+                "inputs": copy.deepcopy(basis["passagePlan"]),
+                "selected": copy.deepcopy(option.evaluation.derived),
+                "financial": copy.deepcopy(option.evaluation.financial),
+            }} if basis.get("passagePlan") else {}),
+            **({"cargoCalculation": {
+                "version": basis["cargoComparison"]["version"],
+                "inputVersion": basis["cargoComparison"]["inputVersion"],
+                "inputs": copy.deepcopy(basis["cargoCommitment"]),
+                "selected": copy.deepcopy(option.evaluation.derived["cargoAssessment"]),
+                "executionAuthority": "Assessment only; navigation acceptance does not book or execute a cargo alternative",
+            }} if basis.get("cargoCommitment") else {}),
+            "approvedAt": next((h["at"] for h in problem.workflow_history if h["state"] == "APPROVED"), None),
+            "actualExecutionStatus": "NOT_OBSERVED", "actualExecutionAt": None}
+
+
 def _recipients_for(problem: DecisionProblem, option, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Who the approved option is addressed to, and as which advisory kind."""
     if problem.domain == VESSEL_ROUTING:
         derived = option.evaluation.derived if option.evaluation else {}
         if connected_basis(problem):
+            if connected_basis(problem).get('kind') == 'PARADIP_ENTRY_RESTRICTION':
+                return [{"vesselId": problem.subject_id, "vesselName": problem.subject_label, "kind": "approach",
+                    "recommendation": {"approach": option.label, "requestedEntryAt": derived['requestedEntryAt'],
+                        "actualEarliestPermittedAccess": None}, "organisation": payload.get('recipientOrganisation')}]
+            if connected_basis(problem).get("passagePlan"):
+                return [{"vesselId":problem.subject_id,"vesselName":problem.subject_label,"kind":"arrival_window",
+                    "recommendation":{
+                        "recommendedArrival":derived["arrivalAt"], "approachClearAt":derived.get("approachClearAt"),
+                        "action":option.action, "recommendedSpeedKn":derived.get("speedKn"),
+                        "departureAt":derived.get("departureAt"),
+                        "arrivalShiftHours":derived["arrivalShiftHours"], "holdHours":derived["holdHours"],
+                        "sailingHours":derived.get("sailingHours"), "anchorageWaitHours":derived.get("anchorageWaitHours"),
+                        "totalElapsedHours":derived.get("totalElapsedHours"),
+                        "scheduleShiftHours":derived.get("scheduleShiftHours"), "deadlineMet":derived.get("deadlineMet"),
+                        "passagePlanVersion":option.params.get("passagePlanVersion"),
+                        "basis":"Company-proposed passage under frozen operator inputs and hourly approach forecasts; Port review is advisory and does not command vessel navigation"},
+                    "organisation":payload.get("recipientOrganisation")}]
             return [{"vesselId":problem.subject_id,"vesselName":problem.subject_label,"kind":"arrival_window",
                 "recommendation":{"recommendedArrival":derived["arrivalAt"],"approachClearAt":derived.get("approachClearAt"),
                     "arrivalShiftHours":derived["arrivalShiftHours"],"holdHours":derived["holdHours"],
@@ -797,8 +964,9 @@ def record_outcome(
     engine = get_engine()
     name = _require_actor_name(actor_name)
     held = _problem_or_404(engine, decision_id)
-    _visible_or_403(held,
-                    _identity(role, actor_name, header_port, organisation, vessel_ids))
+    identity = _identity(role, actor_name, header_port, organisation, vessel_ids)
+    _visible_or_403(held, identity)
+    _require_workflow_authority(held, identity)
     if connected_basis(held):
         raise HTTPException(409,"This fictional weather comparison accepts only the labelled demo-outcome after advisory acceptance; it cannot resolve an observed forecast outcome")
     observed = payload.get("observed") or {}

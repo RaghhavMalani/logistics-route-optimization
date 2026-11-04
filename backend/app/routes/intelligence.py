@@ -21,6 +21,20 @@ from src.utils import port_registry
 router = APIRouter()
 
 
+@router.get('/intelligence/products')
+def public_products():
+    from src.portwatch_os.intelligence.free_sources import catalogue
+    return catalogue()
+
+
+@router.get('/intelligence/ais-observations')
+def public_ais():
+    if get_clock().state.mode != LIVE:
+        raise HTTPException(409,'Current public AIS is withheld during replay; no historical store is fabricated')
+    from src.portwatch_os.fabric.ais.client import public_observations
+    return public_observations()
+
+
 def identity(role: str | None = Header(None, alias="X-PortWatch-Role"),
              actor: str | None = Header(None, alias="X-PortWatch-Actor"),
              port: str | None = Header(None, alias="X-PortWatch-Port")) -> Identity:
@@ -193,25 +207,13 @@ _QUAKE_LOCK = threading.Lock()
 
 @router.get("/intelligence/earthquakes")
 def earthquakes(who: Identity = Depends(identity)) -> dict:
-    """Fixed USGS provider, bounded request; no arbitrary URL proxy."""
+    """Retained USGS public DTO. Browser inspection never fetches providers."""
     if get_clock().state.mode != LIVE:
-        raise HTTPException(409, "live earthquake observations are unavailable in a historical or scenario clock")
-    now = world_now()
-    with _QUAKE_LOCK:
-        fresh = _QUAKES.get("at") and (now-_QUAKES["at"]).total_seconds() < 300
-        if fresh:
-            return _QUAKES["payload"]
-        try:
-            import requests
-            response = requests.get("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson", timeout=(3, 8))
-            response.raise_for_status()
-            data = response.json()
-            if data.get("type") != "FeatureCollection" or not isinstance(data.get("features"), list):
-                raise ValueError("USGS response is not a feature collection")
-            data["portwatch"] = {"status": "LIVE", "fetchedAt": now.isoformat(), "source": "USGS"}
-            _QUAKES.update(payload=data, at=now)
-            return data
-        except (requests.RequestException, ValueError) as exc:
-            if _QUAKES.get("payload") and (now-_QUAKES["at"]).total_seconds() < 3600:
-                return {**_QUAKES["payload"], "portwatch": {"status": "STALE", "fetchedAt": _QUAKES["at"].isoformat(), "source": "USGS"}}
-            raise HTTPException(503, "USGS earthquake feed is unavailable") from exc
+        raise HTTPException(409, "Current earthquake context is withheld during replay")
+    from src.portwatch_os.intelligence.free_sources import public_product
+    product=public_product('usgs')
+    if product['freshness']=='UNAVAILABLE':
+        raise HTTPException(503, "No retained USGS product; start the explicit local provider profile")
+    return {"type":"FeatureCollection","features":[{"type":"Feature","id":row['id'],"geometry":row['geometry'],
+        "properties":{"title":row['title'],"mag":row['magnitude'],"time":row['time'],"updated":row['updated'],"url":row['url'],"place":row.get('place')}} for row in product['rows']],
+        "portwatch":{"status":product['freshness'],"fetchedAt":product['lastSuccessfulCheckAt'],"firstAvailableAt":product['firstAvailableAt'],"source":"USGS","sha256":product['sha256']}}

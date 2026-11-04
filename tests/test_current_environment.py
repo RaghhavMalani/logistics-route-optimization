@@ -16,6 +16,7 @@ def response():
 def test_raw_forecast_receipt_archived_without_inventing_issue_or_observation(tmp_path,monkeypatch):
     monkeypatch.setattr(env,"ROOT",tmp_path)
     monkeypatch.setattr(env,"wall_now",lambda:AT)
+    monkeypatch.setattr(env,"world_now",lambda:AT)
     raw=json.dumps(response()).encode()
     provider=Mock(content=raw);provider.json.return_value=response()
     get=Mock(return_value=provider);monkeypatch.setattr(env.requests,"get",get)
@@ -36,6 +37,18 @@ def test_unexpected_units_do_not_create_current_weather(tmp_path,monkeypatch):
     monkeypatch.setattr(env.requests,"get",Mock(return_value=provider))
     assert env.refresh("surface",env.port_registry.resolve("INNSA"))["status"]=="UNAVAILABLE"
     assert not list(tmp_path.glob("surface-*.json"))
+
+
+def test_current_map_excludes_stale_marine_and_uses_displayed_target_day(monkeypatch):
+    row = dict(validAt=AT.isoformat(), wave_height=2.5, wind_speed_10m=10, wind_gusts_10m=18, visibility=10000)
+    monkeypatch.setattr(env, 'world_now', lambda: AT)
+    monkeypatch.setattr(env.port_registry, 'PORTS', [env.port_registry.resolve('INNSA')])
+    monkeypatch.setattr(env, 'bundle', lambda *args, **kwargs: {
+        'sources': {'surface': {'status': 'CURRENT', 'availableAt': AT.isoformat()}, 'marine': {'status': 'STALE'}},
+        'hourly': [row], 'daily': [{'date': '2026-10-09', 'rainfall': 15}, {'date': '2026-10-10', 'rainfall': 3}]})
+    signal = env.map_signals()[0]
+    assert signal['waveHeightM'] is None and signal['hourly'][0]['wave_height'] is None
+    assert signal['rainfallMm24h'] == 3 and row['wave_height'] == 2.5
 
 
 def test_hazard_publication_event_validity_and_latest_event_are_retained():

@@ -470,33 +470,38 @@ class BranchRegistry:
 
     def __init__(self, *, capacity: int = 32) -> None:
         self._branches: Dict[str, ScenarioBranch] = {}
+        self._owners: Dict[str, Optional[str]] = {}
         self._order: List[str] = []
         self._ids = itertools.count(1)
         self._lock = threading.Lock()
         self.capacity = capacity
 
-    def create(self, state: ObservedWorldState, assumptions: List[Assumption], *, now: Optional[datetime] = None) -> ScenarioBranch:
+    def create(self, state: ObservedWorldState, assumptions: List[Assumption], *, now: Optional[datetime] = None,
+               owner: Optional[str] = None) -> ScenarioBranch:
         with self._lock:
             branch_id = f"br-{next(self._ids):04d}"
             created = branch(state, assumptions, branch_id=branch_id, now=now)
             self._branches[branch_id] = created
+            self._owners[branch_id] = owner
             self._order.append(branch_id)
             while len(self._order) > self.capacity:
                 gone = self._order.pop(0)
                 self._branches.pop(gone, None)
+                self._owners.pop(gone, None)
             return created
 
-    def get(self, branch_id: str) -> Optional[ScenarioBranch]:
+    def get(self, branch_id: str, *, owner: Optional[str] = None) -> Optional[ScenarioBranch]:
         with self._lock:
-            return self._branches.get(branch_id)
+            return self._branches.get(branch_id) if self._owners.get(branch_id) == owner else None
 
-    def all(self) -> List[ScenarioBranch]:
+    def all(self, *, owner: Optional[str] = None) -> List[ScenarioBranch]:
         with self._lock:
-            return [self._branches[i] for i in self._order if i in self._branches]
+            return [self._branches[i] for i in self._order if self._owners[i] == owner]
 
     def clear(self) -> None:
         with self._lock:
             self._branches.clear()
+            self._owners.clear()
             self._order.clear()
 
 

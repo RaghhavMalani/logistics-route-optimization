@@ -1,0 +1,36 @@
+/** Local browser behavior checks. Normal demo entry, no authentication or data mocks. */
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const {chromium}=await import(pathToFileURL(path.join(root,'india-portwatch-terminal/node_modules/playwright/index.mjs')).href);
+const base=process.env.DEMO_APP_URL||'http://127.0.0.1:4220';if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(base))throw Error('Local validation only');
+const out=path.join(root,'work/ui-visual-upgrade-20261101');const report={at:new Date().toISOString(),checks:[],errors:[]};
+const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1366,height:768},reducedMotion:'reduce'});const page=await context.newPage();page.setDefaultTimeout(45000);page.on('pageerror',e=>report.errors.push(e.message));
+const check=(name,ok)=>{report.checks.push({name,pass:Boolean(ok)});if(!ok)throw Error(name);console.log('PASS',name);};
+async function go(url){await page.goto(base+url,{waitUntil:'domcontentloaded'});}
+async function click(l){await l.scrollIntoViewIfNeeded();await l.click();}
+try{
+ await go('/login');await click(page.getByRole('button',{name:'Company demo',exact:true}));await page.getByTestId('fleet-command-panel').waitFor();
+ await go('/company/global-eye#intelligence-review');await page.getByTestId('port-operational-context').waitFor();await click(page.getByRole('tab',{name:'Scenarios',exact:true}));const scenarios=page.getByTestId('demonstration-scenarios');if(await scenarios.getAttribute('open')===null)await click(scenarios.locator('summary'));await scenarios.getByLabel('Shipping demonstration scenario').selectOption('S16');await scenarios.getByRole('checkbox').check();
+ const done=page.waitForResponse(r=>r.url().endsWith('/demonstrations/select')&&r.request().method()==='POST');await click(scenarios.getByRole('button',{name:'Calculate selected demonstration',exact:true}));const response=await done;check('Scenario calculation allowed through normal identity',response.ok());const problem=(await response.json()).problem;
+ const selected=problem.options.find(o=>o.status==='FEASIBLE'&&!o.isBaseline);const env=problem.evidence.currentEnvironment;
+ const link='/company/global-eye#fleet-review?'+new URLSearchParams({vesselId:problem.subject.id,decisionId:problem.decisionId,optionId:selected.optionId,episodeId:env.operationalEpisode.id});
+ await go(link);const decision=page.getByTestId('decision-panel');await decision.waitFor();check('Exact saved comparison and option deep link',await decision.locator(`[data-option="${selected.optionId}"]`).getAttribute('aria-pressed')==='true');
+ await page.reload({waitUntil:'domcontentloaded'});await decision.waitFor();check('Exact link survives full reload',await decision.locator(`[data-option="${selected.optionId}"]`).getAttribute('aria-pressed')==='true');await page.screenshot({path:path.join(out,'after/exact-link.png')});
+ await go('/company/overview#fleet-queue');await page.getByTestId('company-fleet-triage').waitFor();await page.keyboard.press('Escape');await page.getByTestId('company-fleet-triage').waitFor({state:'hidden'});check('Queue Escape clears its own deep-link hash',new URL(page.url()).hash!=='#fleet-queue');await go('/company/overview#fleet-queue');await page.getByTestId('company-fleet-triage').waitFor();check('Same queue deep link reopens after Close',true);await click(page.getByRole('button',{name:'Close fleet review',exact:true}));check('Queue returns keyboard focus',await page.getByRole('button',{name:/Fleet review queue/}).evaluate(el=>el===document.activeElement));
+ await go('/company/global-eye#intelligence-review');const dock=page.getByRole('dialog',{name:'Global intelligence',exact:true});await dock.waitFor();await click(dock.getByRole('tab',{name:'Globe',exact:true}));await click(dock.getByRole('button',{name:'Open God’s Eye globe',exact:true}));await page.locator('.cesium-widget canvas').waitFor();check('Opening globe preserves its mounted state while expanding',await dock.getByRole('button',{name:'Hide additional globe',exact:true}).isVisible());
+ await dock.locator('a:visible,button:visible,input:visible,[tabindex="0"]:visible').last().focus();await page.keyboard.press('Tab');check('Expanded inspector traps forward focus',await dock.evaluate(el=>el.contains(document.activeElement)));await page.keyboard.press('Escape');await dock.waitFor({state:'hidden'});check('Inspector Escape returns focus to launcher',await page.locator('[data-global-intelligence-trigger]').evaluate(el=>el===document.activeElement));
+ check('Inspector Close clears its own source-review hash',new URL(page.url()).hash!=='#intelligence-review');
+ await go('/company/global-eye#intelligence-review');await dock.waitFor();check('Same source deep link reopens after Close',true);await page.keyboard.press('Escape');
+ check('Reduced-motion preference is active',await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches));
+ for(const [width,height] of [[1920,1080],[390,844],[360,800],[844,390]]){
+  await page.setViewportSize({width,height});await go('/company/overview');const fleet=page.getByTestId('fleet-command-panel');await fleet.waitFor();
+  check(`No page horizontal overflow at ${width}×${height}`,await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  if(width<640){for(const [name,testid] of [['Layers and filters','mobile-map-layers'],['Timeline controls','mobile-map-timeline']]){await click(fleet.getByRole('button',{name,exact:true}));await page.getByTestId(testid).waitFor();await page.screenshot({path:path.join(out,`after/audit-${width}-${testid}.png`)});await click(page.getByRole('button',{name:'Return to inspector',exact:true}));}check(`Layers and Timeline switch and return at ${width}px`,true);}
+ }
+ await page.setViewportSize({width:390,height:844});await go('/company/overview');await page.addStyleTag({content:'html { font-size: 125% !important; }'});check('125% root text size has no page horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:path.join(out,'after/audit-enlarged-text.png')});
+ const second=await browser.newContext({viewport:{width:1366,height:768}});const other=await second.newPage();await other.goto(base+'/login',{waitUntil:'domcontentloaded'});await other.getByRole('button',{name:'Company demo',exact:true}).click();await other.getByTestId('fleet-command-panel').waitFor();await other.goto(base+link,{waitUntil:'domcontentloaded'});await other.getByRole('alert').first().waitFor();check('Second normal visitor cannot open the first visitor comparison',!await other.getByTestId('decision-panel').isVisible());await second.close();
+ check('No application runtime errors',report.errors.length===0);report.result='PASS';
+}catch(error){report.result='FAIL';report.error=error.message;await page.screenshot({path:path.join(out,'after/audit-failure.png')});console.error(error);process.exitCode=1;}
+finally{await fs.writeFile(path.join(out,'browser-audit.json'),JSON.stringify(report,null,2));await context.close();await browser.close();}

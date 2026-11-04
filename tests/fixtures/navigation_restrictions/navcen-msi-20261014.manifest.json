@@ -1,0 +1,15 @@
+{
+  "source": "https://www.navcen.uscg.gov/sites/default/files/msi/bridge_1.geojson",
+  "publisher": "United States Coast Guard Navigation Center",
+  "sha256": "9ee303695c67f57dc69d3c5089e94bc72f3ab6a1342184f82e43e9e3c65128d7",
+  "bytes": 604886,
+  "retainedMilestoneDate": "2026-10-14",
+  "firstReceivedAt": null,
+  "firstReceivedAtReason": "The original response is retained from the preceding milestone; its precise receipt is not encoded in this fixture. Runtime immutable revision records preserve their actual receipts separately. Do not infer availability from the filename or filesystem time.",
+  "publicationAt": null,
+  "publicationPrecision": "UNKNOWN; provider creation/modification metadata are separate fields",
+  "purpose": "HISTORICAL_EXTRACTION_REPLAY",
+  "usage": "Noncommercial research/demo; retain USCG NAVCEN attribution; no endorsement or NAIS data",
+  "sourceReview": "docs/NAVCEN_SOURCE_REVIEW.md",
+  "rollingFamilyReview": "docs/ROLLING_NAVIGATION_SOURCE_FAMILY.md"
+}

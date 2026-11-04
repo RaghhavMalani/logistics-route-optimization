@@ -104,8 +104,17 @@ export function ObservedVesselInspector({
       </div>
 
       <PanelSection title="Last observation">
-        <Field label="Reported at">
-          <span className="num">{formatInstant(track.lastSeen)}</span>
+        <Field label="Provider timestamp">
+          <span className="num">
+            {latest?.provenance.source_time_known === false
+              ? "Full UTC unavailable; receipt used for ordering"
+              : formatInstant(latest?.sourceTimestamp ?? null)}
+          </span>
+        </Field>
+        <Field label="Backend receipt">
+          <span className="num">
+            {formatInstant(latest?.ingestedAt ?? null)}
+          </span>
         </Field>
         <Field label="Position">
           {latest ? (

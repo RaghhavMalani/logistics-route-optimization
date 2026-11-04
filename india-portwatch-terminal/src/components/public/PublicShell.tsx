@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/miniature/BrandMark";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import "./public.css";
@@ -17,12 +18,10 @@ export function PublicShell({
       </a>
       <header className="public-header">
         <Link to="/explore" className="public-brand">
-          <span className="public-mark" aria-hidden="true">
-            ↗
-          </span>{" "}
-          PortWatch <small>Shipping intelligence</small>
+          <BrandMark /> <small>Shipping intelligence</small>
         </Link>
         <nav aria-label="Public navigation">
+          <Link to="/tour">Take the tour</Link>
           <Link
             to="/explore"
             aria-current={section === "explore" ? "page" : undefined}

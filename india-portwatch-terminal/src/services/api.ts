@@ -159,6 +159,12 @@ export async function postJson<T>(
   if (!response.ok) {
     throw new ApiError(response.status, await readDetail(response), url);
   }
+  if (
+    typeof window !== "undefined" &&
+    !/^\/(?:auth\/|demo\/(?:session|role|logout)(?:\/|$))/.test(path)
+  ) {
+    window.dispatchEvent(new Event("portwatch:workflow-changed"));
+  }
   return (await response.json()) as T;
 }
 

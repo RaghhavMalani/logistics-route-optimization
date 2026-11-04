@@ -1,0 +1,16 @@
+{
+  "independentTargets": 0,
+  "independentResolvedTargets": 0,
+  "reconciliation": { "status": "UNAVAILABLE" },
+  "originalFiveDayCase": null,
+  "retainedFiveDayCase": null,
+  "latestMatchedCase": null,
+  "currentCandidate": {
+    "status": "COLLECTING",
+    "sampleCount": 0,
+    "reason": "No qualifying outcomes in this route-rendering fixture.",
+    "evaluationRawMae": null,
+    "evaluationCorrectedMae": null
+  },
+  "subsequentRecommendation": { "status": "UNAVAILABLE", "reason": "No qualifying forecast retained in this fixture." }
+}

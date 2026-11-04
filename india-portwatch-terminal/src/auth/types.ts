@@ -122,9 +122,12 @@ export interface User {
   companyId: string | null;
   /** Vessels this identity may respond to advisories for. */
   vesselIds: string[];
+  canApprove?: boolean;
 }
 
 export interface Session {
+  /** Existing server-owned isolated visitor identifier; absent on older adapters. */
+  demoId?: string;
   user: User;
   mode: AuthMode;
   issuedAt: string;

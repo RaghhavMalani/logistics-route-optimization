@@ -189,6 +189,12 @@ class LedgerStore(ABC):
 # --------------------------------------------------------------------------
 
 _SCHEMA = """
+CREATE TABLE IF NOT EXISTS shared_feedback (
+    kind TEXT NOT NULL,
+    id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    PRIMARY KEY(kind, id)
+);
 CREATE TABLE IF NOT EXISTS decision_continuations (
     problem_id TEXT PRIMARY KEY,
     state TEXT NOT NULL
@@ -435,6 +441,30 @@ class SqliteLedgerStore(LedgerStore):
     def atomic(self):
         """One durable workflow change, with nested ledger writes rolled back together."""
         return self._tx()
+
+    def append_feedback(self, kind: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Immutable claims, receipts, assessments and consumed versions in this ledger.
+
+        Revisions get new IDs; a retry cannot silently rewrite the original.
+        """
+        encoded = json.dumps(body, sort_keys=True, allow_nan=False)
+        with self._tx() as conn:
+            previous = conn.execute("SELECT body FROM shared_feedback WHERE kind=? AND id=?",
+                                    (kind, body["id"])).fetchone()
+            if previous and json.loads(previous[0]) != body:
+                raise LedgerError("Feedback ID already identifies a different immutable record")
+            conn.execute("INSERT OR IGNORE INTO shared_feedback VALUES (?, ?, ?)",
+                         (kind, body["id"], encoded))
+        return body
+
+    def feedback(self, kind: str, identifier: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self._lock:
+            sql = "SELECT body FROM shared_feedback WHERE kind=?"
+            args = [kind]
+            if identifier is not None:
+                sql += " AND id=?"
+                args.append(identifier)
+            return [json.loads(row[0]) for row in self._conn.execute(sql, args)]
 
     def record_arrival_track(self, row: Dict[str, Any]) -> None:
         with self._tx() as conn:

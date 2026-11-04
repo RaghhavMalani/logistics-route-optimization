@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/miniature/palette";
 /**
  * The traffic contract.
  *
@@ -76,7 +77,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "Container",
     speedKn: [14, 22],
     lengthM: [180, 366],
-    color: "#57a9d8",
+    color: COLORS.shipContainer,
     share: 0.3,
   },
   tanker: {
@@ -84,7 +85,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "Tanker",
     speedKn: [10, 16],
     lengthM: [180, 333],
-    color: "#cf8b4a",
+    color: COLORS.shipTanker,
     share: 0.22,
   },
   bulk: {
@@ -92,7 +93,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "Bulk carrier",
     speedKn: [10, 15],
     lengthM: [170, 292],
-    color: "#93b062",
+    color: COLORS.shipBulk,
     share: 0.2,
   },
   lng: {
@@ -100,7 +101,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "LNG / LPG",
     speedKn: [15, 19],
     lengthM: [230, 315],
-    color: "#9d86d6",
+    color: COLORS.shipLng,
     share: 0.06,
   },
   roro: {
@@ -108,7 +109,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "RoRo / vehicle",
     speedKn: [15, 20],
     lengthM: [150, 265],
-    color: "#57b3a5",
+    color: COLORS.shipRoro,
     share: 0.06,
   },
   cargo: {
@@ -116,7 +117,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "General cargo",
     speedKn: [11, 16],
     lengthM: [90, 190],
-    color: "#93a7b8",
+    color: COLORS.shipCargo,
     share: 0.1,
   },
   passenger: {
@@ -124,7 +125,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "Passenger",
     speedKn: [16, 22],
     lengthM: [120, 260],
-    color: "#d5758f",
+    color: COLORS.shipPassenger,
     share: 0.02,
   },
   service: {
@@ -132,7 +133,7 @@ export const VESSEL_CLASSES: Record<VesselClass, VesselClassSpec> = {
     label: "Service / tug",
     speedKn: [4, 12],
     lengthM: [24, 80],
-    color: "#7a8fa1",
+    color: COLORS.shipService,
     share: 0.04,
   },
 };

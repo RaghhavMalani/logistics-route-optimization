@@ -1,3 +1,4 @@
+import { ExposureScore } from "@/components/company/ExposureScore";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
@@ -11,7 +12,10 @@ import { cn } from "@/lib/utils";
 import { useCompanyFleet, useCompanyRisk } from "@/services/os-hooks";
 import type { FleetVessel } from "@/types/portwatch-os";
 
-export const Route = createFileRoute("/company/fleet")({ component: CompanyFleetScreen });
+export const Route = createFileRoute("/company/fleet")({
+  head: () => ({ meta: [{ title: "PortWatch X — Fleet" }] }),
+  component: CompanyFleetScreen,
+});
 
 /** Every vessel, with the worst exposure the event graph found for it. */
 function CompanyFleetScreen() {
@@ -41,20 +45,31 @@ function CompanyFleetScreen() {
     );
   }
 
+  const rows = risk.data?.rows ?? [];
+  const worstByHull = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    const previous = worstByHull.get(row.vesselId);
+    if (!previous || row.exposure > previous.exposure)
+      worstByHull.set(row.vesselId, row);
+  }
   const columns: Array<Column<FleetVessel>> = [
     {
       key: "name",
       header: "Vessel",
       sort: (row) => row.name,
       render: (row) => (
-        <span className="truncate text-[11.5px] text-[var(--text)]">{row.name}</span>
+        <span className="truncate text-[11.5px] text-[var(--text)]">
+          {row.name}
+        </span>
       ),
     },
     {
       key: "id",
       header: "Id",
       width: 84,
-      render: (row) => <span className="num text-[10.5px]">{row.vessel_id}</span>,
+      render: (row) => (
+        <span className="num text-[10.5px]">{row.vessel_id}</span>
+      ),
     },
     {
       key: "class",
@@ -92,7 +107,9 @@ function CompanyFleetScreen() {
       header: "ETA",
       width: 96,
       sort: (row) => row.eta ?? "",
-      render: (row) => <span className="num text-[10.5px]">{formatUtc(row.eta)}</span>,
+      render: (row) => (
+        <span className="num text-[10.5px]">{formatUtc(row.eta)}</span>
+      ),
     },
     {
       key: "capacity",
@@ -106,16 +123,39 @@ function CompanyFleetScreen() {
       ),
     },
     {
+      key: "event",
+      header: "Leading event",
+      render: (row) =>
+        worstByHull.get(row.vessel_id)?.eventTitle ??
+        (risk.isError ? "Unavailable" : "—"),
+    },
+    {
+      key: "action",
+      header: "Suggested action",
+      render: (row) => {
+        const action = worstByHull.get(row.vessel_id)?.recommendedAction;
+        return action
+          ? {
+              evaluate_diversion: "Evaluate diversion",
+              monitor: "Monitor",
+              hold_or_reschedule: "Hold or reschedule",
+            }[action]
+          : "—";
+      },
+    },
+    {
       key: "exposure",
-      header: "Exposure",
+      header: "Exposure (0–1)",
       align: "right",
-      width: 76,
+      width: 158,
       sort: (row) => exposure.get(row.vessel_id) ?? 0,
       render: (row) => {
         const value = exposure.get(row.vessel_id) ?? 0;
-        return value > 0 ? (
+        return risk.isError ? (
+          "Unavailable"
+        ) : value > 0 ? (
           <span className={cn("num", `text-[var(--${exposureTone(value)})]`)}>
-            {value.toFixed(2)}
+            <ExposureScore value={value} />
           </span>
         ) : (
           <span className="num text-[var(--ok)]">clear</span>
@@ -138,17 +178,23 @@ function CompanyFleetScreen() {
         }
         meta={
           <>
-            <span className="num">{fleet.data?.vessels.length ?? 0} vessels</span>
             <span className="num">
-              {risk.data?.vesselsExposed ?? 0} exposed
+              {fleet.data?.vessels.length ?? 0} vessels
+            </span>
+            <span className="num">
+              {risk.data
+                ? `${risk.data.vesselsExposed} exposed`
+                : "Exposure unavailable"}
             </span>
           </>
         }
       />
-      <PageBody>
+      <PageBody className="flex flex-col gap-3">
         <Panel
           title="Vessels"
           note={fleet.data?.positionSource}
+          className="min-h-48 flex-1"
+          scroll
           testId="company-fleet-table"
         >
           <DataTable<FleetVessel>
@@ -164,7 +210,7 @@ function CompanyFleetScreen() {
             }
           />
         </Panel>
-        <p className="mt-2 px-1 text-[10px] leading-relaxed text-[var(--text-3)]">
+        <p className="px-1 text-xs leading-relaxed text-[var(--text-3)]">
           {fleet.data?.disclaimer}
         </p>
       </PageBody>

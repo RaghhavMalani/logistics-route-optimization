@@ -6,7 +6,7 @@ import { ROLE_PROFILE, type Role } from "@/auth/types";
 import { getJson, postJson } from "@/services/api";
 import type { DemoWorkspaceData, DemoAdvisory } from "@/services/demo";
 import type { ScenarioOption } from "@/services/public-workspace";
-import type { TwinSelection } from "@/components/twin/PortTwinScene";
+import type { TwinSelection } from "@/components/twin/twin-presentation";
 import "./demo.css";
 import "@/components/intelligence/intelligence.css";
 const Globe = lazy(() => import("@/components/intelligence/IntelligenceGlobe"));

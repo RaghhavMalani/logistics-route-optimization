@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.routes import (
     admin,
     advisories,
+    handoffs,
     arrivals,
     public_arrivals,
     public_research,
@@ -19,6 +20,7 @@ from backend.app.routes import (
     agents,
     auth,
     company,
+    commercial,
     decisions,
     demo,
     demo_terminal,
@@ -41,6 +43,7 @@ from backend.app.routes import (
     weather_verification,
     shipping_intelligence,
     operational_notices,
+    operational_evidence,
     world,
 )
 
@@ -73,25 +76,44 @@ async def lifespan(_: FastAPI):
     throttling = opt_out_of_power_throttling()
     app.state.power_throttling = throttling
     log.info("power throttling opt-out: %s (%s)", throttling["applied"], throttling["reason"])
+    from src.portwatch_os.deployment_artifact import current as verify_image_source
+    app.state.source_artifact=verify_image_source()
     mode, source, problem = resolve_mode(None)
     if problem:
         log.warning("licence mode %s by default: %s", mode, problem)
     else:
         log.info("licence mode %s (%s)", mode, source)
-    start_client()
+    # An explicit, reviewed public seed is merged before this process starts
+    # any collectors. Unconfigured deployments do no import work.
+    from src.portwatch_os.learning.public_evidence_seed import import_configured_seed
+    app.state.public_evidence_import = import_configured_seed()
+    log.info("public evidence seed: %s", app.state.public_evidence_import["status"])
+    # Candidate-only one-shot recovery proof. Runs before all writers/listeners;
+    # no SSH key, public mutation endpoint or duplicate worker is introduced.
+    from scripts.candidate_state_backup import configured_backup
+    app.state.candidate_backup=configured_backup()
+    log.info("candidate backup: %s", app.state.candidate_backup)
+    from src.portwatch_os.panel_runtime import snapshot_at
+    panel = snapshot_at() is not None
+    if not panel:
+        start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
-    if scheduler:
+    if scheduler and not panel:
         coordinator.start()
     from src.portwatch_os.learning import weather_reconciliation
-    weather_reconciliation.start()
+    from src.portwatch_os.learning import intelligence_reconciliation
     from src.portwatch_os.intelligence import operational_notices as authority_notices
-    authority_notices.start()
+    if not panel:
+        weather_reconciliation.start()
+        intelligence_reconciliation.start()
+        authority_notices.start()
     try:
         yield
     finally:
         coordinator.stop()
         weather_reconciliation.stop()
+        intelligence_reconciliation.stop()
         authority_notices.stop()
         stop_client()
 
@@ -185,7 +207,8 @@ async def _identity_gate(request: Request, call_next):
                 user = verified["user"]
                 who = Identity(role=user["role"], actor=user["id"], port_code=user["portCode"],
                                port_codes=tuple(user["portCodes"]), organisation=user["organisation"],
-                               vessel_ids=tuple(user["vesselIds"]), verified=True)
+                               vessel_ids=tuple(user["vesselIds"]), verified=True,
+                               can_approve=user.get("canApprove", True) is True)
                 current_identity.set(who)
                 request.state.verified_session = verified
                 request.state.session_token = token
@@ -264,6 +287,11 @@ app.include_router(demo.router, prefix="/api")
 app.include_router(demo_terminal.router, prefix="/api")
 app.include_router(weather_verification.router, prefix="/api")
 app.include_router(shipping_intelligence.router, prefix="/api")
+app.include_router(operational_evidence.router, prefix="/api")
+from backend.app.routes import shared_feedback
+app.include_router(shared_feedback.router, prefix="/api")
+from backend.app.routes import navigation_restrictions
+app.include_router(navigation_restrictions.router, prefix="/api")
 app.include_router(operational_notices.router, prefix="/api")
 app.include_router(weather.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
@@ -277,6 +305,7 @@ app.include_router(global_eye.router, prefix="/api")
 app.include_router(company.router, prefix="/api")
 app.include_router(port_twin.router, prefix="/api")
 app.include_router(advisories.router, prefix="/api")
+app.include_router(handoffs.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
 app.include_router(learning.router, prefix="/api")
 from backend.app.routes import capabilities
@@ -286,6 +315,7 @@ app.include_router(world.router, prefix="/api")
 # The decision intelligence engine, its financial twin and the historical
 # missions that score it. All deterministic; all on the world above.
 app.include_router(decisions.router, prefix="/api")
+app.include_router(commercial.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
 app.include_router(missions.router, prefix="/api")
 

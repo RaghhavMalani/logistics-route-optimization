@@ -14,7 +14,7 @@ from urllib.parse import urljoin, urlparse
 import requests
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from src.portwatch_os.clock import wall_now
+from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.intelligence.current_environment import ROOT, instant
 
 SOURCE='https://www.peelports.com/marine/'
@@ -70,6 +70,7 @@ def refresh(force=False):
     with LOCK:
         root=ROOT/'operational_notices';root.mkdir(parents=True,exist_ok=True)
         pointer=root/'eastham-2026-18-latest.json';old=json.loads(pointer.read_text()) if pointer.exists() else None
+        # wall-clock: refresh cadence is elapsed real time since the last provider attempt.
         if old and not force and wall_now()-instant(old['checkedAt'])<TTL: return old
         hashes={};pdf_url=PDF
         try:
@@ -81,6 +82,7 @@ def refresh(force=False):
             if urlparse(pdf_url).hostname!='www.peelports.com': raise ValueError('Unsupported publisher host')
             pdf=requests.get(pdf_url,timeout=(5,20));pdf.raise_for_status()
             if not pdf.content.startswith(b'%PDF-'): raise ValueError('Original PDF unavailable')
+            # wall-clock: archive availability begins when these source bytes are actually received and interpreted.
             hashes['pdfSha256']=_retain(root,pdf.content);facts=parse_eastham(pdf.content);received=wall_now().isoformat()
             revision=hashlib.sha256(json.dumps(facts,sort_keys=True).encode()).hexdigest();path=root/(revision+'.json')
             if not path.exists():
@@ -91,6 +93,7 @@ def refresh(force=False):
             latest={**json.loads(path.read_text()),'checkedAt':received,'latestResponseSha256':hashes['responseSha256'],
                 'latestPdfSha256':hashes['pdfSha256'],'sourceStatus':'CURRENT','reason':None}
         except (requests.RequestException,ValueError,KeyError,OSError,PdfReadError) as exc:
+            # wall-clock: failure receipt records this attempt; the last good source availability remains unchanged.
             latest={**(old or {'noticeRef':'MNTM 2026-18','source':SOURCE,'pdfSource':pdf_url,'windows':[]}),
                 'sourceStatus':'UNAVAILABLE','checkedAt':wall_now().isoformat(),'reason':str(exc)[:180],'failedReceiptHashes':hashes}
         with (root/'receipts.jsonl').open('a') as stream:
@@ -100,12 +103,14 @@ def refresh(force=False):
         return latest
 
 
-def require_revision(basis):
+def require_revision(basis, *, now=None):
+    query_at = world_now() if now is None else instant(now)
     latest=refresh()
     if latest.get('sourceStatus')!='CURRENT' or latest.get('status')!='SCHEDULED': raise ValueError('Authority restriction unavailable, withdrawn or cancelled; further action blocked')
     if latest.get('revisionId')!=basis['restriction']['revisionId']: raise ValueError('Authority restriction revised; explicitly refresh to a linked comparison')
-    if instant(latest['checkedAt'])+TTL<wall_now(): raise ValueError('Authority receipt expired')
-    if wall_now()>=instant(latest['withdrawsAt']): raise ValueError('Authority notice withdrawn by its published effective time')
+    if query_at < instant(latest.get('availableAt') or latest['checkedAt']): raise ValueError('Authority revision was not yet available at this query instant')
+    if instant(latest['checkedAt'])+TTL<query_at: raise ValueError('Authority receipt expired')
+    if query_at>=instant(latest['withdrawsAt']): raise ValueError('Authority notice withdrawn by its published effective time')
     root=ROOT/'operational_notices'
     for key in ('responseSha256','pdfSha256'):
         digest=basis['reportedFact'][key];path=root/(digest+'.response')

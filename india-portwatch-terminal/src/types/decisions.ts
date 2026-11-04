@@ -150,9 +150,19 @@ export interface TimelineMark {
     | "claim_lapses"
     | "weather"
     | "ready"
-    | "sailing";
+    | "sailing"
+    | "restriction_start"
+    | "restriction_end"
+    | "passage_request"
+    | "position"
+    | "departure_reference"
+    | "departure";
+  // Authority constraints carry their own meaning instead of masquerading as
+  // claim expiry or an observed vessel movement.
   subject: string;
   hours: number;
+  at?: string;
+  label?: string;
   waveM?: number | null;
 }
 
@@ -374,6 +384,13 @@ export interface WorkflowStep {
 
 /** The evidence block, with the fields the client reads named and the rest open. */
 export interface DecisionEvidence {
+  restrictionAsset?: {
+    id: string;
+    name: string;
+    lat: number;
+    lon: number;
+    basis: string;
+  };
   position?: { lat: number; lon: number; basis: string; observed: boolean };
   exposure?: { attrs?: Record<string, unknown> } & Record<string, unknown>;
   routes?: {

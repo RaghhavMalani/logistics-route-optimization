@@ -126,7 +126,8 @@ def annotate_forecasts(ledger, evidence, root):
 def reconcile(*, db=None, root=None, now=None, fetch=None):
     from src.portwatch_os.intelligence.current_environment import FEEDBACK_DB, ROOT, FEEDBACK_REPORT, LOCK
     live_clock = now is None
-    db, root, now = Path(db or FEEDBACK_DB), Path(root or ROOT), instant(now or wall_now())
+    # wall-clock: default worker eligibility is the real collection present; explicit now is a deterministic query.
+    db, root, now = Path(db or FEEDBACK_DB), Path(root or ROOT), instant(wall_now() if now is None else now)
     fetch = fetch or requests.get
     if not RUN_LOCK.acquire(blocking=False): return {"status":"RUNNING"}
     try:
@@ -170,6 +171,7 @@ def reconcile(*, db=None, root=None, now=None, fetch=None):
                     if not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in (lat,lon)) or not -90<=lat<=90 or not -180<=lon<=180 or distance((lat,lon),(port.lat,port.lon))>50:
                         raise ValueError("ERA5 response location is not a nearby grid cell")
                     hourly=body["hourly"]; times=hourly["time"]
+                    # wall-clock: live provider availability starts after response return; explicit-time fixture runs retain their supplied clock.
                     receipt=(instant(wall_now()) if live_clock else now).isoformat()
                     digest=hashlib.sha256(response.content).hexdigest()
                     archive=root/"outcomes"; archive.mkdir(parents=True,exist_ok=True)
@@ -208,6 +210,7 @@ def reconcile(*, db=None, root=None, now=None, fetch=None):
             report["independentOutcomes"]=len(evidence.outcomes())
             if report["failures"]: report["status"]="PROVIDER_UNAVAILABLE" if not report["resolvedForecasts"] else "PARTIAL"
             elif report["incompleteTargets"]: report["status"]="WAITING_FOR_COMPLETE_OUTCOMES" if not report["resolvedForecasts"] else "PARTIAL"
+            # wall-clock: this live-worker completion report includes receipts obtained during this run; explicit queries stay pinned.
             feedback=WeatherFeedback(ledger).report(limit=10000,public_only=True,now=instant(wall_now()) if live_clock else now)
             feedback["reconciliation"]=report
             # Reconciliation and request-driven retention share the same report-file lock.

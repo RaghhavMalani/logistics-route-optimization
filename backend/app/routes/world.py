@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
+from backend.app.identity import verified_scope_key
 from src.portwatch_os.attention.engine import attention_for
 from src.portwatch_os.clock import (
     HISTORICAL_MISSION,
@@ -175,6 +176,7 @@ def _world(company_id: Optional[str] = None, *, mode: Optional[str] = None, now:
 
 
 def _world_build(company_id: Optional[str] = None, *, mode: Optional[str] = None, now: Optional[datetime] = None):
+    from backend.app.routes.company import configured_fleet
     from backend.app.routes.global_eye import _company_voyages, _load_events
     from src.portwatch_os.fusion.engine import get_engine
     from src.portwatch_os.world.live import Revision, get_live_world
@@ -184,11 +186,13 @@ def _world_build(company_id: Optional[str] = None, *, mode: Optional[str] = None
     # calibrated values forward.
     events, _report, _calibrator, _stamped_count = _load_events()
     voyages = list(_company_voyages(company_id))
-    engine = get_engine()
-    for voyage in voyages:
-        engine.register_fleet_vessel(
-            vessel_id=voyage.vessel_id, name=voyage.name, imo=getattr(voyage, "imo", None),
-        )
+    from src.portwatch_os.sandbox import current_sandbox
+    if not configured_fleet() or current_sandbox.get() is not None:
+        engine = get_engine()
+        for voyage in voyages:
+            engine.register_fleet_vessel(
+                vessel_id=voyage.vessel_id, name=voyage.name, imo=getattr(voyage, "imo", None),
+            )
     moment = now or utc()
     active = _mode(mode)
     live = get_live_world()
@@ -315,7 +319,13 @@ def set_world_clock(
     mode = str(payload.get("mode") or "").strip().upper()
     if mode not in CLOCK_MODES:
         raise HTTPException(status_code=400, detail=f"mode must be one of: {', '.join(CLOCK_MODES)}")
+    from src.portwatch_os.panel_runtime import snapshot_at
+    anchor = snapshot_at()
     clock = get_clock()
+    if anchor is not None:
+        if mode != REPLAY or payload.get("at") is None or _at(payload["at"]) != anchor:
+            raise HTTPException(409, "Panel replay remains pinned to the retained snapshot")
+        return clock.describe()
     reason = str(payload.get("reason") or "")
     try:
         if mode == LIVE:
@@ -1025,7 +1035,7 @@ def world_observed(
     return {
         "state": state.summary(),
         "live": get_live_world().status(),
-        "branches": [b.summary(current_revision=build.revision) for b in get_registry().all()],
+        "branches": [b.summary(current_revision=build.revision) for b in get_registry().all(owner=verified_scope_key())],
     }
 
 
@@ -1049,7 +1059,7 @@ def create_branch(payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc))
     build, state = _observed_state(payload.get("companyId"), payload.get("mode"))
     try:
-        created = get_registry().create(state, assumptions, now=utc())
+        created = get_registry().create(state, assumptions, now=utc(), owner=verified_scope_key())
     except BranchError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {
@@ -1076,7 +1086,7 @@ def branch_cascade(
     """
     from src.portwatch_os.world.branch import compare, get_registry, propagate as run
 
-    held = get_registry().get(branch_id)
+    held = get_registry().get(branch_id, owner=verified_scope_key())
     if held is None:
         raise HTTPException(status_code=404, detail=f"no branch {branch_id}")
     moment = _at(at)
