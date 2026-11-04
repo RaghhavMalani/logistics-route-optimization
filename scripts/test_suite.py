@@ -46,6 +46,9 @@ def main() -> int:
     if "--collect-only" not in pytest_args and "--co" not in pytest_args:
         ensure_sample_cache()
     os.environ.setdefault("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
+    # API lifespans would otherwise start a live worker that races the
+    # reconciliation tests for the same process-wide lock.
+    os.environ.setdefault("PORTWATCH_INTELLIGENCE_RECONCILIATION", "0")
     return pytest.main(
         [str(ROOT / "tests"), "--rootdir", str(ROOT), "-q",
          "-p", "anyio.pytest_plugin", "-p", "hypothesis.extra.pytestplugin",
