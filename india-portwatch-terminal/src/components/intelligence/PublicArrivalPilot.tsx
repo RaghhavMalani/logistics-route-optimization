@@ -52,7 +52,8 @@ export default function PublicArrivalPilot({ portCode }: { portCode: string }) {
         { signal },
       ),
     enabled: verified && allowed && !!clock.data,
-    refetchInterval: 60_000,
+    refetchInterval: (query) =>
+      query.state.data?.collection.refreshPending ? 2_000 : 60_000,
   });
   const state = query.data;
   const cohort =
@@ -113,22 +114,17 @@ export default function PublicArrivalPilot({ portCode }: { portCode: string }) {
             <div className="flex flex-wrap gap-2">
               <button
                 className={button}
-                disabled={!live || busy}
+                disabled={!live || busy || state?.collection.refreshPending}
                 onClick={() =>
                   void action(async () => {
-                    const result = await postJson<{ errors: string[] }>(
-                      `/public-arrivals/refresh${suffix}`,
-                      {},
-                      {},
-                      { timeoutMs: 180_000 },
-                    );
+                    await postJson(`/public-arrivals/refresh${suffix}`, {});
                     await query.refetch();
-                    if (result.errors.length)
-                      setError(result.errors.join("; "));
                   })
                 }
               >
-                {busy ? "Working…" : "Refresh official reports"}
+                {state?.collection.refreshPending
+                  ? "Collecting reports…"
+                  : "Refresh official reports"}
               </button>
               <button
                 className={button}

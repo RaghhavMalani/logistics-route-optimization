@@ -7,12 +7,6 @@
       "destination": "https://api-integrated-20261102-integrated-preview-20261102.up.railway.app/api/:path*"
     }
   ],
-  "headers": [
-    {
-      "source": "/api/:path*",
-      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
-    }
-  ],
   "build": {
     "env": {
       "NITRO_PRESET": "vercel",

@@ -2,6 +2,7 @@
 from fastapi import APIRouter,Body,HTTPException,Query
 from backend.app.identity import current_identity
 from backend.app.services.demo_terminal import demo_hulls
+from backend.app.services import public_collection_queue
 from backend.app.routes.shipping_intelligence import scoped_world
 from backend.app.routes.operational_notices import company
 from src.portwatch_os.clock import world_now,wall_now
@@ -20,7 +21,7 @@ def listing(vesselId:str=Query(None)):
     vessels=demo_hulls(scoped.world)
     if vesselId and not any(v['id']==vesselId for v in vessels):raise HTTPException(404,'Owned voyage unavailable')
     at=world_now();data=review.view(scoped.world,at)
-    return {'context':data,'voyages':[{'id':v['id'],'name':v['name'],'portCode':v['portCode'],'episodeId':(v.get('operationalEpisode') or {}).get('id'),'rule':review.rule_for(scoped.world,v['id'])} for v in vessels],
+    return {'context':data, 'refreshPending': 'INPRT_CONTEXT' in public_collection_queue.active(), 'voyages':[{'id':v['id'],'name':v['name'],'portCode':v['portCode'],'episodeId':(v.get('operationalEpisode') or {}).get('id'),'rule':review.rule_for(scoped.world,v['id'])} for v in vessels],
             'meaning':'Public destination context is shared; declarations and review criteria belong to this visitor only.'}
 
 
@@ -35,13 +36,15 @@ def audit(vesselId:str=Query(None),asOf:str=Query(None)):
     return {**data,'contractVersion':'port-context-audit-v1','realOperationalTargetsResolved':0,'fullDocumentDownload':False}
 
 
-@router.post('/intelligence/port-context/refresh')
+@router.post('/intelligence/port-context/refresh', status_code=202)
 def refresh(payload:dict=Body(...)):
     scoped_world();who=current_identity.get()
     if who.role not in ('SHIPPING_COMPANY','PORT_AUTHORITY','NATIONAL_ADMIN'):raise HTTPException(403,'Company/Port/Admin explicit source review required')
     if payload!={'portCode':'INPRT'}:raise HTTPException(422,'Only the fixed approved Paradip family is supported; no caller URLs or paths')
     from src.portwatch_os.intelligence.public_collection import get_service
-    get_service().refresh('INPRT',who.actor,report_limit=1)
+    def collect():
+        get_service().refresh('INPRT', who.actor, report_limit=1)
+    public_collection_queue.enqueue('INPRT_CONTEXT', collect)
     return listing()
 
 

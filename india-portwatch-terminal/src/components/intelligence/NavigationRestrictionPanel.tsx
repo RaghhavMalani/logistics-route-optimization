@@ -58,7 +58,8 @@ export function NavigationRestrictionPanel({
     queryFn: ({ signal }) => getRollingIntelligence(identityHeaders, signal),
     enabled: session?.mode === "demo",
     staleTime: 60000,
-    refetchInterval: 60000,
+    refetchInterval: (query) =>
+      query.state.data?.refreshFamilies?.length ? 2_000 : 60_000,
     retry: 1,
   });
   useEffect(() => {
@@ -109,6 +110,9 @@ export function NavigationRestrictionPanel({
       ),
     onSuccess: invalidate,
   });
+  const refreshing =
+    refreshSource.isPending ||
+    !!q.data?.refreshFamilies?.includes(refreshFamily);
   const nextCall = useMutation({
     mutationFn: () =>
       postJson(
@@ -264,10 +268,10 @@ export function NavigationRestrictionPanel({
           <Button
             size="sm"
             variant="outline"
-            disabled={refreshSource.isPending}
+            disabled={refreshing}
             onClick={() => refreshSource.mutate()}
           >
-            {refreshSource.isPending
+            {refreshing
               ? "Checking selected authority…"
               : "Explicitly refresh source"}
           </Button>

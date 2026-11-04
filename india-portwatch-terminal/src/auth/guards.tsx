@@ -18,8 +18,18 @@ import { ROLE_PROFILE, isRoleAllowed, type Role } from "./types";
 function SessionCheck({ label }: { label: string }) {
   return (
     <div className="grid h-full w-full place-items-center bg-[var(--bg)]">
-      <div className="flex items-center gap-2 text-[11px] tracking-[0.14em] text-[var(--text-3)] uppercase">
-        <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
+      <div
+        role="status"
+        className="w-64 space-y-3 rounded border border-[var(--line)] bg-[var(--panel)] p-4 text-[11px] tracking-[0.14em] text-[var(--text-3)] uppercase"
+      >
+        <div
+          aria-hidden="true"
+          className="h-3 w-3/4 rounded bg-[var(--line)]"
+        />
+        <div
+          aria-hidden="true"
+          className="h-2 w-1/2 rounded bg-[var(--line)]"
+        />
         {label}
       </div>
     </div>
@@ -51,7 +61,9 @@ export function RoleGuard({
     return (
       <Navigate
         to="/login"
-        search={next && next !== "/" && !next.startsWith("/login") ? { next } : {}}
+        search={
+          next && next !== "/" && !next.startsWith("/login") ? { next } : {}
+        }
         replace
       />
     );

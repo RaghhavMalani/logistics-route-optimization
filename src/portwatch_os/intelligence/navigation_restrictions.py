@@ -346,14 +346,52 @@ def refresh_all(force=False):
         return latest
 
 
-def refresh(force=False, notice_id=None):
-    result = refresh_all(force=force)
+def _select_notice(result, notice_id):
     uid = str(notice_id if notice_id is not None else FEATURE_ID).split(':')[-1]
     return next((n for n in result['notices'] if n.get('providerNoticeId') == uid), {
         'noticeRef': 'USCG MSI #'+uid, 'providerNoticeId': uid, 'noticeId': 'NAVCEN_MSI:'+uid,
         'sourceFamily': 'NAVCEN_MSI', 'source': SOURCE, 'windows': [], 'sourceStatus': 'UNAVAILABLE',
         'checkedAt': result['checkedAt'], 'calculationSupported': False,
         'reason': result.get('reason') or 'Notice not discovered; absence is not cancellation'})
+
+
+def refresh(force=False, notice_id=None):
+    return _select_notice(refresh_all(force=force), notice_id)
+
+
+def retained(notice_id=None):
+    from src.portwatch_os.deployment import resolve_mode
+
+    rows = []
+    checked = None
+    if resolve_mode(None)[0] in ('DEMO', 'RESEARCH'):
+        root = ROOT / 'operational_notices'
+        try:
+            latest = json.loads((root / 'navcen-catalogue-latest.json').read_text(encoding='utf-8'))
+            rows = latest['notices']
+            if not isinstance(rows, list):
+                rows = []
+            checked = latest['checkedAt']
+        except FileNotFoundError:
+            try:
+                legacy = json.loads((root / 'navcen-53842-latest.json').read_text(encoding='utf-8'))
+                rows, checked = [legacy], legacy.get('checkedAt')
+            except (OSError, ValueError, TypeError, KeyError):
+                pass
+        except (OSError, ValueError, TypeError, KeyError):
+            pass
+    now = world_now()
+    visible = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            if instant(row.get('availableAt') or row['checkedAt']) <= now:
+                visible.append(_lifecycle(row, now))
+        except (ValueError, TypeError, KeyError):
+            continue
+    return _select_notice({'notices': visible, 'checkedAt': checked,
+                           'reason': 'No usable retained notice for this query time'}, notice_id)
 
 
 def planned_consequence(notice, plan):
@@ -379,7 +417,7 @@ def planned_consequence(notice, plan):
 def require_revision(basis, *, now=None):
     query_at = world_now() if now is None else instant(now)
     uid = basis.get('reportedFact', {}).get('providerNoticeId')
-    latest = refresh(notice_id=uid) if uid and str(uid) != str(FEATURE_ID) else refresh()
+    latest = retained(notice_id=uid)
     if latest.get('sourceStatus') != 'CURRENT' or latest.get('status') != 'SCHEDULED':
         raise ValueError('Authority restriction unavailable or cancelled; further action blocked')
     if latest['revisionId'] != basis['restriction']['revisionId']:

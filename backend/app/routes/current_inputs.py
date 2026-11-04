@@ -260,13 +260,13 @@ def refresh_comparison(decision_id: str, payload: dict = Body(default={})):
     elif env.get('kind')=='NOTICE_RESTRICTION':
         if env['restriction'].get('sourceFamily') == 'NAVCEN_MSI':
             from backend.app.routes.navigation_restrictions import comparison
-            from src.portwatch_os.intelligence.navigation_restrictions import refresh
+            from src.portwatch_os.intelligence.navigation_restrictions import retained
             notice_id=env['reportedFact'].get('noticeId') or env['reportedFact'].get('providerNoticeId')
-            latest=refresh(force=True,**({'notice_id':notice_id} if notice_id else {}))
+            latest=retained(notice_id)
         else:
             from backend.app.routes.operational_notices import comparison
-            from src.portwatch_os.intelligence.operational_notices import refresh
-            latest=refresh(force=True)
+            from src.portwatch_os.intelligence.operational_notices import retained
+            latest=retained()
         result=comparison({'vesselId':source.subject_id,'revisionId':latest.get('revisionId'),
             **({'noticeId':latest.get('noticeId')} if latest.get('noticeId') else {})})
     elif source.evidence.get("intelligenceBasis"):

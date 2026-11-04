@@ -61,6 +61,7 @@ export const portContextSchema = z
   })
   .passthrough();
 const responseSchema = z.object({
+  refreshPending: z.boolean().optional(),
   context: portContextSchema,
   voyages: z.array(
     z.object({

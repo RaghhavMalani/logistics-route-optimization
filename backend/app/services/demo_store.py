@@ -78,16 +78,14 @@ class DemoStore:
             raise HTTPException(401, "Demo session expired; open a new demo from the entry screen")
         return row
 
-    def session(self, token):
+    def session_world(self, token):
         with self.connect() as db:
             row = self.row(db, token)
-        role = row["role"]
-        selected_port = json.loads(row["world"]).get("portCode", "INNSA")
-        if selected_port not in ("INNSA", "INPRT", "INMAA"): selected_port = "INNSA"
-        return {"mode": "demo", "demoId": row["id"], "issuedAt": row["issued"], "expiresAt": row["expires"],
-            "user": {"id": "demo-"+LABELS[role].lower(), "email": LABELS[role].lower()+"@portwatch.demo", "displayName": LABELS[role]+" demonstrator", "role": role,
-                "organisation": "PortWatch Demo Shipping" if role in ROLES[:2] else "Demo Paradip planning desk" if selected_port == "INPRT" else "Demo JNPA planning desk", "companyId": "portwatch-demo-shipping" if role in ROLES[:2] else None,
-                "portCode": selected_port if role == "PORT_AUTHORITY" else None, "vesselIds": ["PWD-001"] if role == "VESSEL_OPERATOR" else []}}
+        world = json.loads(row["world"])
+        return describe_demo(row["id"], row["issued"], row["expires"], row["role"], world), world
+
+    def session(self, token):
+        return self.session_world(token)[0]
 
     def read(self, token):
         with self.connect() as db:
@@ -125,6 +123,25 @@ class DemoStore:
         with self.connect() as db:
             self.row(db, token)
             db.execute("DELETE FROM sessions WHERE token_hash=?", (self.digest(token),))
+
+
+def describe_demo(demo_id, issued, expires, role, world):
+    selected_port = world.get("portCode", "INNSA")
+    if selected_port not in ("INNSA", "INPRT", "INMAA"):
+        selected_port = "INNSA"
+    return {
+        "mode": "demo", "demoId": demo_id, "issuedAt": issued, "expiresAt": expires,
+        "user": {
+            "id": "demo-" + LABELS[role].lower(),
+            "email": LABELS[role].lower() + "@portwatch.demo",
+            "displayName": LABELS[role] + " demonstrator", "role": role,
+            "organisation": "PortWatch Demo Shipping" if role in ROLES[:2] else
+            "Demo Paradip planning desk" if selected_port == "INPRT" else "Demo JNPA planning desk",
+            "companyId": "portwatch-demo-shipping" if role in ROLES[:2] else None,
+            "portCode": selected_port if role == "PORT_AUTHORITY" else None,
+            "vesselIds": ["PWD-001"] if role == "VESSEL_OPERATOR" else [],
+        },
+    }
 
 
 @lru_cache(maxsize=1)

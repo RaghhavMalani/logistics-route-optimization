@@ -103,9 +103,22 @@ def refresh(force=False):
         return latest
 
 
+def retained():
+    pointer = ROOT / 'operational_notices' / 'eastham-2026-18-latest.json'
+    try:
+        notice = json.loads(pointer.read_text(encoding='utf-8'))
+        if not isinstance(notice, dict):
+            raise ValueError('Invalid retained authority receipt')
+        return notice
+    except (OSError, ValueError):
+        return {'noticeRef': 'MNTM 2026-18', 'source': SOURCE, 'pdfSource': PDF,
+                'windows': [], 'sourceStatus': 'UNAVAILABLE', 'checkedAt': None,
+                'reason': 'No retained authority receipt'}
+
+
 def require_revision(basis, *, now=None):
     query_at = world_now() if now is None else instant(now)
-    latest=refresh()
+    latest=retained()
     if latest.get('sourceStatus')!='CURRENT' or latest.get('status')!='SCHEDULED': raise ValueError('Authority restriction unavailable, withdrawn or cancelled; further action blocked')
     if latest.get('revisionId')!=basis['restriction']['revisionId']: raise ValueError('Authority restriction revised; explicitly refresh to a linked comparison')
     if query_at < instant(latest.get('availableAt') or latest['checkedAt']): raise ValueError('Authority revision was not yet available at this query instant')
