@@ -2,7 +2,7 @@
 
 Inventory captured from `5f5e84f` before the move. Each row is a mounted FastAPI registration. The API root is included for completeness. FastAPI's own documentation URLs are separate.
 
-Baseline has **384 route registrations** and **384 method/path pairs**.
+Baseline has **384 route registrations** and **384 method/path pairs**. The same 384 registrations are now assembled by six domain routers. The existing operational paths and demo aliases remain the HTTP contract. The Python modules under `backend.app.routes` forward to the new handler modules for one release.
 
 **Used** has repository caller evidence. **Legacy** is a retained API contract with no statically attributable repository caller. **Dead** requires proof that no caller can reach the endpoint. Dynamic URL composition and external clients make absence from the static scan insufficient for deletion.
 
@@ -10,7 +10,7 @@ Callers are representative source locations from frontend request literals, test
 
 Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 
-## `admin`
+## system / [`admin`](../backend/app/domains/system/admin.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/admin/readiness` | Used | — | [test_authorization_matrix:77](../tests/test_authorization_matrix.py#L77), [test_freshness:394](../tests/test_freshness.py#L394) | [DEPLOYMENT:66](../docs/DEPLOYMENT.md#L66), [FLAGSHIP_DEMO:203](../docs/FLAGSHIP_DEMO.md#L203), [SECURITY:52](../docs/SECURITY.md#L52) |
 | `GET /api/demo/terminal/admin/freshness` | Used | [lenses:256](../india-portwatch-terminal/src/services/lenses.ts#L256) | [test_authorization_matrix:76](../tests/test_authorization_matrix.py#L76), [test_freshness:366](../tests/test_freshness.py#L366) | [FLAGSHIP_DEMO:239](../docs/FLAGSHIP_DEMO.md#L239), [PERFORMANCE:68](../docs/PERFORMANCE.md#L68), [SECURITY:51](../docs/SECURITY.md#L51) |
 
-## `advisories`
+## advisories / [`advisories`](../backend/app/domains/advisories/advisories.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/demo/terminal/advisories/{advisory_id}/modify` | Used | [portwatch-os:242](../india-portwatch-terminal/src/services/portwatch-os.ts#L242) | — | [API_CONTRACT:498](../docs/API_CONTRACT.md#L498) |
 | `POST /api/demo/terminal/advisories/{advisory_id}/transition` | Used | [portwatch-os:230](../india-portwatch-terminal/src/services/portwatch-os.ts#L230) | [arrival-workflow.spec:150](../india-portwatch-terminal/qa/tests/arrival-workflow.spec.ts#L150), [test_arrival_api:81](../tests/test_arrival_api.py#L81) | [API_CONTRACT:497](../docs/API_CONTRACT.md#L497), [ARCHITECTURE:176](../docs/ARCHITECTURE.md#L176), [ARRIVAL_WORKFLOW:62](../docs/ARRIVAL_WORKFLOW.md#L62), [REPO_AUDIT:120](../docs/REPO_AUDIT.md#L120) |
 
-## `agents`
+## system / [`agents`](../backend/app/domains/system/agents.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -59,7 +59,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/demo/terminal/agents/runs/{run_id}` | Used | [portwatch-os:289](../india-portwatch-terminal/src/services/portwatch-os.ts#L289) | — | [API_CONTRACT:518](../docs/API_CONTRACT.md#L518) |
 | `GET /api/demo/terminal/agents/tools` | Used | [portwatch-os:256](../india-portwatch-terminal/src/services/portwatch-os.ts#L256) | [capture-fixtures:55](../india-portwatch-terminal/qa/capture-fixtures.mjs#L55), [test_authorization_matrix:85](../tests/test_authorization_matrix.py#L85) | [API_CONTRACT:515](../docs/API_CONTRACT.md#L515), [SECURITY:60](../docs/SECURITY.md#L60) |
 
-## `arrivals`
+## ports / [`arrivals`](../backend/app/domains/ports/arrivals.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -75,7 +75,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/arrivals/operations/{operation_id}/outcome` | Used | — | [arrival-workflow.spec:195](../india-portwatch-terminal/qa/tests/arrival-workflow.spec.ts#L195), [test_arrival_collection:47](../tests/test_arrival_collection.py#L47), [test_arrival_workflow:94](../tests/test_arrival_workflow.py#L94), [test_jnpa_handoff:47](../tests/test_jnpa_handoff.py#L47) | [ARRIVAL_WORKFLOW:59](../docs/ARRIVAL_WORKFLOW.md#L59) |
 | `GET /api/arrivals/workspace` | Used | [arrivals:237](../india-portwatch-terminal/src/services/arrivals.ts#L237) | [arrival-workflow.spec:140](../india-portwatch-terminal/qa/tests/arrival-workflow.spec.ts#L140), [test_arrival_api:58](../tests/test_arrival_api.py#L58) | [ARRIVAL_WORKFLOW:54](../docs/ARRIVAL_WORKFLOW.md#L54), [JNPA_DATA_COLLECTION:70](../docs/JNPA_DATA_COLLECTION.md#L70) |
 
-## `auth`
+## system / [`auth`](../backend/app/domains/system/auth.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -83,7 +83,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/auth/logout` | Used | [adapters:181](../india-portwatch-terminal/src/auth/adapters.ts#L181) | [harness:272](../india-portwatch-terminal/qa/harness.ts#L272), [test_verified_identity:85](../tests/test_verified_identity.py#L85) | [API_CONTRACT:694](../docs/API_CONTRACT.md#L694) |
 | `GET /api/auth/session` | Used | [adapters:206](../india-portwatch-terminal/src/auth/adapters.ts#L206) | [harness:260](../india-portwatch-terminal/qa/harness.ts#L260), [test_demo_boundary:72](../tests/test_demo_boundary.py#L72), [test_verified_identity:59](../tests/test_verified_identity.py#L59) | [API_CONTRACT:693](../docs/API_CONTRACT.md#L693) |
 
-## `capabilities`
+## intelligence / [`capabilities`](../backend/app/domains/intelligence/capabilities.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -92,7 +92,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/intelligence/layer/{layer}` | Used | [GlobalIntelligenceControl:212](../india-portwatch-terminal/src/components/intelligence/GlobalIntelligenceControl.tsx#L212) | [test_capability_upgrades:19](../tests/test_capability_upgrades.py#L19) | — |
 | `GET /api/learning/experiments` | Used | — | [test_demo_terminal:52](../tests/test_demo_terminal.py#L52) | — |
 
-## `commercial`
+## voyages / [`commercial`](../backend/app/domains/voyages/commercial.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/demo/terminal/commercial/records/{record_id}/successor` | Used | [CommercialReview:205](../india-portwatch-terminal/src/components/decision/CommercialReview.tsx#L205) | — | — |
 | `GET /api/demo/terminal/commercial/templates/{decision_id}` | Legacy | — | — | — |
 
-## `company`
+## voyages / [`company`](../backend/app/domains/voyages/company.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -130,7 +130,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/demo/terminal/company/routes` | Used | [portwatch-os:120](../india-portwatch-terminal/src/services/portwatch-os.ts#L120) | [capture-fixtures:50](../india-portwatch-terminal/qa/capture-fixtures.mjs#L50), [routes.spec:36](../india-portwatch-terminal/qa/tests/routes.spec.ts#L36), [test_configured_fleet_scope:59](../tests/test_configured_fleet_scope.py#L59), [test_demo_terminal:49](../tests/test_demo_terminal.py#L49) +1 | [API_CONTRACT:438](../docs/API_CONTRACT.md#L438) |
 | `GET /api/demo/terminal/company/vessels/{vessel_id}` | Used | [portwatch-os:129](../india-portwatch-terminal/src/services/portwatch-os.ts#L129) | [test_configured_fleet_scope:59](../tests/test_configured_fleet_scope.py#L59), [test_hull_authorization_matrix:57](../tests/test_hull_authorization_matrix.py#L57) | [API_CONTRACT:437](../docs/API_CONTRACT.md#L437) |
 
-## `current_inputs`
+## intelligence / [`current_inputs`](../backend/app/domains/intelligence/current_inputs.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -147,7 +147,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/intelligence/current` | Used | [CurrentInputControl:116](../india-portwatch-terminal/src/components/intelligence/CurrentInputControl.tsx#L116) | [fleet-triage.spec:445](../india-portwatch-terminal/qa/tests/fleet-triage.spec.ts#L445), [passage-comparison.spec:95](../india-portwatch-terminal/qa/tests/passage-comparison.spec.ts#L95) | — |
 | `GET /api/weather/current-map` | Used | [current-inputs:337](../india-portwatch-terminal/src/services/current-inputs.ts#L337), [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | — | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 
-## `decisions`
+## voyages / [`decisions`](../backend/app/domains/voyages/decisions.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -168,7 +168,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/demo/terminal/decisions/problems/{decision_id}/outcome` | Used | [decisions:122](../india-portwatch-terminal/src/services/decisions.ts#L122) | [test_authorization_matrix:219](../tests/test_authorization_matrix.py#L219) | [API_CONTRACT:549](../docs/API_CONTRACT.md#L549) |
 | `POST /api/demo/terminal/decisions/problems/{decision_id}/transition` | Used | [decisions:96](../india-portwatch-terminal/src/services/decisions.ts#L96) | [passage-comparison.spec:881](../india-portwatch-terminal/qa/tests/passage-comparison.spec.ts#L881), [verified-backend.spec:208](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L208), [test_api_fuzz:220](../tests/test_api_fuzz.py#L220), [test_authorization_matrix:216](../tests/test_authorization_matrix.py#L216) +2 | [API_CONTRACT:547](../docs/API_CONTRACT.md#L547), [DECISION_ENGINE:200](../docs/DECISION_ENGINE.md#L200) |
 
-## `demo`
+## system / [`demo`](../backend/app/domains/system/demo.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -186,7 +186,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/demo/session` | Used | [AuthProvider:196](../india-portwatch-terminal/src/auth/AuthProvider.tsx#L196), [adapters:121](../india-portwatch-terminal/src/auth/adapters.ts#L121) | [harness:139](../india-portwatch-terminal/qa/harness.ts#L139), [panel-smoke:214](../india-portwatch-terminal/qa/panel-smoke.mjs#L214), [fleet-triage.spec:402](../india-portwatch-terminal/qa/tests/fleet-triage.spec.ts#L402), [intelligence.spec:21](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L21) +7 | [API_CONTRACT:5](../docs/API_CONTRACT.md#L5), [MINIATURE_TOUR_20261103:124](../docs/MINIATURE_TOUR_20261103.md#L124) |
 | `GET /api/demo/workspace` | Used | [DemoShell:50](../india-portwatch-terminal/src/components/demo/DemoShell.tsx#L50), [demo:14](../india-portwatch-terminal/src/services/demo.ts#L14) | [panel-smoke:482](../india-portwatch-terminal/qa/panel-smoke.mjs#L482), [test_demo_boundary:35](../tests/test_demo_boundary.py#L35), [test_hull_authorization_matrix:114](../tests/test_hull_authorization_matrix.py#L114) | [API_CONTRACT:7](../docs/API_CONTRACT.md#L7), [UI_GLOBE_CORRECTION_PREVIEW:14](../docs/UI_GLOBE_CORRECTION_PREVIEW.md#L14) |
 
-## `demonstrations`
+## voyages / [`demonstrations`](../backend/app/domains/voyages/demonstrations.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -195,7 +195,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/demo/terminal/demonstrations/select` | Used | [DemonstrationScenarios:57](../india-portwatch-terminal/src/components/intelligence/DemonstrationScenarios.tsx#L57) | [panel-smoke:223](../india-portwatch-terminal/qa/panel-smoke.mjs#L223), [test_commercial_api:13](../tests/test_commercial_api.py#L13), [test_demonstration_scenarios:9](../tests/test_demonstration_scenarios.py#L9), [test_panel_runtime:48](../tests/test_panel_runtime.py#L48) | — |
 | `GET /api/demo/terminal/demonstrations/selection` | Used | [DemonstrationScenarios:390](../india-portwatch-terminal/src/components/intelligence/DemonstrationScenarios.tsx#L390) | [test_demonstration_scenarios:42](../tests/test_demonstration_scenarios.py#L42) | — |
 
-## `finance`
+## voyages / [`finance`](../backend/app/domains/voyages/finance.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -208,14 +208,14 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/finance/observations` | Used | — | — | [API_CONTRACT:575](../docs/API_CONTRACT.md#L575) |
 | `GET /api/finance/tariffs` | Used | [decisions:140](../india-portwatch-terminal/src/services/decisions.ts#L140) | [capture-fixtures:81](../india-portwatch-terminal/qa/capture-fixtures.mjs#L81), [test_authorization_matrix:63](../tests/test_authorization_matrix.py#L63), [test_finance_and_missions:356](../tests/test_finance_and_missions.py#L356) | [API_CONTRACT:572](../docs/API_CONTRACT.md#L572), [SECURITY:43](../docs/SECURITY.md#L43) |
 
-## `fleet`
+## voyages / [`fleet`](../backend/app/domains/voyages/fleet.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
 | `GET /api/demo/terminal/fleet` | Used | [portwatch:121](../india-portwatch-terminal/src/services/portwatch.ts#L121) | [capture-fixtures:41](../india-portwatch-terminal/qa/capture-fixtures.mjs#L41), [routes.spec:154](../india-portwatch-terminal/qa/tests/routes.spec.ts#L154), [test_configured_fleet_scope:57](../tests/test_configured_fleet_scope.py#L57), [test_demo_terminal:90](../tests/test_demo_terminal.py#L90) +1 | [API_CONTRACT:371](../docs/API_CONTRACT.md#L371), [ARCHITECTURE:166](../docs/ARCHITECTURE.md#L166) |
 | `GET /api/fleet` | Used | [portwatch:121](../india-portwatch-terminal/src/services/portwatch.ts#L121) | [capture-fixtures:41](../india-portwatch-terminal/qa/capture-fixtures.mjs#L41), [routes.spec:154](../india-portwatch-terminal/qa/tests/routes.spec.ts#L154), [test_configured_fleet_scope:57](../tests/test_configured_fleet_scope.py#L57), [test_demo_terminal:90](../tests/test_demo_terminal.py#L90) +1 | [API_CONTRACT:371](../docs/API_CONTRACT.md#L371), [ARCHITECTURE:166](../docs/ARCHITECTURE.md#L166) |
 
-## `global_eye`
+## world / [`global_eye`](../backend/app/domains/world/global_eye.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -229,7 +229,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/global-eye/events/{event_id}` | Used | [portwatch-os:76](../india-portwatch-terminal/src/services/portwatch-os.ts#L76) | — | [API_CONTRACT:409](../docs/API_CONTRACT.md#L409), [GLOBAL_EYE:224](../docs/GLOBAL_EYE.md#L224) |
 | `GET /api/global-eye/exposure` | Used | [portwatch-os:91](../india-portwatch-terminal/src/services/portwatch-os.ts#L91) | [capture-fixtures:45](../india-portwatch-terminal/qa/capture-fixtures.mjs#L45) | [API_CONTRACT:410](../docs/API_CONTRACT.md#L410), [GLOBAL_EYE:225](../docs/GLOBAL_EYE.md#L225) |
 
-## `handoffs`
+## advisories / [`handoffs`](../backend/app/domains/advisories/handoffs.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -238,14 +238,14 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/handoffs` | Used | [handoffs:72](../india-portwatch-terminal/src/services/handoffs.ts#L72) | [test_current_recovery:129](../tests/test_current_recovery.py#L129), [test_hull_authorization_matrix:149](../tests/test_hull_authorization_matrix.py#L149), [test_paradip_entry_workflow:21](../tests/test_paradip_entry_workflow.py#L21) | — |
 | `GET /api/handoffs/stream` | Used | [handoffs:96](../india-portwatch-terminal/src/services/handoffs.ts#L96) | — | — |
 
-## `health`
+## system / [`health`](../backend/app/domains/system/health.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
 | `GET /api/demo/terminal/health` | Used | [portwatch:38](../india-portwatch-terminal/src/services/portwatch.ts#L38) | [coverage-and-integration:33](../india-portwatch-terminal/qa/audits/coverage-and-integration.md#L33), [capture-fixtures:30](../india-portwatch-terminal/qa/capture-fixtures.mjs#L30), [executive-demo:114](../india-portwatch-terminal/qa/executive-demo.mjs#L114), [panel-smoke:42](../india-portwatch-terminal/qa/panel-smoke.mjs#L42) +8 | [README:42](../README.md#L42), [API_CONTRACT:66](../docs/API_CONTRACT.md#L66), [ARCHITECTURE:165](../docs/ARCHITECTURE.md#L165), [DEPLOYMENT:96](../docs/DEPLOYMENT.md#L96) +4 |
 | `GET /api/health` | Used | [portwatch:38](../india-portwatch-terminal/src/services/portwatch.ts#L38) | [coverage-and-integration:33](../india-portwatch-terminal/qa/audits/coverage-and-integration.md#L33), [capture-fixtures:30](../india-portwatch-terminal/qa/capture-fixtures.mjs#L30), [executive-demo:114](../india-portwatch-terminal/qa/executive-demo.mjs#L114), [panel-smoke:42](../india-portwatch-terminal/qa/panel-smoke.mjs#L42) +8 | [README:42](../README.md#L42), [API_CONTRACT:66](../docs/API_CONTRACT.md#L66), [ARCHITECTURE:165](../docs/ARCHITECTURE.md#L165), [DEPLOYMENT:96](../docs/DEPLOYMENT.md#L96) +4 |
 
-## `intelligence`
+## intelligence / [`intelligence`](../backend/app/domains/intelligence/intelligence.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -265,7 +265,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/weather/feedback` | Used | [CapabilityPanels:59](../india-portwatch-terminal/src/components/intelligence/CapabilityPanels.tsx#L59), [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [intelligence.spec:98](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L98), [verified-backend.spec:280](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L280), [weather-integration.spec:46](../india-portwatch-terminal/qa/tests/weather-integration.spec.ts#L46), [test_demo_terminal:52](../tests/test_demo_terminal.py#L52) +1 | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 | `POST /api/weather/observations` | Used | [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [verified-backend.spec:300](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L300), [test_intelligence_api:190](../tests/test_intelligence_api.py#L190) | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 
-## `learning`
+## intelligence / [`learning`](../backend/app/domains/intelligence/learning.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -287,7 +287,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/learning/run` | Used | [portwatch-os:326](../india-portwatch-terminal/src/services/portwatch-os.ts#L326) | [capture-fixtures:118](../india-portwatch-terminal/qa/capture-fixtures.mjs#L118), [test_authorization_matrix:82](../tests/test_authorization_matrix.py#L82) | [API_CONTRACT:608](../docs/API_CONTRACT.md#L608), [SECURITY:57](../docs/SECURITY.md#L57) |
 | `GET /api/learning/summary` | Used | [portwatch-os:295](../india-portwatch-terminal/src/services/portwatch-os.ts#L295) | [capture-fixtures:57](../india-portwatch-terminal/qa/capture-fixtures.mjs#L57), [test_authorization_matrix:79](../tests/test_authorization_matrix.py#L79) | [API_CONTRACT:599](../docs/API_CONTRACT.md#L599), [SECURITY:54](../docs/SECURITY.md#L54) |
 
-## `lenses`
+## world / [`lenses`](../backend/app/domains/world/lenses.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -306,7 +306,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | --- | --- | --- | --- | --- |
 | `GET /` | Legacy | — | — | — |
 
-## `missions`
+## voyages / [`missions`](../backend/app/domains/voyages/missions.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -331,7 +331,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/missions/{mission_id}/seek` | Used | [decisions:173](../india-portwatch-terminal/src/services/decisions.ts#L173) | [test_api_fuzz:242](../tests/test_api_fuzz.py#L242) | [API_CONTRACT:588](../docs/API_CONTRACT.md#L588) |
 | `GET /api/missions/{mission_id}/world` | Used | — | — | [API_CONTRACT:589](../docs/API_CONTRACT.md#L589) |
 
-## `model`
+## ports / [`model`](../backend/app/domains/ports/model.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -350,7 +350,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/model/{port_code}/forecast` | Used | [portwatch:92](../india-portwatch-terminal/src/services/portwatch.ts#L92) | [capture-fixtures:91](../india-portwatch-terminal/qa/capture-fixtures.mjs#L91), [test_api_contract:134](../tests/test_api_contract.py#L134), [test_demo_terminal:48](../tests/test_demo_terminal.py#L48), [test_home_screens:26](../tests/test_home_screens.py#L26) | [API_CONTRACT:191](../docs/API_CONTRACT.md#L191) |
 | `GET /api/model/{port_code}/regime` | Used | [portwatch:94](../india-portwatch-terminal/src/services/portwatch.ts#L94) | [capture-fixtures:92](../india-portwatch-terminal/qa/capture-fixtures.mjs#L92), [test_api_contract:145](../tests/test_api_contract.py#L145) | [API_CONTRACT:192](../docs/API_CONTRACT.md#L192) |
 
-## `navigation_restrictions`
+## intelligence / [`navigation_restrictions`](../backend/app/domains/intelligence/navigation_restrictions.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -373,7 +373,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/intelligence/paradip-entry-comparison` | Used | [NavigationRestrictionPanel:190](../india-portwatch-terminal/src/components/intelligence/NavigationRestrictionPanel.tsx#L190) | [test_paradip_entry_workflow:10](../tests/test_paradip_entry_workflow.py#L10) | — |
 | `GET /api/intelligence/voyage-exposure` | Used | — | [test_intelligence_queue:46](../tests/test_intelligence_queue.py#L46) | [INTELLIGENCE_CONTRACT_ADDITIONS:33](../docs/team/INTELLIGENCE_CONTRACT_ADDITIONS.md#L33) |
 
-## `news`
+## world / [`news`](../backend/app/domains/world/news.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -382,7 +382,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/news` | Used | [portwatch:110](../india-portwatch-terminal/src/services/portwatch.ts#L110) | [capture-fixtures:38](../india-portwatch-terminal/qa/capture-fixtures.mjs#L38) | [API_CONTRACT:366](../docs/API_CONTRACT.md#L366), [ARCHITECTURE:165](../docs/ARCHITECTURE.md#L165) |
 | `GET /api/news/entity/{entity}` | Used | [portwatch:113](../india-portwatch-terminal/src/services/portwatch.ts#L113) | — | [API_CONTRACT:367](../docs/API_CONTRACT.md#L367) |
 
-## `operational_evidence`
+## intelligence / [`operational_evidence`](../backend/app/domains/intelligence/operational_evidence.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -391,7 +391,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/intelligence/operational-evidence` | Used | [OperationalEvidencePanel:90](../india-portwatch-terminal/src/components/intelligence/OperationalEvidencePanel.tsx#L90) | — | [INDIA_OPERATIONAL_EVIDENCE_PILOT:36](../docs/INDIA_OPERATIONAL_EVIDENCE_PILOT.md#L36), [INTELLIGENCE_CONTRACT_ADDITIONS:45](../docs/team/INTELLIGENCE_CONTRACT_ADDITIONS.md#L45) |
 | `GET /api/intelligence/operational-evidence/original` | Used | [OperationalEvidencePanel:176](../india-portwatch-terminal/src/components/intelligence/OperationalEvidencePanel.tsx#L176) | [test_demonstration_scenarios:69](../tests/test_demonstration_scenarios.py#L69) | [INDIA_OPERATIONAL_EVIDENCE_PILOT:36](../docs/INDIA_OPERATIONAL_EVIDENCE_PILOT.md#L36) |
 
-## `operational_notices`
+## intelligence / [`operational_notices`](../backend/app/domains/intelligence/operational_notices.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -404,7 +404,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/intelligence/notice-passage-plan` | Used | [OperationalNoticePanel:88](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L88) | [test_operational_notices:95](../tests/test_operational_notices.py#L95) | — |
 | `GET /api/intelligence/operational-notices` | Used | [OperationalNoticePanel:75](../india-portwatch-terminal/src/components/intelligence/OperationalNoticePanel.tsx#L75) | — | — |
 
-## `port_context`
+## ports / [`port_context`](../backend/app/domains/ports/port_context.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -413,7 +413,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/demo/terminal/intelligence/port-context/refresh` | Used | [PortOperationalContext:50](../india-portwatch-terminal/src/components/intelligence/PortOperationalContext.tsx#L50) | — | — |
 | `POST /api/demo/terminal/intelligence/port-context/rule` | Used | [PortOperationalContext:60](../india-portwatch-terminal/src/components/intelligence/PortOperationalContext.tsx#L60) | [test_demonstration_scenarios:63](../tests/test_demonstration_scenarios.py#L63) | — |
 
-## `port_twin`
+## ports / [`port_twin`](../backend/app/domains/ports/port_twin.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -430,7 +430,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/port-twin/{port_code}/optimize` | Used | [portwatch-os:162](../india-portwatch-terminal/src/services/portwatch-os.ts#L162) | [capture-fixtures:85](../india-portwatch-terminal/qa/capture-fixtures.mjs#L85) | [API_CONTRACT:461](../docs/API_CONTRACT.md#L461), [PORT_TWIN:224](../docs/PORT_TWIN.md#L224) |
 | `GET /api/port-twin/{port_code}/simulate` | Used | [portwatch-os:153](../india-portwatch-terminal/src/services/portwatch-os.ts#L153) | [capture-fixtures:84](../india-portwatch-terminal/qa/capture-fixtures.mjs#L84), [test_demo_terminal:51](../tests/test_demo_terminal.py#L51) | [API_CONTRACT:460](../docs/API_CONTRACT.md#L460), [PORT_TWIN:223](../docs/PORT_TWIN.md#L223) |
 
-## `ports`
+## ports / [`ports`](../backend/app/domains/ports/ports.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -441,14 +441,14 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/ports/registry` | Used | [portwatch:73](../india-portwatch-terminal/src/services/portwatch.ts#L73) | [capture-fixtures:33](../india-portwatch-terminal/qa/capture-fixtures.mjs#L33), [test_api_contract:102](../tests/test_api_contract.py#L102), [test_demo_terminal:48](../tests/test_demo_terminal.py#L48), [test_home_screens:44](../tests/test_home_screens.py#L44) | [API_CONTRACT:171](../docs/API_CONTRACT.md#L171) |
 | `GET /api/ports/{port_code}` | Used | [portwatch:73](../india-portwatch-terminal/src/services/portwatch.ts#L73) | [capture-fixtures:33](../india-portwatch-terminal/qa/capture-fixtures.mjs#L33), [test_api_contract:102](../tests/test_api_contract.py#L102), [test_demo_terminal:48](../tests/test_demo_terminal.py#L48), [test_home_screens:44](../tests/test_home_screens.py#L44) | [API_CONTRACT:171](../docs/API_CONTRACT.md#L171) |
 
-## `provenance`
+## system / [`provenance`](../backend/app/domains/system/provenance.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
 | `GET /api/demo/terminal/provenance` | Used | [portwatch:40](../india-portwatch-terminal/src/services/portwatch.ts#L40) | [capture-fixtures:31](../india-portwatch-terminal/qa/capture-fixtures.mjs#L31), [source-quality-producers.spec:219](../india-portwatch-terminal/qa/tests/source-quality-producers.spec.ts#L219), [source-quality.spec:257](../india-portwatch-terminal/qa/tests/source-quality.spec.ts#L257), [test_source_quality_projection:205](../tests/test_source_quality_projection.py#L205) | [API_CONTRACT:104](../docs/API_CONTRACT.md#L104), [ARCHITECTURE:165](../docs/ARCHITECTURE.md#L165), [PRODUCT_INTERNALS:723](../docs/PRODUCT_INTERNALS.md#L723), [INTELLIGENCE_CONTRACT_ADDITIONS:69](../docs/team/INTELLIGENCE_CONTRACT_ADDITIONS.md#L69) +1 |
 | `GET /api/provenance` | Used | [portwatch:40](../india-portwatch-terminal/src/services/portwatch.ts#L40) | [capture-fixtures:31](../india-portwatch-terminal/qa/capture-fixtures.mjs#L31), [source-quality-producers.spec:219](../india-portwatch-terminal/qa/tests/source-quality-producers.spec.ts#L219), [source-quality.spec:257](../india-portwatch-terminal/qa/tests/source-quality.spec.ts#L257), [test_source_quality_projection:205](../tests/test_source_quality_projection.py#L205) | [API_CONTRACT:104](../docs/API_CONTRACT.md#L104), [ARCHITECTURE:165](../docs/ARCHITECTURE.md#L165), [PRODUCT_INTERNALS:723](../docs/PRODUCT_INTERNALS.md#L723), [INTELLIGENCE_CONTRACT_ADDITIONS:69](../docs/team/INTELLIGENCE_CONTRACT_ADDITIONS.md#L69) +1 |
 
-## `public_arrivals`
+## ports / [`public_arrivals`](../backend/app/domains/ports/public_arrivals.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -460,7 +460,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/public-arrivals/structured-evidence/{snapshot_id}` | Used | [PublicArrivalPilot:437](../india-portwatch-terminal/src/components/intelligence/PublicArrivalPilot.tsx#L437) | [test_public_arrival_api:55](../tests/test_public_arrival_api.py#L55) | — |
 | `GET /api/public-arrivals/workspace` | Used | [PublicArrivalPilot:50](../india-portwatch-terminal/src/components/intelligence/PublicArrivalPilot.tsx#L50) | [public-arrivals.spec:266](../india-portwatch-terminal/qa/tests/public-arrivals.spec.ts#L266), [test_public_arrival_api:26](../tests/test_public_arrival_api.py#L26), [test_public_research:58](../tests/test_public_research.py#L58) | [API_CONTRACT:710](../docs/API_CONTRACT.md#L710) |
 
-## `public_research`
+## intelligence / [`public_research`](../backend/app/domains/intelligence/public_research.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -471,7 +471,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/public/research` | Used | [public-research:314](../india-portwatch-terminal/src/services/public-research.ts#L314) | [public-research.spec:238](../india-portwatch-terminal/qa/tests/public-research.spec.ts#L238), [test_public_research:108](../tests/test_public_research.py#L108) | [API_CONTRACT:15](../docs/API_CONTRACT.md#L15) |
 | `GET /api/public/research/download/{artifact}` | Used | — | [test_public_research:60](../tests/test_public_research.py#L60) | [API_CONTRACT:17](../docs/API_CONTRACT.md#L17) |
 
-## `public_workspace`
+## intelligence / [`public_workspace`](../backend/app/domains/intelligence/public_workspace.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -479,7 +479,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/public/weather-feedback` | Used | [public-workspace:227](../india-portwatch-terminal/src/services/public-workspace.ts#L227) | [test_public_workspace:56](../tests/test_public_workspace.py#L56) | — |
 | `GET /api/public/workspace` | Used | [public-workspace:194](../india-portwatch-terminal/src/services/public-workspace.ts#L194) | [public-research.spec:202](../india-portwatch-terminal/qa/tests/public-research.spec.ts#L202), [test_configured_fleet_scope:83](../tests/test_configured_fleet_scope.py#L83), [test_public_workspace:56](../tests/test_public_workspace.py#L56) | — |
 
-## `sar`
+## world / [`sar`](../backend/app/domains/world/sar.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -490,7 +490,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/sar/vessels` | Used | [portwatch:118](../india-portwatch-terminal/src/services/portwatch.ts#L118) | [capture-fixtures:39](../india-portwatch-terminal/qa/capture-fixtures.mjs#L39), [test_api_contract:178](../tests/test_api_contract.py#L178) | [API_CONTRACT:368](../docs/API_CONTRACT.md#L368) |
 | `GET /api/sar/{port_code}` | Used | [portwatch:118](../india-portwatch-terminal/src/services/portwatch.ts#L118) | [capture-fixtures:39](../india-portwatch-terminal/qa/capture-fixtures.mjs#L39), [test_api_contract:178](../tests/test_api_contract.py#L178) | [API_CONTRACT:368](../docs/API_CONTRACT.md#L368), [DATA_AUDIT:316](../docs/DATA_AUDIT.md#L316) |
 
-## `scenarios`
+## voyages / [`scenarios`](../backend/app/domains/voyages/scenarios.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -501,14 +501,14 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `POST /api/scenarios/simulate` | Used | [portwatch:132](../india-portwatch-terminal/src/services/portwatch.ts#L132) | [capture-fixtures:204](../india-portwatch-terminal/qa/capture-fixtures.mjs#L204), [serve-mock:37](../india-portwatch-terminal/qa/serve-mock.mjs#L37), [test_api_fuzz:260](../tests/test_api_fuzz.py#L260), [test_public_workspace:30](../tests/test_public_workspace.py#L30) | [API_CONTRACT:296](../docs/API_CONTRACT.md#L296), [DATA_AUDIT:146](../docs/DATA_AUDIT.md#L146) |
 | `GET /api/scenarios/{scenario_key}` | Used | [portwatch:132](../india-portwatch-terminal/src/services/portwatch.ts#L132) | [capture-fixtures:204](../india-portwatch-terminal/qa/capture-fixtures.mjs#L204), [serve-mock:37](../india-portwatch-terminal/qa/serve-mock.mjs#L37), [test_api_fuzz:260](../tests/test_api_fuzz.py#L260) | [API_CONTRACT:296](../docs/API_CONTRACT.md#L296), [DATA_AUDIT:146](../docs/DATA_AUDIT.md#L146) |
 
-## `screens`
+## system / [`screens`](../backend/app/domains/system/screens.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
 | `GET /api/demo/terminal/screens/{screen}` | Used | — | [test_home_screens:63](../tests/test_home_screens.py#L63) | — |
 | `GET /api/screens/{screen}` | Used | — | [test_home_screens:63](../tests/test_home_screens.py#L63) | — |
 
-## `shared_feedback`
+## intelligence / [`shared_feedback`](../backend/app/domains/intelligence/shared_feedback.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -525,7 +525,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/intelligence/feedback/impacts` | Used | [SharedFeedbackPanel:570](../india-portwatch-terminal/src/components/intelligence/SharedFeedbackPanel.tsx#L570) | [test_evidence_dispositions:63](../tests/test_evidence_dispositions.py#L63), [test_feedback_inspection_api:228](../tests/test_feedback_inspection_api.py#L228), [test_navigation_restrictions:186](../tests/test_navigation_restrictions.py#L186), [test_operational_episodes:90](../tests/test_operational_episodes.py#L90) +2 | — |
 | `POST /api/intelligence/operational-calls` | Used | [IndianNoticeReview:66](../india-portwatch-terminal/src/components/intelligence/IndianNoticeReview.tsx#L66), [NavigationRestrictionPanel:119](../india-portwatch-terminal/src/components/intelligence/NavigationRestrictionPanel.tsx#L119) | [test_intelligence_queue:97](../tests/test_intelligence_queue.py#L97), [test_operational_episodes:133](../tests/test_operational_episodes.py#L133) | — |
 
-## `shipping_intelligence`
+## intelligence / [`shipping_intelligence`](../backend/app/domains/intelligence/shipping_intelligence.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -542,7 +542,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/intelligence/shipping-evidence/{digest}` | Used | [ShippingIntelligencePanel:101](../india-portwatch-terminal/src/components/intelligence/ShippingIntelligencePanel.tsx#L101) | — | — |
 | `GET /api/intelligence/shipping-signals` | Used | [ShippingIntelligencePanel:110](../india-portwatch-terminal/src/components/intelligence/ShippingIntelligencePanel.tsx#L110) | — | — |
 
-## `weather`
+## ports / [`weather`](../backend/app/domains/ports/weather.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -553,7 +553,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/weather/intelligence` | Used | [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [capture-fixtures:37](../india-portwatch-terminal/qa/capture-fixtures.mjs#L37), [test_demo_terminal:48](../tests/test_demo_terminal.py#L48) | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 | `GET /api/weather/{port_code}` | Used | [CapabilityPanels:59](../india-portwatch-terminal/src/components/intelligence/CapabilityPanels.tsx#L59), [WeatherShadowPanel:152](../india-portwatch-terminal/src/components/intelligence/WeatherShadowPanel.tsx#L152), [WeatherVerificationPanel:89](../india-portwatch-terminal/src/components/intelligence/WeatherVerificationPanel.tsx#L89), [current-inputs:337](../india-portwatch-terminal/src/services/current-inputs.ts#L337) +1 | [capture-fixtures:37](../india-portwatch-terminal/qa/capture-fixtures.mjs#L37), [intelligence.spec:98](../india-portwatch-terminal/qa/tests/intelligence.spec.ts#L98), [verified-backend.spec:280](../india-portwatch-terminal/qa/tests/verified-backend.spec.ts#L280), [weather-integration.spec:46](../india-portwatch-terminal/qa/tests/weather-integration.spec.ts#L46) +3 | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364), [WEATHER_SHADOW_ANALYSIS:48](../docs/WEATHER_SHADOW_ANALYSIS.md#L48), [INTELLIGENCE_CONTRACT_ADDITIONS:57](../docs/team/INTELLIGENCE_CONTRACT_ADDITIONS.md#L57) |
 
-## `weather_verification`
+## ports / [`weather_verification`](../backend/app/domains/ports/weather_verification.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
@@ -564,7 +564,7 @@ Classification by method/path pair. 370 used, 14 legacy, 0 dead.
 | `GET /api/weather/shadow` | Used | [WeatherShadowPanel:152](../india-portwatch-terminal/src/components/intelligence/WeatherShadowPanel.tsx#L152), [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [weather-integration.spec:189](../india-portwatch-terminal/qa/tests/weather-integration.spec.ts#L189), [test_weather_shadow_api:22](../tests/test_weather_shadow_api.py#L22) | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364), [WEATHER_SHADOW_ANALYSIS:48](../docs/WEATHER_SHADOW_ANALYSIS.md#L48), [INTELLIGENCE_CONTRACT_ADDITIONS:57](../docs/team/INTELLIGENCE_CONTRACT_ADDITIONS.md#L57) |
 | `GET /api/weather/verification` | Used | [WeatherVerificationPanel:89](../india-portwatch-terminal/src/components/intelligence/WeatherVerificationPanel.tsx#L89), [portwatch:104](../india-portwatch-terminal/src/services/portwatch.ts#L104) | [weather-integration.spec:61](../india-portwatch-terminal/qa/tests/weather-integration.spec.ts#L61) | [API_CONTRACT:364](../docs/API_CONTRACT.md#L364) |
 
-## `world`
+## world / [`world`](../backend/app/domains/world/world.py)
 
 | Method and URL | Status | Frontend | Tests | Docs |
 | --- | --- | --- | --- | --- |
