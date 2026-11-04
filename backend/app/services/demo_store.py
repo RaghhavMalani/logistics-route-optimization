@@ -26,7 +26,12 @@ def utc_now():
 
 
 def seed_world(at):
-    return {"version": "role-demo-v1", "epoch": at, "meaning": "FICTIONAL DEMONSTRATION; not observed AIS, berth records or operational outcomes.",
+    from src.portwatch_os.panel_runtime import snapshot_at
+
+    anchor = snapshot_at()
+    if anchor is not None:
+        at = anchor.isoformat()
+    return {**({"generation": secrets.token_hex(8)} if anchor is not None else {}),"version": "role-demo-v1", "epoch": at, "meaning": "FICTIONAL DEMONSTRATION; not observed AIS, berth records or operational outcomes.",
         "organisation": "PortWatch Demo Shipping", "portCode": "INNSA", "selectedVessel": "PWD-001",
         "event": {"id": "demo-suez-restriction", "title": "Assumed Suez restriction", "source": "DEMO_SCENARIO", "chokepoint": "SUEZ", "closureHours": 72},
         "fleet": [

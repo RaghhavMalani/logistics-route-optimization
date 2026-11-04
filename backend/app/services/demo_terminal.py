@@ -15,7 +15,7 @@ def resources(root: str, demo_id: str, generation: str) -> Sandbox:
 
 
 def bind(session, world, store):
-    generation = hashlib.sha256(world["epoch"].encode()).hexdigest()[:16]
+    generation = world.get("generation") or hashlib.sha256(world["epoch"].encode()).hexdigest()[:16]
     owned = resources(str(store.path.parent), session["demoId"], generation)
     # Cache durable domain resources, while each request holds its own world
     # snapshot and save callback. Concurrent map polls must not replace inputs

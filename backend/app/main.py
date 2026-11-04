@@ -93,17 +93,21 @@ async def lifespan(_: FastAPI):
     from scripts.candidate_state_backup import configured_backup
     app.state.candidate_backup=configured_backup()
     log.info("candidate backup: %s", app.state.candidate_backup)
-    start_client()
+    from src.portwatch_os.panel_runtime import snapshot_at
+    panel = snapshot_at() is not None
+    if not panel:
+        start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
-    if scheduler:
+    if scheduler and not panel:
         coordinator.start()
     from src.portwatch_os.learning import weather_reconciliation
-    weather_reconciliation.start()
     from src.portwatch_os.learning import intelligence_reconciliation
-    intelligence_reconciliation.start()
     from src.portwatch_os.intelligence import operational_notices as authority_notices
-    authority_notices.start()
+    if not panel:
+        weather_reconciliation.start()
+        intelligence_reconciliation.start()
+        authority_notices.start()
     try:
         yield
     finally:

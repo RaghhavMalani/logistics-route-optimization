@@ -319,7 +319,13 @@ def set_world_clock(
     mode = str(payload.get("mode") or "").strip().upper()
     if mode not in CLOCK_MODES:
         raise HTTPException(status_code=400, detail=f"mode must be one of: {', '.join(CLOCK_MODES)}")
+    from src.portwatch_os.panel_runtime import snapshot_at
+    anchor = snapshot_at()
     clock = get_clock()
+    if anchor is not None:
+        if mode != REPLAY or payload.get("at") is None or _at(payload["at"]) != anchor:
+            raise HTTPException(409, "Panel replay remains pinned to the retained snapshot")
+        return clock.describe()
     reason = str(payload.get("reason") or "")
     try:
         if mode == LIVE:

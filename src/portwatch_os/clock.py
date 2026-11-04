@@ -274,15 +274,25 @@ _CLOCK: Optional[WorldClock] = None
 _CLOCK_LOCK = threading.Lock()
 
 
+def _new_clock() -> WorldClock:
+    from src.portwatch_os.panel_runtime import snapshot_at
+
+    clock = WorldClock()
+    at = snapshot_at()
+    if at is not None:
+        clock.set_replay(at, rate=0.0, by="panel", reason="Pinned retained panel snapshot")
+    return clock
+
+
 def get_clock() -> WorldClock:
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
     if scoped is not None:
-        return scoped.resource("clock", WorldClock)
+        return scoped.resource("clock", _new_clock)
     global _CLOCK
     with _CLOCK_LOCK:
         if _CLOCK is None:
-            _CLOCK = WorldClock()
+            _CLOCK = _new_clock()
         return _CLOCK
 
 
