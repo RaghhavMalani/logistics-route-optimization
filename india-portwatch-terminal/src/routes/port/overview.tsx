@@ -12,6 +12,8 @@
  * queue. Nothing here is a second page: every panel folds.
  */
 
+import { PortHomeHandoffs } from "./-PortHomeHandoffs";
+import { useTraffic } from "@/components/app/traffic-context";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
@@ -57,6 +59,7 @@ type Tab = "state" | "arrivals" | "weather";
 
 function PortCockpitScreen() {
   const { port, query } = usePortContext();
+  const { source: trafficSource } = useTraffic();
   const workspace = useWorkspaceMap({
     zonesFor: port?.code ?? null,
     initialSelectedPort: port?.code ?? null,
@@ -142,6 +145,12 @@ function PortCockpitScreen() {
       )
     : [80.3, 13.1];
 
+  const health = workspace.health.data;
+  const activity = (
+    ["live", "cached", "stale", "synthetic", "unavailable"] as const
+  ).find((status) =>
+    health?.sources?.[status]?.some((name) => name.startsWith("Port activity")),
+  );
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") workspace.setSelectedVesselId(hit.id);
     workspace.flyTo([hit.lon, hit.lat], hit.kind === "vessel" ? 9 : 8);
@@ -169,7 +178,7 @@ function PortCockpitScreen() {
         selectedPortCode={port.code}
         onSelectPort={() => undefined}
         forceVesselLabels
-        maxVesselLabels={30}
+        maxVesselLabels={12}
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
         overlay={
           <>
@@ -205,6 +214,25 @@ function PortCockpitScreen() {
               className="pointer-events-none absolute right-2.5 top-2.5 z-20 flex w-[320px] flex-col gap-2"
               style={{ bottom: bottomStack + 8 }}
             >
+              <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
+                <strong>Data now</strong> · Weather{" "}
+                {workspace.frame.forecast
+                  ? "current provider forecast"
+                  : workspace.frame.stations.length
+                    ? "retained map data"
+                    : "unavailable"}{" "}
+                · Port activity {activity ?? "status unavailable"} · Traffic{" "}
+                {trafficSource.info.label} · Congestion{" "}
+                {health?.targetStatus === "EXPIRED"
+                  ? "expired"
+                  : (health?.forecastOriginStatus
+                      ?.toLowerCase()
+                      .replaceAll("_", " ") ?? "status unavailable")}
+                {health?.forecastOrigin
+                  ? ` (origin ${health.forecastOrigin.slice(0, 10)})`
+                  : ""}
+              </p>
+              <PortHomeHandoffs portCode={port.code} />
               {selectedFix ? (
                 <VesselInspector
                   fix={selectedFix}
