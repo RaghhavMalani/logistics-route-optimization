@@ -1,0 +1,337 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium, expect } from "@playwright/test";
+
+const replay = process.argv.includes("--replay");
+const origin = process.env.PORTWATCH_PANEL_ORIGIN ?? (replay ? "http://127.0.0.1:4262" : "http://127.0.0.1:4263");
+const api = process.env.PORTWATCH_PANEL_API ?? (replay ? "http://127.0.0.1:9297/api" : "http://127.0.0.1:9298/api");
+const originUrl = new URL(origin);
+const apiUrl = new URL(api);
+const local = [originUrl, apiUrl].every((url) => ["127.0.0.1", "localhost"].includes(url.hostname));
+if (!local) {
+  const sha = process.env.PORTWATCH_PANEL_EXPECTED_SHA;
+  const previewHost = /^india-portwatch-[a-z0-9]+-flash2404s-projects[.]vercel[.]app$/;
+  if (!sha || !/^[a-f0-9]{40}$/.test(sha) || originUrl.protocol !== "https:" ||
+      !previewHost.test(originUrl.hostname) || apiUrl.origin !== originUrl.origin || apiUrl.pathname !== "/api") {
+    throw new Error("Set an exact SHA and a same-origin API on a generated isolated preview.");
+  }
+  const health = await fetch(api + "/health").then((response) => response.json());
+  const receiptPath = process.env.PORTWATCH_PANEL_BINDING;
+  if (!receiptPath) throw new Error("Set PORTWATCH_PANEL_BINDING to the verified Vercel/Railway receipt.");
+  const receipt = JSON.parse((await readFile(receiptPath, "utf8")).replace(/^\uFEFF/, ""));
+  assert.equal(receipt.origin, origin);
+  assert.equal(receipt.frontendSha, sha);
+  assert.equal(receipt.backendSha, sha);
+  assert.equal(health.artifact.applicationSha, sha);
+  assert.equal(health.release.provider.serviceId, "c7dfe1db-2fd0-4c24-8a59-dde1d34239c2");
+}
+const browser = await chromium.launch();
+const open = (page, path) => page.goto(origin + path, { waitUntil: "domcontentloaded" });
+
+async function call(path, token, body, expected = 200) {
+  const res = await fetch(api + path, {
+    method: body ? "POST" : "GET",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  assert.equal(res.status, expected, JSON.stringify(data));
+  return data;
+}
+
+async function role(page, name) {
+  await page.getByRole("button", { name: /Demo role/i }).click();
+  const changed = page.waitForResponse((response) => response.url().endsWith("/demo/role") &&
+    response.request().method() === "POST" && response.ok());
+  await page.getByRole("menuitem", { name }).click();
+  await changed;
+}
+
+async function run(width, height) {
+  const context = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" });
+  const page = await context.newPage();
+  page.setDefaultTimeout(35_000);
+  const evidence = process.env.PORTWATCH_PANEL_EVIDENCE_DIR;
+  let token;
+  let beat = "Company";
+  const checks = [];
+  const results = { origin, width, height, checks };
+  const shot = async (name) => {
+    if (!evidence) return;
+    await mkdir(evidence, { recursive: true });
+    await page.screenshot({ path: join(evidence, `${width}-${name}.png`), timeout: 15_000 });
+  };
+  const passed = (next) => {
+    checks.push({ beat, result: "PASS" });
+    console.log(`PASS ${width}×${height} · ${beat}`);
+    beat = next;
+  };
+  const postResponse = (suffix) => page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith(suffix) && response.request().method() === "POST");
+  const read = async (pending) => {
+    const response = await pending;
+    if (!response.ok()) throw new Error(`${response.status()} ${await response.text()}`);
+    return response.json();
+  };
+  async function approve(panel, choice) {
+    await panel.getByRole("button", { name: "Continue to Decide", exact: true }).click();
+    const reviewing = postResponse("/transition");
+    await panel.getByTestId("decision-review").click();
+    await read(reviewing);
+    const changed = postResponse("/transition");
+    await panel.getByTestId("decision-approve").click();
+    const result = await read(changed);
+    assert.equal(result.humanChoice, choice);
+    return result;
+  }
+  async function advisoryAction(card, state, id) {
+    const changed = postResponse("/advisories/" + id + "/transition");
+    await card.getByTestId("advisory-action-" + state).click();
+    const result = await read(changed);
+    assert.equal(result.state, state);
+    assert.equal(result.advisoryId, id);
+  }
+  try {
+    await open(page, "/login");
+    const login = postResponse("/demo/session");
+    await page.getByRole("button", { name: "Company demo", exact: true }).click();
+    token = (await read(login)).accessToken;
+    await page.waitForURL("**/company/overview");
+    await open(page, "/company/global-eye#intelligence-review");
+    await page.getByRole("tab", { name: "Scenarios", exact: true }).click();
+    const scenarios = page.getByTestId("demonstration-scenarios");
+    await scenarios.getByLabel("Shipping demonstration scenario").selectOption("S10");
+    await scenarios.getByRole("checkbox").check();
+    const calculation = postResponse("/demonstrations/select");
+    await scenarios.getByRole("button", { name: "Calculate selected demonstration" }).click();
+    const scenario = await read(calculation);
+    const problem = scenario.problem;
+    assert(problem);
+    const choice = problem.options.find((option) => option.status === "FEASIBLE" && /10(?:\.0)? kn/i.test(option.label));
+    assert(choice);
+    await scenarios.getByRole("button", { name: "See full comparison" }).click();
+    const decision = page.getByTestId("decision-panel");
+    await decision.getByRole("tab", { name: /^Options/ }).click();
+    await decision.getByRole("button", { name: /Propose 10 kn on the declared passage/ }).first().click();
+    await approve(decision, choice.optionId);
+    await shot("01-company");
+    passed("Port home");
+    await role(page, /Port Authority/);
+    await page.waitForURL("**/port/overview");
+    const inbox = page.getByRole("region", { name: "Needs your action" });
+    await expect(inbox).toContainText("PW Meridian", { timeout: 30_000 });
+    await shot("02-port-home");
+    await inbox.getByRole("link", { name: "Review proposal" }).click();
+    assert.equal(new URL(page.url()).searchParams.get("proposal"), problem.decisionId);
+    passed("Port approves and issues");
+    const panel = page.getByTestId("current-proposal-review");
+    await expect(panel).toContainText("Assumed anchorage wait", { timeout: 25_000 });
+    const passage = problem.evidence.currentEnvironment.passageComparison.options;
+    const baseline = passage[0];
+    const selected = passage.find(option => option.optionId === choice.optionId);
+    results.assumedWaitHours = { baseline: baseline.anchorageWaitHours, selected: selected.anchorageWaitHours };
+    await shot("03-frozen-comparison");
+    const reviewPending = postResponse("/current-proposals/review");
+    await panel.getByRole("button", { name: "Review Company weather proposal" }).click();
+    const review = await read(reviewPending);
+    await approve(panel, choice.optionId);
+    const issuePending = postResponse("/handoff");
+    await panel.getByTestId("decision-handoff").click();
+    const issue = await read(issuePending);
+    const advisoryId = issue.advisories[0].advisoryId;
+    results.advisoryId = advisoryId;
+    let card = page.getByTestId("advisory-card").filter({ hasText: "PW Meridian" }).first();
+    await card.locator("button").first().click();
+    await advisoryAction(card, "under_review", advisoryId);
+    await advisoryAction(card, "issued", advisoryId);
+    await shot("04-port-issued");
+    passed("Vessel acknowledges and accepts");
+    await role(page, /Vessel Bridge/);
+    await page.waitForURL("**/vessel/overview");
+    await open(page, "/vessel/advisories");
+    card = page.getByTestId("advisory-card").filter({ hasText: "PW Meridian" }).first();
+    await card.locator("button").first().click();
+    await advisoryAction(card, "acknowledged", advisoryId);
+    await shot("05-vessel-acknowledged");
+    await advisoryAction(card, "accepted", advisoryId);
+    await page.getByRole("button", { name: /^Answered/ }).click();
+    await shot("06-vessel-accepted");
+    passed("Port records outcome");
+    await role(page, /Port Authority/);
+    await page.waitForURL("**/port/overview");
+    await open(page, "/port/advisories?proposal=" + encodeURIComponent(problem.decisionId));
+    const outcomePending = postResponse("/" + review.decisionId + "/demo-outcome");
+    await page.getByRole("button", { name: "Run frozen demo outcome" }).click();
+    const outcome = (await read(outcomePending)).outcome;
+    assert.equal(outcome.kind, "SIMULATED_DEMO_OUTCOME");
+    assert.equal(outcome.eligibleForRealTarget, false);
+    await expect(page.getByTestId("current-demo-outcome")).toContainText("Simulated demo outcome");
+    await shot("07-port-outcome");
+    passed("Admin");
+    await role(page, /National Command/);
+    await page.waitForURL("**/admin/radar");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await shot("08-admin");
+    passed("Research");
+    await open(page, "/research");
+    await expect(page.getByRole("main").first()).toBeVisible();
+    await shot("09-research");
+    passed("Done");
+  } catch (error) {
+    checks.push({ beat, result: "FAIL", message: error.message });
+    await shot("failure").catch(() => {});
+    throw new Error(`${width}×${height} · ${beat}: ${error.message}`, { cause: error });
+  } finally {
+    if (evidence) {
+      await mkdir(evidence, { recursive: true });
+      await writeFile(join(evidence, `${width}-report.json`), JSON.stringify(results, null, 2));
+    }
+    if (token) await call("/demo/logout", token, {}).catch(() => {});
+    await context.close();
+  }
+}
+
+async function projectorContext(width, height, zoom) {
+  const options = { viewport: { width, height }, serviceWorkers: "block", reducedMotion: "reduce" };
+  if (zoom === 100) return { context: await browser.newContext(options) };
+  const root = await mkdtemp(join(tmpdir(), "portwatch-panel-zoom-"));
+  const extension = join(root, "extension");
+  await mkdir(extension);
+  await writeFile(join(extension, "manifest.json"), JSON.stringify({
+    manifest_version: 3, name: "Panel QA browser zoom", version: "1.0",
+    background: { service_worker: "worker.js" }, permissions: ["tabs"],
+  }));
+  await writeFile(join(extension, "worker.js"), "chrome.runtime.onInstalled.addListener(() => {});");
+  const context = await chromium.launchPersistentContext(join(root, "profile"), {
+    ...options, channel: "chromium", headless: true,
+    args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
+  });
+  const worker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker", { timeout: 15_000 });
+  return { context, setZoom: () => worker.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await chrome.tabs.setZoom(tab.id, 1.25);
+    return chrome.tabs.getZoom(tab.id);
+  }) };
+}
+
+async function runReplay(width, height, zoom) {
+  const { context, setZoom } = await projectorContext(width, height, zoom);
+  const blocked = [];
+  const localOrigins = new Set([originUrl.origin, apiUrl.origin]);
+  await context.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (!["http:", "https:"].includes(url.protocol) || localOrigins.has(url.origin)) return route.continue();
+    blocked.push(url.hostname);
+    return route.abort("internetdisconnected");
+  });
+  const page = context.pages()[0] ?? await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.setDefaultTimeout(30_000);
+  let token;
+  let beat = "Opening";
+  const times = [];
+  let start = performance.now();
+  function next(name) {
+    times.push({ beat, ms: Math.round(performance.now() - start) });
+    start = performance.now();
+    beat = name;
+  }
+  try {
+    await open(page, "/tour");
+    if (setZoom) {
+      await page.bringToFront();
+      assert.equal(await setZoom(), 1.25);
+      await expect.poll(() => page.evaluate(() => devicePixelRatio)).toBe(1.25);
+    }
+    await expect(page.locator(".pw-tour")).toHaveAttribute("data-reduced-motion", "true", { timeout: 20_000 });
+    const chapters = page.getByRole("list", { name: "Voyage chapters" }).getByRole("button");
+    await expect(chapters).toHaveCount(6, { timeout: 20_000 });
+    for (let index = 0; index < 6; index++) {
+      await chapters.nth(index).click();
+      await expect(chapters.nth(index)).toHaveAttribute("aria-current", "step");
+    }
+    next("Sign-in");
+    await open(page, "/login");
+    const login = page.waitForResponse((response) => response.url().endsWith("/demo/session") &&
+      response.request().method() === "POST" && response.ok());
+    await page.getByRole("button", { name: "Company demo", exact: true }).click();
+    token = (await (await login).json()).accessToken;
+    await expect(page).toHaveURL(/company\/overview/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+    const clock = await call("/demo/terminal/world/clock", token);
+    assert.equal(clock.mode, "REPLAY");
+    next("Company decision");
+    const vesselId = "PWD-001";
+    const first = await call("/demo/scenario", token, { vesselId, closureHours: 72 });
+    const later = await call("/demo/scenario", token, { vesselId, closureHours: 120 });
+    assert.notDeepEqual(first.result.options, later.result.options);
+    const option = later.result.options.find((row) => row.feasible && !row.isBaseline);
+    assert(option);
+    const proposal = await call("/demo/proposal", token, { comparisonId: later.id, optionId: option.optionId });
+    next("Port");
+    await role(page, /Port Authority/);
+    await open(page, "/port/twin");
+    await expect(page.getByTestId("twin-inspector")).toBeVisible({ timeout: 30_000 });
+    const world = await call("/demo/workspace", token);
+    const vessel = world.twin.calls.find((row) => row.vessel_id === vesselId);
+    assert.equal(vessel.effectiveEta, 180 + proposal.etaShiftHours);
+    const plan = await call("/demo/port-scenario", token, {});
+    assert.equal(plan.options.length, 2);
+    assert.deepEqual(plan.proposalInput, proposal);
+    const advisory = await call("/demo/advisories", token, { policy: "Constrained lookahead" });
+    next("Vessel");
+    await role(page, /Vessel Bridge/);
+    await expect(page).toHaveURL(/vessel\/overview/);
+    const ack = await call(`/demo/advisories/${advisory.id}/ack`, token, {});
+    assert.equal(ack.state, "ACKNOWLEDGED");
+    next("Outcome");
+    await role(page, /Port Authority/);
+    const result = await call(`/demo/advisories/${advisory.id}/outcome`, token, { reportedWaitingHours: 3.4 });
+    assert.equal(result.outcome.source, "DEMONSTRATOR_ENTRY");
+    assert.equal(result.state, "RESOLVED");
+    next("National view");
+    await role(page, /National Command/);
+    await expect(page).toHaveURL(/admin\/radar/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
+    assert.equal((await call("/demo/workspace", token)).world.advisories[0].state, "RESOLVED");
+    next("Evidence");
+    await open(page, "/research");
+    await expect(page.getByRole("main").first()).toBeVisible({ timeout: 20_000 });
+    await open(page, "/tour");
+    await page.getByRole("list", { name: "Voyage chapters" }).getByRole("button").nth(2).click();
+    await expect(page.getByText("12.14 h", { exact: true })).toBeAttached({ timeout: 20_000 });
+    await expect(page.getByText("1.05 h", { exact: true })).toBeAttached();
+    assert.deepEqual(errors, []);
+    next("Done");
+    console.log(JSON.stringify({ width, height, zoom, blocked: [...new Set(blocked)], times,
+      verification: "browser route checks and real Suez API workflow; Company controls require integration" }));
+    console.log(`PASS replay ${width}×${height} ${zoom}%`);
+  } catch (error) {
+    throw new Error(`${width}×${height} ${zoom}% · ${beat}: ${error.message}`, { cause: error });
+  } finally {
+    if (token) await call("/demo/logout", token, {}).catch(() => {});
+    await context.close();
+  }
+}
+
+const failures = [];
+try {
+  const matrix = replay ? [[1920, 1080, 100], [1366, 768, 100], [1280, 720, 100], [1280, 720, 125]]
+    : [[1366, 768, 100], [1280, 720, 100]];
+  for (const [width, height, zoom] of matrix) {
+    try {
+      if (replay) await runReplay(width, height, zoom);
+      else await run(width, height);
+    } catch (error) {
+      failures.push(error);
+      console.error(`FAIL ${width}×${height}`, error.message);
+    }
+  }
+} finally {
+  await browser.close();
+}
+if (failures.length) throw new AggregateError(failures, "Panel acceptance failed");
