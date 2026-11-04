@@ -94,7 +94,7 @@ def _screen_identity(request: Request, role: str, prefetch: bool):
 
 def _fragments(request: Request, screen: str, who, session: dict | None, port: str | None):
     from backend.app.domains.advisories import handoffs
-    from backend.app.domains.intelligence import current_inputs
+    from backend.app.domains.intelligence import current_inputs, source_status
     from backend.app.domains.ports import model, ports, weather
     from backend.app.domains.system import health
     from backend.app.domains.voyages import company, demonstrations, fleet
@@ -106,6 +106,7 @@ def _fragments(request: Request, screen: str, who, session: dict | None, port: s
     mode = "DEMO" if sandbox is not None else resolve_mode(None)[0]
     result = {
         "/health": health.health_check,
+        "/public/sources": source_status.source_status,
         "/ports": ports.list_ports,
         "/ports/registry": ports.port_registry_listing,
         "/fleet": fleet.fleet,
