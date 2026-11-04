@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter
 
-from backend.app.identity import current_identity
+from backend.app.identity import current_identity, may_see_decision
 from backend.app.routes.advisories import principal_from_request
 from backend.app.routes.company import resolve_company
 from backend.app.services.demo_terminal import demo_hulls
@@ -21,7 +21,7 @@ ADVISORY_STAGES = {
     "accepted": ("ACCEPTED", "PORT_AUTHORITY"),
     "queried": ("QUERIED", "PORT_AUTHORITY"),
     "declined": ("DECLINED", None),
-    "rejected": ("DECLINED", None),
+    "rejected": ("REJECTED", None),
     "withdrawn": ("WITHDRAWN", None),
     "expired": ("EXPIRED", None),
     "completed": ("COMPLETED", None),
@@ -72,6 +72,11 @@ def handoffs():
                 continue
             source = engine.get(key)
             if source is None or source.actor.role != "SHIPPING_COMPANY":
+                continue
+            if who.role == "SHIPPING_COMPANY" and not may_see_decision(
+                who, source.actor.to_dict(),
+                {"type": source.subject_type, "id": source.subject_id}, source.domain,
+            ):
                 continue
             review = engine.get(journey["reviewDecisionId"]) if journey.get("reviewDecisionId") else None
             advisory = next((advisory_rows[i] for i in (review.evidence.get("advisories") or [])

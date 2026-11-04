@@ -94,7 +94,7 @@ def port_twin(port_code: str) -> Dict[str, Any]:
     from src.portwatch_os.sandbox import current_sandbox
     scoped = current_sandbox.get()
     if scoped:
-        proposal = scoped.world.get("terminalProposal") or {}
+        proposal = scoped.world.get("terminalProposal") or scoped.world.get("proposal") or {}
         for call in result["calls"]:
             if call["vessel_id"] == proposal.get("vesselId") and call["state"] == "approaching":
                 call["company_proposal"] = True

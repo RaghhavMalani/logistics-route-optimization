@@ -117,3 +117,26 @@ def test_consumed_voyage_change_blocks_continuation(tmp_path,monkeypatch):
     r = client.post(cp+"/transition",headers=h,json={"target":"APPROVED","optionId":choice})
     assert r.status_code == 409 and "ETA has changed" in r.text
     client.close()
+
+
+def test_handoff_feed_requires_company_decision_ownership(tmp_path, monkeypatch):
+    from src.portwatch_os.decision.model import DecisionActor
+
+    store, client, token, headers, company, choice, _ = journey(tmp_path, monkeypatch)
+    path = BASE + "/decisions/problems/" + company["decisionId"]
+    step(client, path, headers, "REVIEWED")
+    step(client, path, headers, "APPROVED", choice)
+    assert len(client.get(BASE + "/handoffs", headers=headers).json()["items"]) == 1
+    original = DecisionActor.to_dict
+
+    def rival_actor(actor):
+        row = original(actor)
+        if actor.role == "SHIPPING_COMPANY":
+            row["organisation"] = "Rival carrier"
+        return row
+
+    monkeypatch.setattr(DecisionActor, "to_dict", rival_actor)
+    assert client.get(BASE + "/handoffs", headers=headers).json()["items"] == []
+    store.switch(token, "PORT_AUTHORITY")
+    assert client.get(BASE + "/handoffs", headers=headers).json()["items"][0]["state"] == "COMPANY_PROPOSED"
+    client.close()
