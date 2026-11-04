@@ -156,8 +156,18 @@ export function createTwinWorld(base: PortTwinState) {
   lighting.follow(new T.Vector3(mid, 0, inland / 3), span);
 
   const ground = batch("Quay and landside", 20 + base.berths.length * 4);
-  box(ground, mid, -9, inland / 2, span, 18, inland, COLORS.land);
-  box(ground, mid, 1, 76, span, 4, 152, COLORS.pave);
+  box(
+    ground,
+    mid,
+    -9,
+    inland / 2,
+    span,
+    18,
+    inland,
+    COLORS.land,
+    "facility-quay",
+  );
+  box(ground, mid, 1, 76, span, 4, 152, COLORS.pave, "facility-quay");
   box(ground, mid, 0, -4, span, 13, 10, COLORS.modelInk);
   box(ground, mid, 8, 9, span, 3, 5, COLORS.modelWhite);
   box(ground, mid, 1, 178, span - 20, 3, 26, COLORS.road);
@@ -214,6 +224,7 @@ export function createTwinWorld(base: PortTwinState) {
     tracks,
     extract(templates),
     pose(mid - span / 2, 1, inland - 32, span / 550, 3, 1.2),
+    "facility-rail",
   );
   tracks.commit();
 
@@ -621,8 +632,14 @@ export function createTwinWorld(base: PortTwinState) {
           gate.gate_id,
         );
     }
-    for (const vehicle of state.vehicles)
-      truck(vehicle.x, vehicle.y, vehicle.assigned_block ?? "");
+    for (const vehicle of state.vehicles) {
+      if (vehicle.vehicle_id === selectedId)
+        drawOutline(vehicle.x, 4, vehicle.y, 35, 22);
+      truck(vehicle.x, vehicle.y, vehicle.vehicle_id);
+    }
+    if (selectedId === "facility-quay") drawOutline(mid, 6, 76, span, 152);
+    if (selectedId === "facility-rail")
+      drawOutline(mid, 5, inland - 197, span * 0.95, 48);
     if (frame) {
       for (const gate of state.gates) {
         for (let i = 0; i < 8; i++) {

@@ -101,5 +101,43 @@ export function twinSelection(
         ],
       ],
     };
+  const vehicle = state.vehicles.find((row) => row.vehicle_id === id);
+  if (vehicle)
+    return {
+      id,
+      kind: "vehicle",
+      label: vehicle.vehicle_id,
+      fields: [
+        ["Type", vehicle.kind.replaceAll("_", " ")],
+        ["Modelled rate", `${vehicle.moves_per_hour.toFixed(1)} moves/h`],
+        ["Assigned block", vehicle.assigned_block ?? "unassigned"],
+      ],
+    };
+  if (id === "facility-rail")
+    return {
+      id,
+      kind: "rail",
+      label: "Modelled rail siding",
+      fields: [
+        ["Tracks drawn", "4"],
+        ["Traffic", "No rail service model"],
+      ],
+    };
+  if (id === "facility-quay")
+    return {
+      id,
+      kind: "quay",
+      label: "Modelled quay",
+      fields: [
+        ["Berths", String(state.berths.length)],
+        ["Cranes", String(state.cranes.length)],
+        [
+          "Layout extent",
+          state.extentM
+            .map((length) => Math.round(length).toLocaleString())
+            .join(" × ") + " m",
+        ],
+      ],
+    };
   return null;
 }

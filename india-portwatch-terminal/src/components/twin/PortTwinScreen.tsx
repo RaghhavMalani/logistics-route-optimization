@@ -55,6 +55,7 @@ import {
 } from "./twin-presentation";
 
 import { createTwinPlayback } from "./twin-playback";
+import { twinSelection } from "./twin-selection";
 import { useTwinClock } from "./use-twin-clock";
 import { TwinTransport } from "./TwinTransport";
 import {
@@ -90,7 +91,12 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   const [comparing, setComparing] = useState(false);
   const [selectionLane, setSelectionLane] =
     useState<ComparisonLane>("baseline");
-  const [selection, setSelection] = useState<TwinSelection | null>(null);
+  const [selected, setSelected] = useState<{ id: string; port: string } | null>(
+    null,
+  );
+  const setSelection = (item: TwinSelection | null) => {
+    setSelected(item ? { id: item.id, port: portCode } : null);
+  };
   const [policy, setPolicy] = useState("greedy");
 
   const simulation = useTwinSimulation(portCode, policy, 24);
@@ -205,6 +211,16 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   }
   if (!state || !twin.data) return null;
 
+  const selection =
+    selected?.port === portCode ? twinSelection(state, selected.id) : null;
+  const selectionSource =
+    selection?.kind === "rail"
+      ? "Tour rail builder · schematic geometry"
+      : decisionOption
+        ? "Selected decision option · modelled berth plan"
+        : comparing || showModel
+          ? "Port twin engine · modelled simulation frame"
+          : "Port twin state · schematic operating inputs";
   const waiting = state.calls.filter((c) => c.state === "waiting");
   const approaching = state.calls.filter((c) => c.state === "approaching");
 
@@ -509,6 +525,15 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                     </div>
                   ))}
                 </dl>
+                <p
+                  data-testid="twin-inspector-source"
+                  className="mt-2 border-t border-[var(--line)] pt-1 text-[10px] text-[var(--text-2)]"
+                >
+                  <span className="eyebrow mr-1">Source</span> {selectionSource}
+                  {comparing && selection?.kind !== "rail"
+                    ? ` · ${COMPARISON_LABELS[selectionLane]}`
+                    : ""}
+                </p>
                 <button
                   type="button"
                   onClick={() => setSelection(null)}
@@ -520,8 +545,8 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             ) : (
               <Section title="Nothing selected">
                 <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                  Click a berth, yard block, shed, crane or waiting vessel in
-                  the scene to inspect its operating state.
+                  Click a hull, crane, yard block, truck, gate or rail in the
+                  scene to inspect its numbers and source.
                 </p>
               </Section>
             )}

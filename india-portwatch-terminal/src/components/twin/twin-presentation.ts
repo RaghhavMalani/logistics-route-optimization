@@ -37,7 +37,16 @@ export const OVERLAYS: Array<{
 ];
 
 export interface TwinSelection {
-  kind: "berth" | "yard" | "shed" | "crane" | "vessel" | "gate";
+  kind:
+    | "berth"
+    | "yard"
+    | "shed"
+    | "crane"
+    | "vessel"
+    | "gate"
+    | "vehicle"
+    | "rail"
+    | "quay";
   id: string;
   label: string;
   fields: Array<[string, string]>;
