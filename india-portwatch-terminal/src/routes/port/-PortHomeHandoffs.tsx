@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
+import { HandoffJourney } from "@/components/advisory/HandoffJourney";
 import { getJson } from "@/services/api";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
 
@@ -58,7 +59,7 @@ export function PortHomeHandoffs({ portCode }: { portCode: string }) {
   return (
     <section
       aria-label="Needs your action"
-      className="pointer-events-auto max-h-44 shrink-0 overflow-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2 text-xs"
+      className="pw-handoff-card pointer-events-auto max-h-44 shrink-0 overflow-auto p-2 text-xs"
     >
       <h2 className="font-semibold">
         Needs your action{needs.length ? ` · ${needs.length}` : ""}
@@ -78,6 +79,11 @@ export function PortHomeHandoffs({ portCode }: { portCode: string }) {
       ) : (
         needs.map((row) => (
           <div key={row.id} className="mt-2 border-t border-[var(--line)] pt-2">
+            <HandoffJourney
+              id={row.id}
+              state={row.state ?? "COMPANY_PROPOSED"}
+              viewer={session?.demoId ?? session?.user.id}
+            />
             <strong>{row.vesselName}</strong>
             {row.state === "ACCEPTED" ? (
               <span className="ml-2 font-semibold">Accepted by Vessel</span>

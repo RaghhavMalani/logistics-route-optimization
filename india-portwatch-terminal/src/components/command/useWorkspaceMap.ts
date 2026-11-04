@@ -158,11 +158,6 @@ function portFeatures(
           name: port.name,
           risk: port.risk,
           color: portColor(port.risk),
-          pressure: Math.min(
-            1,
-            (port.queuePressure ?? 0) * 0.7 +
-              (port.capacityPressure ?? 0) * 0.4,
-          ),
           selected: selected === port.code,
         },
         geometry: {
@@ -265,7 +260,7 @@ export interface WorkspaceMap {
   setLayer: (key: LayerKey, on: boolean) => void;
 
   filters: TrafficFilterState;
-  toggleClass: (value: VesselClass) => void;
+  focusClass: (value: VesselClass | null) => void;
   toggleStatus: (value: NavStatus) => void;
   resetFilters: () => void;
   setIsolate: (id: string | null) => void;
@@ -364,13 +359,8 @@ export function useWorkspaceMap(
   );
   const [isolate, setIsolate] = useState<string | null>(null);
 
-  const toggleClass = useCallback((value: VesselClass) => {
-    setClasses((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
+  const focusClass = useCallback((value: VesselClass | null) => {
+    setClasses(value ? new Set([value]) : new Set(ALL_CLASSES));
   }, []);
   const toggleStatus = useCallback((value: NavStatus) => {
     setStatuses((prev) => {
@@ -632,7 +622,7 @@ export function useWorkspaceMap(
     toggleLayer,
     setLayer,
     filters: { classes, statuses, isolate },
-    toggleClass,
+    focusClass,
     toggleStatus,
     resetFilters,
     setIsolate,

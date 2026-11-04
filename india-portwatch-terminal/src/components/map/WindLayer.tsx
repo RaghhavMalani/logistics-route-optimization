@@ -1,202 +1,89 @@
-import { COLORS } from "@/components/miniature/palette";
-/**
- * Wind flow, drawn as advected particles over the chart.
- *
- * A vector field of arrows at this station density would be four arrows and a
- * lot of white space; streamlines make the same thirteen readings legible as a
- * flow, which is how a mariner reads wind. Particles are seeded in screen
- * space, stepped through the interpolated field, and faded with a
- * `destination-out` wash so the trails decay without tinting the map beneath.
- *
- * Speed is measured. Direction is monsoon climatology and is labelled MODELLED
- * everywhere this layer is switched on, because the feed carries no direction
- * at all.
- */
-
 import { useEffect, useRef } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
-
+import { COLORS } from "@/components/miniature/palette";
 import { sampleWind } from "@/lib/maritime/weather-field";
 import type { WeatherFrame } from "@/lib/maritime/weather-model";
 
-interface Particle {
-  x: number;
-  y: number;
-  age: number;
-  life: number;
-  speed: number;
-}
-
-const MAX_AGE = 110;
-/** Screen pixels per second at 10 knots. Legible without looking like a river. */
-const PIXELS_PER_KNOT = 1.5;
-
+/** Modeled direction and measured speed, repainted when the frame or camera changes. */
 export function WindLayer({
   map,
   frame,
   enabled,
-  density = 1,
 }: {
   map: MapLibreMap | null;
   frame: WeatherFrame | null;
   enabled: boolean;
-  density?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const frameRef = useRef<WeatherFrame | null>(frame);
-  frameRef.current = frame;
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !map || !enabled) return undefined;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !map || !enabled) return;
+    let pending = 0;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return undefined;
-
-    let particles: Particle[] = [];
-    let width = 0;
-    let height = 0;
-    let raf = 0;
-    let stale = true;
-
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-
-    const resize = () => {
-      const container = map.getContainer();
-      width = container.clientWidth;
-      height = container.clientHeight;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+    const paint = () => {
+      pending = 0;
+      const { clientWidth: width, clientHeight: height } = map.getContainer();
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const pixelWidth = Math.round(width * dpr);
+      const pixelHeight = Math.round(height * dpr);
+      if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+      if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const target = Math.round(((width * height) / 16_000) * density);
-      particles = Array.from({ length: Math.max(60, Math.min(1400, target)) }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        age: Math.random() * MAX_AGE,
-        life: MAX_AGE * (0.5 + Math.random() * 0.8),
-        speed: 0,
-      }));
-      stale = true;
-    };
-
-    const reseed = (particle: Particle) => {
-      particle.x = Math.random() * width;
-      particle.y = Math.random() * height;
-      particle.age = 0;
-      particle.life = MAX_AGE * (0.5 + Math.random() * 0.8);
-    };
-
-    const clear = () => {
       ctx.clearRect(0, 0, width, height);
-    };
+      if (!frame) return;
 
-    let lastTime = performance.now();
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-    const step = (time: number) => {
-      raf = requestAnimationFrame(step);
-      const delta = Math.min(0.05, (time - lastTime) / 1000);
-      lastTime = time;
-      if (reducedMotion.matches) {
-        if (!stale) clear();
-        stale = true;
-        return;
-      }
-
-      const weather = frameRef.current;
-      if (!weather || !width || !height) return;
-
-      const zoom = map.getZoom();
-      const fade = zoom >= 9 ? 0.25 : zoom >= 7 ? 0.25 + ((9 - zoom) / 2) * 0.75 : 1;
-
-      if (stale) {
-        clear();
-        stale = false;
-      }
-
-      // Fade the previous trails without painting over the chart.
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.fillStyle = "rgba(0,0,0,0.055)";
-      ctx.fillRect(0, 0, width, height);
-      ctx.globalCompositeOperation = "source-over";
-
+      const fade = Math.max(0.22, Math.min(1, (10 - map.getZoom()) / 3));
       ctx.lineWidth = 1;
       ctx.lineCap = "round";
-
-      for (const particle of particles) {
-        particle.age += 1;
-        if (particle.age > particle.life) {
-          reseed(particle);
-          continue;
+      ctx.strokeStyle = COLORS.weatherDeep;
+      for (let y = 32; y < height; y += 64) {
+        for (let x = 32; x < width; x += 64) {
+          const { lng, lat } = map.unproject([x, y]);
+          const wind = sampleWind(frame, lng, lat);
+          if (!wind || wind.speedKn < 0.2) continue;
+          const end = map.project([lng + wind.u * 0.01, lat + wind.v * 0.01]);
+          const angle = Math.atan2(end.y - y, end.x - x);
+          const strength = Math.min(1, wind.speedKn / 22);
+          const length = 6 + 9 * strength;
+          const tipX = x + length * Math.cos(angle);
+          const tipY = y + length * Math.sin(angle);
+          ctx.globalAlpha = (0.19 + strength * 0.35) * fade;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(tipX, tipY);
+          for (const direction of [-0.65, 0.65]) {
+            ctx.moveTo(tipX, tipY);
+            ctx.lineTo(
+              tipX - 4 * Math.cos(angle + direction),
+              tipY - 4 * Math.sin(angle + direction),
+            );
+          }
+          ctx.stroke();
         }
-
-        let lngLat;
-        try {
-          lngLat = map.unproject([particle.x, particle.y]);
-        } catch {
-          reseed(particle);
-          continue;
-        }
-
-        const wind = sampleWind(weather, lngLat.lng, lngLat.lat);
-        if (!wind || wind.speedKn < 0.2) {
-          reseed(particle);
-          continue;
-        }
-
-        // `u` is eastward, `v` northward; screen y grows downward.
-        const scale = PIXELS_PER_KNOT * delta * 10;
-        const nx = particle.x + wind.u * scale;
-        const ny = particle.y - wind.v * scale;
-
-        const strength = Math.min(1, wind.speedKn / 22);
-        // The flow is basin-scale context. Closing in on a harbour it would be
-        // streaks over the berths, so it thins out the way the raster does.
-        const alpha = (0.26 + strength * 0.44) * fade;
-        ctx.strokeStyle = COLORS.weatherDeep;
-        ctx.globalAlpha = alpha;
-        ctx.beginPath();
-        ctx.moveTo(particle.x, particle.y);
-        ctx.lineTo(nx, ny);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-
-        particle.x = nx;
-        particle.y = ny;
-        particle.speed = wind.speedKn;
-
-        if (nx < -20 || ny < -20 || nx > width + 20 || ny > height + 20) reseed(particle);
       }
     };
 
-    const invalidate = () => {
-      stale = true;
+    const schedule = () => {
+      if (!pending) pending = requestAnimationFrame(paint);
     };
-
-    resize();
-    raf = requestAnimationFrame(step);
-    map.on("move", invalidate);
-    map.on("zoom", invalidate);
-    map.on("resize", resize);
-    window.addEventListener("resize", resize);
-
+    schedule();
+    map.on("move", schedule);
+    map.on("resize", schedule);
     return () => {
-      cancelAnimationFrame(raf);
-      map.off("move", invalidate);
-      map.off("zoom", invalidate);
-      map.off("resize", resize);
-      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(pending);
+      map.off("move", schedule);
+      map.off("resize", schedule);
     };
-  }, [density, enabled, map]);
+  }, [enabled, frame, map]);
 
   if (!enabled) return null;
   return (
     <canvas
       ref={canvasRef}
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-[5]"
+      className="pointer-events-none absolute inset-0 size-full"
     />
   );
 }

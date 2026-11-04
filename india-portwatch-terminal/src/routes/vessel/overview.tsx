@@ -144,7 +144,11 @@ function VesselBridge() {
       workspace.setSelectedVesselId(hit.id);
       setFollowing(false);
     }
-    workspace.flyTo([hit.lon, hit.lat], 8.5);
+    if (hit.kind === "port") {
+      workspace.setSelectedPortCode(hit.id);
+      setFollowing(false);
+    }
+    workspace.flyTo([hit.lon, hit.lat], hit.kind === "port" ? 11.5 : 8.5);
   };
 
   return (
@@ -167,7 +171,11 @@ function VesselBridge() {
           setFollowing(false);
         }}
         onHoverVessel={workspace.setHoveredVesselId}
-        onSelectPort={workspace.setSelectedPortCode}
+        selectedPortCode={workspace.selectedPortCode}
+        onSelectPort={(code) => {
+          workspace.setSelectedPortCode(code);
+          setFollowing(false);
+        }}
         focus={
           following && selectedFix
             ? {
@@ -201,7 +209,10 @@ function VesselBridge() {
               />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 left-[272px] right-[336px] z-20">
+            <div
+              data-map-camera-inset="bottom"
+              className="pointer-events-none absolute bottom-2.5 left-[272px] right-[336px] z-20"
+            >
               <TimeTransport
                 timeline={workspace.timeline}
                 weatherAt={workspace.weatherAt}
@@ -209,7 +220,10 @@ function VesselBridge() {
               />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2">
+            <div
+              data-map-camera-inset="right"
+              className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2"
+            >
               <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
                 {workspace.frame.forecast

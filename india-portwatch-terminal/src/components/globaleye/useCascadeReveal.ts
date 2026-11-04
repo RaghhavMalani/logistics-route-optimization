@@ -59,12 +59,16 @@ export function useCascadeReveal(key: string | null): CascadeReveal {
     }
     setPlaying(true);
     started.current = performance.now();
+    let painted = 0;
     const step = (now: number) => {
       const elapsed = now - started.current;
       const t = Math.min(1, elapsed / REVEAL_MS);
       // Ease-out: the consequence arrives quickly and settles, rather than
       // creeping at a constant rate like a progress bar.
-      setReveal(1 - Math.pow(1 - t, 3));
+      if (t === 1 || now - painted >= 1000 / 30) {
+        painted = now;
+        setReveal(1 - Math.pow(1 - t, 3));
+      }
       if (t < 1) {
         frame.current = requestAnimationFrame(step);
       } else {
@@ -80,6 +84,15 @@ export function useCascadeReveal(key: string | null): CascadeReveal {
     setPlaying(false);
     setReveal(1);
   }, [stop]);
+
+  useEffect(() => {
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => {
+      if (motion.matches && frame.current !== null) settle();
+    };
+    motion.addEventListener("change", onChange);
+    return () => motion.removeEventListener("change", onChange);
+  }, [settle]);
 
   const reset = useCallback(() => {
     stop();

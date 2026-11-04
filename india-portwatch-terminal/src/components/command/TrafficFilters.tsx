@@ -14,6 +14,7 @@ import { useTraffic } from "@/components/app/traffic-context";
 import { usePublicAis } from "@/services/public-ais";
 
 import type { LayerKey } from "@/components/map/basemap";
+import { VESSEL_SHAPES } from "@/components/map/vessel-icons";
 import { legendStops } from "@/components/map/weather-layers";
 import {
   NAV_STATUS_LABEL,
@@ -47,6 +48,21 @@ const LAYER_LABELS: Array<{ key: LayerKey; label: string }> = [
   { key: "chokepoints", label: "Chokepoints" },
   { key: "graticule", label: "Graticule" },
 ];
+
+function VesselSwatch({ kind }: { kind: VesselClass }) {
+  const shape = VESSEL_SHAPES[kind];
+  return (
+    <svg aria-hidden="true" viewBox="3 1 18 26" className="h-4 w-3 shrink-0">
+      <path d={shape.outline} fill={`var(--ship-${kind})`} />
+      <path
+        d={shape.detail}
+        fill="none"
+        stroke="var(--panel)"
+        strokeWidth={1.25}
+      />
+    </svg>
+  );
+}
 
 export function TrafficFilters({
   workspace,
@@ -87,7 +103,11 @@ export function TrafficFilters({
           </label>
         </fieldset>
         <label className="my-2 flex items-center gap-2 text-[var(--text-2)]">
-          <input type="checkbox" checked={colorByType} onChange={(event) => setColorByType(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={colorByType}
+            onChange={(event) => setColorByType(event.target.checked)}
+          />
           Colour vessels by class
         </label>
         {dataView === "provider" ? (
@@ -106,7 +126,7 @@ export function TrafficFilters({
         )}
       </PanelSection>
       <PanelSection
-        title="Vessel class"
+        title="Vessel type legend"
         right={
           <button
             type="button"
@@ -117,14 +137,30 @@ export function TrafficFilters({
           </button>
         }
       >
-        <div className="flex flex-wrap gap-1">
+        <div
+          className="flex flex-wrap gap-1"
+          role="group"
+          aria-label="Filter vessels by type"
+        >
+          <Chip
+            active={
+              workspace.filters.classes.size ===
+              Object.keys(VESSEL_CLASSES).length
+            }
+            onClick={() => workspace.focusClass(null)}
+          >
+            All types
+          </Chip>
           {Object.values(VESSEL_CLASSES).map((spec) => (
             <Chip
               key={spec.key}
-              color={spec.color}
-              active={workspace.filters.classes.has(spec.key as VesselClass)}
-              onClick={() => workspace.toggleClass(spec.key as VesselClass)}
+              active={
+                workspace.filters.classes.size === 1 &&
+                workspace.filters.classes.has(spec.key)
+              }
+              onClick={() => workspace.focusClass(spec.key)}
             >
+              <VesselSwatch kind={spec.key} />
               {spec.label}
             </Chip>
           ))}
@@ -475,19 +511,16 @@ export function VesselClassLegend({ className }: { className?: string }) {
         className,
       )}
     >
-      {colorByType && Object.values(VESSEL_CLASSES).map((spec) => (
-        <span
-          key={spec.key}
-          className="flex items-center gap-1 text-[10.5px] text-[var(--text-3)]"
-        >
+      {colorByType &&
+        Object.values(VESSEL_CLASSES).map((spec) => (
           <span
-            aria-hidden
-            className="h-[8px] w-[8px] rounded-[1px]"
-            style={{ background: spec.color }}
-          />
-          {spec.label}
-        </span>
-      ))}
+            key={spec.key}
+            className="flex items-center gap-1 text-[10.5px] text-[var(--text-3)]"
+          >
+            <VesselSwatch kind={spec.key} />
+            {spec.label}
+          </span>
+        ))}
       <span className="ml-1 flex items-center gap-1 border-l border-[var(--line)] pl-2 text-[10.5px] text-[var(--text-3)]">
         <span
           aria-hidden

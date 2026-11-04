@@ -22,18 +22,20 @@ import type {
 } from "@/types/portwatch-os";
 
 import { CHOKEPOINT_BY_CODE } from "./chokepoints";
+import { fixAt, type MeasuredPath } from "./geo";
 import { seaRoute } from "./searoutes";
+import { COLORS } from "@/components/miniature/palette";
 
 /** Consequence palette. Deliberately three steps, not a continuous ramp. */
 export const CASCADE_COLOR = {
   /** The event and the water it threatens. */
-  source: "#e0533d",
+  source: COLORS.action,
   /** Carried consequence: lanes and exposed hulls. */
-  carried: "#e08c3d",
+  carried: COLORS.modelInk,
   /** Where it lands: destination ports. */
-  landing: "#d9b23c",
+  landing: COLORS.chart2,
   /** Committed, nothing to be done. Deliberately cool, never alarm-coloured. */
-  committed: "#7c8ea3",
+  committed: COLORS.text3,
 } as const;
 
 /** The order the reveal walks, and the share of `reveal` each stage owns. */
@@ -85,6 +87,8 @@ export function cascadeLaneFeatures(
 
   const progress = stageProgress(reveal, "lanes");
   if (progress <= 0) return { type: "FeatureCollection", features };
+  const pulseProgress = (reveal - 0.4) / 0.57;
+  const pulsedRoutes = new Set<MeasuredPath>();
 
   for (const lane of affected.lanes) {
     const risk = lane.quantities.risk;
@@ -96,10 +100,10 @@ export function cascadeLaneFeatures(
     // also the leg an operator is reasoning about.
     for (const port of affected.ports) {
       const path = legGeometry(codes, affected, port);
-      if (!path || path.length < 2) continue;
+      if (!path) continue;
       features.push({
         type: "Feature",
-        geometry: { type: "LineString", coordinates: path },
+        geometry: { type: "LineString", coordinates: path.coords },
         properties: {
           part: "lane",
           laneCode: lane.id,
@@ -114,6 +118,33 @@ export function cascadeLaneFeatures(
           chokepoints: codes.join(","),
         },
       });
+      if (
+        pulseProgress > 0 &&
+        pulseProgress < 1 &&
+        pulsedRoutes.size < 12 &&
+        !pulsedRoutes.has(path)
+      ) {
+        pulsedRoutes.add(path);
+        for (const offset of [0, 0.13]) {
+          const along = pulseProgress - offset;
+          if (along <= 0) continue;
+          features.push({
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: fixAt(path, path.km * along).position,
+            },
+            properties: {
+              part: "ring",
+              kind: "lane-pulse",
+              radius: 5 + weight * 7 + along * 7,
+              color: COLORS.modelInk,
+              width: 1.35,
+              opacity: 0.78 * Math.sin(Math.PI * pulseProgress),
+            },
+          });
+        }
+      }
     }
   }
   return { type: "FeatureCollection", features };
@@ -132,7 +163,7 @@ function legGeometry(
   codes: string[],
   affected: CascadeAffected,
   port: CascadeSubject,
-): Array<[number, number]> | null {
+): MeasuredPath | null {
   const chokepoint =
     affected.chokepoints.find((c) => codes.includes(c.id)) ??
     affected.chokepoints[0];
@@ -140,7 +171,7 @@ function legGeometry(
 
   const route = seaRoute(chokepoint.id, port.id);
   if (!route || route.path.coords.length < 2) return null;
-  return route.path.coords.map((c) => [c[0], c[1]] as [number, number]);
+  return route.path;
 }
 
 function chokepointPoint(code: string): [number, number] | null {

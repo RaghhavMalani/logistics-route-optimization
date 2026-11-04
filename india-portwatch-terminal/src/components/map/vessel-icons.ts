@@ -1,23 +1,74 @@
 import { COLORS } from "@/components/miniature/palette";
-/**
- * Ship glyphs, drawn into the GL context as images.
- *
- * MapLibre rotates a symbol's icon per feature, which is the only way to render
- * hundreds of heading-oriented marks without a DOM node each. The alternative --
- * an SDF sprite tinted by expression -- loses the dark outline that keeps a
- * small glyph readable over a bright weather field, so each class gets its own
- * raster at device resolution.
- *
- * Two shapes carry navigation state, because colour is already spoken for by
- * vessel class:
- *
- *   hull   a ship outline, pointed at the course over ground. Under way.
- *   ring   a circle with a bar. Stopped: at anchor, waiting, or alongside.
- */
+import {
+  VESSEL_CLASS_LIST,
+  type VesselClass,
+} from "@/lib/maritime/traffic-types";
 
-import { VESSEL_CLASS_LIST, type VesselClass } from "@/lib/maritime/traffic-types";
+interface VesselShape {
+  outline: string;
+  detail?: string;
+}
 
-export type GlyphShape = "hull" | "ring";
+/** Plan views share the same geometry in the chart and its filter legend. */
+export const VESSEL_SHAPES: Record<VesselClass, VesselShape> = {
+  container: {
+    outline: "M12 3 17.5 8 17.5 24 6.5 24 6.5 8Z",
+    detail: "M8.5 10H15.5M8.5 14H15.5M8.5 18H15.5M8.5 22H15.5M12 9V22",
+  },
+  tanker: {
+    outline:
+      "M12 3C16 4 18 8 18 12C18 18 15 22 13.5 24H10.5C9 22 6 18 6 12C6 8 8 4 12 3Z",
+    detail: "M12 8V20M9.5 12H14.5M9.5 16H14.5",
+  },
+  bulk: {
+    outline: "M12 2.8 18 16 17 24H7L6 16Z",
+    detail: "M12 9 14 13H10ZM9 16H15V19H9ZM9 21H15",
+  },
+  lng: {
+    outline:
+      "M12 3C15.7 5 17.5 8 17.5 11V22Q17.5 24 15 24H9Q6.5 24 6.5 22V11C6.5 8 8.3 5 12 3Z",
+    detail:
+      "M14 10a2 2 0 1 1-4 0 2 2 0 1 1 4 0ZM14 15.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0ZM14 21a2 2 0 1 1-4 0 2 2 0 1 1 4 0Z",
+  },
+  roro: {
+    outline: "M8 5 12 3 16 5 18 11V24H6V11Z",
+    detail: "M9 9H15V20H9ZM12 21V24",
+  },
+  cargo: {
+    outline: "M12 3 17 11 16 23 12 25 8 23 7 11Z",
+    detail: "M10 10H14V15H10ZM10 17H14V22H10Z",
+  },
+  passenger: {
+    outline: "M12 2.5Q17.5 7 17.5 14L15.5 23 12 25 8.5 23 6.5 14Q6.5 7 12 2.5Z",
+    detail: "M10 9V21M14 9V21M10 14H14",
+  },
+  service: {
+    outline: "M12 5.5Q18 8 18 13L16.5 21H7.5L6 13Q6 8 12 5.5Z",
+    detail: "M9 11H15V15H9ZM9.5 18H14.5",
+  },
+};
+
+const HULL: VesselShape = {
+  outline: "M12 3Q17.5 8 17.5 14L16.5 24H7.5L6.5 14Q6.5 8 12 3Z",
+};
+const RING: VesselShape = {
+  outline: "M18 14a6 6 0 1 1-12 0 6 6 0 1 1 12 0Z",
+  detail: "M9 14H15",
+};
+const STOPPED = "M10 25.5H14";
+const WAKE = "M9.5 24.5 7.5 28.5M14.5 24.5 16.5 28.5";
+
+type Ink = VesselClass | "neutral" | "follow";
+
+export function vesselIconId(
+  vesselClass: VesselClass,
+  ink: Ink,
+  detailed: boolean,
+  stopped: boolean,
+): string {
+  const shape = detailed ? vesselClass : stopped ? "ring" : "hull";
+  return `ship-${ink}-${shape}-${stopped ? "still" : "moving"}`;
+}
 
 export interface IconImage {
   id: string;
@@ -25,112 +76,77 @@ export interface IconImage {
   pixelRatio: number;
 }
 
-const OUTLINE = COLORS.panel;
-
-function canvas(size: number): { ctx: CanvasRenderingContext2D; size: number } | null {
-  if (typeof document === "undefined") return null;
-  const element = document.createElement("canvas");
-  element.width = size;
-  element.height = size;
-  const ctx = element.getContext("2d");
-  return ctx ? { ctx, size } : null;
+function drawSprite(
+  ctx: CanvasRenderingContext2D,
+  shape: VesselShape,
+  color: string,
+  detailed: boolean,
+  stopped: boolean,
+  followed: boolean,
+) {
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (followed && !stopped) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.15;
+    ctx.globalAlpha = 0.58;
+    ctx.stroke(new Path2D(WAKE));
+    ctx.globalAlpha = 1;
+  }
+  const outline = new Path2D(shape.outline);
+  const ring = shape === RING;
+  ctx.fillStyle = ring ? COLORS.panel : color;
+  ctx.fill(outline);
+  ctx.strokeStyle = ring ? color : COLORS.panel;
+  ctx.lineWidth = ring ? 1.65 : 1.2;
+  ctx.stroke(outline);
+  if (shape.detail) {
+    ctx.lineWidth = 1.15;
+    ctx.stroke(new Path2D(shape.detail));
+  }
+  if (detailed && stopped) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.45;
+    ctx.stroke(new Path2D(STOPPED));
+  }
 }
 
-/**
- * A ship in plan view, bow up.
- *
- * Drawn as a real hull rather than a triangle: at eleven pixels the difference
- * between "an arrow" and "a vessel" is the flat transom and the shoulder, and
- * it is what makes the map read as marine traffic instead of a scatter plot.
- */
-function drawHull(ctx: CanvasRenderingContext2D, size: number, color: string) {
-  const c = size / 2;
-  const halfLength = size * 0.44;
-  const halfBeam = size * 0.2;
-
-  ctx.beginPath();
-  ctx.moveTo(c, c - halfLength);
-  ctx.quadraticCurveTo(c + halfBeam, c - halfLength * 0.42, c + halfBeam, c + halfLength * 0.2);
-  ctx.lineTo(c + halfBeam * 0.82, c + halfLength);
-  ctx.lineTo(c - halfBeam * 0.82, c + halfLength);
-  ctx.lineTo(c - halfBeam, c + halfLength * 0.2);
-  ctx.quadraticCurveTo(c - halfBeam, c - halfLength * 0.42, c, c - halfLength);
-  ctx.closePath();
-
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.lineWidth = Math.max(1, size * 0.07);
-  ctx.strokeStyle = OUTLINE;
-  ctx.stroke();
-}
-
-function drawRing(ctx: CanvasRenderingContext2D, size: number, color: string) {
-  const c = size / 2;
-  const radius = size * 0.3;
-  ctx.beginPath();
-  ctx.arc(c, c, radius, 0, Math.PI * 2);
-  ctx.fillStyle = OUTLINE;
-  ctx.fill();
-  ctx.lineWidth = Math.max(1.4, size * 0.11);
-  ctx.strokeStyle = color;
-  ctx.stroke();
-
-  // A short bar across the ring reads as "made fast" rather than "a dot".
-  ctx.beginPath();
-  ctx.moveTo(c - radius * 0.5, c);
-  ctx.lineTo(c + radius * 0.5, c);
-  ctx.lineWidth = Math.max(1, size * 0.08);
-  ctx.strokeStyle = color;
-  ctx.stroke();
-}
-
-/** The own-ship mark: the same hull, brighter, with a course lubber line. */
-function drawOwn(ctx: CanvasRenderingContext2D, size: number) {
-  const c = size / 2;
-  ctx.beginPath();
-  ctx.arc(c, c, size * 0.46, 0, Math.PI * 2);
-  ctx.strokeStyle = COLORS.action;
-  ctx.lineWidth = Math.max(1, size * 0.05);
-  ctx.stroke();
-  drawHull(ctx, size, COLORS.action);
-}
-
-export function iconId(vesselClass: VesselClass | "neutral" | "selected", shape: GlyphShape): string {
-  return `ship-${vesselClass}-${shape}`;
-}
-
-export const OWN_ICON = "ship-own";
-
-/**
- * Every glyph the map can show. Built once per session; each glyph is a few hundred bytes.
- */
+/** Rasterize once per chart. MapLibre rotates the images without a DOM node per ship. */
 export function buildVesselIcons(pixelRatio = 2): IconImage[] {
-  const size = Math.round(22 * pixelRatio);
-  const out: IconImage[] = [];
+  if (typeof document === "undefined") return [];
+  const canvas = document.createElement("canvas");
+  canvas.width = 24 * pixelRatio;
+  canvas.height = 30 * pixelRatio;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [];
+  ctx.scale(pixelRatio, pixelRatio);
+  const images = new Map<string, IconImage>();
 
-  for (const spec of [...VESSEL_CLASS_LIST, { key: "neutral" as const, color: COLORS.modelInk }, { key: "selected" as const, color: COLORS.action }]) {
-    for (const shape of ["hull", "ring"] as GlyphShape[]) {
-      const surface = canvas(size);
-      if (!surface) return out;
-      if (shape === "hull") drawHull(surface.ctx, size, spec.color);
-      else drawRing(surface.ctx, size, spec.color);
-      out.push({
-        id: iconId(spec.key, shape),
-        data: surface.ctx.getImageData(0, 0, size, size),
-        pixelRatio,
-      });
+  for (const spec of VESSEL_CLASS_LIST) {
+    for (const [ink, color] of [
+      [spec.key, spec.color],
+      ["neutral", COLORS.modelInk],
+      ["follow", COLORS.action],
+    ] as const) {
+      for (const detailed of [false, true]) {
+        for (const stopped of [false, true]) {
+          const id = vesselIconId(spec.key, ink, detailed, stopped);
+          if (images.has(id)) continue;
+          ctx.clearRect(0, 0, 24, 30);
+          const shape = detailed
+            ? VESSEL_SHAPES[spec.key]
+            : stopped
+              ? RING
+              : HULL;
+          drawSprite(ctx, shape, color, detailed, stopped, ink === "follow");
+          images.set(id, {
+            id,
+            data: ctx.getImageData(0, 0, canvas.width, canvas.height),
+            pixelRatio,
+          });
+        }
+      }
     }
   }
-
-  const ownSurface = canvas(Math.round(30 * pixelRatio));
-  if (ownSurface) {
-    drawOwn(ownSurface.ctx, ownSurface.size);
-    out.push({
-      id: OWN_ICON,
-      data: ownSurface.ctx.getImageData(0, 0, ownSurface.size, ownSurface.size),
-      pixelRatio,
-    });
-  }
-
-  return out;
+  return [...images.values()];
 }

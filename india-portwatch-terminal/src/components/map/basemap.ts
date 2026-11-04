@@ -23,7 +23,7 @@ import { COLORS } from "@/components/miniature/palette";
 import type { StyleSpecification } from "maplibre-gl";
 
 import borders from "@/assets/geo/region-borders.json";
-import land from "@/assets/geo/region-land.json";
+import harbourContext from "@/assets/geo/region-land-detail.generated.json";
 import { corridorFeatures } from "@/lib/maritime/searoutes";
 
 /**
@@ -112,7 +112,8 @@ export type RuntimeSource = (typeof RUNTIME_SOURCES)[number];
 export function buildStyle(): StyleSpecification {
   const sources: StyleSpecification["sources"] = {
     graticule: { type: "geojson", data: graticule() as never },
-    land: { type: "geojson", data: land as never },
+    land: { type: "geojson", data: harbourContext.land as never },
+    "port-land": { type: "geojson", data: harbourContext.tint as never },
     borders: { type: "geojson", data: borders as never },
     corridors: { type: "geojson", data: corridorFeatures() as never },
     wxraster: {
@@ -148,6 +149,7 @@ export function buildStyle(): StyleSpecification {
         id: "shelf-deep",
         type: "line",
         source: "land",
+        maxzoom: 10.5,
         paint: {
           "line-color": COLORS.weatherMid,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 46, 8, 150],
@@ -165,6 +167,8 @@ export function buildStyle(): StyleSpecification {
             0.45,
             9,
             0.15,
+            10.5,
+            0,
           ],
         },
       },
@@ -172,6 +176,7 @@ export function buildStyle(): StyleSpecification {
         id: "shelf-mid",
         type: "line",
         source: "land",
+        maxzoom: 10.5,
         paint: {
           "line-color": COLORS.modelSea,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 18, 8, 60],
@@ -186,6 +191,8 @@ export function buildStyle(): StyleSpecification {
             0.5,
             9,
             0.16,
+            10.5,
+            0,
           ],
         },
       },
@@ -193,6 +200,7 @@ export function buildStyle(): StyleSpecification {
         id: "shelf-near",
         type: "line",
         source: "land",
+        maxzoom: 10.5,
         paint: {
           "line-color": COLORS.weatherHigh,
           "line-width": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 22],
@@ -207,6 +215,8 @@ export function buildStyle(): StyleSpecification {
             0.55,
             9,
             0.18,
+            10.5,
+            0,
           ],
         },
       },
@@ -217,6 +227,31 @@ export function buildStyle(): StyleSpecification {
         type: "fill",
         source: "land",
         paint: { "fill-color": COLORS.land },
+      },
+      {
+        id: "port-land-tint",
+        type: "fill",
+        source: "port-land",
+        minzoom: 8,
+        paint: {
+          "fill-color": [
+            "match",
+            ["get", "band"],
+            "inner",
+            COLORS.grass,
+            COLORS.panel4,
+          ],
+          "fill-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            8,
+            0.42,
+            11,
+            0.92,
+          ],
+          "fill-antialias": false,
+        },
       },
 
       /* -------------------------------------------------- weather raster -- */
@@ -602,34 +637,18 @@ export function buildStyle(): StyleSpecification {
 
       /* ----------------------------------------------------------- ports -- */
       {
-        id: "port-pressure",
-        type: "circle",
-        source: "ports",
-        paint: {
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            3,
-            ["+", 6, ["*", 10, ["get", "pressure"]]],
-            9,
-            ["+", 16, ["*", 30, ["get", "pressure"]]],
-          ],
-          "circle-color": ["get", "color"],
-          "circle-opacity": 0.1,
-          "circle-stroke-color": ["get", "color"],
-          "circle-stroke-width": 0.8,
-          "circle-stroke-opacity": 0.32,
-        },
-      },
-      {
         id: "port-mark",
         type: "circle",
         source: "ports",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 4.2, 9, 8],
           "circle-color": COLORS.panel,
-          "circle-stroke-color": ["get", "color"],
+          "circle-stroke-color": [
+            "case",
+            ["==", ["get", "selected"], true],
+            COLORS.action,
+            COLORS.coast,
+          ],
           "circle-stroke-width": [
             "case",
             ["==", ["get", "selected"], true],
@@ -652,7 +671,12 @@ export function buildStyle(): StyleSpecification {
             9,
             3.4,
           ],
-          "circle-color": ["get", "color"],
+          "circle-color": [
+            "case",
+            ["==", ["get", "selected"], true],
+            COLORS.action,
+            COLORS.chart2,
+          ],
         },
       },
 
@@ -662,7 +686,13 @@ export function buildStyle(): StyleSpecification {
         type: "symbol",
         source: "ghosts",
         layout: {
-          "icon-image": ["get", "icon"],
+          "icon-image": [
+            "step",
+            ["zoom"],
+            ["get", "icon"],
+            7,
+            ["get", "detailedIcon"],
+          ],
           "icon-rotate": ["get", "cog"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -711,10 +741,9 @@ export function buildStyle(): StyleSpecification {
         source: "rings",
         paint: {
           "circle-radius": ["get", "radius"],
-          "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-color": ["get", "color"],
-          "circle-stroke-width": ["get", "width"],
-          "circle-stroke-opacity": ["get", "opacity"],
+          "circle-color": COLORS.signal,
+          "circle-opacity": ["get", "opacity"],
+          "circle-blur": 0.78,
         },
       },
 
@@ -724,11 +753,18 @@ export function buildStyle(): StyleSpecification {
         type: "symbol",
         source: "vessels",
         layout: {
-          "icon-image": ["get", "icon"],
+          "icon-image": [
+            "step",
+            ["zoom"],
+            ["get", "icon"],
+            7,
+            ["get", "detailedIcon"],
+          ],
           "icon-rotate": ["get", "cog"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
+          "symbol-sort-key": ["get", "emphasis"],
           "icon-size": [
             "interpolate",
             ["linear"],
@@ -737,10 +773,12 @@ export function buildStyle(): StyleSpecification {
             ["*", 0.4, ["get", "scale"]],
             6,
             ["*", 0.56, ["get", "scale"]],
+            7,
+            ["*", 0.9, ["get", "scale"]],
             9,
-            ["*", 0.78, ["get", "scale"]],
+            ["*", 1.05, ["get", "scale"]],
             12,
-            ["*", 1, ["get", "scale"]],
+            ["*", 1.22, ["get", "scale"]],
           ],
         },
         paint: { "icon-opacity": ["get", "opacity"] },
@@ -800,7 +838,7 @@ export const LAYER_GROUPS = {
   ghosts: ["ghost-mark"],
   weather: ["wx-field"],
   storms: ["storm-area", "storm-edge"],
-  ports: ["port-pressure", "port-mark", "port-core"],
+  ports: ["port-mark", "port-core"],
   corridors: ["corridor-line"],
   routes: [
     "route-behind",

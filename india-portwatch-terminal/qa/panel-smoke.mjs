@@ -8,6 +8,7 @@ import { chromium, expect } from "@playwright/test";
 const replay = process.argv.includes("--replay");
 const panelMode = process.argv.includes("--panel");
 const production = process.argv.includes("production");
+const miniature = process.argv.includes("--miniature");
 const checkApprovalStyle = production || process.argv.includes("--check-approval-style");
 if (replay && panelMode) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
 const offline = replay || panelMode;
@@ -113,6 +114,8 @@ async function run(width, height) {
     ...(panelMode ? { serviceWorkers: "block" } : {}),
     ...(videoDir ? { recordVideo: { dir: videoDir, size: { width: 1280, height: 720 } } } : {}),
   });
+  const started = performance.now();
+  const seconds = () => (performance.now() - started) / 1000;
   const page = await context.newPage();
   page.setDefaultTimeout(35_000);
   const evidence = process.env.PORTWATCH_PANEL_EVIDENCE_DIR;
@@ -122,6 +125,21 @@ async function run(width, height) {
   const errors = [];
   const results = { origin, width, height, checks, errors };
   watchBrowserErrors(page, errors);
+  if (miniature && videoDir) {
+    results.recording = { path: await page.video().path(), parcels: [] };
+    await page.exposeFunction("recordParcelTravel", () => {
+      results.recording.parcels.push(seconds());
+    });
+    await page.addInitScript(() => {
+      document.addEventListener("animationstart", (event) => {
+        if (event.animationName === "pw-handoff-travel") {
+          const rect = event.target.getBoundingClientRect();
+          const visible = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          if (event.target.contains(visible)) void window.recordParcelTravel();
+        }
+      });
+    });
+  }
   const shot = async (name, screen = page) => {
     if (videoDir) await page.waitForTimeout(1700);
     if (!evidence) return;
@@ -133,8 +151,13 @@ async function run(width, height) {
     console.log(`PASS ${width}×${height} · ${beat}`);
     beat = next;
   };
-  const postResponse = (suffix) => page.waitForResponse((response) =>
-    new URL(response.url()).pathname.endsWith(suffix) && response.request().method() === "POST");
+  const postResponse = (suffix) => {
+    const pending = page.waitForResponse((response) =>
+      new URL(response.url()).pathname.endsWith(suffix) && response.request().method() === "POST");
+    // A failed locator can exit before the response promise is awaited.
+    pending.catch(() => {});
+    return pending;
+  };
   const read = async (pending) => {
     const response = await pending;
     if (!response.ok()) throw new Error(`${response.status()} ${await response.text()}`);
@@ -147,10 +170,22 @@ async function run(width, height) {
   }
   async function approve(panel, choice, capturePrefix) {
     await panel.getByRole("button", { name: "Continue to Decide", exact: true }).click();
+    if (miniature) {
+      const rail = panel.getByRole("navigation", { name: "Decision progress" });
+      await expect(rail.getByRole("button", { name: "Computed", exact: true })).toHaveAttribute("aria-current", "step");
+      assert(await rail.locator("ol").evaluate((track) => track.scrollWidth <= track.clientWidth + 1), "All seven Decide stages fit at the panel viewport");
+      await rail.getByRole("button", { name: "Observed", exact: true }).click();
+      await expect(panel.locator("[data-workflow-stage=OBSERVED]")).toBeInViewport();
+      await rail.getByRole("button", { name: "Computed", exact: true }).click();
+      await expect(panel.getByTestId("decision-review")).toBeInViewport();
+    }
     await shot(`${capturePrefix}-decide`);
     const reviewing = postResponse("/transition");
     await panel.getByTestId("decision-review").click();
     await read(reviewing);
+    if (miniature) {
+      await expect(panel.getByRole("navigation", { name: "Decision progress" }).getByRole("button", { name: "Reviewed" })).toHaveAttribute("aria-current", "step");
+    }
     const approveButton = panel.getByTestId("decision-approve");
     if (checkApprovalStyle) await expectPrimary(approveButton);
     await shot(`${capturePrefix}-reviewed`);
@@ -216,6 +251,25 @@ async function run(width, height) {
     token = (await read(login)).accessToken;
     await page.waitForURL("**/company/overview");
     const companyHandoffs = page.getByRole("region", { name: "Fleet handoffs" });
+    if (miniature && videoDir) {
+      const labels = page.locator("[data-map-port-label]");
+      await expect(labels.first()).toBeVisible({ timeout: 25_000 });
+      const index = await labels.evaluateAll((items) => items.findIndex((label) => {
+        const { x, y, width, height } = label.getBoundingClientRect();
+        const top = document.elementFromPoint(x + width / 2, y + height / 2);
+        return label.contains(top) && x > 300 && x < window.innerWidth * 0.65 && y > 100 && y < 470;
+      }));
+      assert(index >= 0, "A visible chart port is available for the recording");
+      results.recording.mapStart = seconds();
+      await page.waitForTimeout(1600);
+      await labels.nth(index).click();
+      await expect(page.getByTestId("port-miniature-label")).toBeVisible({ timeout: 20_000 });
+      await shot("00-map-glide");
+      await page.waitForTimeout(4000);
+      await page.getByRole("button", { name: "Reset view" }).click();
+      await expect(page.getByTestId("port-miniature-label")).toHaveCount(0);
+      await page.waitForTimeout(8500);
+    }
     await page.getByRole("button", { name: "Scenarios", exact: true }).click();
     const scenarios = page.getByTestId("demonstration-scenarios");
     await scenarios.getByLabel("Shipping demonstration scenario").selectOption("S10");
@@ -249,6 +303,12 @@ async function run(width, height) {
     await shot("01-company");
     await open(page, "/company/overview");
     await expect(companyHandoffs).toContainText("Waiting on Port");
+    if (miniature) {
+      const handoffRail = companyHandoffs.getByRole("navigation", { name: "Company to Port to Vessel" });
+      await expect(handoffRail.getByRole("button", { name: "Company", exact: true })).toHaveAttribute("aria-current", "step");
+      await handoffRail.getByRole("button", { name: "Port", exact: true }).click();
+      await expect(companyHandoffs.getByText("Awaiting the handoff to Port.")).toBeInViewport();
+    }
     await expect(companyHandoffs.getByRole("link", { name: "Open Company comparison" })).toHaveAttribute("href", new RegExp(problem.decisionId));
     await queue.getByRole("button", { name: "Close fleet review" }).click();
     await expect(queue).toBeHidden();
@@ -274,6 +334,12 @@ async function run(width, height) {
     const reviewPending = postResponse("/current-proposals/review");
     await panel.getByRole("button", { name: "Review Company weather proposal" }).click();
     const review = await read(reviewPending);
+    if (results.recording) {
+      const rail = panel.getByRole("navigation", { name: "Company to Port to Vessel" });
+      await rail.scrollIntoViewIfNeeded();
+      await expect(rail.getByRole("button", { name: "Port", exact: true })).toHaveAttribute("aria-current", "step");
+      await page.waitForTimeout(1800);
+    }
     await approve(panel, choice.optionId, "03a-port");
     await shot("03a-port-approved");
     const issuePending = postResponse("/handoff");
@@ -290,6 +356,7 @@ async function run(width, height) {
     await expect(card.locator("button").first()).toHaveAttribute("aria-expanded", "true");
     await expect(card.getByTestId("advisory-action-issued")).toBeVisible();
     await shot("03b-port-open-for-review");
+    if (results.recording) results.recording.issue = seconds();
     await advisoryAction(card, "issued", advisoryId);
     await expect(panel.getByRole("button", { name: "Run frozen demo outcome" })).toBeDisabled();
     await shot("04-port-issued");
@@ -300,6 +367,10 @@ async function run(width, height) {
     const advisoryLink = bridge.getByRole("link", { name: "Open advisory" });
     await expect(advisoryLink).toHaveAttribute("href", "/vessel/advisories?advisory=" + advisoryId, { timeout: 25_000 });
     await expect(page.getByRole("region", { name: "Passage at a glance" })).toBeVisible();
+    if (miniature) {
+      await expect(bridge.getByRole("navigation", { name: "Company to Port to Vessel" }).getByRole("button", { name: "Vessel", exact: true })).toHaveAttribute("aria-current", "step");
+      if (results.recording) await page.waitForTimeout(9000);
+    }
     await shot("05-bridge");
     await advisoryLink.click();
     card = page.getByTestId("advisory-card").filter({ hasText: "PW Meridian" }).first();
@@ -388,6 +459,9 @@ async function run(width, height) {
       }
     }
     assert.deepEqual(errors, []);
+    if (results.recording) {
+      assert(results.recording.parcels.length > 0, "The browser recorded a visible handoff parcel");
+    }
     passed("Done");
   } catch (error) {
     checks.push({ beat, result: "FAIL", message: error.message });
