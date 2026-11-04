@@ -93,7 +93,9 @@ def refresh_artifact(
         raise HTTPException(status_code=401, detail="a refresh request must name its actor (X-PortWatch-Actor)")
     coordinator = _coordinator()
     try:
-        outcome = coordinator.request(artifact, reason=f"requested by {actor}", wait=wait, requested=True)
+        outcome = coordinator.request(artifact, reason=f"requested by {actor}", requested=True)
+        if wait and outcome in ("started", "already running"):
+            coordinator.wait(artifact)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return _scrub({"artifact": artifact, "outcome": outcome, **coordinator.describe(artifact)})

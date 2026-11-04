@@ -1,4 +1,5 @@
 """Verified public-data pilot for two exact physical ports."""
+from functools import partial
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.identity import Identity, require_verified
 from backend.app.routes.intelligence import may_write
+from backend.app.services import public_collection_queue
 from src.portwatch_os.clock import LIVE, get_clock, world_now
 from src.portwatch_os.intelligence.public_collection import collect_port, get_service as service
 from src.portwatch_os.intelligence.public_ports import PublicPilot
@@ -34,17 +36,18 @@ def workspace(access=Depends(scope), store: PublicPilot = Depends(service)):
     if get_clock().state.mode == LIVE and "public_ports_"+port in coordinator.artifacts():
         job = coordinator.describe("public_ports_"+port)
     state["collection"] = {**durable, "schedulerRunning": coordinator.running if get_clock().state.mode == LIVE else None,
-                           "backendJob": job}
+                           "backendJob": job,
+                           "refreshPending": f"public-arrivals-{port}" in public_collection_queue.active()}
     state["structuredVessels"] = get_vessel_store().workspace(port, now)
     return state
 
 
-@router.post("/public-arrivals/refresh")
+@router.post("/public-arrivals/refresh", status_code=202)
 def refresh(access=Depends(scope), store: PublicPilot = Depends(service)):
     port, who = access
     may_write(who, port)
-    result = collect_port(store, port, who.actor)
-    return {"results": result["refresh"]["results"], "errors": result["errors"], "counts": result["counts"]}
+    public_collection_queue.enqueue(f"public-arrivals-{port}", partial(collect_port, store, port, who.actor))
+    return {"accepted": True}
 
 
 @router.post("/public-arrivals/evaluate")
