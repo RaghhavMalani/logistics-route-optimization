@@ -40,6 +40,7 @@ import type {
   ToolCatalogue,
   TwinOptimize,
   TwinSimulation,
+  TwinComparison,
   WorldCascade,
   WorldCascadeList,
   WorldProjection,
@@ -151,8 +152,13 @@ export const fetchTwinSimulation = (
 ): Promise<TwinSimulation> =>
   getJson<TwinSimulation>(
     `/port-twin/${encodeURIComponent(portCode)}/simulate` +
-      `?policy=${encodeURIComponent(policy)}&horizon_hours=${horizonHours}`,
+      `?policy=${encodeURIComponent(policy)}&horizon_hours=${horizonHours}&include_timeline=true`,
   );
+
+export const fetchTwinComparison = (
+  portCode: string,
+): Promise<TwinComparison> =>
+  getJson<TwinComparison>(`/port-twin/${encodeURIComponent(portCode)}/compare`);
 
 export const fetchTwinOptimize = (
   portCode: string,

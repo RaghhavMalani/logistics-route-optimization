@@ -9,7 +9,7 @@ overlays and the ``+2h / +6h / +12h / +24h`` controls consume
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -106,6 +106,7 @@ def port_twin_simulate(
     port_code: str,
     policy: str = Query("greedy", description="Scheduling policy to run."),
     horizon_hours: float = Query(24.0, ge=1.0, le=168.0),
+    include_timeline: Annotated[bool, Query(description="Include the modelled simulation steps.")] = False,
 ) -> Dict[str, Any]:
     """Run the twin forward and return the state at each overlay horizon."""
     if policy not in POLICY_REGISTRY:
@@ -113,14 +114,23 @@ def port_twin_simulate(
             status_code=400,
             detail=f"Unknown policy '{policy}'. Known: {', '.join(sorted(POLICY_REGISTRY))}",
         )
-    state = build_state_for(port_code)
+    if include_timeline and horizon_hours > 48:
+        raise HTTPException(status_code=422, detail="A playback timeline is limited to 48 modelled hours.")
+    return _simulation_payload(build_state_for(port_code), policy, horizon_hours, include_timeline)
+
+
+def _simulation_payload(
+    state: PortState, policy: str, horizon_hours: float, include_timeline: bool,
+) -> Dict[str, Any]:
     chosen = build_policy(policy)
     result = simulate(
         state, chosen,
         SimulationConfig(horizon_hours=horizon_hours, record_trace=True),
         snapshot_hours=SNAPSHOT_HOURS,
+        capture_timeline=include_timeline,
     )
     return {
+        **({"timeline": result.timeline} if include_timeline else {}),
         "portCode": state.port_code,
         "portName": state.port_name,
         "policy": chosen.to_dict(),
@@ -140,6 +150,21 @@ def port_twin_simulate(
             "benchmark result describe the same simulator."
         ),
     }
+
+
+@router.get("/port-twin/{port_code}/compare")
+def port_twin_compare(
+    port_code: str,
+    horizon_hours: Annotated[float, Query(ge=1.0, le=48.0)] = 24.0,
+) -> Dict[str, Any]:
+    """Run FCFS and constrained lookahead against one frozen twin snapshot."""
+    state = build_state_for(port_code)
+    baseline = _simulation_payload(state, "fcfs", horizon_hours, True)
+    lookahead = _simulation_payload(state, "lookahead", horizon_hours, True)
+    winner = None
+    if baseline["reward"] != lookahead["reward"]:
+        winner = "lookahead" if lookahead["reward"] > baseline["reward"] else "fcfs"
+    return {"baseline": baseline, "lookahead": lookahead, "winner": winner}
 
 
 @router.get("/port-twin/{port_code}/optimize")
