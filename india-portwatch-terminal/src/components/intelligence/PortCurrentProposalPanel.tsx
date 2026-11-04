@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { Panel, Button } from "@/components/kit/layout";
 import { DecisionPanel } from "@/components/decision/DecisionPanel";
@@ -36,7 +37,10 @@ export function PortCurrentProposalPanel() {
   const client = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
   const [compare, setCompare] = useState(true);
+  const search = useLocation({ select: (location) => location.searchStr });
+  const linkedProposal = new URLSearchParams(search).get("proposal");
   const [journeyId, setJourneyId] = useState<string | null>(null);
+  const target = journeyId ?? linkedProposal;
   const proposals = useQuery({
     queryKey: ["current-proposals"],
     queryFn: ({ signal }) =>
@@ -48,9 +52,19 @@ export function PortCurrentProposalPanel() {
     enabled: session?.mode === "demo",
     refetchInterval: 10000,
   });
-  const proposal =
-    proposals.data?.proposals.find((p) => p.decisionId === journeyId) ??
-    proposals.data?.proposals[0];
+  const proposal = target
+    ? proposals.data?.proposals.find((row) => row.decisionId === target)
+    : proposals.data?.proposals[0];
+  const weather =
+    proposal?.evidenceKind !== "intelligence" &&
+    proposal?.evidenceKind !== "restriction"
+      ? (proposal?.evidence as FrozenEnvironment | undefined)
+      : undefined;
+  const passage = weather?.passageComparison?.options;
+  const baseline = passage?.[0];
+  const choice = passage?.find(
+    (option) => option.optionId === proposal?.optionId,
+  );
   const decision = useDecision(proposal?.reviewDecisionId ?? null);
   const review = useMutation({
     mutationFn: () =>
@@ -80,7 +94,15 @@ export function PortCurrentProposalPanel() {
   const result =
     outcome.data?.outcome ??
     (decision.data?.evidence.demoOutcome as DemoOutcome | undefined);
-  if (session?.mode !== "demo" || !proposal) return null;
+  if (session?.mode !== "demo") return null;
+  if (!proposal)
+    return target ? (
+      <p role="status" className="p-3 text-sm">
+        {proposals.isPending
+          ? "Opening the linked proposal…"
+          : "That proposal is unavailable in this Port workspace."}
+      </p>
+    ) : null;
   return (
     <Panel
       title={
@@ -113,6 +135,32 @@ export function PortCurrentProposalPanel() {
           </select>
         </label>
       ) : null}
+      {baseline && choice ? (
+        <section
+          aria-label="Frozen passage at a glance"
+          className="m-2 rounded border border-[var(--line-strong)] bg-[var(--panel-2)] p-3"
+        >
+          <p className="text-xs">
+            Company-approved comparison · modeled values
+          </p>
+          <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
+            <div>
+              <dt className="text-xs">Declared speed</dt>
+              <dd className="num text-lg font-semibold">
+                {baseline.speedKn ?? "Unavailable"} →{" "}
+                {choice.speedKn ?? "Unavailable"} kn
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs">Assumed anchorage wait</dt>
+              <dd className="num text-lg font-semibold">
+                {baseline.anchorageWaitHours?.toFixed(2) ?? "Unavailable"} →{" "}
+                {choice.anchorageWaitHours?.toFixed(2) ?? "Unavailable"} h
+              </dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
       <p className="px-2 py-2 text-[11px] text-[var(--text-2)]">
         Review the same frozen input and assumed arrival limits submitted by
         Company. Issue through the existing advisory register; Vessel must
@@ -120,17 +168,11 @@ export function PortCurrentProposalPanel() {
       </p>
       {!decision.data ? (
         <>
-          {proposal.evidenceKind === "intelligence" ||
-          proposal.evidenceKind === "restriction" ? (
-            <FrozenIntelligenceBasis
-              evidence={proposal.evidence as IntelligenceBasis}
-            />
-          ) : (
-            <FrozenWeatherBasis
-              evidence={proposal.evidence as FrozenEnvironment}
-            />
-          )}
-          <Button disabled={review.isPending} onClick={() => review.mutate()}>
+          <Button
+            variant="primary"
+            disabled={review.isPending}
+            onClick={() => review.mutate()}
+          >
             {review.isPending
               ? "Opening Port review…"
               : proposal.evidenceKind === "restriction"
@@ -139,6 +181,21 @@ export function PortCurrentProposalPanel() {
                   ? "Review Company intelligence proposal"
                   : "Review Company weather proposal"}
           </Button>
+          <details className="m-2 text-xs" open={!passage}>
+            <summary className="cursor-pointer font-medium">
+              Frozen assumptions and source evidence
+            </summary>
+            {proposal.evidenceKind === "intelligence" ||
+            proposal.evidenceKind === "restriction" ? (
+              <FrozenIntelligenceBasis
+                evidence={proposal.evidence as IntelligenceBasis}
+              />
+            ) : (
+              <FrozenWeatherBasis
+                evidence={proposal.evidence as FrozenEnvironment}
+              />
+            )}
+          </details>
         </>
       ) : (
         <>
@@ -155,11 +212,11 @@ export function PortCurrentProposalPanel() {
           <div className="border-t border-[var(--line)] p-2 text-[11px]">
             {result?.evidenceKind === "paradip_entry" ? (
               <p data-testid="current-demo-outcome">
-                <strong>{result.kind}</strong> · {result.note}
+                <strong>Simulated demo outcome</strong> · {result.note}
               </p>
             ) : result ? (
               <p data-testid="current-demo-outcome">
-                <strong>{result.kind}</strong> ·{" "}
+                <strong>Simulated demo outcome</strong> ·{" "}
                 {result.evidenceKind === "restriction"
                   ? "baseline planned lock wait"
                   : result.evidenceKind === "intelligence"

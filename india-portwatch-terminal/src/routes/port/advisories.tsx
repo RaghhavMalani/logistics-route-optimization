@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { AdvisoryScreen } from "@/components/advisory/AdvisoryScreen";
 
-export const Route = createFileRoute("/port/advisories")({ component: PortAdvisories });
+export const Route = createFileRoute("/port/advisories")({
+  component: PortAdvisories,
+});
 
 /**
  * The issuing side of the advisory workflow.
@@ -13,10 +15,12 @@ export const Route = createFileRoute("/port/advisories")({ component: PortAdviso
  */
 function PortAdvisories() {
   return (
-    <AdvisoryScreen
-      title="Advisories"
-      context="Review, modify and issue recommendations to vessels"
-      side="issuer"
-    />
+    <div className="flex h-full min-h-0 flex-col [&_[data-testid=decision-approve]]:bg-[var(--action)] [&_[data-testid=advisory-action-issued]]:bg-[var(--action)] [&_[data-testid=decision-approve]]:text-white [&_[data-testid=advisory-action-issued]]:!text-white">
+      <AdvisoryScreen
+        title="Advisories"
+        context="Review, modify and issue recommendations to vessels"
+        side="issuer"
+      />
+    </div>
   );
 }

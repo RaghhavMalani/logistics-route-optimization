@@ -48,6 +48,7 @@ import type {
 } from "@/types/portwatch-os";
 import {
   OVERLAYS,
+  TWIN_RAMP,
   type TwinOverlay,
   type TwinSelection,
 } from "./twin-presentation";
@@ -234,19 +235,26 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 </button>
               ))}
             </div>
-            <div className="mt-1.5 flex items-center gap-1.5 border-t border-[var(--line)]/60 pt-1.5">
-              <span className="text-[10px] text-[var(--text-3)]">low</span>
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-2 text-xs">
+              <span>Low</span>
               <span
-                className="h-[6px] w-[76px] rounded-[1px]"
+                aria-hidden="true"
+                className="h-2 w-20 rounded"
                 style={{
-                  background:
-                    "linear-gradient(90deg,var(--ok) 0%,var(--warn) 50%,var(--crit) 100%)",
+                  background: `linear-gradient(90deg,${TWIN_RAMP.join(",")})`,
                 }}
               />
-              <span className="text-[10px] text-[var(--text-3)]">high</span>
-              <span className="ml-1 text-[10px] text-[var(--text-3)]">
-                drag to orbit · scroll to zoom · click to inspect
+              <span>High</span>
+              <span className="font-medium">
+                {OVERLAYS.find((item) => item.key === overlay)?.hint}
               </span>
+            </div>
+            <div className="mt-1 text-xs">
+              {selection ? (
+                <strong>Selected · {selection.label}</strong>
+              ) : (
+                "Click an item to inspect it"
+              )}
             </div>
           </div>
 
@@ -317,6 +325,9 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
 
         {/* ------------------------------------------------------ panels -- */}
         <div className="min-h-0 space-y-0 overflow-auto border-l border-[var(--line)] bg-[var(--panel)]">
+          {optimize.data ? (
+            <PolicyBeforeAfter rows={optimize.data.policies} />
+          ) : null}
           <PortDecisionPanel
             portCode={twin.data.portCode}
             decisionId={decisionId}
@@ -329,7 +340,11 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
             testId="twin-inspector"
           >
             {selection ? (
-              <Section title={selection.kind}>
+              <Section
+                title={
+                  selection.kind[0].toUpperCase() + selection.kind.slice(1)
+                }
+              >
                 <dl className="space-y-[3px]">
                   {selection.fields.map(([label, value]) => (
                     <div
@@ -522,6 +537,60 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
         </div>
       </div>
     </Page>
+  );
+}
+
+function PolicyBeforeAfter({ rows }: { rows: TwinOptimizeRow[] }) {
+  const baseline = rows.find((row) => row.policy.policyId === "fcfs");
+  const lookahead = rows.find((row) => row.policy.policyId === "lookahead");
+  if (!baseline || !lookahead) return null;
+  const winner =
+    baseline.reward === lookahead.reward
+      ? "The two policies tie on the modeled objective."
+      : `${lookahead.reward > baseline.reward ? "Constrained lookahead" : "First come, first served"} wins on the modeled objective.`;
+  const hours = (value: number | null) =>
+    value == null ? "Unavailable" : `${value.toFixed(2)} h`;
+  return (
+    <section
+      aria-label="Scheduling before and after"
+      className="border-b border-[var(--line)] bg-[var(--panel-2)] p-2 text-xs"
+    >
+      <p className="font-semibold">{winner}</p>
+      <table className="mt-2 w-full text-left leading-snug">
+        <thead>
+          <tr>
+            <th scope="col">Modeled metric</th>
+            <th scope="col">
+              Before
+              <br />
+              FCFS
+            </th>
+            <th scope="col">
+              After
+              <br />
+              Lookahead
+            </th>
+          </tr>
+        </thead>
+        <tbody className="num">
+          <tr>
+            <th scope="row">Mean wait</th>
+            <td>{hours(baseline.metrics.meanWaitHours)}</td>
+            <td>{hours(lookahead.metrics.meanWaitHours)}</td>
+          </tr>
+          <tr>
+            <th scope="row">Turnaround</th>
+            <td>{hours(baseline.metrics.meanTurnaroundHours)}</td>
+            <td>{hours(lookahead.metrics.meanTurnaroundHours)}</td>
+          </tr>
+          <tr>
+            <th scope="row">Missed departures</th>
+            <td>{baseline.metrics.missedDepartures}</td>
+            <td>{lookahead.metrics.missedDepartures}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   );
 }
 
