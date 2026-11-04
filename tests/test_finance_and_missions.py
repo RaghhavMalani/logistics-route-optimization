@@ -318,12 +318,12 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(any("advisory" in n for n in problem["notes"]))
         self.assertGreaterEqual(len([o for o in problem["options"] if o["status"] == "FEASIBLE"]), 1)
 
+    @pytest.mark.usefixtures("red_sea_evidence")
     def test_a_vessel_decision_takes_scenario_rates_and_a_tonnage_and_labels_them(self):
         events = self.client.get("/api/global-eye/events").json()["events"]
         queue = self.client.get("/api/attention").json()["items"]
         item = next((i for i in queue if i["subjectType"] == "vessel" and i.get("actionable")), None)
-        if item is None:
-            self.skipTest("no actionable hull in the demo register at this instant")
+        self.assertIsNotNone(item, "fixture must expose an actionable hull")
         event_id = item["cascadeId"].split(":")[-1]
         self.assertTrue(any(e["eventId"] == event_id for e in events))
         body = {"domain": "vessel", "eventId": event_id, "vesselId": item["subjectId"], "mode": "DEMO",

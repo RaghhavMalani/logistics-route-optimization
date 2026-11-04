@@ -222,6 +222,12 @@ class IntelligenceApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["portwatch"]["status"], "STALE")
             self.assertEqual(response.json()["portwatch"]["fetchedAt"], original.isoformat())
+            with patch.object(free_sources, "world_now", return_value=original + timedelta(hours=2)):
+                aged = self.client.get("/api/intelligence/earthquakes", headers=ADMIN)
+            self.assertEqual(aged.status_code, 200)
+            self.assertEqual(aged.json()["portwatch"]["status"], "STALE")
+            self.assertEqual(aged.json()["portwatch"]["fetchedAt"], original.isoformat())
+            self.assertEqual(aged.json()["features"], response.json()["features"])
             with patch.object(free_sources, "world_now", return_value=original - timedelta(seconds=1)):
                 self.assertEqual(self.client.get("/api/intelligence/earthquakes", headers=ADMIN).status_code, 503)
 
