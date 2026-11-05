@@ -185,11 +185,38 @@ jobs:
       # for the local QA pass -- for layout risk 1366 strictly dominates it, so
       # in CI it would add a third of the runtime and no coverage.
       - name: Route, role, traffic, routing, agentic and degraded-mode tests
-        run: node qa/run-browser-ci.mjs --shard=${{ matrix.shard }}/4
+        run: node qa/run-browser-ci.mjs --without-research --shard=${{ matrix.shard }}/4
       - name: Upload the report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.shard }}
+          path: india-portwatch-terminal/playwright-report
+          retention-days: 7
+
+  research-browser:
+    name: Browser Research (isolated renderer)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: india-portwatch-terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: india-portwatch-terminal/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Research date, evidence and download contracts at both viewports
+        run: node qa/run-browser-ci.mjs --research-only
+      - name: Upload the report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-research
           path: india-portwatch-terminal/playwright-report
           retention-days: 7
