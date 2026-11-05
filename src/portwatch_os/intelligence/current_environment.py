@@ -4,12 +4,13 @@ These do not re-date the IMF inputs or silently retrain the congestion model.
 Open-Meteo forecasts have no issue/observation instant in this response; null
 is intentional. Retrieval is availability, never a model-run issue time.
 """
+from src.utils.settings import get_settings
+
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 import hashlib
 import json
 import math
-import os
 import shutil
 from pathlib import Path
 from threading import RLock
@@ -20,9 +21,9 @@ from src.utils import port_registry
 from src.portwatch_os.clock import wall_now, world_now
 
 PACKAGED = Path(__file__).resolve().parents[3] / "data/cache/current_environment"
-ROOT = Path(os.getenv("PORTWATCH_CURRENT_ENVIRONMENT_DIR") or PACKAGED)
-FEEDBACK_DB = Path(os.getenv("PORTWATCH_WEATHER_FEEDBACK_DB") or PACKAGED.parents[2]/"work/capability-upgrades/learning-state/portwatch_ledger.db")
-FEEDBACK_REPORT = Path(os.getenv("PORTWATCH_WEATHER_FEEDBACK_REPORT") or PACKAGED.parent/"public_weather_feedback.json")
+ROOT = Path(get_settings().PORTWATCH_CURRENT_ENVIRONMENT_DIR or PACKAGED)
+FEEDBACK_DB = Path(get_settings().PORTWATCH_WEATHER_FEEDBACK_DB or PACKAGED.parents[2]/"work/capability-upgrades/learning-state/portwatch_ledger.db")
+FEEDBACK_REPORT = Path(get_settings().PORTWATCH_WEATHER_FEEDBACK_REPORT or PACKAGED.parent/"public_weather_feedback.json")
 # On a hosted persistent volume, seed public receipts once. Never replace a
 # newer durable receipt or alter any archived bytes during a redeployment.
 if ROOT != PACKAGED:

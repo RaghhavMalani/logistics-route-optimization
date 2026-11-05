@@ -45,6 +45,7 @@ export interface PublicWorkspace {
   asOf: string;
   timezoneNote: string;
   collection: {
+    refreshPending?: boolean;
     schedulerRunning: boolean | null;
     lastSuccessfulCollectionAt: string | null;
     lastRun: null | { startedAt: string; finishedAt: string; errors: string[] };

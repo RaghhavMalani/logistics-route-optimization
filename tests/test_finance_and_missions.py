@@ -47,6 +47,10 @@ from src.portwatch_os.missions import FutureLeak, MissionError, MissionReplay, g
 from src.portwatch_os.missions.model import Mission, Observation, Outcome, Source
 from src.portwatch_os.world.graph import EVENT, key
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 NOW = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
 
 
@@ -279,6 +283,7 @@ class ApiTests(unittest.TestCase):
         ids = {a["advisoryId"] for a in r.json().get("advisories", [])}
         self.assertFalse(ids & {a["advisoryId"] for a in body["advisories"]})
 
+    @pytest.mark.usefixtures("fictional_fleet")
     def test_a_company_cannot_use_the_advisory_door(self):
         r = self.client.post("/api/decisions/problems",
                              json={"domain": "cargo", "portCode": "INNSA", "mode": "DEMO"}, headers=self.company)
@@ -296,6 +301,7 @@ class ApiTests(unittest.TestCase):
                              headers={"X-PortWatch-Role": "SHIPPING_COMPANY"})
         self.assertEqual(r.status_code, 401)                                  # unnamed actor
 
+    @pytest.mark.usefixtures("fictional_fleet")
     def test_a_port_authority_holds_a_cargo_decision_as_an_advisory_to_the_booking_party(self):
         """The port cannot move a consignment; it gets the shipping company's
         options, each marked as reaching the booking only through an advisory."""
@@ -312,12 +318,12 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(any("advisory" in n for n in problem["notes"]))
         self.assertGreaterEqual(len([o for o in problem["options"] if o["status"] == "FEASIBLE"]), 1)
 
+    @pytest.mark.usefixtures("red_sea_evidence")
     def test_a_vessel_decision_takes_scenario_rates_and_a_tonnage_and_labels_them(self):
         events = self.client.get("/api/global-eye/events").json()["events"]
         queue = self.client.get("/api/attention").json()["items"]
         item = next((i for i in queue if i["subjectType"] == "vessel" and i.get("actionable")), None)
-        if item is None:
-            self.skipTest("no actionable hull in the demo register at this instant")
+        self.assertIsNotNone(item, "fixture must expose an actionable hull")
         event_id = item["cascadeId"].split(":")[-1]
         self.assertTrue(any(e["eventId"] == event_id for e in events))
         body = {"domain": "vessel", "eventId": event_id, "vesselId": item["subjectId"], "mode": "DEMO",

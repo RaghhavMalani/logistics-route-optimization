@@ -7,6 +7,15 @@
  * dark, because the operator cannot tell the difference.
  */
 
+import {
+  beginHomeNavigation,
+  bootPacket,
+  invalidateHomePackets,
+  projectHomeSection,
+  retainHomePackets,
+} from "./home-screen";
+import type { Role } from "@/auth/types";
+
 const API_BASE =
   (import.meta.env.VITE_PORTWATCH_API_BASE as string | undefined)?.replace(
     /\/$/,
@@ -15,18 +24,32 @@ const API_BASE =
 
 let accessToken: string | undefined;
 let sessionMode: "demo" | "production" = "production";
+let sessionRole: Role | undefined;
+let sessionRevision = 0;
 export const getSessionMode = () => sessionMode;
 export function setAccessToken(
   token?: string,
   mode: "demo" | "production" = "production",
+  role?: Role,
 ): void {
+  retainHomePackets(token);
+  if (accessToken !== token || sessionMode !== mode || sessionRole !== role)
+    sessionRevision++;
   accessToken = token;
   sessionMode = mode;
+  sessionRole = role;
+}
+
+export function prepareHomeNavigation(pathname: string) {
+  beginHomeNavigation(pathname);
+  if (accessToken && sessionRole)
+    void bootPacket(API_BASE, sessionRole, accessToken, sessionMode);
 }
 
 export interface RequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
+  bypassScreen?: boolean;
 }
 
 async function request(
@@ -123,6 +146,34 @@ export async function getJson<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const url = endpoint(path);
+  const credential = new Headers(headers).get("Authorization");
+  if (
+    !options.bypassScreen &&
+    (!credential || credential === `Bearer ${accessToken}`)
+  ) {
+    const revision = sessionRevision;
+    const section = await projectHomeSection(
+      API_BASE,
+      path,
+      sessionRole,
+      accessToken,
+      sessionMode,
+    );
+    if (options.signal?.aborted) throw options.signal.reason;
+    if (revision !== sessionRevision)
+      throw new DOMException("Workspace session changed", "AbortError");
+    if (section) {
+      if (section.status >= 400) {
+        const detail = (section.data as { detail?: unknown })?.detail;
+        throw new ApiError(
+          section.status,
+          String(detail ?? "This screen section is unavailable"),
+          url,
+        );
+      }
+      return section.data as T;
+    }
+  }
   const response = await request(
     url,
     {
@@ -163,6 +214,7 @@ export async function postJson<T>(
     typeof window !== "undefined" &&
     !/^\/(?:auth\/|demo\/(?:session|role|logout)(?:\/|$))/.test(path)
   ) {
+    invalidateHomePackets();
     window.dispatchEvent(new Event("portwatch:workflow-changed"));
   }
   return (await response.json()) as T;

@@ -7,6 +7,8 @@ import type {
 } from "@/services/rolling-intelligence";
 import type { DecisionProblem, Measure } from "@/types/decisions";
 
+test.use({ reducedMotion: "reduce" });
+
 // Deliberately fictional presentation contracts. No fixture is written to a
 // source/visitor ledger or scored as an operational observation.
 const at = (hours = 0) => new Date(Date.now() + hours * 3600000).toISOString();
@@ -457,6 +459,7 @@ async function company(
   await page.getByRole("button", { name: "Company demo", exact: true }).click();
   await page.waitForURL("**/company/overview");
   await settle(page);
+  await page.getByRole("button", { name: "Pause replay", exact: true }).click();
   return {
     get current() {
       return current;
@@ -559,6 +562,7 @@ test("exact queue link restores human choice rather than recommendation and surv
     .click();
   await page.reload();
   await settle(page);
+  await page.getByRole("button", { name: "Pause replay", exact: true }).click();
   await expect(panel).toHaveAttribute("data-decision", "decision-1");
   await expect(
     panel.locator('[data-testid="decision-option"][data-option="keep"]'),

@@ -1,0 +1,110 @@
+{
+  "baseline": "https://github.com/RaghhavMalani/logistics-route-optimization/actions/runs/41776246275/job/126397171862",
+  "cases": [
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/indian-source.spec.ts",
+      "title": "historical Indian source is inspectable with audit parity and an explicit owned declaration",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/intelligence.spec.ts",
+      "title": "a real local demo token cannot register a private camera",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/mobile-map-panels.spec.ts",
+      "title": "Layers remains operable with the original inspector and retains workspace state",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/passage-comparison.spec.ts",
+      "title": "passage assumptions require deliberate selection; vessel changes reset them and default request stays bounded",
+      "reason": "The software-rendered replay timed out during the voyage or selection transition. Isolate the state transition from the chart workload before restoring this case.",
+      "owner": "@RaghhavMalani (passage workflow)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/restored-role-workspaces.spec.ts",
+      "title": "existing Global Eye globe returns to the same maritime chart",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/restored-role-workspaces.spec.ts",
+      "title": "four restored role workspaces retain chart, layers, timeline and visitor identity",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/shared-feedback.spec.ts",
+      "title": "FX result uses independent full-dataset counts, readable errors and hash-exact downloads",
+      "reason": "The browser replay timed out in the feedback data workflow. Repair the retained-data fixture and browser transition before restoring this case.",
+      "owner": "@RaghhavMalani (research and feedback)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/shared-feedback.spec.ts",
+      "title": "news exact assessment keeps applicability, lineage and owned voyage connected across paging",
+      "reason": "The browser replay timed out in the feedback data workflow. Repair the retained-data fixture and browser transition before restoring this case.",
+      "owner": "@RaghhavMalani (research and feedback)"
+    },
+    {
+      "project": "desktop-1920",
+      "file": "qa/tests/tour.spec.ts",
+      "title": "tour renders and navigates with stored identity and all application API blocked",
+      "reason": "Tour pin projection did not settle on the CI software renderer. Restore this case with deterministic camera progress in CI.",
+      "owner": "@RaghhavMalani (3D tour)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/indian-source.spec.ts",
+      "title": "historical Indian source is inspectable with audit parity and an explicit owned declaration",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/intelligence.spec.ts",
+      "title": "a real local demo token cannot register a private camera",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/mobile-map-panels.spec.ts",
+      "title": "Layers remains operable with the original inspector and retains workspace state",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/restored-role-workspaces.spec.ts",
+      "title": "existing Global Eye globe returns to the same maritime chart",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/restored-role-workspaces.spec.ts",
+      "title": "four restored role workspaces retain chart, layers, timeline and visitor identity",
+      "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
+      "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/tour.spec.ts",
+      "title": "tour renders and navigates with stored identity and all application API blocked",
+      "reason": "Tour pin projection did not settle on the CI software renderer. Restore this case with deterministic camera progress in CI.",
+      "owner": "@RaghhavMalani (3D tour)"
+    }
+  ]
+}

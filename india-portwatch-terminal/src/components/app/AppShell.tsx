@@ -9,7 +9,12 @@ import { BrandMark } from "@/components/miniature/BrandMark";
  * panel over the map, owned by the screen.
  */
 
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  Link,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import {
   ChevronDown,
   LogOut,
@@ -29,6 +34,8 @@ import {
 } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
+import { API_BASE } from "@/services/api";
+import { prefetchHome } from "@/services/home-screen";
 import { useWorldClock } from "@/services/lenses";
 import { usePublicAis } from "@/services/public-ais";
 import {
@@ -135,7 +142,9 @@ function Menu({
 
 function Brand() {
   return (
-    <div className="pw-brand"><BrandMark /></div>
+    <div className="pw-brand">
+      <BrandMark />
+    </div>
   );
 }
 
@@ -164,8 +173,9 @@ function ContextCrumb() {
 }
 
 function RoleSwitcher() {
-  const { role, viewAs, setViewAs, mode, switchDemo } = useAuth();
+  const { role, viewAs, setViewAs, mode, switchDemo, session } = useAuth();
   const navigate = useNavigate();
+  const router = useRouter();
   if (role !== "NATIONAL_ADMIN" && mode !== "demo") return null;
 
   return (
@@ -189,16 +199,25 @@ function RoleSwitcher() {
           {ROLES.map((option: Role) => {
             const profile = ROLE_PROFILE[option];
             const active = (viewAs ?? "NATIONAL_ADMIN") === option;
+            const prefetch = () => {
+              if (active || mode !== "demo" || !session?.accessToken) return;
+              prefetchHome(API_BASE, option, session.accessToken);
+              void router.preloadRoute({ to: profile.home }).catch(() => {});
+            };
             return (
               <button
                 key={option}
                 type="button"
                 role="menuitem"
+                onPointerEnter={prefetch}
+                onFocus={prefetch}
                 onClick={async () => {
-                  if (mode === "demo") await switchDemo(option);
-                  else setViewAs(option);
                   close();
-                  void navigate({ to: profile.home });
+                  if (mode === "demo") await switchDemo(option);
+                  else {
+                    setViewAs(option);
+                    void navigate({ to: profile.home });
+                  }
                 }}
                 className={cn(
                   "block w-full rounded-[2px] px-2 py-1.5 text-left transition-colors",
@@ -584,8 +603,11 @@ function WorldClockChip() {
 function Chrome({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(true);
   const { role, profile } = useWorkspace();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const pageTitle = activeNavItem(NAVIGATION[role], pathname)?.label ?? profile.label;
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const pageTitle =
+    activeNavItem(NAVIGATION[role], pathname)?.label ?? profile.label;
   useEffect(() => {
     document.title = `PortWatch X — ${pageTitle}`;
   }, [pageTitle]);

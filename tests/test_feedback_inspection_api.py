@@ -56,7 +56,7 @@ def public_api(tmp_path, monkeypatch):
     path = tmp_path / "public.db"
     monkeypatch.setattr(collector, "DB", path)
     monkeypatch.setattr(collector, "ROOT", tmp_path)
-    monkeypatch.setattr(routes, "wall_now", lambda: datetime.fromisoformat(AS_OF))
+    monkeypatch.setattr(routes, "world_now", lambda: datetime.fromisoformat(AS_OF))
     retain_test_originals(tmp_path)
     store = SqliteLedgerStore(path)
     app = FastAPI()

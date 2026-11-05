@@ -6,6 +6,7 @@
  * compatibility with the published fictional roster.
  */
 
+import { getApi, postApi } from "@/services/api-client";
 import {
   AuthError,
   type AuthAdapter,
@@ -15,7 +16,8 @@ import {
   type Session,
   type User,
 } from "./types";
-import { ApiError, getJson, postJson } from "@/services/api";
+import { API_BASE, ApiError, postJson } from "@/services/api";
+import { loadHomeSession } from "@/services/home-screen";
 
 interface DemoAccount {
   password: string;
@@ -117,7 +119,7 @@ export const demoAdapter: AuthAdapter = {
         "Unrecognised account or password for this demo environment.",
       );
     }
-    return postJson<Session>("/demo/session", { role: account.user.role });
+    return postApi("/api/demo/session", { role: account.user.role });
   },
 
   async signOut(session): Promise<void> {
@@ -138,9 +140,15 @@ export const demoAdapter: AuthAdapter = {
       return null;
     try {
       return {
-        ...(await getJson<Session>("/demo/session", {
-          Authorization: `Bearer ${session.accessToken}`,
-        })),
+        ...((await loadHomeSession(
+          API_BASE,
+          session.user.role,
+          session.accessToken,
+          "demo",
+        )) ??
+          (await getApi("/api/demo/session", {
+            Authorization: `Bearer ${session.accessToken}`,
+          }))),
         accessToken: session.accessToken,
       };
     } catch {
@@ -156,7 +164,7 @@ export const productionAdapter: AuthAdapter = {
 
   async signIn(credentials: Credentials): Promise<Session> {
     try {
-      return await postJson<Session>("/auth/login", credentials);
+      return await postApi("/api/auth/login", credentials);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401)
         throw new AuthError(
@@ -189,9 +197,16 @@ export const productionAdapter: AuthAdapter = {
     )
       return null;
     try {
-      const verified = await getJson<Session>("/auth/session", {
-        Authorization: `Bearer ${session.accessToken}`,
-      });
+      const verified =
+        (await loadHomeSession(
+          API_BASE,
+          session.user.role,
+          session.accessToken,
+          "production",
+        )) ??
+        (await getApi("/api/auth/session", {
+          Authorization: `Bearer ${session.accessToken}`,
+        }));
       return { ...verified, accessToken: session.accessToken };
     } catch {
       return null;

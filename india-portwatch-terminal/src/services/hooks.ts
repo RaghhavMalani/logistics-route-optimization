@@ -52,6 +52,8 @@ import type {
 } from "@/types/portwatch";
 
 const ARTEFACT = { staleTime: 60_000, gcTime: 600_000 } as const;
+const REGISTRY = { staleTime: 30 * 60_000, gcTime: 45 * 60_000 } as const;
+const FORECAST = { staleTime: 5 * 60_000, gcTime: 15 * 60_000 } as const;
 
 export const useHealth = (): UseQueryResult<Health> =>
   useQuery({
@@ -67,7 +69,9 @@ export const useProvenance = (): UseQueryResult<Provenance> =>
 export const usePorts = (): UseQueryResult<PortSnapshot[]> =>
   useQuery({ queryKey: ["ports"], queryFn: fetchPorts, ...ARTEFACT });
 
-export const usePort = (code: string | null | undefined): UseQueryResult<PortSnapshot> =>
+export const usePort = (
+  code: string | null | undefined,
+): UseQueryResult<PortSnapshot> =>
   useQuery({
     queryKey: ["port", code],
     queryFn: () => fetchPort(code as string),
@@ -76,10 +80,14 @@ export const usePort = (code: string | null | undefined): UseQueryResult<PortSna
   });
 
 export const usePortRegistry = (): UseQueryResult<PortRegistryEntry[]> =>
-  useQuery({ queryKey: ["port-registry"], queryFn: fetchPortRegistry, ...ARTEFACT });
+  useQuery({
+    queryKey: ["port-registry"],
+    queryFn: fetchPortRegistry,
+    ...REGISTRY,
+  });
 
 export const useWeather = (): UseQueryResult<WeatherSignal[]> =>
-  useQuery({ queryKey: ["weather"], queryFn: fetchWeather, ...ARTEFACT });
+  useQuery({ queryKey: ["weather"], queryFn: fetchWeather, ...FORECAST });
 
 export const useWeatherIntelligence = (): UseQueryResult<WeatherIntelligence> =>
   useQuery({
@@ -95,7 +103,11 @@ export const useVessels = (): UseQueryResult<VesselBundle> =>
   useQuery({ queryKey: ["vessels"], queryFn: fetchVessels, ...ARTEFACT });
 
 export const useFeedAdapters = (): UseQueryResult<FeedAdapter[]> =>
-  useQuery({ queryKey: ["feed-adapters"], queryFn: fetchFeedAdapters, ...ARTEFACT });
+  useQuery({
+    queryKey: ["feed-adapters"],
+    queryFn: fetchFeedAdapters,
+    ...ARTEFACT,
+  });
 
 export const useFleet = (): UseQueryResult<FleetRow[]> =>
   useQuery({ queryKey: ["fleet"], queryFn: fetchFleet, ...ARTEFACT });
@@ -106,15 +118,19 @@ export const usePipeline = (): UseQueryResult<PipelineNode[]> =>
 export const useBenchmark = (): UseQueryResult<Benchmark> =>
   useQuery({ queryKey: ["benchmark"], queryFn: fetchBenchmark, ...ARTEFACT });
 
-export const useForecast = (code: string | null | undefined): UseQueryResult<ForecastPoint[]> =>
+export const useForecast = (
+  code: string | null | undefined,
+): UseQueryResult<ForecastPoint[]> =>
   useQuery({
     queryKey: ["forecast", code],
     queryFn: () => fetchForecast(code as string),
     enabled: Boolean(code),
-    ...ARTEFACT,
+    ...FORECAST,
   });
 
-export const useRegime = (code: string | null | undefined): UseQueryResult<RegimeState> =>
+export const useRegime = (
+  code: string | null | undefined,
+): UseQueryResult<RegimeState> =>
   useQuery({
     queryKey: ["regime", code],
     queryFn: () => fetchRegime(code as string),
@@ -122,7 +138,9 @@ export const useRegime = (code: string | null | undefined): UseQueryResult<Regim
     ...ARTEFACT,
   });
 
-export const useDecision = (code: string | null | undefined): UseQueryResult<Decision> =>
+export const useDecision = (
+  code: string | null | undefined,
+): UseQueryResult<Decision> =>
   useQuery({
     queryKey: ["decision", code],
     queryFn: () => fetchDecision(code as string),
@@ -130,7 +148,9 @@ export const useDecision = (code: string | null | undefined): UseQueryResult<Dec
     ...ARTEFACT,
   });
 
-export const useChain = (code: string | null | undefined): UseQueryResult<IntelligenceChain> =>
+export const useChain = (
+  code: string | null | undefined,
+): UseQueryResult<IntelligenceChain> =>
   useQuery({
     queryKey: ["chain", code],
     queryFn: () => fetchChain(code as string),
@@ -159,7 +179,9 @@ export function useEnrichedPorts(): {
 
   const ports = useMemo(() => {
     const snapshots = query.data ?? [];
-    const byCode = new Map((registry.data ?? []).map((entry) => [entry.code, entry]));
+    const byCode = new Map(
+      (registry.data ?? []).map((entry) => [entry.code, entry]),
+    );
     if (!byCode.size) return snapshots;
     return snapshots.map((port) => {
       const entry = byCode.get(port.code);

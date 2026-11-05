@@ -35,7 +35,10 @@ def retained(tmp_path,monkeypatch):
     (folder/(digest+'.response')).write_bytes(raw)
     source={**facts,'source':n.SOURCE,'revisionId':f.identifier(facts),'responseSha256':digest,
         'availableAt':NOW.isoformat(),'checkedAt':NOW.isoformat(),'sourceStatus':'CURRENT'}
-    monkeypatch.setattr(n,'ROOT',root);monkeypatch.setattr(n,'refresh',lambda *a,**k:copy.deepcopy(source))
+    (folder/'navcen-catalogue-latest.json').write_text(json.dumps({'notices':[source], 'checkedAt':NOW.isoformat()}))
+    monkeypatch.setenv('PORTWATCH_LICENCE_MODE','DEMO')
+    monkeypatch.setattr(n,'ROOT',root)
+    monkeypatch.setattr(n,'refresh',lambda *a,**k:pytest.fail('Request path contacted the authority collector'))
     monkeypatch.setattr(n,'refresh_all',lambda *a,**k:{'notices':[copy.deepcopy(source)],
         'sourceStatus':'CURRENT','checkedAt':NOW.isoformat(),'sourceRegistry':n.registry()})
     return source
@@ -112,9 +115,9 @@ def test_originals_source_freshness_and_revision_blocking(tmp_path,monkeypatch):
     n.require_revision(basis)
     for delta in ({'sourceStatus':'UNAVAILABLE'},{'status':'CANCELLED'},{'revisionId':'changed'},
         {'checkedAt':(NOW-timedelta(hours=7)).isoformat()},{'productThrough':(NOW-timedelta(seconds=1)).isoformat()}):
-        monkeypatch.setattr(n,'refresh',lambda d=delta:{**source,**d})
+        monkeypatch.setattr(n,'retained',lambda notice_id=None,d=delta:{**source,**d})
         with pytest.raises(ValueError):n.require_revision(basis)
-    monkeypatch.setattr(n,'refresh',lambda:source)
+    monkeypatch.setattr(n,'retained',lambda notice_id=None:source)
     (n.ROOT/'operational_notices'/(source['responseSha256']+'.response')).write_bytes(b'corrupt')
     with pytest.raises(ValueError,match='corrupt'):n.require_revision(basis)
 

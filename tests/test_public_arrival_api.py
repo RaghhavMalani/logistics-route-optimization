@@ -1,3 +1,4 @@
+from time import monotonic, sleep
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -44,7 +45,10 @@ def test_verified_scope_exact_ports_replay_and_no_client_source_urls(tmp_path):
             key = cohort.json()["cohortId"]
             assert client.post(f"/api/public-arrivals/evaluate?portCode=INPRT&cohortId={key}", headers=headers["admin"]).status_code == 404
             with patch.object(store, "refresh", return_value={"results": [], "errors": []}) as refresh:
-                assert client.post("/api/public-arrivals/refresh?portCode=INMAA", headers=headers["chennai"]).status_code == 200
+                assert client.post("/api/public-arrivals/refresh?portCode=INMAA", headers=headers["chennai"]).status_code == 202
+                deadline = monotonic() + 5
+                while client.get(url, headers=headers["chennai"]).json()["collection"]["refreshPending"] and monotonic() < deadline:
+                    sleep(0.01)
                 assert refresh.call_args.args[0] == "INMAA"
             assert client.get("/api/public-arrivals/dataset?portCode=INPRT", headers=headers["admin"]).status_code == 200
             assert client.get("/api/public-arrivals/evidence/not-a-file?portCode=INMAA", headers=headers["chennai"]).status_code == 404

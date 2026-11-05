@@ -16,7 +16,8 @@ Tables (created on demand via pandas.to_sql):
 
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 from typing import Dict, Optional
 
 import pandas as pd
@@ -42,7 +43,7 @@ def get_engine(url: Optional[str] = None):
     """Return a SQLAlchemy engine, falling back to SQLite if Postgres is down."""
     sa = _sqlalchemy()
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    url = url or os.environ.get("DATABASE_URL") or _DEFAULT_SQLITE
+    url = url or get_settings().DATABASE_URL or _DEFAULT_SQLITE
 
     try:
         engine = sa.create_engine(url, future=True)

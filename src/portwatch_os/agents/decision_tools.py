@@ -319,11 +319,13 @@ class DecisionAgent(Agent):
                 sentences.append(f"No feasible option arrives within {limit:.0f} h.")
         if recommendation.get("optionId"):
             focus = focus or recommendation["optionId"]
-            findings.append(Finding("Recommendation", options[recommendation["optionId"]]["label"], call.tool,
+            label = options[recommendation["optionId"]]["label"]
+            findings.append(Finding("Recommendation", label, call.tool,
                                     recommendation.get("statement", ""),
                                     confidence=None))
             if not sentences:
-                sentences.append(recommendation.get("statement", ""))
+                statement = recommendation.get("statement") or ""
+                sentences.append(statement if label in statement else f"{label}. {statement}".strip())
         summary = " ".join(s for s in sentences if s) or "The engine computed no feasible option."
         return _assemble(self, calls, findings, summary,
                          {"decisionId": body["decisionId"], "vesselId": body["vesselId"], "focusOptionId": focus,

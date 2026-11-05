@@ -22,7 +22,8 @@ Source: https://portwatch.imf.org/pages/data-and-methodology
 
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 from typing import Dict
 
 import numpy as np
@@ -34,7 +35,7 @@ from src.utils.logging_utils import get_logger
 log = get_logger(__name__)
 
 # Live IMF PortWatch ArcGIS endpoint (public, no key). Override via env if needed.
-PORTWATCH_CHOKEPOINTS_URL = os.environ.get(
+PORTWATCH_CHOKEPOINTS_URL = get_settings().get(
     "PORTWATCH_CHOKEPOINTS_URL",
     "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/ArcGIS/rest/services/"
     "Daily_Chokepoints_Data/FeatureServer/0/query")

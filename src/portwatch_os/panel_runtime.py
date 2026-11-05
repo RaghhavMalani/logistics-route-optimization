@@ -1,13 +1,14 @@
 """Loopback-only backend entry point for panel rehearsal."""
 
+from src.utils.settings import get_settings
+
 import ipaddress
-import os
 import sys
 from datetime import datetime
 
 
 def snapshot_at():
-    value = os.environ.get("PORTWATCH_PANEL_SNAPSHOT_AT")
+    value = get_settings().PORTWATCH_PANEL_SNAPSHOT_AT
     return datetime.fromisoformat(value) if value else None
 
 

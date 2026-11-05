@@ -104,6 +104,7 @@ export const rollingSchema = z
   .object({
     sourceStatus: z.string(),
     checkedAt: z.string().nullish(),
+    refreshFamilies: z.array(z.string()).optional(),
     meaning: z.string(),
     asOf: z.string().optional(),
     notices: z.array(noticeSchema),

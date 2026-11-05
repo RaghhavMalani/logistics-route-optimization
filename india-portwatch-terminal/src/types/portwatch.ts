@@ -7,6 +7,7 @@
  * number, which is the whole point of the provenance model.
  */
 
+import type { ApiResponse } from "@/services/api-client";
 import type { SourceQualityDTO } from "./source-quality";
 
 export type RiskLevel = "normal" | "congested" | "severe";
@@ -736,15 +737,4 @@ export interface ScenarioResult {
   summary?: string;
 }
 
-export interface PortRegistryEntry {
-  modelId: string;
-  code: string;
-  name: string;
-  short: string;
-  authority: string;
-  location: GeoPoint;
-  coast: Coast;
-  capacityIndex: number;
-  berthCount: number;
-  connectivityScore: number;
-}
+export type PortRegistryEntry = ApiResponse<"/api/ports/registry", "get">[number];

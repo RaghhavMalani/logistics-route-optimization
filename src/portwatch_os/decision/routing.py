@@ -25,8 +25,9 @@ the two disagree.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
-import os
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -72,7 +73,7 @@ _CATALOGUE_LOCK = threading.Lock()
 
 
 def _catalogue_path() -> Path:
-    override = os.getenv("PORTWATCH_SEA_ROUTES")
+    override = get_settings().PORTWATCH_SEA_ROUTES
     if override:
         return Path(override)
     root = Path(__file__).resolve().parents[3]

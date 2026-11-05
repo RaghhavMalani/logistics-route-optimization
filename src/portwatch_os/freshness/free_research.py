@@ -1,5 +1,6 @@
 """Opt-in research jobs on the existing single-owner coordinator."""
-import os
+from src.utils.settings import get_settings
+
 from datetime import timedelta
 from src.portwatch_os.clock import LIVE, get_clock
 from src.portwatch_os.freshness.job import RefreshJob, JobOutcome
@@ -9,7 +10,7 @@ from src.utils import port_registry
 
 
 def eligibility():
-    if (os.getenv('PORTWATCH_RESEARCH_SOURCE_PROFILE') or os.getenv('PORTWATCH_LOCAL_PROVIDER_PROFILE')) != '1': return 'Research source profile is not enabled'
+    if (get_settings().PORTWATCH_RESEARCH_SOURCE_PROFILE or get_settings().PORTWATCH_LOCAL_PROVIDER_PROFILE) != '1': return 'Research source profile is not enabled'
     if get_clock().state.mode != LIVE: return 'Provider collection is paused during replay'
     from src.portwatch_os.deployment import resolve_mode
     if resolve_mode(None)[0]=='COMMERCIAL': return 'Free noncommercial research profile is unavailable in commercial mode'
@@ -56,5 +57,7 @@ def jobs():
         return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
     result.append(RefreshJob(policy=FreshnessPolicy(artifact='current_gdacs',label='GDACS regional context',provider='GDACS',
         fresh_for=timedelta(minutes=30),lead=timedelta(minutes=3),stale_after=timedelta(hours=1),max_attempts=2,
-        backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1)),probe=hazard_probe,run=hazard_run,eligibility=eligibility))
+        backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
+        rationale='Check regional hazard receipts frequently enough to flag stale context during an active event.'),
+        probe=hazard_probe,run=hazard_run,eligibility=eligibility))
     return result

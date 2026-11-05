@@ -1,10 +1,11 @@
 """Server-owned accounts and revocable opaque sessions. No public provisioning API."""
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import hashlib
 import hmac
 import json
-import os
 import secrets
 import sqlite3
 import uuid
@@ -32,7 +33,7 @@ def password_hash(password: str, salt: bytes) -> str:
 
 class AuthStore:
     def __init__(self, path: Path | None = None):
-        self.path = path or Path(os.getenv("PORTWATCH_AUTH_DB") or STATE_DIR / "identity.db")
+        self.path = path or Path(get_settings().PORTWATCH_AUTH_DB or STATE_DIR / "identity.db")
 
     def _open(self):
         try:

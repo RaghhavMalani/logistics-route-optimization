@@ -9,8 +9,9 @@ verified session. Authentication uses wall time independently of replay.
 
 from __future__ import annotations
 
+from src.utils.settings import get_settings
+
 import json
-import os
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import List, Mapping, Optional, Tuple
@@ -43,7 +44,7 @@ def verified_scope_key() -> Optional[str]:
 
 
 def identity_mode() -> str:
-    value = (os.getenv("PORTWATCH_IDENTITY_MODE") or VERIFIED).strip().lower()
+    value = (get_settings().PORTWATCH_IDENTITY_MODE or VERIFIED).strip().lower()
     return value if value in IDENTITY_MODES else VERIFIED
 
 
@@ -51,7 +52,7 @@ def describe() -> dict:
     mode = identity_mode()
     return {
         "mode": mode,
-        "source": "PORTWATCH_IDENTITY_MODE" if os.getenv("PORTWATCH_IDENTITY_MODE") else "default",
+        "source": "PORTWATCH_IDENTITY_MODE" if get_settings().PORTWATCH_IDENTITY_MODE else "default",
         "verified": mode == VERIFIED,
         "statement": (
             "explicit demo mode: identity headers are asserted; private cameras and evidence writes require a verified session"

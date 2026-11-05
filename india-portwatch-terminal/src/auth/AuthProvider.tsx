@@ -10,6 +10,7 @@
  * hydrated tree identical.
  */
 
+import { postApi } from "@/services/api-client";
 import {
   createContext,
   useCallback,
@@ -21,8 +22,9 @@ import {
 } from "react";
 
 import { AUTH_MODE, resolveAdapter } from "./adapters";
-import { setAccessToken, postJson } from "@/services/api";
+import { setAccessToken, postJson, prepareHomeNavigation } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import {
   ROLE_PROFILE,
   advisoryHeaders,
@@ -97,6 +99,7 @@ const DEFAULT_PORT = "INMAA";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queries = useQueryClient();
+  const router = useRouter();
   const adapter = useMemo(() => resolveAdapter(AUTH_MODE), []);
   const [status, setStatus] = useState<AuthStatus>("restoring");
   const [session, setSession] = useState<Session | null>(null);
@@ -126,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const storedView = normaliseRole(readStored<string>(VIEW_AS_KEY));
-        setAccessToken(restored.accessToken, restored.mode);
+        setAccessToken(restored.accessToken, restored.mode, restored.user.role);
         setSession(restored);
         setViewAsState(
           restored.user.role === "NATIONAL_ADMIN" && storedView
@@ -151,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (credentials: Credentials) => {
       const next = await adapter.signIn(credentials);
       queries.clear();
-      setAccessToken(next.accessToken, next.mode);
+      setAccessToken(next.accessToken, next.mode, next.user.role);
       writeStored(SESSION_KEY, next);
       writeStored(VIEW_AS_KEY, next.user.role);
       setSession(next);
@@ -179,8 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adoptDemo = useCallback(
     (next: Session) => {
+      setAccessToken(next.accessToken, "demo", next.user.role);
+      prepareHomeNavigation(ROLE_PROFILE[next.user.role].home);
       queries.clear();
-      setAccessToken(next.accessToken, "demo");
       writeStored(SESSION_KEY, next);
       writeStored(VIEW_AS_KEY, next.user.role);
       setSession(next);
@@ -193,13 +197,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const startDemo = useCallback(
     async (role: Role) =>
-      adoptDemo(await postJson<Session>("/demo/session", { role })),
+      adoptDemo(await postApi("/api/demo/session", { role })),
     [adoptDemo],
   );
   const switchDemo = useCallback(
-    async (role: Role) =>
-      adoptDemo(await postJson<Session>("/demo/role", { role })),
-    [adoptDemo],
+    async (role: Role) => {
+      const next = await postApi("/api/demo/role", { role });
+      const home = ROLE_PROFILE[next.user.role].home;
+      // Keep the outgoing workspace gated until it unmounts. Clearing its
+      // queries in place can restart Company reads under the new Port role.
+      setStatus("restoring");
+      setAccessToken(next.accessToken, "demo", next.user.role);
+      prepareHomeNavigation(home);
+      try {
+        await router.navigate({ to: home });
+      } finally {
+        adoptDemo(next);
+      }
+      return next;
+    },
+    [adoptDemo, router],
   );
   const resetDemo = useCallback(async () => {
     await postJson("/demo/reset", {});

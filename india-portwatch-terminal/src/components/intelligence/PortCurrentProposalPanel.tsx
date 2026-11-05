@@ -15,6 +15,7 @@ import { getJson, postJson } from "@/services/api";
 import type { FrozenEnvironment } from "@/services/current-inputs";
 import type { DecisionProblem } from "@/types/decisions";
 import type { HomeHandoff } from "@/services/handoffs";
+import { HandoffJourney } from "@/components/advisory/HandoffJourney";
 
 interface Proposal {
   decisionId: string;
@@ -176,6 +177,15 @@ export function PortCurrentProposalPanel({
       }
       testId="current-proposal-review"
     >
+      {handoff ? (
+        <div className="px-3 pt-2">
+          <HandoffJourney
+            id={handoff.id}
+            state={handoff.state}
+            viewer={session?.demoId ?? session?.user.id}
+          />
+        </div>
+      ) : null}
       {(proposals.data?.proposals.length ?? 0) > 1 ? (
         <label className="block p-2 text-xs">
           Saved journey{" "}

@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
-import { ApiError, getJson } from "@/services/api";
+import { HandoffJourney } from "@/components/advisory/HandoffJourney";
+import { getJson } from "@/services/api";
+import { useWorkspaceHandoffs } from "@/services/handoffs";
 
 interface Handoff {
   id: string;
@@ -14,50 +16,39 @@ interface Handoff {
 
 export function PortHomeHandoffs({ portCode }: { portCode: string }) {
   const { session, identityHeaders } = useAuth();
-  const queue = useQuery<Handoff[]>({
+  const feed = useWorkspaceHandoffs();
+  const useLegacy = feed.data === null && session?.mode === "demo";
+  const fallback = useQuery<Handoff[]>({
     queryKey: [
       "port-home-handoffs",
       session?.demoId ?? session?.user.id,
       portCode,
     ],
-    enabled: Boolean(session),
+    enabled: useLegacy,
     refetchInterval: 8000,
     retry: false,
     queryFn: async ({ signal }) => {
-      try {
-        return (
-          await getJson<{ items: Handoff[] }>("/handoffs", identityHeaders, {
-            signal,
-          })
-        ).items;
-      } catch (error) {
-        if (
-          !(error instanceof ApiError) ||
-          error.status !== 404 ||
-          session?.mode !== "demo"
-        )
-          throw error;
-        const result = await getJson<{
-          proposals: {
-            decisionId: string;
-            subject: string;
-            evidence: { portCode?: string };
-          }[];
-        }>("/decisions/current-proposals", identityHeaders, { signal });
-        return result.proposals
-          .filter((row) => row.evidence.portCode === portCode)
-          .map((row) => ({
-            id: row.decisionId,
-            vesselName: row.subject,
-            portCode,
-            summary: "Company proposal awaiting review in the Port register.",
-            nextActor: "PORT_AUTHORITY",
-            deepLink:
-              "/port/advisories?proposal=" + encodeURIComponent(row.decisionId),
-          }));
-      }
+      const result = await getJson<{
+        proposals: {
+          decisionId: string;
+          subject: string;
+          evidence: { portCode?: string };
+        }[];
+      }>("/decisions/current-proposals", identityHeaders, { signal });
+      return result.proposals
+        .filter((row) => row.evidence.portCode === portCode)
+        .map((row) => ({
+          id: row.decisionId,
+          vesselName: row.subject,
+          portCode,
+          summary: "Company proposal awaiting review in the Port register.",
+          nextActor: "PORT_AUTHORITY",
+          deepLink:
+            "/port/advisories?proposal=" + encodeURIComponent(row.decisionId),
+        }));
     },
   });
+  const queue = useLegacy ? fallback : feed;
   const needs =
     queue.data?.filter(
       (row) =>
@@ -68,7 +59,7 @@ export function PortHomeHandoffs({ portCode }: { portCode: string }) {
   return (
     <section
       aria-label="Needs your action"
-      className="pointer-events-auto max-h-44 shrink-0 overflow-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2 text-xs"
+      className="pw-handoff-card pointer-events-auto max-h-44 shrink-0 overflow-auto p-2 text-xs"
     >
       <h2 className="font-semibold">
         Needs your action{needs.length ? ` · ${needs.length}` : ""}
@@ -88,6 +79,11 @@ export function PortHomeHandoffs({ portCode }: { portCode: string }) {
       ) : (
         needs.map((row) => (
           <div key={row.id} className="mt-2 border-t border-[var(--line)] pt-2">
+            <HandoffJourney
+              id={row.id}
+              state={row.state ?? "COMPANY_PROPOSED"}
+              viewer={session?.demoId ?? session?.user.id}
+            />
             <strong>{row.vesselName}</strong>
             {row.state === "ACCEPTED" ? (
               <span className="ml-2 font-semibold">Accepted by Vessel</span>

@@ -126,6 +126,14 @@ class MatrixTests(unittest.TestCase):
         headers = HEADERS[role]
         if method == "GET":
             return self.client.get(path, headers=headers)
+        if isinstance(body, dict) and body.get("domain") == "cargo":
+            from backend.app.routes import company
+            from src.portwatch_os.fleet.company import demo_company
+
+            # This matrix checks the role gate. Supply a real fixture carrier
+            # after that gate so a missing data account cannot mask its result.
+            with mock.patch.object(company, "resolve_company", return_value=demo_company()):
+                return self.client.post(path, json=body, headers=headers)
         return self.client.post(path, json=body, headers=headers)
 
     def test_every_cell_of_the_matrix(self):

@@ -18,6 +18,10 @@ from src.portwatch_os.missions import FutureLeak, MissionReplay, compare_mission
 from src.portwatch_os.world.cascade import propagate
 from src.portwatch_os.world.graph import EVENT, PORT, THREATENS, key
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 
 class BiparjoyMissionTests(unittest.TestCase):
     def setUp(self):

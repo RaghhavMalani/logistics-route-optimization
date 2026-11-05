@@ -12,7 +12,8 @@ all speak the same vocabulary (same port_id values, same date column, etc.).
 
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
@@ -36,7 +37,7 @@ OUTPUTS_DIR: Path = PROJECT_ROOT / "outputs"
 # unchanged, and a container host points PORTWATCH_STATE_DIR at a persistent
 # volume so a restart or a redeploy keeps what people decided. Caches and
 # pipeline artefacts are rebuildable and stay where they are.
-STATE_DIR: Path = Path(os.environ.get("PORTWATCH_STATE_DIR") or OUTPUTS_DIR).expanduser()
+STATE_DIR: Path = Path(get_settings().PORTWATCH_STATE_DIR or OUTPUTS_DIR).expanduser()
 EXPERT_FEATURES_DIR: Path = OUTPUTS_DIR / "expert_features"
 REGIMES_DIR: Path = OUTPUTS_DIR / "regimes"
 FORECASTS_DIR: Path = OUTPUTS_DIR / "forecasts"

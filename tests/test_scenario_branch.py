@@ -32,6 +32,10 @@ from src.portwatch_os.world.graph import CHOKEPOINT, EVENT, LANE, PORT, SAILS, V
 from src.portwatch_os.world.live import Revision
 from src.portwatch_os.world.quantity import Quantity, RISK
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 NOW = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
 
 

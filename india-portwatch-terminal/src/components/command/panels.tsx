@@ -59,8 +59,6 @@ export function FloatPanel({
       style={width ? { width } : undefined}
       className={cn(
         "pw-float-panel pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-[3px]",
-        "border border-[var(--line-strong)] bg-[var(--panel)]/95 backdrop-blur-[3px]",
-        "shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
         mapPanels?.mobile && "ml-auto max-w-[calc(100vw-64px)]",
         className,
       )}

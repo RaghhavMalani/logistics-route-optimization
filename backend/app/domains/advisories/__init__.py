@@ -1,0 +1,1 @@
+"""Advisories API domain."""

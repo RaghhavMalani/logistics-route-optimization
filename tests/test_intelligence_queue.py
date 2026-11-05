@@ -1,5 +1,6 @@
 """Synthetic visitor/API regressions; no provider or deployed-state writes."""
 import copy
+import json
 from datetime import timedelta
 
 from tests.test_current_recovery import BASE, step
@@ -16,9 +17,11 @@ def catalogue(tmp_path,monkeypatch):
     expired={**copy.deepcopy(first),'noticeId':'NAVCEN_MSI:synthetic-expired','providerNoticeId':'synthetic-expired',
         'areaId':'SYNTHETIC_EXPIRED_ASSET','title':'Synthetic expired notice','status':'EXPIRED','calculationSupported':False}
     items=[first,second,expired]
-    monkeypatch.setattr(n,'refresh',lambda force=False,notice_id=None:copy.deepcopy(next(x for x in items if x['noticeId']==(notice_id if str(notice_id).startswith('NAVCEN_MSI:') else 'NAVCEN_MSI:'+str(notice_id or '53842')))))
-    monkeypatch.setattr(n,'refresh_all',lambda force=False:{'notices':copy.deepcopy(items),'sourceStatus':'CURRENT',
-        'sourceRegistry':[{'provider':'USCG NAVCEN','family':'reviewed bridge intervals','meaning':'Synthetic route contract fixture'}]})
+    from src.portwatch_os.intelligence import current_environment
+    monkeypatch.setattr(current_environment, "ROOT", n.ROOT)
+    pointer = n.ROOT / "operational_notices" / "navcen-catalogue-latest.json"
+    pointer.write_text(json.dumps({"notices": items, "checkedAt": NOW.isoformat(),
+                                   "sourceStatus": "CURRENT"}), encoding="utf-8")
     return items
 
 

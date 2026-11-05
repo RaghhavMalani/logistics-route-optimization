@@ -23,7 +23,8 @@ Sources:
 
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 from typing import Dict
 
 import numpy as np
@@ -35,8 +36,8 @@ from src.utils.logging_utils import get_logger
 
 log = get_logger(__name__)
 
-DATA_GOV_IN_API_KEY = os.environ.get("DATA_GOV_IN_API_KEY")
-DATA_GOV_IN_RESOURCE = os.environ.get("DATA_GOV_IN_PORT_RESOURCE_ID")  # optional
+DATA_GOV_IN_API_KEY = get_settings().DATA_GOV_IN_API_KEY
+DATA_GOV_IN_RESOURCE = get_settings().DATA_GOV_IN_PORT_RESOURCE_ID  # optional
 
 COMMODITIES = ["pol_crude", "containers", "coal", "iron_ore", "fertiliser", "other"]
 

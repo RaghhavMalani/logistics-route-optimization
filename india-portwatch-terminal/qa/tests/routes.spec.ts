@@ -22,7 +22,7 @@ interface Screen {
 
 const SCREENS: Record<Role, Screen[]> = {
   VESSEL_OPERATOR: [
-    { path: "/vessel/overview", heading: "Fleet Bridge" },
+    { path: "/vessel/overview", heading: "Vessel Bridge" },
     { path: "/vessel/fleet", heading: "Fleet" },
     { path: "/vessel/MV-KONKAN", heading: "MV Konkan" },
     { path: "/vessel/routes", heading: "Route Intelligence" },

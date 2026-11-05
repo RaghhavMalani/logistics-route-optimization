@@ -166,7 +166,6 @@ export default function DemoShell() {
       await auth.switchDemo(role);
       setOption(null);
       setPane("scene");
-      await navigate({ to: ROLE_PROFILE[role].home });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Role switch failed");
     } finally {

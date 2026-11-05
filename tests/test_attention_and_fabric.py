@@ -75,6 +75,10 @@ from src.portwatch_os.world.cascade import propagate
 from src.portwatch_os.world.graph import EVENT, PORT, VESSEL, key
 from src.portwatch_os.world.quantity import HOURS, INR, RATIO, RISK, VESSELS, utc
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("asserted_api")
+
 NOW = utc()
 
 
@@ -513,6 +517,7 @@ class FabricTests(unittest.TestCase):
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("red_sea_evidence")
 class WorldApiTests(unittest.TestCase):
     """The contract the map depends on."""
 
@@ -550,8 +555,7 @@ class WorldApiTests(unittest.TestCase):
         from urllib.parse import quote
 
         instant = self._live_instant()
-        if instant is None:
-            self.skipTest("the feed carries no dated events at all")
+        self.assertIsNotNone(instant, "fixture must expose dated evidence")
         return f"at={quote(instant)}"
 
     def _live_event(self):
@@ -559,8 +563,7 @@ class WorldApiTests(unittest.TestCase):
             f"/api/world/cascades?{self._at()}", headers=self.headers,
         ).json()
         live = [r for r in rows["cascades"] if r.get("live")]
-        if not live:
-            self.skipTest("no event propagates consequence even at its own instant")
+        self.assertTrue(live, "fixture must propagate a live event")
         return live[0]["eventId"]
 
     def test_the_world_reports_its_own_rule_catalogue(self):
@@ -641,8 +644,7 @@ class WorldApiTests(unittest.TestCase):
 
     def test_an_attention_item_can_be_traced_to_its_computation(self):
         queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
-        if not queue["items"]:
-            self.skipTest("the queue is empty even at the events' own instant")
+        self.assertTrue(queue["items"], "fixture must populate the attention queue")
         item_id = queue["items"][0]["attentionId"]
         body = self.client.get(
             f"/api/attention/{item_id}?{self._at()}", headers=self.headers,
@@ -652,13 +654,11 @@ class WorldApiTests(unittest.TestCase):
 
     def test_the_evidence_chain_runs_from_the_event_not_just_the_last_hop(self):
         queue = self.client.get(f"/api/attention?{self._at()}", headers=self.headers).json()
-        if not queue["items"]:
-            self.skipTest("the queue is empty even at the events' own instant")
+        self.assertTrue(queue["items"])
         item = next(
             (i for i in queue["items"] if i["subjectType"] in (PORT, VESSEL)), None,
         )
-        if item is None:
-            self.skipTest("no port or vessel item in the queue")
+        self.assertIsNotNone(item)
         body = self.client.get(
             f"/api/attention/{item['attentionId']}?{self._at()}", headers=self.headers,
         ).json()
@@ -871,8 +871,7 @@ class WorldApiTests(unittest.TestCase):
         ).json()
         bab = [c for c in listing["cascades"] if c["live"] and "BAB_EL_MANDEB" in
                {s["id"] for s in c["affected"]["chokepoints"]}]
-        if not bab:
-            self.skipTest("no live Bab-el-Mandeb cascade in the register at this instant")
+        self.assertTrue(bab)
         detail = self.client.get(
             f"/api/world/cascades/{bab[0]['eventId']}?mode=RESEARCH&{self._at()}",
             headers=self.headers,
@@ -935,8 +934,7 @@ class WorldApiTests(unittest.TestCase):
             f"/api/attention?mode=RESEARCH&limit=25&{self._at()}", headers=self.headers,
         ).json()
         observed = [i for i in body["items"] if i["source"] == "OBSERVED_AIS"]
-        if not observed:
-            self.skipTest("no live Red Sea cascade reaches the hull at this instant")
+        self.assertTrue(observed)
         item = observed[0]
         self.assertEqual(item["provenance"]["mmsi"], "419001234")
         self.assertTrue(item["provenance"]["nameStated"])
@@ -984,6 +982,7 @@ class WorldApiTests(unittest.TestCase):
         self.assertEqual([i for i in body["items"] if i["source"] == "FEED"], [])
         self.assertTrue(all(i["source"] == "FLEET" for i in body["items"]))
 
+    @pytest.mark.usefixtures("fictional_fleet")
     def test_a_fleet_vessel_sharing_a_name_is_a_candidate_not_a_merge(self):
         from backend.app.routes.global_eye import _company_voyages
 

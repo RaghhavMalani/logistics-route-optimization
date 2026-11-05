@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import os
+from src.utils.settings import get_settings
+
 import re
 import time
 
@@ -9,43 +10,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.routes import (
-    admin,
-    advisories,
-    handoffs,
-    arrivals,
-    public_arrivals,
-    public_research,
-    public_workspace,
-    agents,
-    auth,
-    company,
-    commercial,
-    decisions,
-    demo,
-    demo_terminal,
-    finance,
-    fleet,
-    global_eye,
-    health,
-    intelligence,
-    learning,
-    lenses,
-    missions,
-    model,
-    news,
-    port_twin,
-    ports,
-    provenance,
-    sar,
-    scenarios,
-    weather,
-    weather_verification,
-    shipping_intelligence,
-    operational_notices,
-    operational_evidence,
-    world,
-)
+from backend.app.domains.system.router import router as system_router
+from backend.app.domains.intelligence.router import router as intelligence_router
+from backend.app.domains.ports.router import router as ports_router
+from backend.app.domains.world.router import router as world_router
+from backend.app.domains.voyages.router import router as voyages_router
+from backend.app.domains.advisories.router import router as advisories_router
+from backend.app.domains.system import screens
+from backend.app.services import handoff_events
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -98,7 +70,7 @@ async def lifespan(_: FastAPI):
     if not panel:
         start_client()
     coordinator = install_product_jobs(get_coordinator())
-    scheduler = (os.getenv("PORTWATCH_FRESHNESS_SCHEDULER") or "1").strip().lower() not in ("0", "false", "no", "off")
+    scheduler = (get_settings().PORTWATCH_FRESHNESS_SCHEDULER or "1").strip().lower() not in ("0", "false", "no", "off")
     if scheduler and not panel:
         coordinator.start()
     from src.portwatch_os.learning import weather_reconciliation
@@ -132,7 +104,7 @@ app = FastAPI(
 # Local development works out of the box. Production can set
 # PORTWATCH_CORS_REGEX to the exact deployed frontend domain/regex without a
 # source-code edit, e.g. https://portwatch\.example\.com.
-cors_regex = os.getenv(
+cors_regex = get_settings().get(
     "PORTWATCH_CORS_REGEX",
     r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
 )
@@ -157,7 +129,7 @@ async def _storage_failures(request: Request, exc: Exception):
         telemetry.incr("api.errors", route=request.url.path, status=503)
         # A fault seen on a request is what health should say next; drop the
         # minute's memory of the last probe.
-        from backend.app.routes import health as health_route
+        from backend.app.domains.system import health as health_route
 
         health_route._PROBE_CACHE["value"] = None
         return JSONResponse(status_code=503, content={
@@ -181,7 +153,7 @@ async def _identity_gate(request: Request, call_next):
         # Demo routes authenticate against their separate store. Never create an
         # operational Identity or forward demo requests into protected routers.
         response = await call_next(request)
-        response.headers["Cache-Control"] = "no-store"
+        response.headers.setdefault("Cache-Control", "no-store")
         return response
     from fastapi import HTTPException
     from fastapi.responses import JSONResponse
@@ -228,8 +200,8 @@ async def _identity_gate(request: Request, call_next):
             elif identity_mode() == REQUIRED and not (request.headers.get("x-portwatch-role") or "").strip():
                 raise HTTPException(401, "This deployment requires an identity from the authenticating proxy")
         response = await call_next(request)
-        if current_identity.get():
-            response.headers["Cache-Control"] = "no-store"
+        if path.startswith("/api/"):
+            response.headers.setdefault("Cache-Control", "no-store")
         return response
     except HTTPException as exc:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
@@ -259,6 +231,11 @@ async def _telemetry(request: Request, call_next):
     template = getattr(route, "path", None) or request.url.path
     telemetry.observe("api.latency", time.perf_counter() - started, route=template)
     telemetry.incr("api.requests", route=template)
+    if request.method in ("POST", "PATCH", "PUT", "DELETE") and 200 <= response.status_code < 300:
+        namespace = getattr(request.state, "screen_namespace", None)
+        if namespace is not None or (request.url.path.startswith("/api/") and not request.url.path.startswith("/api/demo/")):
+            screens.invalidate(namespace)
+            handoff_events.publish(namespace)
     if response.status_code >= 500:
         telemetry.incr("api.errors", route=template, status=response.status_code)
         telemetry.event("api.errors", route=template, status=response.status_code)
@@ -271,60 +248,8 @@ async def _telemetry(request: Request, call_next):
 app.add_middleware(CORSMiddleware, allow_origin_regex=cors_regex,
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-app.include_router(health.router, prefix="/api")
-app.include_router(auth.router, prefix="/api")
-app.include_router(provenance.router, prefix="/api")
-app.include_router(model.router, prefix="/api")
-app.include_router(ports.router, prefix="/api")
-app.include_router(intelligence.router, prefix="/api")
-from backend.app.routes import current_inputs
-app.include_router(current_inputs.router, prefix="/api")
-app.include_router(arrivals.router, prefix="/api")
-app.include_router(public_arrivals.router, prefix="/api")
-app.include_router(public_research.router, prefix="/api")
-app.include_router(public_workspace.router, prefix="/api")
-app.include_router(demo.router, prefix="/api")
-app.include_router(demo_terminal.router, prefix="/api")
-app.include_router(weather_verification.router, prefix="/api")
-app.include_router(shipping_intelligence.router, prefix="/api")
-app.include_router(operational_evidence.router, prefix="/api")
-from backend.app.routes import shared_feedback
-app.include_router(shared_feedback.router, prefix="/api")
-from backend.app.routes import navigation_restrictions
-app.include_router(navigation_restrictions.router, prefix="/api")
-app.include_router(operational_notices.router, prefix="/api")
-app.include_router(weather.router, prefix="/api")
-app.include_router(news.router, prefix="/api")
-app.include_router(sar.router, prefix="/api")
-app.include_router(fleet.router, prefix="/api")
-app.include_router(scenarios.router, prefix="/api")
-
-# The agentic maritime OS surfaces. Everything above serves the forecasting
-# pipeline's artefacts; everything below serves the layer built on top of them.
-app.include_router(global_eye.router, prefix="/api")
-app.include_router(company.router, prefix="/api")
-app.include_router(port_twin.router, prefix="/api")
-app.include_router(advisories.router, prefix="/api")
-app.include_router(handoffs.router, prefix="/api")
-app.include_router(agents.router, prefix="/api")
-app.include_router(learning.router, prefix="/api")
-from backend.app.routes import capabilities
-app.include_router(capabilities.router, prefix="/api")
-app.include_router(world.router, prefix="/api")
-
-# The decision intelligence engine, its financial twin and the historical
-# missions that score it. All deterministic; all on the world above.
-app.include_router(decisions.router, prefix="/api")
-app.include_router(commercial.router, prefix="/api")
-app.include_router(finance.router, prefix="/api")
-app.include_router(missions.router, prefix="/api")
-
-# Administration: freshness, diagnostics, readiness. National Command only.
-app.include_router(admin.router, prefix="/api")
-
-# Two lenses: structural trade exposure, and security over observed AIS.
-app.include_router(lenses.router, prefix="/api")
-
+for domain in (system_router, intelligence_router, ports_router, world_router, voyages_router, advisories_router):
+    app.include_router(domain, prefix="/api")
 
 @app.get("/")
 def root() -> dict:

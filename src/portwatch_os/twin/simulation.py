@@ -113,6 +113,8 @@ class SimulationResult:
     #: Hard constraints checked over the whole run.
     violations: List[Dict[str, Any]] = field(default_factory=list)
     steps: int = 0
+    #: Optional presentation frames, captured without mutating the rollout.
+    timeline: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -405,6 +407,7 @@ def simulate(
     config: Optional[SimulationConfig] = None,
     *,
     snapshot_hours: Sequence[int] = (2, 6, 12, 24),
+    capture_timeline: bool = False,
 ) -> SimulationResult:
     """Run the twin forward under a policy.
 
@@ -451,6 +454,8 @@ def simulate(
                     )
                 )
 
+        if capture_timeline:
+            result.timeline.append(working.to_dict())
         _accrue(working, config.step_hours)
 
         while pending_snapshots and hour >= pending_snapshots[0]:
@@ -468,6 +473,8 @@ def simulate(
     result.metrics["rejectedActions"] = len(result.rejected_actions)
     result.violations = _check_violations(working)
     result.metrics["violations"] = len(result.violations)
+    if capture_timeline:
+        result.timeline.append(working.to_dict())
     return result
 
 

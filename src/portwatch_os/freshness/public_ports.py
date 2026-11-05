@@ -1,5 +1,6 @@
 """Backend-owned public PDF collectors; one independently retried job per port."""
-import os
+from src.utils.settings import get_settings
+
 from datetime import timedelta
 
 from src.portwatch_os.clock import LIVE, get_clock, wall_now
@@ -11,7 +12,7 @@ from src.portwatch_os.learning.weather_feedback import instant
 
 
 def enabled(name, default="1"):
-    return (os.getenv(name) or default).strip().lower() not in ("0", "false", "no", "off")
+    return (get_settings().get(name) or default).strip().lower() not in ("0", "false", "no", "off")
 
 
 def collection_eligibility():

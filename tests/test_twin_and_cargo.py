@@ -168,6 +168,45 @@ class StateTests(unittest.TestCase):
 
 
 class SimulationTests(unittest.TestCase):
+    def test_timeline_observes_the_same_engine_without_changing_results(self):
+        initial = small_state()
+        before = initial.to_dict()
+        config = SimulationConfig(horizon_hours=24)
+        for policy_id in ("fcfs", "lookahead"):
+            expected = simulate(initial, build_policy(policy_id), config)
+            run = simulate(initial, build_policy(policy_id), config, capture_timeline=True)
+            self.assertEqual(run.to_dict(), expected.to_dict())
+            self.assertEqual(run.final_state.to_dict(), expected.final_state.to_dict())
+            self.assertEqual(reward(run), reward(expected))
+            self.assertEqual(reward_breakdown(run), reward_breakdown(expected))
+            self.assertEqual(len(run.timeline), run.steps + 1)
+            self.assertEqual(run.timeline[-1], run.final_state.to_dict())
+            self.assertEqual([frame["hour"] for frame in run.timeline],
+                             [i * config.step_hours for i in range(run.steps + 1)])
+            first = run.timeline[0]["calls"]
+            self.assertTrue(any(row["state"] == ALONGSIDE for row in first))
+            self.assertTrue(any(row["state"] == DEPARTED for row in run.timeline[-1]["calls"]))
+        self.assertEqual(initial.to_dict(), before)
+
+    def test_comparison_captures_one_snapshot_and_uses_existing_reward(self):
+        from unittest.mock import patch
+        from backend.app.routes.port_twin import port_twin_compare
+
+        initial = small_state()
+        with patch("backend.app.routes.port_twin.build_state_for", return_value=initial) as load:
+            comparison = port_twin_compare("INMAA")
+        load.assert_called_once_with("INMAA")
+        for side, policy_id in (("baseline", "fcfs"), ("lookahead", "lookahead")):
+            run = comparison[side]
+            expected = simulate(initial, build_policy(policy_id), SimulationConfig(horizon_hours=24))
+            self.assertEqual(run["metrics"], expected.metrics)
+            self.assertEqual(run["reward"], round(reward(expected), 3))
+            self.assertEqual(run["timeline"][-1], expected.final_state.to_dict())
+        baseline = comparison["baseline"]["reward"]
+        lookahead = comparison["lookahead"]["reward"]
+        self.assertEqual(comparison["winner"], None if baseline == lookahead else
+                         "lookahead" if lookahead > baseline else "fcfs")
+
     def test_the_same_inputs_give_byte_identical_metrics(self):
         """Two policies can only be compared if the world is identical."""
         config = SimulationConfig(horizon_hours=24.0, seed=7, record_trace=False)
