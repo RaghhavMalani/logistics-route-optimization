@@ -10,6 +10,7 @@ import type {
 // Synthetic presentation contracts only. These records never enter a source,
 // visitor ledger or training cohort, and are not provider/operational evidence.
 const AS_OF = "2026-10-25T12:00:00Z";
+test.use({ reducedMotion: "reduce", timezoneId: "UTC" });
 const QUOTE =
   "SIMULATED input fixture\nobservation_date,DEXINUS\n2026-10-13,83\n";
 const OUTCOME =
@@ -359,6 +360,7 @@ async function openFeedback(context: BrowserContext, page: Page) {
     if (relative === "company/fleet") data.vessels = data.vessels.slice(0, 2);
     return route.fulfill({ json: data });
   });
+  // Session lifetime follows the browser clock. Retained evidence uses AS_OF.
   const now = Date.now();
   await context.route("**/api/demo/session", (route) =>
     route.fulfill({
@@ -376,6 +378,9 @@ async function openFeedback(context: BrowserContext, page: Page) {
   await page.waitForURL("**/company/overview");
   await page.goto("/company/global-eye");
   await settle(page);
+  // These tests inspect frozen evidence. Stop the unrelated moving chart before
+  // form actions and trace snapshots compete with its software renderer in CI.
+  await page.getByRole("button", { name: "Pause replay", exact: true }).click();
   await page
     .getByRole("button", { name: "Global intelligence", exact: true })
     .click();
@@ -494,7 +499,11 @@ test("news exact assessment keeps applicability, lineage and owned voyage connec
   expect(writes[0]).toMatchObject({ claimId: NEWS.id, vesselId: "PWD-002" });
   await noOverflow(news);
   await page.getByRole("tab", { name: "Sources", exact: true }).click();
-  await page.getByText("News, economic signals and source-review tasks", { exact: true }).click();
+  await page
+    .getByText("News, economic signals and source-review tasks", {
+      exact: true,
+    })
+    .click();
   const tasks = page.getByTestId("intelligence-review-tasks");
   await tasks.locator(":scope > summary").click();
   await tasks.getByText(/PENDING_VERIFICATION ·/).click();
@@ -541,6 +550,10 @@ test("invalid as-of and corrupt originals remain actionable without a misleading
   page,
 }) => {
   const { panel, corruptOriginal } = await openFeedback(context, page);
+  const downloads: string[] = [];
+  page.on("download", (download) =>
+    downloads.push(download.suggestedFilename()),
+  );
   await panel
     .getByRole("textbox", { name: "Feedback as-of UTC" })
     .fill("2026-10-16T12:00:00");
@@ -560,4 +573,5 @@ test("invalid as-of and corrupt originals remain actionable without a misleading
   await expect(
     panel.getByRole("alert").filter({ hasText: "hash does not match" }),
   ).toBeVisible();
+  expect(downloads).toEqual([]);
 });
