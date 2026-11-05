@@ -151,8 +151,12 @@ jobs:
     # weather composite on by default, the schematic banner present, an
     # uncalibrated event refusing to show a number, no committed vessel in the
     # action queue, and no agent holding an EXECUTE ceiling.
-    name: Browser regression (production build)
+    name: Browser regression (production build, shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: india-portwatch-terminal
@@ -181,11 +185,11 @@ jobs:
       # for the local QA pass -- for layout risk 1366 strictly dominates it, so
       # in CI it would add a third of the runtime and no coverage.
       - name: Route, role, traffic, routing, agentic and degraded-mode tests
-        run: npm run test:browser:ci
+        run: node qa/run-browser-ci.mjs --shard=${{ matrix.shard }}/4
       - name: Upload the report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: india-portwatch-terminal/playwright-report
           retention-days: 7
