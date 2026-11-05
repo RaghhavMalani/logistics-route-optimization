@@ -46,7 +46,14 @@ if (!local) {
   assert.equal(health.status, "ok");
   assert.equal(health.artifact.applicationSha, backendSha);
   assert.equal(health.release.sha, backendSha);
-  if (!production && receipt.releaseEnvironment) {
+  if (production) {
+    assert.equal(receipt.releaseEnvironment, "production");
+    assert.equal(receipt.railwayService, "128a61e8-a333-4c93-aa77-550d4e923495");
+    assert.equal(receipt.railwayEnvironment, "7a940de4-9c13-411e-ad59-eb30ee42a9d4");
+    assert.equal(health.release.environment, "production");
+    assert.equal(health.release.provider.serviceId, receipt.railwayService);
+    assert.equal(health.release.provider.environmentId, receipt.railwayEnvironment);
+  } else if (receipt.releaseEnvironment) {
     assert.match(receipt.releaseEnvironment, /^feature-integration-\d{8}$/);
     assert.equal(health.release.environment, receipt.releaseEnvironment);
     const providerId = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
