@@ -13,6 +13,8 @@ import type {
   FrozenEnvironment,
 } from "@/services/current-inputs";
 
+test.use({ reducedMotion: "reduce" });
+
 // Presentation fixtures only. No fixture enters the weather ledger or claims a
 // live provider measurement, simulated sailing result, or operational saving.
 const at = (offsetHours: number) =>
@@ -105,6 +107,9 @@ async function companyCurrentInputs(
   await page.waitForURL("**/company/overview");
   await page.goto("/company/global-eye");
   await settle(page);
+  // Passage assertions use frozen evidence. A moving traffic replay competes
+  // with form interactions for the CI runner's software renderer.
+  await page.getByRole("button", { name: "Pause replay", exact: true }).click();
   await page
     .getByRole("button", { name: "Current weather decision", exact: true })
     .click();

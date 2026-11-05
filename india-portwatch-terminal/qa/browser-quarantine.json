@@ -98,6 +98,13 @@
       "title": "four restored role workspaces retain chart, layers, timeline and visitor identity",
       "reason": "This case requires a real local visitor session and API. The GitHub replay job runs a frontend-only server. Restore coverage in a seeded backend browser job.",
       "owner": "@RaghhavMalani (browser infrastructure)"
+    },
+    {
+      "project": "laptop-1366",
+      "file": "qa/tests/tour.spec.ts",
+      "title": "tour renders and navigates with stored identity and all application API blocked",
+      "reason": "Tour pin projection did not settle on the CI software renderer. Restore this case with deterministic camera progress in CI.",
+      "owner": "@RaghhavMalani (3D tour)"
     }
   ]
 }
