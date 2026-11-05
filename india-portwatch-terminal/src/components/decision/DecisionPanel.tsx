@@ -16,7 +16,7 @@
  * port ring resizes to that option's yard pressure, the timeline re-reads.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { Chip, PanelTabs } from "@/components/command/panels";
@@ -205,7 +205,7 @@ export function DecisionPanel({
       .querySelector<HTMLElement>(
         `[data-testid="decision-panel"][data-decision="${CSS.escape(problem.decisionId)}"]`,
       )
-      ?.focus();
+      ?.focus({ preventScroll: true });
   }, [problem.decisionId]);
   // The first two objectives every feasible option is measured on, in the
   // engine's frontier order: a chart over an axis half the options lack
@@ -243,6 +243,16 @@ export function DecisionPanel({
   const recommendation = problem.recommendation;
   const currentWeather = problem.evidence?.currentEnvironment as
     FrozenEnvironment | undefined;
+  const passageResult = Boolean(currentWeather?.passageComparison);
+  const comparisonScroll = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!passageResult || tab !== "options") return;
+    const scroller = comparisonScroll.current;
+    const firstMeasure = scroller?.querySelector("table[data-testid='passage-core-comparison'] tbody tr");
+    if (!scroller || !firstMeasure) return;
+    const clipped = firstMeasure.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom;
+    if (clipped > 0) scroller.scrollTop += Math.ceil(clipped) + 4;
+  }, [passageResult, problem.decisionId, tab]);
   const intelligence = problem.evidence?.intelligenceBasis as
     IntelligenceBasis | undefined;
   const passageUnavailable = problem.evidence.passagePlanningUnavailable as
@@ -478,7 +488,7 @@ export function DecisionPanel({
         />
       </div>
 
-      <div key={tab} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={comparisonScroll} key={tab} className="min-h-0 flex-1 overflow-y-auto">
         {tab === "business" && onNewComparison ? (
           <CommercialReview
             key={problem.decisionId}

@@ -111,7 +111,7 @@ test.describe("traffic population", () => {
 
 /* ---------------------------------------------------------------- filters -- */
 
-test("a class filter removes that class from the chart", async ({ context, page }) => {
+test("a type legend isolates its vessel class and All types restores the chart", async ({ context, page }) => {
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   const before = await drawn(page, "vessels");
@@ -119,14 +119,17 @@ test("a class filter removes that class from the chart", async ({ context, page 
   expect(containersBefore, "no containers to filter").toBeGreaterThan(5);
 
   await page.getByRole("button", { name: /Layers and filters/i }).click();
-  await page.getByRole("button", { name: "Container", exact: true }).click();
+  const legend = page.getByRole("group", { name: "Filter vessels by type" });
+  await legend.getByRole("button", { name: "Container", exact: true }).click();
 
   await expect
-    .poll(async () => (await drawn(page, "vessels")).filter((v: any) => v.class === "container").length, {
+    .poll(async () => [...new Set((await drawn(page, "vessels")).map((v: any) => v.class))], {
       timeout: 10_000,
     })
-    .toBe(0);
+    .toEqual(["container"]);
   expect((await drawn(page, "vessels")).length).toBeLessThan(before.length);
+  await legend.getByRole("button", { name: "All types", exact: true }).click();
+  await expect.poll(async () => (await drawn(page, "vessels")).some((v: any) => v.class !== "container")).toBe(true);
 });
 
 /* -------------------------------------------------- search and inspection -- */

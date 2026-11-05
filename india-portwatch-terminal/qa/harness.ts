@@ -159,6 +159,14 @@ export async function mockApi(context: BrowserContext): Promise<void> {
       await route.fulfill({ json: {} });
       return;
     }
+    if (method === "GET" && /\/handoffs(?:\/stream)?$/.test(url.pathname)) {
+      await route.fulfill(
+        url.pathname.endsWith("/stream")
+          ? { contentType: "text/event-stream", body: 'event: handoffs\ndata: {"items":[]}\n\n' }
+          : { json: { items: [] } },
+      );
+      return;
+    }
 
     if (method === "POST") {
       const match = POST_FIXTURES.find(([pattern]) =>
@@ -269,6 +277,20 @@ export async function seedSession(
         : { status: 401, json: { detail: "Invalid fixture session" } },
     );
   });
+  await context.route("**/api/screens/*", async (route) => {
+    const request = route.request();
+    const verified =
+      active && request.method() === "GET" &&
+      request.headers().authorization === authorization;
+    const { accessToken: _token, ...identity } = session;
+    // Individual fixtures remain independently replaceable in replay tests.
+    // The hosted acceptance probe exercises fully populated boot packets.
+    await route.fulfill(
+      verified
+        ? { json: { session: identity, sections: {} } }
+        : { status: 401, json: { detail: "Invalid fixture session" } },
+    );
+  });
   await context.route("**/api/auth/logout", (route) => {
     const request = route.request();
     if (
@@ -305,8 +327,10 @@ export function record(page: Page): Recorder {
     pageErrors: [],
   };
   page.on("console", (message) => {
-    if (message.type() === "error")
-      recorder.consoleErrors.push(message.text().slice(0, 300));
+    if (message.type() === "error") {
+      const location = message.location().url;
+      recorder.consoleErrors.push(`${message.text()}${location ? ` (${location})` : ""}`.slice(0, 500));
+    }
   });
   page.on("pageerror", (error) =>
     recorder.pageErrors.push(String(error).slice(0, 300)),
