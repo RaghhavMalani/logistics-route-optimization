@@ -24,6 +24,7 @@ import {
 import { AUTH_MODE, resolveAdapter } from "./adapters";
 import { setAccessToken, postJson, prepareHomeNavigation } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import {
   ROLE_PROFILE,
   advisoryHeaders,
@@ -98,6 +99,7 @@ const DEFAULT_PORT = "INMAA";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queries = useQueryClient();
+  const router = useRouter();
   const adapter = useMemo(() => resolveAdapter(AUTH_MODE), []);
   const [status, setStatus] = useState<AuthStatus>("restoring");
   const [session, setSession] = useState<Session | null>(null);
@@ -199,9 +201,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [adoptDemo],
   );
   const switchDemo = useCallback(
-    async (role: Role) =>
-      adoptDemo(await postApi("/api/demo/role", { role })),
-    [adoptDemo],
+    async (role: Role) => {
+      const next = await postApi("/api/demo/role", { role });
+      const home = ROLE_PROFILE[next.user.role].home;
+      // Keep the outgoing workspace gated until it unmounts. Clearing its
+      // queries in place can restart Company reads under the new Port role.
+      setStatus("restoring");
+      setAccessToken(next.accessToken, "demo", next.user.role);
+      prepareHomeNavigation(home);
+      try {
+        await router.navigate({ to: home });
+      } finally {
+        adoptDemo(next);
+      }
+      return next;
+    },
+    [adoptDemo, router],
   );
   const resetDemo = useCallback(async () => {
     await postJson("/demo/reset", {});

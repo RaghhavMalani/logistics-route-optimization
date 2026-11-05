@@ -212,10 +212,12 @@ function RoleSwitcher() {
                 onPointerEnter={prefetch}
                 onFocus={prefetch}
                 onClick={async () => {
-                  if (mode === "demo") await switchDemo(option);
-                  else setViewAs(option);
                   close();
-                  void navigate({ to: profile.home });
+                  if (mode === "demo") await switchDemo(option);
+                  else {
+                    setViewAs(option);
+                    void navigate({ to: profile.home });
+                  }
                 }}
                 className={cn(
                   "block w-full rounded-[2px] px-2 py-1.5 text-left transition-colors",
