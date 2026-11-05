@@ -322,6 +322,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                     hour={horizon}
                     renderScene={(lane, run, laneState) => (
                       <PortTwinScene
+                        framing="comparison"
                         state={laneState}
                         overlay={overlay}
                         playback={run}

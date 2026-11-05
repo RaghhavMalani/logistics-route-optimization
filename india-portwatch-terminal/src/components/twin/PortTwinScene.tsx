@@ -17,9 +17,10 @@ export interface PortTwinSceneProps {
   selectedId?: string | null;
   onSelect?: (selection: TwinSelection | null) => void;
   className?: string;
+  framing?: "comparison";
 }
 
-export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
+export function PortTwinScene({ className, framing, ...props }: PortTwinSceneProps) {
   const mount = useRef<HTMLDivElement>(null);
   const current = useRef(props);
   current.current = props;
@@ -56,7 +57,11 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
     container.appendChild(canvas);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     const camera = new T.OrthographicCamera(-1, 1, 1, -1, 5, 24000);
-    const target = new T.Vector3(world.mid, 0, world.inland * 0.31);
+    const target = new T.Vector3(
+      world.mid,
+      0,
+      world.inland * (framing === "comparison" ? 0.46 : 0.31),
+    );
     const spherical = new T.Spherical().setFromVector3(
       new T.Vector3(world.span * 0.29, world.span * 1.2, -world.span * 1.45),
     );
@@ -112,10 +117,24 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       const h = container.clientHeight;
       if (!w || !h) return;
       const aspect = w / h;
-      const halfHeight = Math.max(
+      let halfHeight = Math.max(
         (world.span * 0.58) / aspect,
         world.inland * 0.54 + 115,
       );
+      if (framing === "comparison") {
+        // Frame the working port, leaving water around the quay. Anchorage
+        // traffic can extend outside this fixed facility footprint.
+        camera.updateMatrixWorld();
+        const corner = new T.Vector3();
+        let extent = 0;
+        for (const x of [world.mid - world.span / 2, world.mid + world.span / 2]) {
+          for (const z of [-48, world.inland]) {
+            corner.set(x, 0, z).applyMatrix4(camera.matrixWorldInverse);
+            extent = Math.max(extent, Math.abs(corner.x) / aspect, Math.abs(corner.y));
+          }
+        }
+        halfHeight = extent / 0.8;
+      }
       camera.left = -halfHeight * aspect;
       camera.right = halfHeight * aspect;
       camera.top = halfHeight;
@@ -202,7 +221,7 @@ export function PortTwinScene({ className, ...props }: PortTwinSceneProps) {
       renderer.forceContextLoss();
       canvas.remove();
     };
-  }, [shape]);
+  }, [framing, shape]);
 
   useEffect(
     () => refresh.current?.(),
