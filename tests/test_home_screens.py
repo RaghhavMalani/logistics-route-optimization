@@ -69,3 +69,24 @@ def test_role_prefetch_stays_in_visitor_and_requires_explicit_opt_in(home_client
     assert projected.json()["session"]["user"]["role"] == "PORT_AUTHORITY"
     assert store.session(session["accessToken"])["user"]["role"] == "SHIPPING_COMPANY"
     assert client.get("/api/screens/port-home?prefetch=true", headers=headers).status_code == 401
+
+
+@pytest.mark.parametrize(("actor", "screen", "status"), [
+    ("NATIONAL_ADMIN", "port-home", 200),
+    ("SHIPPING_COMPANY", "vessel-home", 200),
+    ("PORT_AUTHORITY", "admin-home", 403),
+    ("VESSEL_OPERATOR", "company-home", 403),
+])
+def test_direct_workspace_entry_preserves_actor_scope(home_client, actor, screen, status):
+    store, client = home_client
+    session = store.create(actor)
+    token = session["accessToken"]
+    response = client.get(
+        "/api/demo/terminal/screens/" + screen,
+        headers={"Authorization": "Bearer " + token},
+    )
+    assert response.status_code == status, response.text[:1000]
+    if status == 200:
+        assert response.json()["session"]["user"]["role"] == actor
+        assert response.json()["session"]["demoId"] == session["demoId"]
+    assert store.session(token)["user"]["role"] == actor

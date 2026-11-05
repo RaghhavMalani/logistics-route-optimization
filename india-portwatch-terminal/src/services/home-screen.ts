@@ -1,5 +1,6 @@
 import type { components } from "./openapi.generated";
 import { prewarmChart } from "@/components/map/chart-engine";
+import { isRoleAllowed, type Role } from "@/auth/types";
 
 /** Private boot packets are shared only by the authenticated browser session. */
 const homes = {
@@ -16,7 +17,7 @@ type Packet = components["schemas"]["ScreenPayload"];
 type Entry = { token: string; until: number; packet: Promise<Packet | null> };
 const entries = new Map<string, Entry>();
 const BOOT_MS = 10_000;
-let boot: { navigation: string; until: number } | undefined;
+let navigation: { pathname: string; until: number } | undefined;
 const screenPaths = new Set([
   "/health",
   "/fleet",
@@ -35,13 +36,16 @@ const screenPaths = new Set([
   "/handoffs",
 ]);
 
-function active(role: string | undefined): role is HomeRole {
-  return (
-    typeof window !== "undefined" &&
-    !!role &&
-    Object.hasOwn(homes, role) &&
-    window.location.pathname === homes[role as HomeRole][1]
-  );
+function homeRole(pathname: string, actor: Role) {
+  if (!isRoleAllowed(actor, pathname)) return undefined;
+  return (Object.keys(homes) as HomeRole[]).find((role) => homes[role][1] === pathname);
+}
+
+export function beginHomeNavigation(pathname: string) {
+  if (typeof window === "undefined") return;
+  const normalized = pathname.replace(/\/$/, "") || "/";
+  if (navigation?.pathname === normalized) return;
+  navigation = { pathname: normalized, until: Date.now() + BOOT_MS };
 }
 
 function acquire(
@@ -50,8 +54,9 @@ function acquire(
   token: string,
   mode: Mode,
   prefetch = false,
+  actor = role,
 ) {
-  const key = JSON.stringify([base, token, role, mode]);
+  const key = JSON.stringify([base, token, role, mode, actor]);
   const existing = entries.get(key);
   if (existing && existing.until > Date.now()) return existing.packet;
   const path = mode === "demo" ? "/demo/terminal" : "";
@@ -90,7 +95,7 @@ function acquire(
 }
 
 export function retainHomePackets(token: string | undefined) {
-  if (!token) boot = undefined;
+  if (!token) navigation = undefined;
   for (const [key, entry] of entries)
     if (entry.token !== token) entries.delete(key);
 }
@@ -101,14 +106,22 @@ export function invalidateHomePackets() {
 
 export async function loadHomeSession(
   base: string,
-  role: string,
+  actor: Role,
   token: string,
   mode: Mode,
 ) {
-  if (!active(role)) return null;
+  if (typeof window === "undefined") return null;
+  beginHomeNavigation(window.location.pathname);
+  const packet = bootPacket(base, actor, token, mode);
+  return (await packet)?.session ?? null;
+}
+
+export function bootPacket(base: string, actor: Role, token: string, mode: Mode) {
+  if (!navigation || navigation.until <= Date.now()) return undefined;
+  const role = homeRole(navigation.pathname, actor);
+  if (!role) return null;
   prewarmChart();
-  const packet = await acquire(base, role, token, mode);
-  return packet?.session ?? null;
+  return acquire(base, role, token, mode, false, actor);
 }
 
 export function prefetchHome(base: string, role: string, token: string) {
@@ -119,17 +132,12 @@ export function prefetchHome(base: string, role: string, token: string) {
 export async function projectHomeSection(
   base: string,
   path: string,
-  role: string | undefined,
+  actor: Role | undefined,
   token: string | undefined,
   mode: Mode,
 ) {
-  if (!token || !active(role)) return undefined;
-  const navigation =
-    role + ":" + (window.history.state?.__TSR_key ?? window.location.pathname);
-  const now = Date.now();
-  if (boot?.navigation !== navigation)
-    boot = { navigation, until: now + BOOT_MS };
-  if (boot.until <= now) return undefined;
+  if (!token || !actor || typeof window === "undefined") return undefined;
+  if (!navigation) beginHomeNavigation(window.location.pathname);
   const [endpoint, query] = path.split("?", 2);
   if (
     !screenPaths.has(endpoint) &&
@@ -139,5 +147,5 @@ export async function projectHomeSection(
   const params = new URLSearchParams(query);
   params.sort();
   const key = endpoint + (params.size ? "?" + params.toString() : "");
-  return (await acquire(base, role, token, mode))?.sections[key];
+  return (await bootPacket(base, actor, token, mode))?.sections[key];
 }

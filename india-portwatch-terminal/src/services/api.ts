@@ -8,10 +8,13 @@
  */
 
 import {
+  beginHomeNavigation,
+  bootPacket,
   invalidateHomePackets,
   projectHomeSection,
   retainHomePackets,
 } from "./home-screen";
+import type { Role } from "@/auth/types";
 
 const API_BASE =
   (import.meta.env.VITE_PORTWATCH_API_BASE as string | undefined)?.replace(
@@ -21,17 +24,26 @@ const API_BASE =
 
 let accessToken: string | undefined;
 let sessionMode: "demo" | "production" = "production";
-let sessionRole: string | undefined;
+let sessionRole: Role | undefined;
+let sessionRevision = 0;
 export const getSessionMode = () => sessionMode;
 export function setAccessToken(
   token?: string,
   mode: "demo" | "production" = "production",
-  role?: string,
+  role?: Role,
 ): void {
   retainHomePackets(token);
+  if (accessToken !== token || sessionMode !== mode || sessionRole !== role)
+    sessionRevision++;
   accessToken = token;
   sessionMode = mode;
   sessionRole = role;
+}
+
+export function prepareHomeNavigation(pathname: string) {
+  beginHomeNavigation(pathname);
+  if (accessToken && sessionRole)
+    void bootPacket(API_BASE, sessionRole, accessToken, sessionMode);
 }
 
 export interface RequestOptions {
@@ -139,6 +151,7 @@ export async function getJson<T>(
     !options.bypassScreen &&
     (!credential || credential === `Bearer ${accessToken}`)
   ) {
+    const revision = sessionRevision;
     const section = await projectHomeSection(
       API_BASE,
       path,
@@ -147,6 +160,8 @@ export async function getJson<T>(
       sessionMode,
     );
     if (options.signal?.aborted) throw options.signal.reason;
+    if (revision !== sessionRevision)
+      throw new DOMException("Workspace session changed", "AbortError");
     if (section) {
       if (section.status >= 400) {
         const detail = (section.data as { detail?: unknown })?.detail;

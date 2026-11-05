@@ -22,7 +22,7 @@ import {
 } from "react";
 
 import { AUTH_MODE, resolveAdapter } from "./adapters";
-import { setAccessToken, postJson } from "@/services/api";
+import { setAccessToken, postJson, prepareHomeNavigation } from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ROLE_PROFILE,
@@ -180,8 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const adoptDemo = useCallback(
     (next: Session) => {
-      queries.clear();
       setAccessToken(next.accessToken, "demo", next.user.role);
+      prepareHomeNavigation(ROLE_PROFILE[next.user.role].home);
+      queries.clear();
       writeStored(SESSION_KEY, next);
       writeStored(VIEW_AS_KEY, next.user.role);
       setSession(next);

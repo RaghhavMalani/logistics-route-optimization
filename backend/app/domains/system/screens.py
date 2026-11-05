@@ -74,6 +74,12 @@ def _screen_identity(request: Request, role: str, prefetch: bool):
     if who.role == role:
         yield who, session
         return
+    # These are also the role guards for the existing workspace URLs. A direct
+    # entry keeps the verified actor's privileges and never switches identity.
+    if not prefetch and (who.role == "NATIONAL_ADMIN" or
+                         (who.role == "SHIPPING_COMPANY" and role == "VESSEL_OPERATOR")):
+        yield who, session
+        return
     if sandbox is None or not prefetch:
         raise HTTPException(403, "This screen belongs to a different role")
     from backend.app.services.demo_store import describe_demo
