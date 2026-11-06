@@ -96,6 +96,12 @@ async def handoff_stream(request: Request):
                     if serialized != previous:
                         yield f"event: handoffs\ndata: {serialized}\n\n"
                         previous = serialized
+                # The public metadata is wall-clock truth, independent of a
+                # visitor replay. This reads retained state and never providers.
+                from backend.app.domains.intelligence.source_status import source_status
+                sources = await run_in_threadpool(source_status)
+                from fastapi.encoders import jsonable_encoder
+                yield 'event: sources\ndata: ' + json.dumps(jsonable_encoder(sources), separators=(',', ':')) + '\n\n'
                 try:
                     await asyncio.wait_for(queue.get(), timeout=min(15, max(0, deadline - monotonic())))
                     dirty = True

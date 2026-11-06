@@ -67,8 +67,6 @@ async def lifespan(_: FastAPI):
     log.info("candidate backup: %s", app.state.candidate_backup)
     from src.portwatch_os.panel_runtime import snapshot_at
     panel = snapshot_at() is not None
-    if not panel:
-        start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (get_settings().PORTWATCH_FRESHNESS_SCHEDULER or "1").strip().lower() not in ("0", "false", "no", "off")
     if scheduler and not panel:
@@ -76,13 +74,20 @@ async def lifespan(_: FastAPI):
     from src.portwatch_os.learning import weather_reconciliation
     from src.portwatch_os.learning import intelligence_reconciliation
     from src.portwatch_os.intelligence import operational_notices as authority_notices
-    if not panel:
+    if not panel and coordinator.running:
+        start_client()
         weather_reconciliation.start()
         intelligence_reconciliation.start()
         authority_notices.start()
+    import asyncio
+    from src.portwatch_os.freshness.source_trials import run as run_trials
+    trial_task = asyncio.create_task(run_trials()) if not panel and coordinator.running else None
     try:
         yield
     finally:
+        if trial_task:
+            trial_task.cancel()
+            await asyncio.gather(trial_task, return_exceptions=True)
         coordinator.stop()
         weather_reconciliation.stop()
         intelligence_reconciliation.stop()
@@ -167,7 +172,7 @@ async def _identity_gate(request: Request, call_next):
     try:
         public_read = request.method == "GET" and (path in ("/api/public/explore", "/api/public/research", "/api/public/workspace", "/api/public/scenario", "/api/public/weather-feedback")
             or path.startswith("/api/public/research/download/")
-            or path == "/api/public/port-calls"
+            or path in ("/api/public/port-calls", "/api/public/sources")
             or re.fullmatch(r"/api/public/port-calls/(?:evidence/[a-f0-9]{64}\.pdf|[a-f0-9]{64}/audit)", path) is not None)
         if path.startswith("/api/") and request.method != "OPTIONS" and path not in IDENTITY_EXEMPT and not public_read:
             authorization = request.headers.get("authorization", "")

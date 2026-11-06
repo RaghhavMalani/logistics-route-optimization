@@ -8,6 +8,8 @@ import { chromium, expect } from "@playwright/test";
 const replay = process.argv.includes("--replay");
 const panelMode = process.argv.includes("--panel");
 const production = process.argv.includes("production");
+const retainedSources = process.argv.includes("--expect-retained-sources");
+if (production && retainedSources) throw new Error("Production acceptance requires current core sources.");
 const miniature = process.argv.includes("--miniature");
 const checkApprovalStyle = production || process.argv.includes("--check-approval-style");
 if (replay && panelMode) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
@@ -43,7 +45,13 @@ if (!local) {
   const healthResponse = await fetch(api + "/health", { signal: AbortSignal.timeout(15_000) });
   assert.equal(healthResponse.status, 200);
   const health = await healthResponse.json();
-  assert.equal(health.status, "ok");
+  if (retainedSources) {
+    assert.equal(health.status, "degraded");
+    assert.equal(health.durableStores.ok, true);
+    assert.equal(health.sourceHealth.degraded, true);
+    assert(health.sourceHealth.sources.some((source) => source.core && source.status !== "live"));
+    console.log("EXPECTED DEGRADATION: upstream core data retained; workflow checks still required.");
+  } else assert.equal(health.status, "ok");
   assert.equal(health.artifact.applicationSha, backendSha);
   assert.equal(health.release.sha, backendSha);
   if (production) {
@@ -54,7 +62,7 @@ if (!local) {
     assert.equal(health.release.provider.serviceId, receipt.railwayService);
     assert.equal(health.release.provider.environmentId, receipt.railwayEnvironment);
   } else if (receipt.releaseEnvironment) {
-    assert.match(receipt.releaseEnvironment, /^feature-integration-\d{8}$/);
+    assert.match(receipt.releaseEnvironment, /^(?:feature-integration|live-now-preview)-\d{8}$/);
     assert.equal(health.release.environment, receipt.releaseEnvironment);
     const providerId = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
     assert.match(receipt.railwayService, providerId);

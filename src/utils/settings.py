@@ -30,14 +30,25 @@ class Settings(BaseSettings):
     PORTWATCH_AIS_BOUNDING_BOXES: str | None = None
     PORTWATCH_AIS_RECORD_PATH: str | None = None
     PORTWATCH_AIS_REPLAY_PATH: str | None = None
+    PORTWATCH_AIS_PUBLICATION_APPROVED: str | None = None
+    PORTWATCH_BIGQUERY_PROJECT: str | None = None
+    PORTWATCH_BIGQUERY_DAILY_BYTE_CAP: str | None = None
+    PORTWATCH_SOURCE_TRIAL_START: str | None = None
+    PORTWATCH_SOURCE_TRIAL_PRODUCTS: str | None = None
     PORTWATCH_AUTH_DB: str | None = None
     PORTWATCH_CHOKEPOINTS_URL: str | None = None
     PORTWATCH_CORS_REGEX: str | None = None
     PORTWATCH_CURRENT_ENVIRONMENT_DIR: str | None = None
+    PORTWATCH_CURRENT_WEATHER_AUTOREFRESH: str | None = None
+    PORTWATCH_DATA_DIR: str | None = None
+    PORTWATCH_CACHE_DIR: str | None = None
+    PORTWATCH_OUTPUTS_DIR: str | None = None
     PORTWATCH_EXPERIMENT_DIR: str | None = None
     PORTWATCH_FLEET_PROVIDER: str | None = None
     PORTWATCH_FREE_SOURCE_DIR: str | None = None
     PORTWATCH_FRESHNESS_SCHEDULER: str | None = None
+    PORTWATCH_REFRESH_CONCURRENCY: str | None = None
+    PORTWATCH_REFRESH_TICK_SECONDS: str | None = None
     PORTWATCH_IDENTITY_MODE: str | None = None
     PORTWATCH_INTELLIGENCE_RECONCILIATION: str | None = None
     PORTWATCH_LICENCE_MODE: str | None = None
@@ -58,6 +69,7 @@ class Settings(BaseSettings):
     PORTWATCH_RESEARCH_SOURCE_PROFILE: str | None = None
     PORTWATCH_SEA_ROUTES: str | None = None
     PORTWATCH_SOURCE: str | None = None
+    PORTWATCH_SOURCE_SNAPSHOT_URL: str | None = Field(default=None, repr=False, exclude=True)
     PORTWATCH_STATE_DIR: str | None = None
     PORTWATCH_VESSELFINDER_ENABLED: str | None = None
     PORTWATCH_WEATHER_FEEDBACK_DB: str | None = None

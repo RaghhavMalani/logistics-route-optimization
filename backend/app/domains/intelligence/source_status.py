@@ -1,0 +1,141 @@
+"""Public source health built from retained evidence and the licence catalogue."""
+
+from datetime import datetime, timedelta
+from typing import Literal
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
+
+from src.portwatch_os.clock import wall_now
+from src.portwatch_os.fabric.licence import ALLOWED
+from src.portwatch_os.fabric.model import deployment_mode
+from src.portwatch_os.fabric.products import ProductCatalogue
+from src.portwatch_os.freshness.source_snapshots import configured_store
+from src.portwatch_os.intelligence import free_sources
+
+router = APIRouter(prefix="/public")
+
+SOURCES = {
+    "aisstream-websocket": "Awaiting retention and display permission. A key alone does not approve reuse; replay remains primary.",
+    "gdelt-bigquery-gkg": "Private discovery trial; requires billing project, credentials and daily scan cap. Article bodies are excluded.",
+    "open-meteo-marine-extended": "Private waves, swell and currents trial. Modelled forecast, not station observations.",
+    "open-meteo-ensemble": "Private ensemble member trial; uncertainty is not connected to decision policy.",
+    "copernicus-marine-forecast": "Awaiting a Toolbox login and a coastal forecast trial.",
+    "incois-osf": "Use the official forecast link. A supported data feed and reuse terms are under review.",
+    "imd-rsmc-cyclone": "Use the official bulletin link. Reproduction requires permission.",
+    "nho-navarea-viii": "Existing retained warning context. Scheduled snapshot trial pending.",
+    "frankfurter-ecb-fx": "Trial only. ECB reference rates are daily.",
+    "gdelt-events": "Existing discovery context. The shorter query window is trial only.",
+    "pib-ports-rss": "Use the official release links. Feed terms and Ministry filtering are under review.",
+    "imf-portwatch-data": "Lagged daily aggregates for Paradip. The latest retained data date sets the displayed age.",
+}
+
+# Enter a freshness budget only after the reviewed trial and publication approval.
+PUBLISHED_MAX_AGE: dict[str, timedelta] = {}
+
+
+class SourceHealth(BaseModel):
+    id: str
+    name: str
+    provider: str
+    status: Literal["live", "stale", "unavailable"]
+    detail: str
+    termsUrl: str | None = None
+    homepage: str | None = None
+    lastSuccess: datetime | None = None
+    observedAt: datetime | None = None
+    successRate7d: float | None = None
+    attempts7d: int = 0
+    medianLagSeconds: float | None = None
+    dataAgeSeconds: float | None = None
+    availableAt: datetime | None = None
+    validThrough: datetime | None = None
+    lastError: str | None = None
+    lastErrorAt: datetime | None = None
+    core: bool = False
+    policySeconds: float | None = None
+    portsCurrent: int | None = None
+    portsTotal: int | None = None
+    circuit: str | None = None
+    trial: dict | None = None
+
+
+class SourceStatus(BaseModel):
+    checkedAt: datetime
+    sources: list[SourceHealth]
+    scheduler: dict = {}
+    degraded: bool = False
+
+
+def _retained_imf(now: datetime) -> dict:
+    try:
+        record = free_sources.public_product("imf", at=now)
+        rows = record["rows"]
+        if not rows:
+            return {}
+        dates = [free_sources.imf_date(row.get("date")) for row in rows]
+        observed = max((day for day in dates if day is not None and day <= now), default=None)
+        last_check = record["lastSuccessfulCheckAt"]
+        return {
+            "status": "live" if observed and record["freshness"] == "CURRENT" else "stale",
+            "lastSuccess": free_sources.instant(last_check) if last_check else None,
+            "observedAt": observed,
+        }
+    except (OSError, ValueError, TypeError, KeyError, OverflowError):
+        return {}
+
+
+@router.get("/sources", response_model=SourceStatus)
+def source_status() -> dict:
+    # wall-clock: provider freshness describes the actual present, including during replay.
+    now = wall_now()
+    catalogue = ProductCatalogue()
+    from src.portwatch_os.freshness.source_trials import configured
+    trial = configured()
+    rows = []
+    for key, detail in SOURCES.items():
+        provider, product = catalogue.product(key)
+        metrics: dict = {"status": "unavailable"}
+        if (key in PUBLISHED_MAX_AGE and product.policy.redistribution == ALLOWED
+                and product.policy.permits(deployment_mode())[0]):
+            try:
+                store = configured_store()
+                if store is not None:
+                    metrics.update(store.health("published", key, now, PUBLISHED_MAX_AGE[key]))
+                else:
+                    detail = "Snapshot storage is unavailable."
+            except (SQLAlchemyError, ValueError):
+                detail = "Snapshot storage is unavailable."
+        elif key == "imf-portwatch-data":
+            metrics.update(_retained_imf(now))
+        if trial and key in trial['products']:
+            try:
+                coverage = {}
+                store = configured_store()
+                if store is not None:
+                    measured = store.health(trial['scope'], key, now, timedelta(hours=6))
+                    metrics.update({k: v for k, v in measured.items() if k != 'status'})
+                    sample = store.latest(trial['scope'], key)
+                    if sample:
+                        coverage = {'coverageKeys': len(sample.payload.get('coverage', {})),
+                            'precision': sample.payload.get('precision'),
+                            'ports': {code: {'error': row.get('error'), 'finiteValues': row.get('finiteValues', {})}
+                                      for code, row in sample.payload.get('ports', {}).items()}}
+                metrics['trial'] = {'startedAt': trial['start'], 'endsAt': trial['end'],
+                    'phase': 'in progress' if now < trial['end'] else 'awaiting review', 'decision': 'pending', **coverage}
+            except (SQLAlchemyError, ValueError):
+                detail = 'Private trial storage is unavailable; candidate data is unpublished.'
+        observed = metrics.get("observedAt")
+        rows.append(SourceHealth(
+            id=key, name=product.name, provider=provider.name, detail=detail,
+            termsUrl=product.policy.evidence.terms_url, homepage=provider.homepage,
+            dataAgeSeconds=(now - observed).total_seconds() if observed else None,
+            **metrics,
+        ))
+    from src.portwatch_os.freshness.truth import core_sources
+    core, scheduler = core_sources(now)
+    ids = {row['id'] for row in core}
+    rows = [row for row in rows if row.id not in ids] + [SourceHealth(**row) for row in core]
+    return SourceStatus(checkedAt=now, sources=rows, scheduler=scheduler,
+                        degraded=bool(scheduler.get('journalError')) or any(row['status'] != 'live' for row in core)).model_dump()

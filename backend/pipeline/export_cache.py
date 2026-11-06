@@ -8,8 +8,9 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 
-FORECAST_PATH = ROOT / "outputs" / "forecasts" / "tft_forecast.csv"
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import FORECASTS_DIR
+FORECAST_PATH = FORECASTS_DIR / "tft_forecast.csv"
+from src.utils.config import CACHE_DIR
 
 FORECAST_CACHE = CACHE_DIR / "forecast_by_port.json"
 PIPELINE_CACHE = CACHE_DIR / "model_pipeline.json"
@@ -276,8 +277,10 @@ def build_decision_by_port(df: pd.DataFrame) -> dict:
 
 def write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    temporary = path.with_suffix('.json.tmp')
+    with open(temporary, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
+    temporary.replace(path)
     print(f"Wrote {path}")
 
 

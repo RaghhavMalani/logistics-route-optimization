@@ -2485,6 +2485,269 @@
         "title": "Simulation",
         "type": "object"
       },
+      "SourceHealth": {
+        "properties": {
+          "attempts7d": {
+            "default": 0,
+            "title": "Attempts7D",
+            "type": "integer"
+          },
+          "availableAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availableat"
+          },
+          "circuit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circuit"
+          },
+          "core": {
+            "default": false,
+            "title": "Core",
+            "type": "boolean"
+          },
+          "dataAgeSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataageseconds"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "homepage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "lastErrorAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterrorat"
+          },
+          "lastSuccess": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsuccess"
+          },
+          "medianLagSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medianlagseconds"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observedat"
+          },
+          "policySeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policyseconds"
+          },
+          "portsCurrent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portscurrent"
+          },
+          "portsTotal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portstotal"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "live",
+              "stale",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "successRate7d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successrate7D"
+          },
+          "termsUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Termsurl"
+          },
+          "trial": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial"
+          },
+          "validThrough": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validthrough"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "status",
+          "detail"
+        ],
+        "title": "SourceHealth",
+        "type": "object"
+      },
+      "SourceStatus": {
+        "properties": {
+          "checkedAt": {
+            "format": "date-time",
+            "title": "Checkedat",
+            "type": "string"
+          },
+          "degraded": {
+            "default": false,
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "scheduler": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Scheduler",
+            "type": "object"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceHealth"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "checkedAt",
+          "sources"
+        ],
+        "title": "SourceStatus",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -23675,6 +23938,24 @@
           }
         },
         "summary": "Scenario"
+      }
+    },
+    "/api/public/sources": {
+      "get": {
+        "operationId": "source_status_api_public_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Source Status"
       }
     },
     "/api/public/weather-feedback": {

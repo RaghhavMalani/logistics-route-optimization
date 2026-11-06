@@ -20,6 +20,7 @@ const BOOT_MS = 10_000;
 let navigation: { pathname: string; until: number } | undefined;
 const screenPaths = new Set([
   "/health",
+  "/public/sources",
   "/fleet",
   "/news",
   "/ports",

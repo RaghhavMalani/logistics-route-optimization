@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-11-06T12:00:00Z",
+  "degraded": true,
+  "scheduler": {"running": true, "singleOwner": true, "journalError": null},
+  "sources": [
+    {"id":"imf-portwatch-data","name":"Port activity","provider":"IMF PortWatch","status":"stale","detail":"Latest retained observation; receipt is not observation time.","observedAt":"2026-08-28T00:00:00Z","dataAgeSeconds":6048000,"core":true,"policySeconds":259200,"attempts7d":0,"successRate7d":null,"lastSuccess":null,"lastError":null},
+    {"id":"congestion-forecast","name":"Congestion forecast","provider":"PortWatch model","status":"stale","detail":"Expired historical horizon.","observedAt":"2026-08-28T00:00:00Z","validThrough":"2026-09-18T00:00:00Z","dataAgeSeconds":6048000,"core":true,"policySeconds":259200,"attempts7d":0,"successRate7d":null},
+    {"id":"open-meteo-surface","name":"Port weather","provider":"Open-Meteo","status":"stale","detail":"Retained forecast; not a current observation.","availableAt":"2026-08-28T00:00:00Z","dataAgeSeconds":6048000,"core":true,"policySeconds":3600,"portsCurrent":0,"portsTotal":13,"attempts7d":0,"successRate7d":null},
+    {"id":"open-meteo-marine","name":"Marine forecast","provider":"Open-Meteo","status":"unavailable","detail":"No accepted snapshot.","dataAgeSeconds":null,"core":true,"policySeconds":3600,"portsCurrent":0,"portsTotal":13,"attempts7d":0,"successRate7d":null},
+    {"id":"aisstream-websocket","name":"AISStream","provider":"AISStream","status":"unavailable","detail":"Trial approval required; replay remains primary.","dataAgeSeconds":null,"attempts7d":0,"successRate7d":null}
+  ]
+}

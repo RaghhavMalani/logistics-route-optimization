@@ -33,14 +33,15 @@ import pandas as pd
 from src.utils import port_registry
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPERT_DIR = ROOT / "outputs" / "expert_features"
-REGIME_PATH = ROOT / "outputs" / "regimes" / "regimes.csv"
-FORECAST_DIR = ROOT / "outputs" / "forecasts"
+from src.utils.config import EXPERT_FEATURES_DIR, REGIMES_DIR, FORECASTS_DIR
+EXPERT_DIR = EXPERT_FEATURES_DIR
+REGIME_PATH = REGIMES_DIR / "regimes.csv"
+FORECAST_DIR = FORECASTS_DIR
 FORECAST_PATH = FORECAST_DIR / "forecast_table.csv"
 DECISION_PATH = FORECAST_DIR / "decisions.csv"
 ROUTE_PATH = FORECAST_DIR / "route_recommendations.csv"
 PANEL_PATH = EXPERT_DIR / "merged_panel.csv"
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import CACHE_DIR
 
 #: Forecast origins older than this are surfaced as stale in the UI.
 FRESHNESS_BUDGET_HOURS = 36.0

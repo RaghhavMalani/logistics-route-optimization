@@ -28,13 +28,13 @@ import { ROLE_PROFILE, ROLES, type Role } from "@/auth/types";
 import { TRAFFIC_LABEL, TRAFFIC_TONE } from "@/components/fabric/signal-format";
 import {
   Pill,
-  ProvenanceTag,
   formatAge,
-  formatUtc,
 } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
 import { API_BASE } from "@/services/api";
+import { LivePulse } from "./LivePulse";
+import { DatedSource } from "./SourceHealth";
 import { prefetchHome } from "@/services/home-screen";
 import { useWorldClock } from "@/services/lenses";
 import { usePublicAis } from "@/services/public-ais";
@@ -408,15 +408,6 @@ function StatusLine() {
     serverTraffic?.mode === "LIVE_AIS" || serverTraffic?.mode === "AIS_STALE",
   );
 
-  const twinTone =
-    data?.intelligence === "live"
-      ? "ok"
-      : data?.intelligence === "cached"
-        ? "info"
-        : data?.intelligence === "stale"
-          ? "warn"
-          : "crit";
-
   const localTone =
     source.info.kind === "LIVE_AIS"
       ? "ok"
@@ -514,16 +505,7 @@ function StatusLine() {
         {health.isError ? (
           <Pill tone="crit">API down</Pill>
         ) : (
-          <>
-            <Pill tone={twinTone}>
-              {(data?.intelligence ?? "…").replace("_", " ")}
-            </Pill>
-            <ProvenanceTag
-              status={data?.forecastOriginStatus ?? null}
-              ageHours={data?.forecastOriginAgeHours ?? null}
-              detail={`Forecast origin ${formatUtc(data?.forecastOrigin ?? null)}`}
-            />
-          </>
+          <DatedSource id="imf-portwatch-data" />
         )}
       </span>
 
@@ -635,7 +617,7 @@ function Chrome({ children }: { children: ReactNode }) {
           <ProfileMenu />
         </div>
       </header>
-
+      <LivePulse />
       <div className="flex min-h-0 flex-1">
         <SideNav
           collapsed={collapsed}
