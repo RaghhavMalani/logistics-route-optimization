@@ -1,3 +1,4 @@
+import { DataNowSources } from "@/components/app/SourceHealth";
 /**
  * The vessel operator's bridge view.
  *
@@ -224,7 +225,7 @@ function VesselBridge() {
               data-map-camera-inset="right"
               className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2"
             >
-              <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
+              <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
                 {workspace.frame.forecast
                   ? "provider forecast"
@@ -233,7 +234,8 @@ function VesselBridge() {
                     : "unavailable"}{" "}
                 · Port activity {activity ?? "unavailable"} · Traffic{" "}
                 {trafficSource.info.label}
-              </p>
+                <DataNowSources />
+              </div>
               <WorkspaceHandoffCard view="vessel" />
               {selectedFix?.owned ? (
                 <section

@@ -56,6 +56,15 @@ def instant(value):
     return result.astimezone(timezone.utc)
 
 
+def imf_date(value):
+    """The source date of a daily IMF aggregate, in UTC."""
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+    if isinstance(value, str):
+        return instant(value[:10] + "T00:00:00Z")
+    return None
+
+
 def _load(path):
     try: return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError): return None
@@ -178,11 +187,12 @@ def public_product(key,at=None):
     age=None
     if key.startswith('fred_') and rows: age=(at-instant(rows[-1]['date']+'T00:00:00Z')).total_seconds()
     elif key=='imf' and rows:
-        value=rows[0].get('date')
-        if isinstance(value,(int,float)): age=at.timestamp()-value/1000
-        elif isinstance(value,str):
-            try: age=(at-instant(value[:10]+'T00:00:00Z')).total_seconds()
-            except ValueError: pass
+        try:
+            observation = imf_date(rows[0].get('date'))
+            if observation:
+                age = (at - observation).total_seconds()
+        except (ValueError, OverflowError, OSError):
+            pass
     elif key=='usgs' and rows: age=at.timestamp()-max(r.get('time',0) or 0 for r in rows)/1000
     elif key=='gdelt' and rows:
         dates=[]

@@ -195,6 +195,111 @@ class ProductResolution:
 # --------------------------------------------------------------------------
 
 _REVIEWED = "2026-09-12"
+_INGEST_REVIEWED = "2026-11-04"
+
+
+def _review(terms, checked, finding, *, commercial=REQUIRES_REVIEW,
+            government=REQUIRES_REVIEW, redistribution=REQUIRES_REVIEW):
+    return LicencePolicy(
+        commercial_use=commercial,
+        government_use=government,
+        redistribution=redistribution,
+        attribution_required=True,
+        evidence=TermsEvidence(
+            checked_urls=((terms,) if terms else ()) + tuple(checked),
+            reviewed_at=_INGEST_REVIEWED,
+            terms_url=terms,
+            finding=finding,
+        ),
+    )
+
+
+def _ingest_candidates() -> list[Provider]:
+    return [
+        Provider("copernicus-marine", "Copernicus Marine", homepage="https://data.marine.copernicus.eu/", products=(
+            ProviderProduct(
+                "copernicus-marine-forecast", "Global Ocean wave and current forecasts", (MARINE,),
+                _review(
+                    "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
+                    (
+                        "https://help.marine.copernicus.eu/en/articles/4220332-how-to-register-for-copernicus-marine-service",
+                        "https://help.marine.copernicus.eu/en/articles/4444611-citing-copernicus-marine-products-and-services",
+                        "https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_WAV_001_027/description",
+                        "https://data.marine.copernicus.eu/product/GLOBAL_ANALYSISFORECAST_PHY_001_024/description",
+                    ),
+                    "Provider guidance permits commercial and other uses with credit and documents service redistribution with attribution and product DOIs. The canonical agreement returned HTTP 403 during this review. Confirm its current version before public redistribution.",
+                    commercial=ALLOWED, government=ALLOWED,
+                ),
+                credential_type=API_KEY, synthetic=True, coverage="Global; trial target Arabian Sea and Bay of Bengal",
+                notes="Toolbox account or supported sign-in required. Waves DOI 10.48670/moi-00017 and physics DOI 10.48670/moi-00016. Use forecast issue time for lag when available.",
+            ),
+        )),
+        Provider("incois", "INCOIS", homepage="https://incois.gov.in/", products=(
+            ProviderProduct(
+                "incois-osf", "Ocean State Forecast", (MARINE,),
+                _review(
+                    "https://incois.gov.in/site/disclaimer.jsp",
+                    ("https://incois.gov.in/oceanservices/osfforecast.jsp",),
+                    'Commercial reproduction needs competent-authority permission. The disclaimer says it "is not permitted" without permission. The map shows issue dates and modelled layers. A supported machine-readable OSF feed and its retention rights remain unverified.',
+                    commercial=PROHIBITED,
+                ),
+                synthetic=True, coverage="Indian seas and coast",
+                notes="Link to the official forecast pending a qualified feed and reuse permission.",
+            ),
+        )),
+        Provider("imd-rsmc", "IMD RSMC New Delhi", homepage="https://rsmcnewdelhi.imd.gov.in/", products=(
+            ProviderProduct(
+                "imd-rsmc-cyclone", "Tropical cyclone bulletins", (DISASTER,),
+                _review(
+                    "https://rsmcnewdelhi.imd.gov.in/copyright-policy.php",
+                    ("https://rsmcnewdelhi.imd.gov.in/images/pdf/faq.pdf",),
+                    "The RSMC requires permission for partial or full reproduction and acknowledgement when cited. Link to the bulletin and seek written permission before retaining or republishing bulletin content.",
+                ),
+                coverage="North Indian Ocean", latency_class=HOURLY,
+            ),
+        )),
+        Provider("nho", "National Hydrographic Office", homepage="https://hydrobharat.gov.in/", products=(
+            ProviderProduct(
+                "nho-navarea-viii", "NAVAREA VIII in-force warnings", (),
+                _review(
+                    "https://hydrobharat.gov.in/wp-content/uploads/2019/12/23-of-2019.pdf",
+                    ("https://hydrobharat.gov.in/navarea-warnings/",
+                     "https://hydrobharat.gov.in/documents/d/guest/special-edition-final-26-dec-24"),
+                    "The Indian Notices to Mariners edition permits copying and prohibits commercial sale of copies. The live In-Force warning page and special edition describe the product. Confirm the permission for the standalone feed before redistributing full text.",
+                ),
+                status=AVAILABLE, latency_class=HOURLY, coverage="NAVAREA VIII",
+                notes="Existing retained NHO warning context. Use the product issue date and explicit cancellation time rather than inferring expiry from the warning series year.",
+            ),
+        )),
+        Provider("frankfurter", "Frankfurter / European Central Bank", homepage="https://frankfurter.dev/", products=(
+            ProviderProduct(
+                "frankfurter-ecb-fx", "ECB reference rates via Frankfurter", (),
+                _review(
+                    "https://frankfurter.dev/license/",
+                    ("https://www.ecb.europa.eu/services/using-our-site/disclaimer/html/index.en.html",
+                     "https://www.ecb.europa.eu/stats/ecb_statistics/governance_and_quality_framework/html/usage_policy.en.html"),
+                    "Frankfurter defers to upstream data terms. ECB permits accurate reuse with attribution, requires disclosure of alterations and adds conditions for sold publications. Trial only the unmodified ECB EUR/INR and EUR/USD reference rates, with their original dates.",
+                    commercial=ALLOWED, government=ALLOWED, redistribution=ALLOWED,
+                ),
+                endpoint="https://api.frankfurter.dev/v2/providers/ecb/rates",
+                coverage="ECB reference rates; EUR base",
+                notes="Daily reference observations. Any INR/USD cross is derived and separate from FRED DEXINUS. This feed does not carry Brent.",
+            ),
+        )),
+        Provider("pib", "Press Information Bureau / Ministry of Ports, Shipping and Waterways", homepage="https://www.pib.gov.in/", products=(
+            ProviderProduct(
+                "pib-ports-rss", "Official port press-release links via PIB RSS", (EVENTS,),
+                _review(
+                    "https://shipmin.gov.in/en/footer/copyrightpolicy",
+                    ("https://www.pib.gov.in/ViewRss.aspx?lang=1&reg=1",
+                     "https://accreditation.pib.gov.in/Documents/CopyrightPolicy.pdf"),
+                    "The Ministry permits accurate attributed reproduction of its own website material and excludes third-party material. PIB lists a government-wide RSS feed. The separate accreditation copyright policy does not establish a licence for the press-release feed. Scope the trial to Ministry links and issue dates pending feed-specific terms.",
+                ),
+                latency_class=HOURLY, coverage="Indian port notices issued by the Ministry",
+                endpoint="https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1",
+            ),
+        )),
+    ]
 
 
 def default_catalogue() -> List[Provider]:
@@ -292,9 +397,6 @@ def default_catalogue() -> List[Provider]:
                     name="AISStream websocket",
                     capabilities=(AIS,),
                     policy=LicencePolicy(
-                        # Three pages checked. None carries terms for the data
-                        # service. The previous registry said "non-commercial";
-                        # that was an inference and it is withdrawn.
                         commercial_use=REQUIRES_REVIEW,
                         government_use=REQUIRES_REVIEW,
                         redistribution=REQUIRES_REVIEW,
@@ -304,8 +406,9 @@ def default_catalogue() -> List[Provider]:
                                 "https://aisstream.io/",
                                 "https://aisstream.io/documentation",
                                 "https://github.com/aisstream/aisstream",
+                                "https://github.com/aisstream/aisstream/issues/24",
                             ),
-                            reviewed_at=_REVIEWED,
+                            reviewed_at=_INGEST_REVIEWED,
                             terms_url=None,
                             finding=(
                                 "No terms of use, data licence or acceptable-use "
@@ -313,14 +416,13 @@ def default_catalogue() -> List[Provider]:
                                 "or the repository README. The service describes "
                                 "itself as \"a free api to stream global AIS data via "
                                 "websockets\". A code licence, where one exists, does "
-                                "not cover the data. Commercial standing is therefore "
-                                "unverified, not prohibited."
+                                "not cover the data. The public-display question in issue 24 "
+                                "does not establish permission for retention or public display."
                             ),
                         ),
                         summary=(
-                            "Terms not published. Usable for research and demo; a "
-                            "paying deployment needs written confirmation from the "
-                            "operator before it may rely on this."
+                            "The service documents authenticated access. Retention for "
+                            "the new trial and any public display need written confirmation."
                         ),
                     ),
                     status=CONFIGURABLE,
@@ -492,9 +594,11 @@ def default_catalogue() -> List[Provider]:
                     product_id="gdelt-events",
                     name="GDELT event feed",
                     capabilities=(EVENTS,),
-                    policy=_open(
+                    policy=_review(
                         "https://www.gdeltproject.org/about.html",
-                        "Open data project; datasets are freely available with attribution.",
+                        (),
+                        "The project's terms permit commercial, academic and governmental use and redistribution of GDELT data with a citation and link. Linked publisher content remains subject to publisher rights.",
+                        commercial=ALLOWED, government=ALLOWED, redistribution=ALLOWED,
                     ),
                     status=AVAILABLE,
                     latency_class=NEAR_REALTIME,
@@ -568,7 +672,12 @@ def default_catalogue() -> List[Provider]:
                     product_id="imf-portwatch-data",
                     name="IMF PortWatch port statistics",
                     capabilities=(PORT_STATS,),
-                    policy=_open("https://portwatch.imf.org/", "Open data with attribution."),
+                    policy=_review(
+                        "https://www.imf.org/en/About/copyright-and-terms",
+                        ("https://portwatch.imf.org/",
+                         "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/ArcGIS/rest/services/Daily_Ports_Data/FeatureServer/0"),
+                        "IMF special statistical data terms permit accurate attributed reuse of qualifying IMF Data. Commercial reuse calls for a permission request. Confirm the Daily Ports layer is in scope, including its upstream rights and automation limits, before enrolling it in the new worker.",
+                    ),
                     status=AVAILABLE,
                     latency_class=DAILY,
                     coverage="global ports",
@@ -630,7 +739,7 @@ def default_catalogue() -> List[Provider]:
                 ),
             ),
         ),
-    ]
+    ] + _ingest_candidates()
 
 
 def _open(url: str, finding: str) -> LicencePolicy:

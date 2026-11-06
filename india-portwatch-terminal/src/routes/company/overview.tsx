@@ -1,3 +1,4 @@
+import { DataNowSources } from "@/components/app/SourceHealth";
 /**
  * Fleet Command.
  *
@@ -413,7 +414,7 @@ function FleetCommand() {
                     Global Eye
                   </Link>
                 </div>
-                <p className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
+                <div className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
                   <strong>Data now</strong> · Weather{" "}
                   {workspace.frame.forecast
                     ? "current provider forecast"
@@ -423,7 +424,8 @@ function FleetCommand() {
                   · Port activity {activityStatus ?? "status unavailable"} ·
                   Traffic {trafficSource.info.label} · Congestion{" "}
                   {congestionStatus} ({forecastOrigin})
-                </p>
+                  <DataNowSources />
+                </div>
               </div>
               {session?.mode === "demo" ? (
                 <div

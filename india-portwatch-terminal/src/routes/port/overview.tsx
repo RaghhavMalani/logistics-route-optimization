@@ -1,3 +1,4 @@
+import { DataNowSources } from "@/components/app/SourceHealth";
 /**
  * The port controller's cockpit.
  *
@@ -218,7 +219,7 @@ function PortCockpitScreen() {
               className="pointer-events-none absolute right-2.5 top-2.5 z-20 flex w-[320px] flex-col gap-2"
               style={{ bottom: bottomStack + 8 }}
             >
-              <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
+              <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
                 {workspace.frame.forecast
                   ? "current provider forecast"
@@ -235,7 +236,8 @@ function PortCockpitScreen() {
                 {health?.forecastOrigin
                   ? ` (origin ${health.forecastOrigin.slice(0, 10)})`
                   : ""}
-              </p>
+                <DataNowSources />
+              </div>
               <PortHomeHandoffs portCode={port.code} />
               {selectedFix ? (
                 <VesselInspector

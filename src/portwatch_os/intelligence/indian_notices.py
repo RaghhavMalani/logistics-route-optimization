@@ -22,7 +22,7 @@ from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.intelligence.timestamps import instant
 
 FAMILY = "NHO_NAVAREA_VIII"
-PARSER = "nho-navarea-metadata-v1"
+PARSER = "nho-navarea-metadata-v2"
 CATALOGUE = "https://www.hydrobharat.gov.in/hi/web/guest/navarea-warnings"
 HOSTS = {"www.hydrobharat.gov.in", "hydrobharat.gov.in"}
 TTL = timedelta(hours=6)
@@ -93,6 +93,19 @@ def discover_links(raw):
     return result
 
 
+def cancellation_at(wording):
+    matches = re.findall(
+        r"\bCANCEL\s+THIS\s+(?:MSG|MESSAGE|WARNING|NOTICE)\s+(\d{6})\s+(?:UTC|Z)\s+([A-Z]{3})\s+(\d{2})\b",
+        wording or "", re.I,
+    )
+    if len(set(matches)) != 1:
+        return None
+    try:
+        return datetime.strptime(" ".join(matches[0]), "%d%H%M %b %y").replace(tzinfo=timezone.utc).isoformat()
+    except ValueError:
+        return None
+
+
 def parse_pages(pages):
     """Preserve issuer identities/DTGs/pages; only one named aid has a reviewed mapping."""
     full = "\n".join(pages)
@@ -138,6 +151,7 @@ def parse_pages(pages):
             "portCodes": ["INPRT"] if mapped else [], "area": "Paradip lighthouse DGPS station" if mapped else "NAVAREA VIII; precise operational mapping unreviewed",
             "assetMappingStatus": "REVIEWED_NAMED_AID" if mapped else "UNMAPPED", "coordinates": point,
             "providerIssueAt": issued, "issuerDtgRaw": raw_dtg, "publishedAt": None, "publicationPrecision": "ISSUER_DTG_MINUTE_UTC; publication instant unavailable" if issued else "UNKNOWN",
+            "providerCancelAt": cancellation_at(wording),
             "productAsOfDate": product_date, "productPrecision": "DATE_ONLY", "documentPages": list(range(first_page, last_page+1)),
             "status": "SOURCE_NOTICE_CANCELLED" if cancelled else "REVIEW_CONTEXT", "windows": [], "calculationSupported": False,
             "extractionStatus": "CONTEXT_METADATA" if mapped and issued and point else "UNSUPPORTED", "extractionVersion": PARSER,
@@ -290,7 +304,10 @@ def public_notice(row, *, as_of, source_state=None):
     age = (now.date()-datetime.fromisoformat(day).date()).days if day else None
     if source_state == "UNAVAILABLE": status = "UNAVAILABLE"
     if row.get("checkedAt") and now > instant(row["checkedAt"])+TTL and status == "CURRENT_PRODUCT_DATE": status = "STALE"
-    body.update(sourceStatus=status, productAgeDays=age, calculationSupported=False,
+    cancel_at = row.get("providerCancelAt") or cancellation_at(row.get("sourceText"))
+    if cancel_at and now >= instant(cancel_at):
+        status = "EXPIRED"
+    body.update(sourceStatus=status, productAgeDays=age, calculationSupported=False, providerCancelAt=cancel_at,
         calculationReason="This reviewed family supplies navigation-warning context only; no closure, access window, delay, fuel or cost model is qualified.",
         originalAvailability="RETAINED_REFERENCE_ONLY", originalDownloadAvailable=False)
     return body

@@ -2485,6 +2485,150 @@
         "title": "Simulation",
         "type": "object"
       },
+      "SourceHealth": {
+        "properties": {
+          "attempts7d": {
+            "default": 0,
+            "title": "Attempts7D",
+            "type": "integer"
+          },
+          "dataAgeSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataageseconds"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "homepage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastSuccess": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsuccess"
+          },
+          "medianLagSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medianlagseconds"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observedat"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "live",
+              "stale",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "successRate7d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successrate7D"
+          },
+          "termsUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Termsurl"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "status",
+          "detail"
+        ],
+        "title": "SourceHealth",
+        "type": "object"
+      },
+      "SourceStatus": {
+        "properties": {
+          "checkedAt": {
+            "format": "date-time",
+            "title": "Checkedat",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceHealth"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "checkedAt",
+          "sources"
+        ],
+        "title": "SourceStatus",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -23675,6 +23819,24 @@
           }
         },
         "summary": "Scenario"
+      }
+    },
+    "/api/public/sources": {
+      "get": {
+        "operationId": "source_status_api_public_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Source Status"
       }
     },
     "/api/public/weather-feedback": {
