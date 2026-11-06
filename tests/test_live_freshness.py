@@ -97,3 +97,17 @@ def test_current_weather_does_not_need_research_profile(monkeypatch):
     assert current_weather_eligibility() is None
     monkeypatch.setenv('PORTWATCH_LICENCE_MODE', 'COMMERCIAL')
     assert 'not permitted' in current_weather_eligibility()
+
+
+def test_last_error_survives_the_seven_day_rate_window(tmp_path):
+    from src.portwatch_os.freshness.job import RefreshResult
+    journal = FreshnessJournal(tmp_path / 'source.sqlite')
+    failed = RefreshResult('source', False, NOW, NOW, 1, 'test', error='TimeoutError: unavailable')
+    journal.save(failed, NOW + timedelta(minutes=1), 1)
+    later = NOW + timedelta(days=8)
+    success = RefreshResult('source', True, later, later, 1, 'test', observed_at=later)
+    journal.save(success, None, 0)
+    metrics = journal.metrics('source', later)
+    assert metrics['attempts7d'] == 1 and metrics['successRate7d'] == 1
+    assert metrics['lastError'] == 'TimeoutError: unavailable'
+    assert metrics['lastErrorAt'] == NOW.isoformat(timespec='seconds')
