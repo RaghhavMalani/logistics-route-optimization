@@ -487,7 +487,12 @@ def get_coordinator() -> RefreshCoordinator:
             from src.utils.config import STATE_DIR
             from .journal import FreshnessJournal
             from .ownership import OwnerLock
-            _COORDINATOR = RefreshCoordinator(journal=FreshnessJournal(STATE_DIR / 'live/freshness.sqlite3'),
+            from src.utils.settings import get_settings
+            settings = get_settings()
+            _COORDINATOR = RefreshCoordinator(
+                                              max_concurrent=max(1, min(8, int(settings.PORTWATCH_REFRESH_CONCURRENCY or 2))),
+                                              tick_seconds=max(1, min(300, float(settings.PORTWATCH_REFRESH_TICK_SECONDS or 30))),
+                                              journal=FreshnessJournal(STATE_DIR / 'live/freshness.sqlite3'),
                                               ownership=OwnerLock(STATE_DIR / 'live/scheduler.lock'))
         return _COORDINATOR
 

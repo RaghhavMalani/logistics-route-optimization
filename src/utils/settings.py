@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     PORTWATCH_FLEET_PROVIDER: str | None = None
     PORTWATCH_FREE_SOURCE_DIR: str | None = None
     PORTWATCH_FRESHNESS_SCHEDULER: str | None = None
+    PORTWATCH_REFRESH_CONCURRENCY: str | None = None
+    PORTWATCH_REFRESH_TICK_SECONDS: str | None = None
     PORTWATCH_IDENTITY_MODE: str | None = None
     PORTWATCH_INTELLIGENCE_RECONCILIATION: str | None = None
     PORTWATCH_LICENCE_MODE: str | None = None

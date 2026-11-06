@@ -51,7 +51,7 @@ def jobs():
                 row=environment.read(kind,port)
                 return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
             def run(context,port=port,kind=kind):
-                row=environment.refresh(kind,port,force=True)
+                row=environment.refresh(kind,port,force=True,strict=True)
                 if row['status']!='CURRENT': raise RuntimeError(row.get('reason','No current qualified forecast'))
                 environment.retain_feedback(port)
                 return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
@@ -64,7 +64,7 @@ def jobs():
         row=environment.read('hazards',port_registry.PORTS[0])
         return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
     def hazard_run(context):
-        row=environment.refresh('hazards',port_registry.PORTS[0],force=True)
+        row=environment.refresh('hazards',port_registry.PORTS[0],force=True,strict=True)
         if row['status']!='CURRENT': raise RuntimeError(row.get('reason','No qualified hazard response'))
         return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
     result.append(RefreshJob(policy=FreshnessPolicy(artifact='current_gdacs',label='GDACS regional context',provider='GDACS',

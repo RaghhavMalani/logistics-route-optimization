@@ -111,3 +111,20 @@ def test_last_error_survives_the_seven_day_rate_window(tmp_path):
     assert metrics['attempts7d'] == 1 and metrics['successRate7d'] == 1
     assert metrics['lastError'] == 'TimeoutError: unavailable'
     assert metrics['lastErrorAt'] == NOW.isoformat(timespec='seconds')
+
+
+def test_worker_sees_weather_transport_error_and_retains_snapshot(tmp_path, monkeypatch):
+    import requests
+    import pytest
+    from src.portwatch_os.intelligence import current_environment as weather
+    from src.utils import port_registry
+    path = tmp_path / 'surface-INNSA.json'
+    path.write_text('retained original')
+    monkeypatch.setattr(weather, 'ROOT', tmp_path)
+    monkeypatch.setattr(weather, 'read', lambda *a, **kw: {'status': 'STALE', 'availableAt': NOW.isoformat(), 'rows': []})
+    def offline(*args, **kwargs):
+        raise requests.Timeout('provider egress timed out')
+    monkeypatch.setattr(weather.requests, 'get', offline)
+    with pytest.raises(requests.Timeout, match='egress timed out'):
+        weather.refresh('surface', port_registry.PORTS[0], force=True, strict=True)
+    assert path.read_text() == 'retained original'

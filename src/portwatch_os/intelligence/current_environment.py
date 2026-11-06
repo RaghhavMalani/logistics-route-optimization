@@ -112,7 +112,7 @@ def _hazards(text, now):
     return list(rows.values())
 
 
-def refresh(kind, port, *, force=False):
+def refresh(kind, port, *, force=False, strict=False):
     """Fixed providers only, bounded calls, retain old timestamps on failure."""
     with LOCK:
         previous = read(kind, port)
@@ -163,6 +163,8 @@ def refresh(kind, port, *, force=False):
             temp.write_text(json.dumps(snapshot), encoding="utf-8"); temp.replace(path)
         return dated(snapshot)
     except (requests.RequestException, ValueError, KeyError, TypeError, ET.ParseError):
+        if strict:
+            raise
         return {**previous, "status": "STALE" if previous.get("availableAt") else "UNAVAILABLE",
                 "reason": "Provider refresh failed; previous receipt time retained."}
 
