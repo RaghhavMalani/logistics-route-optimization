@@ -15,7 +15,7 @@ from typing import Any
 from src.portwatch_os.clock import wall_now
 
 ROOT = Path(__file__).resolve().parents[3]
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import CACHE_DIR
 
 PORT_STATE_CACHE = CACHE_DIR / "port_state.json"
 FORECAST_CACHE = CACHE_DIR / "forecast_by_port.json"

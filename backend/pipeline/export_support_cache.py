@@ -25,7 +25,7 @@ from src.utils import port_registry
 ROOT = Path(__file__).resolve().parents[2]
 EXPERT_DIR = ROOT / "outputs" / "expert_features"
 FORECAST_DIR = ROOT / "outputs" / "forecasts"
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import CACHE_DIR
 
 OBSERVATIONS_PATH = EXPERT_DIR / "weather_observations.csv"
 WEATHER_FEATURES_PATH = EXPERT_DIR / "weather_features.csv"

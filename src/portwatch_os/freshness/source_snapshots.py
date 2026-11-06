@@ -77,7 +77,19 @@ class SnapshotStore:
     def claim(self, scope: str, product: str) -> Iterator[bool]:
         """Serialize collectors for a product across worker replicas on Postgres."""
         if self.engine.dialect.name != "postgresql":
-            yield True  # Local SQLite is intended for one worker.
+            import hashlib
+            from pathlib import Path
+            from .ownership import OwnerLock
+            database = self.engine.url.database
+            if database in (None, '', ':memory:'):
+                raise ValueError('Worker claims require a durable snapshot database')
+            name = hashlib.sha256((scope + ':' + product).encode()).hexdigest()
+            lock = OwnerLock(Path(database).parent / (Path(database).name + '.locks') / name)
+            acquired = lock.acquire()
+            try:
+                yield acquired
+            finally:
+                lock.release()
             return
         key = {"scope": scope, "product": product}
         with self.engine.connect() as conn:

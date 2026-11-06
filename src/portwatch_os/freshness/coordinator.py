@@ -33,6 +33,7 @@ from typing import Any, Callable, Dict, List, Optional
 from src.portwatch_os import telemetry
 from src.portwatch_os.clock import wall_now
 from src.portwatch_os.freshness.job import JobOutcome, RefreshContext, RefreshJob, RefreshResult
+from src.portwatch_os.freshness.journal import safe_error
 from src.portwatch_os.freshness.policy import (
     DISABLED,
     DUE,
@@ -90,7 +91,7 @@ class JobRecord:
 class RefreshCoordinator:
     """Keeps every registered artifact within its policy. One per process."""
 
-    def __init__(self, *, tick_seconds: float = 30.0, max_concurrent: int = 2) -> None:
+    def __init__(self, *, tick_seconds: float = 30.0, max_concurrent: int = 2, journal=None, ownership=None) -> None:
         self._records: Dict[str, JobRecord] = {}
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -98,6 +99,11 @@ class RefreshCoordinator:
         self.tick_seconds = tick_seconds
         self.max_concurrent = max_concurrent
         self.ticks = 0
+        self.journal = journal
+        self.ownership = ownership
+        self.journal_error = None
+        self._cursor = 0
+        self._queued = set()
 
     # -- registration ----------------------------------------------------
     def register(self, job: RefreshJob) -> None:
@@ -105,6 +111,17 @@ class RefreshCoordinator:
             if job.artifact in self._records:
                 raise ValueError(f"artifact {job.artifact} is already registered")
             self._records[job.artifact] = JobRecord(job=job)
+            if self.journal is not None:
+                from .journal import result_from_dict
+                state, history = self.journal.load(job.artifact)
+                record = self._records[job.artifact]
+                record.history = [result_from_dict(value) for value in history]
+                record.last_result = record.history[-1] if history else None
+                if state:
+                    import json
+                    record.last_good = result_from_dict(json.loads(state[0])) if state[0] else None
+                    record.next_attempt_at = datetime.fromisoformat(state[1]) if state[1] else None
+                    record.attempts_this_cycle = state[2]
 
     def artifacts(self) -> List[str]:
         with self._lock:
@@ -156,9 +173,9 @@ class RefreshCoordinator:
                 if record.next_attempt_at is not None and record.next_attempt_at > moment:
                     continue
                 state = self.artifact_state(artifact, now=moment)
-                if state in (FRESH, NOT_APPLICABLE, SIMULATED):
+                if state in (FRESH, NOT_APPLICABLE, SIMULATED) and artifact not in self._queued:
                     continue
-                if state in (MISSING, DUE, EXPIRED, STALE):
+                if state in (MISSING, DUE, EXPIRED, STALE) or artifact in self._queued:
                     failed_out = (
                         record.last_result is not None and not record.last_result.ok
                         and not record.last_result.skipped
@@ -176,14 +193,29 @@ class RefreshCoordinator:
         started: List[str] = []
         with self._lock:
             running = sum(1 for r in self._records.values() if r.running)
-        for artifact in self.due(now=moment):
+        order = self.artifacts()
+        eligible = sorted(self.due(now=moment), key=lambda item: (order.index(item) - self._cursor) % max(1, len(order)))
+        for artifact in eligible:
             if running >= self.max_concurrent:
                 break
             if self.request(artifact, reason="scheduled", now=moment, wait=wait) == "started":
                 started.append(artifact)
                 running += 1
+                self._cursor = (order.index(artifact) + 1) % max(1, len(order))
+                self._queued.discard(artifact)
         telemetry.gauge("freshness.ticks", self.ticks)
         return started
+
+    def enqueue(self, artifact: str) -> str:
+        record = self.record(artifact)
+        if not record.job.refreshable:
+            return 'not refreshable'
+        barred = record.job.eligibility()
+        if barred:
+            return f'disabled: {barred}'
+        with self._lock:
+            self._queued.add(artifact)
+        return 'queued'
 
     def request(
         self, artifact: str, *, reason: str, now: Optional[datetime] = None,
@@ -210,6 +242,8 @@ class RefreshCoordinator:
             finally:
                 with record.lock:
                     record.running = False
+                if self._stop.is_set() and self.ownership is not None and not any(r.running for r in self._records.values()):
+                    self.ownership.release()
 
         if wait:
             body()
@@ -231,7 +265,7 @@ class RefreshCoordinator:
         job = record.job
         policy = job.policy
         # A manual request resets the bounded cycle: the operator asked.
-        if requested or (record.last_result is not None and record.last_result.ok):
+        if requested or (record.last_result is not None and record.last_result.ok) or record.attempts_this_cycle >= policy.max_attempts:
             record.attempts_this_cycle = 0
         record.attempts_this_cycle += 1
         attempt = record.attempts_this_cycle
@@ -260,7 +294,7 @@ class RefreshCoordinator:
             finished = wall_now()  # wall-clock: see above
             result = RefreshResult(
                 artifact=policy.artifact, ok=False, started_at=now, finished_at=finished, attempt=attempt,
-                reason=reason, error=f"{type(exc).__name__}: {exc}",
+                reason=reason, error=safe_error(exc),
             )
             log.warning("refresh %s failed (attempt %d): %s", policy.artifact, attempt, result.error)
 
@@ -287,6 +321,14 @@ class RefreshCoordinator:
                     # the scheduler may try a new cycle.
                     record.next_attempt_at = finished + policy.backoff_cap
                     record.attempts_this_cycle = policy.max_attempts
+
+            if self.journal is not None:
+                try:
+                    self.journal.save(result, record.next_attempt_at, record.attempts_this_cycle)
+                    self.journal_error = None
+                except Exception as exc:
+                    self.journal_error = safe_error(exc)
+                    log.error('Freshness journal unavailable: %s', self.journal_error)
 
         if result.ok and result.changed:
             self._propagate(policy.artifact)
@@ -317,6 +359,9 @@ class RefreshCoordinator:
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
+        if self.ownership is not None and not self.ownership.acquire():
+            log.info('Freshness worker already owned by another process')
+            return
         self._stop.clear()
 
         def loop() -> None:
@@ -334,6 +379,11 @@ class RefreshCoordinator:
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=5.0)
+        for record in self._records.values():
+            if record.thread is not None and record.thread.is_alive():
+                record.thread.join(timeout=30)
+        if self.ownership is not None and not any(r.running for r in self._records.values()):
+            self.ownership.release()
 
     @property
     def running(self) -> bool:
@@ -347,7 +397,8 @@ class RefreshCoordinator:
             rows.append(self.describe(artifact, now=moment))
         return {
             "at": moment.isoformat(timespec="seconds"),
-            "scheduler": {"running": self.running, "tickSeconds": self.tick_seconds, "ticks": self.ticks},
+            "scheduler": {"running": self.running, "tickSeconds": self.tick_seconds, "ticks": self.ticks,
+                          "singleOwner": self.ownership is not None, "journalError": self.journal_error},
             "artifacts": rows,
             "summary": {
                 state: sum(1 for r in rows if r["state"] == state)
@@ -400,6 +451,11 @@ class RefreshCoordinator:
                 "lastGood": good,
                 "history": history,
                 "invalidatedBy": invalidated,
+                "circuit": "HALF_OPEN" if record.running and record.last_result and not record.last_result.ok else
+                           "OPEN" if attempts >= policy.max_attempts and next_attempt and next_attempt > moment else "CLOSED",
+                **(self.journal.metrics(artifact, moment) if self.journal is not None else
+                   {"successRate7d": None, "attempts7d": 0, "lastError": last.get('error') if last else None,
+                    "lastErrorAt": last.get('finishedAt') if last and not last['ok'] else None}),
             },
         }
 
@@ -412,7 +468,11 @@ def get_coordinator() -> RefreshCoordinator:
     global _COORDINATOR
     with _COORDINATOR_LOCK:
         if _COORDINATOR is None:
-            _COORDINATOR = RefreshCoordinator()
+            from src.utils.config import STATE_DIR
+            from .journal import FreshnessJournal
+            from .ownership import OwnerLock
+            _COORDINATOR = RefreshCoordinator(journal=FreshnessJournal(STATE_DIR / 'live/freshness.sqlite3'),
+                                              ownership=OwnerLock(STATE_DIR / 'live/scheduler.lock'))
         return _COORDINATOR
 
 

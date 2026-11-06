@@ -17,6 +17,18 @@ def eligibility():
     return None
 
 
+def current_weather_eligibility():
+    settings = get_settings()
+    if (settings.PORTWATCH_CURRENT_WEATHER_AUTOREFRESH or '1').lower() in ('0', 'false', 'no', 'off'):
+        return 'Current weather collection is disabled'
+    if get_clock().state.mode != LIVE:
+        return 'Provider collection is paused during replay'
+    from src.portwatch_os.deployment import resolve_mode
+    if resolve_mode(None)[0] == 'COMMERCIAL':
+        return 'The free Open-Meteo product is not permitted in commercial mode'
+    return None
+
+
 def jobs():
     result=[]
     for key,spec in free_sources.PRODUCTS.items():
@@ -47,7 +59,7 @@ def jobs():
                 fresh_for=timedelta(hours=1),lead=timedelta(minutes=5),stale_after=timedelta(hours=2),max_attempts=2,
                 backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
                 rationale='Current hourly port forecast, independent of lagging activity observations; not station measurements.'),
-                probe=probe,run=run,eligibility=eligibility))
+                probe=probe,run=run,eligibility=current_weather_eligibility))
     def hazard_probe():
         row=environment.read('hazards',port_registry.PORTS[0])
         return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
@@ -59,5 +71,5 @@ def jobs():
         fresh_for=timedelta(minutes=30),lead=timedelta(minutes=3),stale_after=timedelta(hours=1),max_attempts=2,
         backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
         rationale='Check regional hazard receipts frequently enough to flag stale context during an active event.'),
-        probe=hazard_probe,run=hazard_run,eligibility=eligibility))
+        probe=hazard_probe,run=hazard_run,eligibility=current_weather_eligibility))
     return result

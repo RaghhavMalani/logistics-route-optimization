@@ -67,8 +67,6 @@ async def lifespan(_: FastAPI):
     log.info("candidate backup: %s", app.state.candidate_backup)
     from src.portwatch_os.panel_runtime import snapshot_at
     panel = snapshot_at() is not None
-    if not panel:
-        start_client()
     coordinator = install_product_jobs(get_coordinator())
     scheduler = (get_settings().PORTWATCH_FRESHNESS_SCHEDULER or "1").strip().lower() not in ("0", "false", "no", "off")
     if scheduler and not panel:
@@ -76,7 +74,8 @@ async def lifespan(_: FastAPI):
     from src.portwatch_os.learning import weather_reconciliation
     from src.portwatch_os.learning import intelligence_reconciliation
     from src.portwatch_os.intelligence import operational_notices as authority_notices
-    if not panel:
+    if not panel and coordinator.running:
+        start_client()
         weather_reconciliation.start()
         intelligence_reconciliation.start()
         authority_notices.start()

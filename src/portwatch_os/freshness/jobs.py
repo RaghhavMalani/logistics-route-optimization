@@ -61,7 +61,7 @@ from src.portwatch_os.freshness.policy import (
 log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[3]
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import CACHE_DIR
 NEWS_BUNDLE = CACHE_DIR / "news_bundle.json"
 LIVE_STATUS = CACHE_DIR / "live_status.json"
 PROVENANCE = CACHE_DIR / "provenance.json"
@@ -331,7 +331,14 @@ def refresh_pipeline(context: RefreshContext) -> JobOutcome:
     before = probe_pipeline_export().observed_at
     source = get_settings().get("PORTWATCH_SOURCE", "portwatch")
     model = get_settings().get("PORTWATCH_MODEL", "ensemble")
-    command = [sys.executable, str(ROOT / "run_award_demo.py"), "--source", source, "--model", model, "--refresh"]
+    # Fetch observations first with explicit failure; an export of an old CSV
+    # must not turn a failed provider refresh into a successful attempt.
+    if source == 'portwatch':
+        from app.data.portwatch import fetch_port_activity
+        observations = fetch_port_activity(days=45, strict=True)
+        if observations.empty:
+            raise RuntimeError('No accepted PortWatch observations to forecast')
+    command = [sys.executable, str(ROOT / "run_award_demo.py"), "--source", source, "--model", model, "--offline"]
     log.info("pipeline refresh: %s", " ".join(command))
     completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=45 * 60)
     if completed.returncode != 0:

@@ -24,14 +24,15 @@ from typing import Dict, List
 # config.py lives in <project>/src/utils/, so the project root is three levels up.
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 
-DATA_DIR: Path = PROJECT_ROOT / "data"
+DATA_DIR: Path = Path(get_settings().PORTWATCH_DATA_DIR or PROJECT_ROOT / "data")
+CACHE_DIR: Path = Path(get_settings().PORTWATCH_CACHE_DIR or DATA_DIR / "cache")
 RAW_DIR: Path = DATA_DIR / "raw"
 PROCESSED_DIR: Path = DATA_DIR / "processed"
 SAMPLE_DIR: Path = DATA_DIR / "sample"
 # The repo already ships real preprocessed CSVs here; loaders auto-detect them.
 PREPROCESSED_DIR: Path = DATA_DIR / "preprocessed"
 
-OUTPUTS_DIR: Path = PROJECT_ROOT / "outputs"
+OUTPUTS_DIR: Path = Path(get_settings().PORTWATCH_OUTPUTS_DIR or PROJECT_ROOT / "outputs")
 # Durable state -- the decision ledger, the advisory register, the operator's
 # cost assumptions -- lives here. It defaults to outputs/ so a checkout works
 # unchanged, and a container host points PORTWATCH_STATE_DIR at a persistent

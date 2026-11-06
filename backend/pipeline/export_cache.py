@@ -9,7 +9,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 
 FORECAST_PATH = ROOT / "outputs" / "forecasts" / "tft_forecast.csv"
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import CACHE_DIR
 
 FORECAST_CACHE = CACHE_DIR / "forecast_by_port.json"
 PIPELINE_CACHE = CACHE_DIR / "model_pipeline.json"

@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     PORTWATCH_CHOKEPOINTS_URL: str | None = None
     PORTWATCH_CORS_REGEX: str | None = None
     PORTWATCH_CURRENT_ENVIRONMENT_DIR: str | None = None
+    PORTWATCH_CURRENT_WEATHER_AUTOREFRESH: str | None = None
+    PORTWATCH_DATA_DIR: str | None = None
+    PORTWATCH_CACHE_DIR: str | None = None
+    PORTWATCH_OUTPUTS_DIR: str | None = None
     PORTWATCH_EXPERIMENT_DIR: str | None = None
     PORTWATCH_FLEET_PROVIDER: str | None = None
     PORTWATCH_FREE_SOURCE_DIR: str | None = None

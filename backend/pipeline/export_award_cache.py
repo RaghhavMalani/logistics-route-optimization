@@ -40,7 +40,7 @@ FORECAST_PATH = FORECAST_DIR / "forecast_table.csv"
 DECISION_PATH = FORECAST_DIR / "decisions.csv"
 ROUTE_PATH = FORECAST_DIR / "route_recommendations.csv"
 PANEL_PATH = EXPERT_DIR / "merged_panel.csv"
-CACHE_DIR = ROOT / "data" / "cache"
+from src.utils.config import CACHE_DIR
 
 #: Forecast origins older than this are surfaced as stale in the UI.
 FRESHNESS_BUDGET_HOURS = 36.0
