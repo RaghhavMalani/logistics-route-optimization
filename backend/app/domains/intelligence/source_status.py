@@ -111,12 +111,19 @@ def source_status() -> dict:
             metrics.update(_retained_imf(now))
         if trial and key in trial['products']:
             try:
+                coverage = {}
                 store = configured_store()
                 if store is not None:
                     measured = store.health(trial['scope'], key, now, timedelta(hours=6))
                     metrics.update({k: v for k, v in measured.items() if k != 'status'})
+                    sample = store.latest(trial['scope'], key)
+                    if sample:
+                        coverage = {'coverageKeys': len(sample.payload.get('coverage', {})),
+                            'precision': sample.payload.get('precision'),
+                            'ports': {code: {'error': row.get('error'), 'finiteValues': row.get('finiteValues', {})}
+                                      for code, row in sample.payload.get('ports', {}).items()}}
                 metrics['trial'] = {'startedAt': trial['start'], 'endsAt': trial['end'],
-                    'phase': 'in progress' if now < trial['end'] else 'awaiting review', 'decision': 'pending'}
+                    'phase': 'in progress' if now < trial['end'] else 'awaiting review', 'decision': 'pending', **coverage}
             except (SQLAlchemyError, ValueError):
                 detail = 'Private trial storage is unavailable; candidate data is unpublished.'
         observed = metrics.get("observedAt")
