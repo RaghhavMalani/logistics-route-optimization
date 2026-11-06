@@ -595,9 +595,14 @@ def start_client() -> AisStreamClient:
             client.status.last_error = f"replay file not found: {path}"
             log.warning("AIS replay requested but %s does not exist", path)
         return client
-    if client.configured:
+    if client.configured and publication_approved():
         client.start()
     return client
+
+
+def publication_approved() -> bool:
+    """A key permits access; deployment publication needs a separate rights gate."""
+    return (get_settings().PORTWATCH_AIS_PUBLICATION_APPROVED or '').lower() in ('1', 'true', 'yes')
 
 
 def stop_client() -> None:

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     PORTWATCH_AIS_BOUNDING_BOXES: str | None = None
     PORTWATCH_AIS_RECORD_PATH: str | None = None
     PORTWATCH_AIS_REPLAY_PATH: str | None = None
+    PORTWATCH_AIS_PUBLICATION_APPROVED: str | None = None
     PORTWATCH_AUTH_DB: str | None = None
     PORTWATCH_CHOKEPOINTS_URL: str | None = None
     PORTWATCH_CORS_REGEX: str | None = None

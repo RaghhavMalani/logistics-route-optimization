@@ -373,7 +373,7 @@ def _traffic_mode() -> Dict[str, Any]:
 
 
 def traffic_eligibility() -> Optional[str]:
-    from src.portwatch_os.fabric.ais.client import get_client
+    from src.portwatch_os.fabric.ais.client import get_client, publication_approved
 
     mode = _traffic_mode()
     if mode["mode"] == "UNAVAILABLE" and mode.get("providerId") is None:
@@ -382,6 +382,8 @@ def traffic_eligibility() -> Optional[str]:
         return "the deterministic replay was chosen; there is no feed to reconnect"
     if not get_client().configured:
         return "no AISSTREAM_API_KEY is configured; the feed cannot be opened"
+    if not publication_approved():
+        return "AIS publication is awaiting reuse permission and the 48-hour trial decision"
     return None
 
 
@@ -409,6 +411,8 @@ def refresh_traffic(context: RefreshContext) -> JobOutcome:
     from src.portwatch_os.fabric.ais.client import get_client
 
     client = get_client()
+    if traffic_eligibility():
+        return JobOutcome(skipped_reason=traffic_eligibility())
     if not client.configured:
         return JobOutcome(skipped_reason="no key configured")
     before = client.status.last_good_observation_at
