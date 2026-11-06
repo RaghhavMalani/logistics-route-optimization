@@ -83,12 +83,16 @@ class VerifyLiveAisTests(unittest.TestCase):
         self.utility = _load_utility()
         self.lines: List[str] = []
         self._key = os.environ.get("AISSTREAM_API_KEY")
+        self._mode = os.environ.get("PORTWATCH_LICENCE_MODE")
         os.environ["AISSTREAM_API_KEY"] = ""
         os.environ["PORTWATCH_LICENCE_MODE"] = "DEMO"
 
     def tearDown(self):
-        if self._key is not None:
-            os.environ["AISSTREAM_API_KEY"] = self._key
+        for name, previous in (("AISSTREAM_API_KEY", self._key), ("PORTWATCH_LICENCE_MODE", self._mode)):
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
         reset_clock()
 
     def test_without_a_key_every_claim_is_skipped_and_nothing_passes(self):
