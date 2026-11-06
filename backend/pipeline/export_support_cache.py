@@ -23,8 +23,9 @@ import pandas as pd
 from src.utils import port_registry
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPERT_DIR = ROOT / "outputs" / "expert_features"
-FORECAST_DIR = ROOT / "outputs" / "forecasts"
+from src.utils.config import EXPERT_FEATURES_DIR, FORECASTS_DIR
+EXPERT_DIR = EXPERT_FEATURES_DIR
+FORECAST_DIR = FORECASTS_DIR
 from src.utils.config import CACHE_DIR
 
 OBSERVATIONS_PATH = EXPERT_DIR / "weather_observations.csv"
@@ -50,8 +51,10 @@ def _read(path: Path) -> pd.DataFrame:
 
 def _write(path: Path, payload) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
+    temporary = path.with_suffix('.json.tmp')
+    with open(temporary, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2, default=str)
+    temporary.replace(path)
     print(f"Wrote {path}")
 
 
