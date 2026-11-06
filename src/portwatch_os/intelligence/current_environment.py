@@ -81,9 +81,9 @@ def dated(snapshot, now=None):
             "status": "CURRENT" if age <= TTL[snapshot["kind"]] else "STALE"}
 
 
-def read(kind, port):
+def read(kind, port, *, at=None):
     path = _path(kind, port)
-    return dated(json.loads(path.read_text(encoding="utf-8"))) if path.exists() else {
+    return dated(json.loads(path.read_text(encoding="utf-8")), now=at) if path.exists() else {
         "kind": kind, "status": "UNAVAILABLE", "rows": [], "availableAt": None,
         "issuedAt": None, "observedAt": None, "source": URLS[kind]}
 

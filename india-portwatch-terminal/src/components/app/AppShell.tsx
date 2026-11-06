@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
 import { API_BASE } from "@/services/api";
+import { LivePulse } from "./LivePulse";
 import { prefetchHome } from "@/services/home-screen";
 import { useWorldClock } from "@/services/lenses";
 import { usePublicAis } from "@/services/public-ais";
@@ -635,7 +636,7 @@ function Chrome({ children }: { children: ReactNode }) {
           <ProfileMenu />
         </div>
       </header>
-
+      <LivePulse />
       <div className="flex min-h-0 flex-1">
         <SideNav
           collapsed={collapsed}

@@ -15,6 +15,7 @@ import {
   settle,
   test,
 } from "../harness";
+import { freshWeatherFixture } from "../fresh-weather";
 
 test.describe("weather composite", () => {
   /**
@@ -54,6 +55,7 @@ test.describe("weather composite", () => {
     // longer budget rather than a shorter assertion -- the thing under test is
     // that the animation really runs and really stops.
     test.slow();
+    await freshWeatherFixture(page, context);
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/radar");
     await settle(page);

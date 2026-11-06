@@ -69,7 +69,7 @@ def core_sources(now):
         samples = []
         for port in PORTS:
             try:
-                samples.append(current_environment.read(kind, port))
+                samples.append(current_environment.read(kind, port, at=now))
             except (ValueError, OSError, KeyError):
                 samples.append({'rows': [], 'availableAt': None})
         evaluated = []

@@ -1,14 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getApi } from "@/services/api-client";
 
 export function useSourceHealth() {
+  const client = useQueryClient();
   return useQuery({
     queryKey: ["public", "source-health"],
     queryFn: ({ signal }) =>
       getApi("/api/public/sources", undefined, { signal }),
     staleTime: 60_000,
-    refetchInterval: 30_000,
+    refetchInterval: () => client.getQueryData(["source-stream-live"]) ? false : 30_000,
     retry: false,
   });
 }
