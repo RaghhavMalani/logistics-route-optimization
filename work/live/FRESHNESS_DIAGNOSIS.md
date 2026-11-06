@@ -1,0 +1,43 @@
+# Production freshness diagnosis
+
+Baseline: 6 November 2026 IST, production SHA `7bdeb9690b7c501ef147ad36cf04f4f173900c0f`, Railway deployment `082b734f-9efb-4348-b7f9-16cb585c640e`. Production was inspected through read-only health/provenance requests, Railway settings metadata and deployment logs. No production refresh, deploy, environment change or volume operation was performed.
+
+## Confirmed failures
+
+1. **The scheduler is running.** `PORTWATCH_FRESHNESS_SCHEDULER=1`, with recurring `refresh marine` and `refresh events` log entries through 6 November 16:32 UTC. A `port_forecast` subprocess started at 09:50:59 UTC. The absent `PORTWATCH_PIPELINE_AUTOREFRESH` uses the code's enabled default; it is not the disabling cause.
+2. **Current port weather is gated off.** Both `PORTWATCH_RESEARCH_SOURCE_PROFILE` and `PORTWATCH_LOCAL_PROVIDER_PROFILE` are unset. `freshness/free_research.py:eligibility` therefore disables the independent surface/marine jobs for all 13 ports and the current GDACS job. The older marine-grid job running successfully does not update those current-input snapshots. This explains retained map inputs and refresh-pending labels alongside an active scheduler.
+3. **A forecast export can succeed without refreshed observations.** `run_award_demo.py` runs `app.data.portwatch.fetch_all`, but `fetch_port_activity` catches fetch errors and returns the old CSV. The pipeline then exports from that CSV and stamps a new export/receipt time. The production provenance receipt for activity is 6 November 15:21 IST, but its actual observation remains 2 October. The forecast origin remains 2 October and the target horizon ended 12 October. Provider failure details from a successful subprocess's captured stdout are discarded by `freshness/jobs.py:refresh_pipeline`, so that run's precise bulk-fetch error is not recoverable from coordinator logs.
+4. **Health has a false-green condition.** `backend/app/domains/system/health.py` sets `status=ok` when the forecast file exists and durable stores open. It does not require an unexpired horizon, sufficiently recent observations or core sources inside policy. At the baseline, health reports `ok`, a stale origin aged about 857 hours, and an expired target horizon simultaneously.
+5. **Refresh histories are not durable or complete.** The coordinator holds 12 results in process memory and exposes the last five; it does not retain a seven-day attempt journal. Some adapters return a generic stale receipt on failure, discarding the precise exception. Legacy provenance receipt times are not proof of a successful new provider fetch. Exact last success/failure for every source and seven-day success rates cannot honestly be reconstructed from these fields.
+6. **Concurrency and retry gaps exist.** `RefreshCoordinator` has a per-process lock only; it is not a shared-volume ownership lock. A bounded failure cycle holds off, then increments beyond `max_attempts` (production logs contain attempt 4 after a three-attempt policy). There is no separately persisted per-source circuit-breaker state. Jobs are considered in a fixed registration order, including slow public-report jobs before the pipeline.
+7. **Refreshes are not fully isolated from provider-facing handlers.** Most current-weather read routes already use retained snapshots, but public-port refresh routes run collectors inline or in ad hoc threads, and the world observation route calls an adapter's `fetch`. These paths need an explicit retained-only/queued-worker contract.
+8. **Storage failures happened earlier, but the current volume is healthy.** The previous release's read-only audit recorded zero free bytes and SQLite disk I/O errors; a 15.7 MB incomplete weather `.tmp` file remained. The volume was increased to 1,024 MB before this task. Current health reports healthy durable stores. A historical disk-full error cannot explain why a disabled current-weather job remains disabled after recovery. Provider caches under `/app/data/cache` are rebuildable container files, while `/app/state` is the persistent mount; snapshot and attempt durability need an explicit state-root location.
+
+## Source evidence available now
+
+Times below distinguish a recorded receipt from the source's observation. A blank observation or missing attempt journal is unavailable evidence, not a fresh reading or a 100% success rate.
+
+| Product | Retained receipt / latest logged attempt | Observation or confirmed error |
+| --- | --- | --- |
+| IMF PortWatch activity, forecast input | Provenance receipt 6 Nov 15:21:01 IST | Observation 2 Oct 00:00 UTC; stale, 35+ days. Current forecast targets expire 12 Oct. Bulk fetch errors are swallowed into CSV fallback. |
+| IMF JNPA operational aggregate | Last logged failure 6 Nov 15:58:35 UTC | ArcGIS error 429, shared request-unit quota exceeded, provider says retry after 60 seconds. This is a confirmed provider response, not proof of blanket egress failure. |
+| Chennai official PDF reports | Last logged failure 6 Nov 16:04:45 UTC | Both position and expected-arrival PDF URLs timed out. Latest scheduled attempt started 16:02:06 UTC. |
+| Paradip official PDF reports | Latest logged attempt 6 Nov 16:02:06 UTC | Coordinator does not log successful completion; exact most recent success needs a retained collection receipt. No failure for that attempt is present in the captured tail. |
+| Older Open-Meteo marine grid | Latest scheduled attempt 6 Nov 16:32:48 UTC | Repeated periodic starts; no matching failure in captured logs. This is separate from the 13-port current-input products. |
+| Open-Meteo weather support cache | Provenance receipt 6 Nov 15:21:04 IST | Observation date 6 Nov; support-cache export does not update the disabled current-map snapshots. |
+| Open-Meteo ERA5 history | Provenance receipt 6 Nov 15:21:04 IST | Observation 5 Aug; historical training product labelled LIVE in legacy provenance. Receipt freshness must not make historical observations current. |
+| GDELT DOC API | Last logged failure 6 Nov 14:51:50 UTC | HTTP 429 from the 14-day maritime query. A recent legacy LIVE provenance record has no qualified observation timestamp. |
+| Maritime events / GDACS | Provenance receipt 6 Nov 15:21:07 IST | Latest event timestamp 6 Nov 14:30 IST, cached-live. Independent current GDACS job is profile-disabled. |
+| FRED macro / FX | Provenance receipt 6 Nov 15:21:08 IST | No qualified observation timestamp. No seven-day success journal or precise last failure available. `FRED_API_KEY` is not configured; individual unauthenticated series availability is not established by that fact. |
+| AISStream | No configured key | `AISSTREAM_API_KEY` is absent; replay is the configured substitute, not live AIS. |
+| GDELT BigQuery | Not configured | No BigQuery project, billing context or credentials found in production. Paid queries must remain disabled until a project and daily cap are authorized. |
+
+The earlier preview's 23 October origin is not evidence that production's 2 October CSV is current. A clean image and its own retained observations must be refreshed and inspected independently; rewriting the origin or wall clock would fabricate freshness.
+
+## Planned correction and verification
+
+Use a persisted, single-owner worker with bounded per-source retries, circuit breakers, a seven-day attempt journal and atomic snapshots. Keep provider collectors outside request handlers. Collect port activity independently and regenerate from the actual latest accepted observation; preserve its lag and prohibit expired forecasts from presenting as current. Enable eligible current weather independently of the research-only bundle. Expose the same per-source state in health, Sources and the SSE-driven workspace pulse bar. Keep source observation, issue/valid times, first availability, successful check and forecast generation clocks distinct.
+
+New products require licence evidence and actual 48-hour trials. Missing credentials, terms or elapsed coverage must appear as blocked/in-progress; no adoption result or trial duration is fabricated. New sources do not change decision policy without the separate policy gate. All implementation and refresh writes will be local or isolated preview only; production requires explicit merge authorization and green CI on the exact new main SHA.
+
+Raw read-only baseline evidence: `D:/LogisticOptimization-_Capstone_168/work/live-evidence-20261106/production-health-before.json`, `production-provenance-before.json`, selected non-secret settings, and refresh/pipeline log excerpts. Before UI captures from the unchanged production release are retained under `work/integration/research-failures-20261105/production-smoke/`.
