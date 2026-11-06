@@ -191,7 +191,7 @@ def health_check() -> dict:
         # The licence mode in force and whether anyone stated it. A default is
         # reported as a default: the most restrictive mode, chosen by nobody.
         "licenceMode": _licence_mode(),
-        "intelligence": _intelligence_state(export_age),
+        "intelligence": "degraded" if source_health['degraded'] else _intelligence_state(export_age),
         "cacheAgeSeconds": export_age,
         "lastRefreshUtc": status.get("exportedAt"),
         "model": status.get("model"),

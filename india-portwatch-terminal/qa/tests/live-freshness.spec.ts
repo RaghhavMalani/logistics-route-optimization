@@ -17,6 +17,7 @@ for (const [role, path] of [
     await expect(pulse.locator('[data-source="aisstream-websocket"]')).toHaveAttribute("data-status", "unavailable");
     await expect(page.getByTestId("weather-offset")).toHaveText("Latest available");
     await expect(page.getByRole("button", { name: "NOW", exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('dated-source-imf-portwatch-data').first()).toContainText('Latest available');
   });
 }
 

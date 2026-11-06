@@ -1,4 +1,4 @@
-import { DataNowSources, WeatherDataNow } from "@/components/app/SourceHealth";
+import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * The port controller's cockpit.
  *
@@ -146,12 +146,6 @@ function PortCockpitScreen() {
       )
     : [80.3, 13.1];
 
-  const health = workspace.health.data;
-  const activity = (
-    ["live", "cached", "stale", "synthetic", "unavailable"] as const
-  ).find((status) =>
-    health?.sources?.[status]?.some((name) => name.startsWith("Port activity")),
-  );
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") workspace.setSelectedVesselId(hit.id);
     workspace.flyTo(
@@ -222,16 +216,9 @@ function PortCockpitScreen() {
               <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
                 <WeatherDataNow />{" "}
-                · Port activity {activity ?? "status unavailable"} · Traffic{" "}
+                · Port activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
                 {trafficSource.info.label} · Congestion{" "}
-                {health?.targetStatus === "EXPIRED"
-                  ? "expired"
-                  : (health?.forecastOriginStatus
-                      ?.toLowerCase()
-                      .replaceAll("_", " ") ?? "status unavailable")}
-                {health?.forecastOrigin
-                  ? ` (origin ${health.forecastOrigin.slice(0, 10)})`
-                  : ""}
+                <DatedSource id="congestion-forecast" />
                 <DataNowSources />
               </div>
               <PortHomeHandoffs portCode={port.code} />

@@ -21,4 +21,8 @@ The standalone PDF scheduler deadline failure was reproduced twice, then isolate
 
 Draft PR: https://github.com/RaghhavMalani/logistics-route-optimization/pull/12. Production release remains gated on explicit merge authorization and green CI on the exact new main SHA.
 
+Screenshot review found and removed another false-current label: the footer displayed Activity LIVE from the legacy export-age field beside a stale origin. Health's intelligence classification now degrades with core source health; the footer and Data now use dated source values, and the pulse lists core sources first. Five updated UI regressions and 14 freshness regressions passed after this correction. Hosted workflow smoke at the preceding implementation SHA passed both viewports with zero console/API errors; it is repeated for the final implementation.
+
+CI run 87 exposed one fixture that set an AIS key without the new publication gate, then expected a configured process client. The fixture now explicitly sets `PORTWATCH_AIS_PUBLICATION_APPROVED=1`. Its original `assertTrue(client.configured)` and `assertIsNone(client._thread)` are unchanged. The new unapproved-client regression separately requires replay and no connection. No assertion was loosened or skipped.
+
 Remaining external gates: actual 48-hour trial completion/review, BigQuery project/credentials/cost cap, AIS reuse permission, IMD reproduction permission and an answering IMF observation endpoint. No candidate is adopted or presented as live merely because collection started. Production has not been refreshed or deployed in this task.

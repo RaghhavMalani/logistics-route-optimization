@@ -28,6 +28,7 @@ def test_health_cannot_be_green_only_because_forecast_file_exists(tmp_path, monk
     monkeypatch.setattr(requests.sessions.Session, 'request', lambda *a, **kw: (_ for _ in ()).throw(AssertionError('Health fetched a provider')))
     payload = health.health_check()
     assert payload['status'] == 'degraded'
+    assert payload['intelligence'] == 'degraded'
     assert payload['sourceHealth']['sources'][0]['status'] == 'stale'
 
 

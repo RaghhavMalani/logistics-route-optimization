@@ -65,3 +65,12 @@ export function WeatherDataNow() {
     {at ? `Latest available · ${formatUtc(at)} (${ageLabel(source.dataAgeSeconds)} old)` : "unavailable · no current snapshot"}
   </span>;
 }
+
+export function DatedSource({ id }: { id: string }) {
+  const { data } = useSourceHealth();
+  const source = data?.sources.find((row) => row.id === id);
+  const at = source?.observedAt ?? source?.availableAt;
+  return <span data-testid={`dated-source-${id}`} className={source?.status === "live" ? "" : "text-[var(--text-3)]"}>
+    {source?.status === "live" ? "within policy" : at ? `Latest available · ${formatUtc(at)} (${ageLabel(source?.dataAgeSeconds)} old)` : "unavailable"}
+  </span>;
+}

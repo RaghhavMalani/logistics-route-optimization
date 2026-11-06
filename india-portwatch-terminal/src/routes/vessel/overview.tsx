@@ -1,4 +1,4 @@
-import { DataNowSources, WeatherDataNow } from "@/components/app/SourceHealth";
+import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * The vessel operator's bridge view.
  *
@@ -133,12 +133,6 @@ function VesselBridge() {
     );
   }
 
-  const health = workspace.health.data;
-  const activity = (
-    ["live", "cached", "stale", "synthetic", "unavailable"] as const
-  ).find((status) =>
-    health?.sources?.[status]?.some((name) => name.startsWith("Port activity")),
-  );
   const worst = worstExposure(exposure);
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") {
@@ -228,7 +222,7 @@ function VesselBridge() {
               <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
                 <WeatherDataNow />{" "}
-                · Port activity {activity ?? "unavailable"} · Traffic{" "}
+                · Port activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
                 {trafficSource.info.label}
                 <DataNowSources />
               </div>

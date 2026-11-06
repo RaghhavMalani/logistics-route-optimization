@@ -1,4 +1,4 @@
-import { DataNowSources, WeatherDataNow } from "@/components/app/SourceHealth";
+import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * Fleet Command.
  *
@@ -303,25 +303,6 @@ function FleetCommand() {
         ],
       }
     : routes;
-  const health = workspace.health.data;
-  const activityStatus = (
-    ["live", "cached", "stale", "synthetic", "unavailable"] as const
-  ).find((status) =>
-    health?.sources[status]?.some((name) => name.startsWith("Port activity")),
-  );
-  const forecastOrigin = health?.forecastOrigin
-    ? formatUtc(health.forecastOrigin)
-    : "origin unavailable";
-  const congestionStatus =
-    health?.targetStatus === "EXPIRED"
-      ? "expired"
-      : health?.forecastOriginStatus === "STALE"
-        ? "stale"
-        : health?.targetStatus === "CURRENT_HORIZON"
-          ? "current horizon"
-          : health?.targetStatus === "PARTIAL_HORIZON"
-            ? "partial horizon"
-            : "unavailable";
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "port") workspace.setSelectedPortCode(hit.id);
     if (hit.kind === "vessel") setSelectedVessel(hit.id);
@@ -417,9 +398,9 @@ function FleetCommand() {
                 <div className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
                   <strong>Data now</strong> · Weather{" "}
                   <WeatherDataNow />{" "}
-                  · Port activity {activityStatus ?? "status unavailable"} ·
+                  · Port activity <DatedSource id="imf-portwatch-data" /> ·
                   Traffic {trafficSource.info.label} · Congestion{" "}
-                  {congestionStatus} ({forecastOrigin})
+                  <DatedSource id="congestion-forecast" />
                   <DataNowSources />
                 </div>
               </div>
