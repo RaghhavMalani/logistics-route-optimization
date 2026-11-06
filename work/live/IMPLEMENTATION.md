@@ -17,6 +17,8 @@ The retained-only marine/AIS adapters behind the world's `fetch` method were ins
 
 Validation so far: full backend runner after its offline artifact preparation: 1,798 passed, 2 skipped, 252 s; two later regression tests passed in the targeted 15-test run. Candidate/licence/clock regressions: 36 passed. Five fixed-clock stale UI tests and two current-cursor regressions passed at 1366×768. Typecheck/build passed; changed stream/pulse code passes substantive ESLint checks. Repository-wide lint is not green: the Windows checkout reports 114,645 findings, mostly CRLF formatting plus existing explicit-any findings. No blanket formatting or assertion relaxation was applied. A standalone PDF scheduler test hit its original ten-second deadline during parallel validation; the full runner passed it. Its serial recheck and hosted CI are tracked separately.
 
+The standalone PDF scheduler deadline failure was reproduced twice, then isolated to Windows execution-speed throttling: applying the existing process opt-out made both unchanged scheduler tests pass in 6.58 seconds. Coordinator and standalone source-worker startup now apply that same opt-out; Linux remains a no-op. No deadline or assertion was weakened.
+
 Draft PR: https://github.com/RaghhavMalani/logistics-route-optimization/pull/12. Production release remains gated on explicit merge authorization and green CI on the exact new main SHA.
 
 Remaining external gates: actual 48-hour trial completion/review, BigQuery project/credentials/cost cap, AIS reuse permission, IMD reproduction permission and an answering IMF observation endpoint. No candidate is adopted or presented as live merely because collection started. Production has not been refreshed or deployed in this task.

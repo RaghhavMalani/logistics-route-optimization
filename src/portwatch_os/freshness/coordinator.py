@@ -362,6 +362,8 @@ class RefreshCoordinator:
         if self.ownership is not None and not self.ownership.acquire():
             log.info('Freshness worker already owned by another process')
             return
+        from src.portwatch_os.hostperf import opt_out_of_power_throttling
+        opt_out_of_power_throttling()
         self._stop.clear()
 
         def loop() -> None:

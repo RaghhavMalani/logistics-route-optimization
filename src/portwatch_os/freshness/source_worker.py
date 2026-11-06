@@ -79,6 +79,8 @@ def collect_due(store: SnapshotStore, job: SourceJob, clock: Callable[[], dateti
 
 
 async def run_worker(store: SnapshotStore, jobs: list[SourceJob], *, until: datetime) -> None:
+    from src.portwatch_os.hostperf import opt_out_of_power_throttling
+    opt_out_of_power_throttling()
     async def run(job: SourceJob) -> None:
         # wall-clock: a source trial ends after elapsed time, even during app replay.
         while wall_now() < until:
