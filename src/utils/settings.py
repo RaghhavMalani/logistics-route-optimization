@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     PORTWATCH_AIS_RECORD_PATH: str | None = None
     PORTWATCH_AIS_REPLAY_PATH: str | None = None
     PORTWATCH_AIS_PUBLICATION_APPROVED: str | None = None
+    PORTWATCH_BIGQUERY_PROJECT: str | None = None
+    PORTWATCH_BIGQUERY_DAILY_BYTE_CAP: str | None = None
+    PORTWATCH_SOURCE_TRIAL_START: str | None = None
+    PORTWATCH_SOURCE_TRIAL_PRODUCTS: str | None = None
     PORTWATCH_AUTH_DB: str | None = None
     PORTWATCH_CHOKEPOINTS_URL: str | None = None
     PORTWATCH_CORS_REGEX: str | None = None

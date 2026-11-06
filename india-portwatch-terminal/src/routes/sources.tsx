@@ -55,6 +55,7 @@ function SourcesPage() {
               <p className="mt-1 text-sm text-[var(--text-2)]">
                 {source.detail}
               </p>
+              {source.trial ? <p className="mt-2 font-mono text-xs">Private 48-hour trial · {String(source.trial.phase)} · unpublished</p> : null}
               {source.status !== "live" && (source.observedAt || source.availableAt) ?
                 <p className="mt-2 text-xs" data-testid="source-latest-available">Latest available · {formatUtc(source.observedAt ?? source.availableAt)} ({ageLabel(source.dataAgeSeconds)} old)</p> : null}
               <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">

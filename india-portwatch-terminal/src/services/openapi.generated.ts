@@ -7999,6 +7999,10 @@ export interface components {
             successRate7d?: number | null;
             /** Termsurl */
             termsUrl?: string | null;
+            /** Trial */
+            trial?: {
+                [key: string]: unknown;
+            } | null;
             /** Validthrough */
             validThrough?: string | null;
         };

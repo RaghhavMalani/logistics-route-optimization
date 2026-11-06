@@ -79,9 +79,15 @@ async def lifespan(_: FastAPI):
         weather_reconciliation.start()
         intelligence_reconciliation.start()
         authority_notices.start()
+    import asyncio
+    from src.portwatch_os.freshness.source_trials import run as run_trials
+    trial_task = asyncio.create_task(run_trials()) if not panel and coordinator.running else None
     try:
         yield
     finally:
+        if trial_task:
+            trial_task.cancel()
+            await asyncio.gather(trial_task, return_exceptions=True)
         coordinator.stop()
         weather_reconciliation.stop()
         intelligence_reconciliation.stop()

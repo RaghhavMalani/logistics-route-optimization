@@ -1,0 +1,2 @@
+# Optional BigQuery trial only; no credentials or billing enabled by installation.
+google-cloud-bigquery>=3.25,<4

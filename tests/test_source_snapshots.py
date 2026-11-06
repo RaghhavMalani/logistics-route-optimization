@@ -34,6 +34,8 @@ def test_health_reads_success_and_lag_from_public_snapshots_only(store):
         "successRate7d": 0.5,
         "attempts7d": 2,
         "medianLagSeconds": 60.0,
+        "lastError": "Offline",
+        "lastErrorAt": NOW + timedelta(seconds=60),
     }
     assert store.health("published", PRODUCT, NOW + timedelta(days=8), timedelta(minutes=5)) == {
         "status": "stale",
@@ -42,6 +44,8 @@ def test_health_reads_success_and_lag_from_public_snapshots_only(store):
         "successRate7d": None,
         "attempts7d": 0,
         "medianLagSeconds": None,
+        "lastError": "Offline",
+        "lastErrorAt": NOW + timedelta(seconds=60),
     }
 
 

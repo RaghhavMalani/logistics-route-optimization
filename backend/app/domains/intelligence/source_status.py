@@ -17,7 +17,10 @@ from src.portwatch_os.intelligence import free_sources
 router = APIRouter(prefix="/public")
 
 SOURCES = {
-    "aisstream-websocket": "Awaiting retention permission and an AISStream key. Replay remains the primary traffic source.",
+    "aisstream-websocket": "Awaiting retention and display permission. A key alone does not approve reuse; replay remains primary.",
+    "gdelt-bigquery-gkg": "Private discovery trial; requires billing project, credentials and daily scan cap. Article bodies are excluded.",
+    "open-meteo-marine-extended": "Private waves, swell and currents trial. Modelled forecast, not station observations.",
+    "open-meteo-ensemble": "Private ensemble member trial; uncertainty is not connected to decision policy.",
     "copernicus-marine-forecast": "Awaiting a Toolbox login and a coastal forecast trial.",
     "incois-osf": "Use the official forecast link. A supported data feed and reuse terms are under review.",
     "imd-rsmc-cyclone": "Use the official bulletin link. Reproduction requires permission.",
@@ -55,6 +58,7 @@ class SourceHealth(BaseModel):
     portsCurrent: int | None = None
     portsTotal: int | None = None
     circuit: str | None = None
+    trial: dict | None = None
 
 
 class SourceStatus(BaseModel):
@@ -87,6 +91,8 @@ def source_status() -> dict:
     # wall-clock: provider freshness describes the actual present, including during replay.
     now = wall_now()
     catalogue = ProductCatalogue()
+    from src.portwatch_os.freshness.source_trials import configured
+    trial = configured()
     rows = []
     for key, detail in SOURCES.items():
         provider, product = catalogue.product(key)
@@ -103,6 +109,16 @@ def source_status() -> dict:
                 detail = "Snapshot storage is unavailable."
         elif key == "imf-portwatch-data":
             metrics.update(_retained_imf(now))
+        if trial and key in trial['products']:
+            try:
+                store = configured_store()
+                if store is not None:
+                    measured = store.health(trial['scope'], key, now, timedelta(hours=6))
+                    metrics.update({k: v for k, v in measured.items() if k != 'status'})
+                metrics['trial'] = {'startedAt': trial['start'], 'endsAt': trial['end'],
+                    'phase': 'in progress' if now < trial['end'] else 'awaiting review', 'decision': 'pending'}
+            except (SQLAlchemyError, ValueError):
+                detail = 'Private trial storage is unavailable; candidate data is unpublished.'
         observed = metrics.get("observedAt")
         rows.append(SourceHealth(
             id=key, name=product.name, provider=provider.name, detail=detail,

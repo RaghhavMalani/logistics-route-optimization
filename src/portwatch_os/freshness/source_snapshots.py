@@ -169,6 +169,10 @@ class SnapshotStore:
         successes = [item for item in week if item.error is None]
         last = successes[:1] or self.attempts(scope, product, until=now, limit=1, successful=True)
         latest = last[0] if last else None
+        with self.engine.connect() as conn:
+            error = conn.execute(select(_attempts.c.error, _attempts.c.finished).where(
+                *self._for(scope, product), _attempts.c.error.is_not(None), _attempts.c.finished <= _stamp(now)
+            ).order_by(_attempts.c.finished.desc()).limit(1)).first()
         lags = [item.lag_seconds for item in successes if item.lag_seconds is not None]
         state = "unavailable"
         if latest:
@@ -180,6 +184,8 @@ class SnapshotStore:
             "successRate7d": len(successes) / len(week) if week else None,
             "attempts7d": len(week),
             "medianLagSeconds": median(lags) if lags else None,
+            "lastError": error.error if error else None,
+            "lastErrorAt": datetime.fromisoformat(error.finished) if error else None,
         }
 
 

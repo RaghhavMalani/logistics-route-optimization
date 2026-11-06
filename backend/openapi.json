@@ -2680,6 +2680,18 @@
             ],
             "title": "Termsurl"
           },
+          "trial": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial"
+          },
           "validThrough": {
             "anyOf": [
               {

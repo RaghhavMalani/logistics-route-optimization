@@ -15,9 +15,14 @@ from src.portwatch_os.fabric.products import ProductCatalogue
 from src.portwatch_os.freshness.source_snapshots import configured_store, utc
 from src.portwatch_os.freshness.source_worker import SourceJob, collect_due, run_worker
 from src.portwatch_os.freshness.trial_collectors import ecb_rates, gdelt_discovery, nho_warning_metadata
+from src.portwatch_os.freshness.candidate_weather import weather_trial
+from src.portwatch_os.freshness.gdelt_bigquery import collect as gdelt_bigquery
 
 TRIAL = timedelta(hours=48)
 COLLECTORS = {
+    "gdelt-bigquery-gkg": (gdelt_bigquery, timedelta(hours=6)),
+    "open-meteo-marine-extended": (partial(weather_trial, 'marine'), timedelta(hours=6)),
+    "open-meteo-ensemble": (partial(weather_trial, 'ensemble'), timedelta(hours=6)),
     "nho-navarea-viii": (nho_warning_metadata, timedelta(hours=6)),
     "frankfurter-ecb-fx": (partial(ecb_rates, "https://api.frankfurter.dev/v2/providers/ecb/rates"), timedelta(days=1)),
     "gdelt-events": (gdelt_discovery, timedelta(hours=3)),
