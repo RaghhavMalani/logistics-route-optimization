@@ -191,7 +191,8 @@ class AisModeTests(unittest.TestCase):
     """
 
     def _client(self, key):
-        return AisStreamClient(TrackStore(), api_key=key)
+        # An explicit empty credential must not read the developer's .env key.
+        return AisStreamClient(TrackStore(), api_key=key or '')
 
     def test_without_a_key_research_shows_simulated_traffic(self):
         mode = ais_mode(licence_mode="RESEARCH", client=self._client(None), now=NOW)

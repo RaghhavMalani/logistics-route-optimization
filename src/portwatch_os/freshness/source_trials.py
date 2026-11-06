@@ -10,6 +10,7 @@ def configured():
         return None
     from scripts.source_ingest import COLLECTORS
     start = datetime.fromisoformat(settings.PORTWATCH_SOURCE_TRIAL_START)
+    # wall-clock: forbid a fabricated future trial start, regardless of app replay.
     if start.utcoffset() is None or start > wall_now():
         raise ValueError('Trial start must be an actual elapsed, aware instant')
     products = settings.PORTWATCH_SOURCE_TRIAL_PRODUCTS.split(',')
@@ -25,6 +26,7 @@ async def run():
     from src.portwatch_os.freshness.source_snapshots import configured_store
     from src.portwatch_os.freshness.source_worker import SourceJob, run_worker
     trial = configured()
+    # wall-clock: trial collection stops at its real 48-hour deadline.
     if trial is None or trial['end'] <= wall_now():
         return
     store = configured_store()

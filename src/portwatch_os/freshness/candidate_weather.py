@@ -25,7 +25,7 @@ def summarize(response, kind):
     if not wanted or any(key not in fields or len(fields[key]) != len(times) for key in wanted):
         raise ValueError('Incomplete forecast variables or member timelines')
     counts = {key: sum(type(v) in (int, float) and math.isfinite(v) for v in fields[key]) for key in wanted}
-    if any(count == 0 for count in counts.values()):
+    if not any(counts.values()) or kind == 'ensemble' and any(count == 0 for count in counts.values()):
         raise ValueError('No finite coverage for a requested variable')
     return {'validFrom': times[0], 'validThrough': times[-1], 'finiteValues': counts,
             'units': response.get('hourly_units', {}), 'hourly': {'time': times, **{key: fields[key] for key in wanted}}}
@@ -43,10 +43,17 @@ def weather_trial(kind):
         else:
             params.update(hourly='wind_speed_10m', wind_speed_unit='kn', models='icon_seamless')
             url = 'https://ensemble-api.open-meteo.com/v1/ensemble'
-        return port.locode, summarize(fetch_json(url, params), kind)
+        try:
+            return port.locode, summarize(fetch_json(url, params), kind)
+        except Exception as exc:
+            # Record missing coverage, without storing provider error bodies.
+            return port.locode, {'error': type(exc).__name__}
     with ThreadPoolExecutor(max_workers=2) as workers:
         ports = dict(workers.map(collect, PORTS))
-    receipt = wall_now().isoformat()
+    good = {key: row for key, row in ports.items() if 'validThrough' in row}
+    if not good:
+        raise ValueError('No port supplied qualifying forecast coverage')
+    receipt = wall_now().isoformat()  # wall-clock: record response availability, independent of replay.
     return Snapshot({'attribution': 'Open-Meteo, CC BY 4.0; modelled forecasts',
                      'precision': 'RESPONSE_AVAILABILITY_ONLY', 'availableAt': receipt,
-                     'coverage': {key: value['validThrough'] for key, value in ports.items()}, 'ports': ports}, None)
+                     'coverage': {key: value['validThrough'] for key, value in good.items()}, 'ports': ports}, None)

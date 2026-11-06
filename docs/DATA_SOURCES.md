@@ -409,7 +409,7 @@ Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/mari
 
 Reviewed: 2026-11-04
 
-> Free API service is restricted to noncommercial use; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
+> Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
 
 Coverage: 13 registered Indian ports; modelled forecasts, not observations. Endpoint: `https://marine-api.open-meteo.com/v1/marine`.
 
@@ -423,7 +423,7 @@ Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/ense
 
 Reviewed: 2026-11-04
 
-> Free API service is restricted to noncommercial use; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
+> Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
 
 Coverage: 13 registered Indian ports; modelled forecasts, not observations. Endpoint: `https://ensemble-api.open-meteo.com/v1/ensemble`.
 

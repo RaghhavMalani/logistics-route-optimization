@@ -37,7 +37,7 @@ def collect():
         raise ValueError('BigQuery requires explicit project, credentials and daily byte cap')
     from google.cloud import bigquery
     from src.utils.config import STATE_DIR
-    now = wall_now()
+    now = wall_now()  # wall-clock: query and billing windows describe actual elapsed collection.
     parameters = [bigquery.ScalarQueryParameter('start', 'TIMESTAMP', now-timedelta(hours=24)),
                   bigquery.ScalarQueryParameter('end', 'TIMESTAMP', now)]
     client = bigquery.Client(project=project, location='US')

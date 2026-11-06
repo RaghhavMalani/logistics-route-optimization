@@ -228,7 +228,7 @@ def _ingest_candidates() -> list[Provider]:
         Provider('open-meteo-trials', 'Open-Meteo candidate products', homepage='https://open-meteo.com/', products=tuple(
             ProviderProduct(key, title, (capability,),
                 _review('https://open-meteo.com/en/terms', (docs,),
-                    'Free API service is restricted to noncommercial use; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.',
+                    'Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.',
                     commercial=PROHIBITED, redistribution=ALLOWED), endpoint=endpoint,
                 coverage='13 registered Indian ports; modelled forecasts, not observations')
             for key, title, capability, docs, endpoint in (

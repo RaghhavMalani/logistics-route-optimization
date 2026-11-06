@@ -42,3 +42,12 @@ def test_trial_window_is_fixed_and_resumable(monkeypatch):
     monkeypatch.setattr(source_trials, 'wall_now', lambda: datetime(2026, 11, 7, tzinfo=timezone.utc))
     a, b = source_trials.configured(), source_trials.configured()
     assert a == b and a['end'].isoformat() == '2026-11-08T12:00:00+00:00'
+
+
+def test_missing_currents_remain_null_while_wave_coverage_is_measured():
+    hourly = {'time': ['2026-11-06T12:00'], 'wave_height': [1.2], 'swell_wave_height': [0.8],
+              'ocean_current_velocity': [None], 'ocean_current_direction': [None]}
+    result = summarize({'hourly': hourly}, 'marine')
+    assert result['finiteValues']['ocean_current_velocity'] == 0
+    assert result['hourly']['ocean_current_velocity'] == [None]
+    assert result['hourly']['wave_height'] == [1.2]
