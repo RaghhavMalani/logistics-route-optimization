@@ -11,6 +11,7 @@ import { Button } from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
 import { cn } from "@/lib/utils";
+import { useSourceHealth, ageLabel } from "@/services/source-health";
 
 /** `next` is optional: a direct visit to /login carries no return address. */
 interface LoginSearch {
@@ -88,6 +89,7 @@ function LoginScreen() {
       : "Reachable";
 
   const forecast = health.isError ? undefined : health.data;
+  const sourceHealth = useSourceHealth();
   const originAt = Date.parse(forecast?.forecastOrigin ?? "");
   const originStatus = {
     LIVE: "Current", CACHED_LIVE: "Cached", STALE: "Stale",
@@ -268,6 +270,10 @@ function LoginScreen() {
               <dd className="flex justify-end">
                 <Pill tone={serviceTone}>{serviceLabel}</Pill>
               </dd>
+              <dt className="text-[var(--text-3)]">Source freshness</dt>
+              <dd className="text-right text-[var(--text-3)]" data-testid="login-source-freshness">
+                {sourceHealth.data ? sourceHealth.data.degraded ? "Degraded · latest available data" : "Core sources within policy" : "Unmeasured"}
+              </dd>
               <dt className="text-[var(--text-3)]">Twin state</dt>
               <dd className="num text-right text-[var(--text-2)]">
                 {health.data?.intelligence ?? "—"}
@@ -275,7 +281,7 @@ function LoginScreen() {
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">
                 {Number.isFinite(originAt)
-                  ? `${new Date(originAt).toISOString().slice(0, 16).replace("T", " ")}Z · ${originStatus ?? "Unknown"}`
+                  ? `${originStatus === "Stale" ? "Latest available · " : ""}${new Date(originAt).toISOString().slice(0, 16).replace("T", " ")}Z · ${originStatus ?? "Unknown"} (${ageLabel(forecast?.forecastOriginAgeHours == null ? null : forecast.forecastOriginAgeHours * 3600)} old)`
                   : "Unavailable"}
               </dd>
               <dt className="text-[var(--text-3)]">Forecast targets</dt>

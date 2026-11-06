@@ -174,9 +174,12 @@ def health_check() -> dict:
     # The durable stores, probed rather than assumed: a ledger that will not
     # open is reported here with its path, and the readiness page refuses.
     stores = durable_stores()
+    from backend.app.domains.intelligence.source_status import source_status
+    source_health = source_status()
 
     payload = {
-        "status": "ok" if artefacts["forecast"] and stores["ok"] else "degraded",
+        "status": "ok" if artefacts["forecast"] and stores["ok"] and not source_health['degraded'] else "degraded",
+        "sourceHealth": source_health,
         "service": "india-portwatch-backend",
         "release": release_identity(),
         "artifact": source_artifact(),

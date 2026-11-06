@@ -29,6 +29,7 @@ import {
 import type { WeatherTimeline } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
 import { MobileMapPanel, useMapPanelAccess } from "./MapPanelAccess";
+import { useSourceHealth, ageLabel } from "@/services/source-health";
 
 function clockLabel(ms: number): string {
   const date = new Date(ms);
@@ -69,6 +70,11 @@ export function TimeTransport({
   const { clock } = useTraffic();
   const state = useClockState();
   const access = useMapPanelAccess();
+  const sources = useSourceHealth();
+  const weather = sources.data?.sources.find((source) => source.id === "open-meteo-surface");
+  const current = timeline.available && timeline.to >= Date.now() &&
+    Math.abs(timeline.from - Date.now()) < (weather?.policySeconds ?? 3600) * 1000 && weather?.status === "live";
+  const expired = timeline.to < Date.now();
 
   const maxHours = state.maxOffsetHours;
   const peak = Math.max(
@@ -117,7 +123,7 @@ export function TimeTransport({
 
       <div className="shrink-0 leading-none">
         <div className="eyebrow text-[10px]">Traffic</div>
-        <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
+        <div className={cn("num mt-[3px] text-[11.5px]", current ? "text-[var(--text)]" : "text-[var(--text-3)]")}>
           {clockLabel(state.at)}
         </div>
       </div>
@@ -178,10 +184,11 @@ export function TimeTransport({
         </div>
         <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
           <span data-testid="weather-offset">
-            {offsetLabel(state.offsetHours)}
+            {state.offsetHours < 0.5 && !current ? "Latest available" : offsetLabel(state.offsetHours)}
           </span>
           <span className="ml-1.5 text-[10px] text-[var(--text-3)]">
             {clockLabel(weatherAt)}
+            {!current && state.offsetHours < 0.5 ? ` (${ageLabel(Math.max(0, (Date.now() - timeline.observedAt) / 1000))} old)` : ""}
           </span>
         </div>
       </div>
@@ -240,12 +247,13 @@ export function TimeTransport({
                   : "text-[var(--text-3)] hover:text-[var(--text-2)]",
               )}
             >
-              {step === 0 ? "NOW" : `+${step}h`}
+              {step === 0 ? current ? "NOW" : "Start" : `+${step}h`}
             </button>
           ))}
         </div>
       </div>
 
+      {expired ? <span className="text-[10px] text-[var(--text-3)]">Historical · expired forecast</span> : null}
       {!timeline.available ? (
         <span className="shrink-0 text-[10.5px] text-[var(--crit)]">
           Forecast unavailable

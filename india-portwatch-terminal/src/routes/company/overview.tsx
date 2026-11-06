@@ -1,4 +1,4 @@
-import { DataNowSources } from "@/components/app/SourceHealth";
+import { DataNowSources, WeatherDataNow } from "@/components/app/SourceHealth";
 /**
  * Fleet Command.
  *
@@ -416,11 +416,7 @@ function FleetCommand() {
                 </div>
                 <div className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
                   <strong>Data now</strong> · Weather{" "}
-                  {workspace.frame.forecast
-                    ? "current provider forecast"
-                    : workspace.frame.stations.length
-                      ? "retained map data"
-                      : "unavailable"}{" "}
+                  <WeatherDataNow />{" "}
                   · Port activity {activityStatus ?? "status unavailable"} ·
                   Traffic {trafficSource.info.label} · Congestion{" "}
                   {congestionStatus} ({forecastOrigin})

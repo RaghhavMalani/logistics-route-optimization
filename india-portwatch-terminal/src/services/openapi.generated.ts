@@ -7953,6 +7953,15 @@ export interface components {
              * @default 0
              */
             attempts7d: number;
+            /** Availableat */
+            availableAt?: string | null;
+            /** Circuit */
+            circuit?: string | null;
+            /**
+             * Core
+             * @default false
+             */
+            core: boolean;
             /** Dataageseconds */
             dataAgeSeconds?: number | null;
             /** Detail */
@@ -7961,6 +7970,10 @@ export interface components {
             homepage?: string | null;
             /** Id */
             id: string;
+            /** Lasterror */
+            lastError?: string | null;
+            /** Lasterrorat */
+            lastErrorAt?: string | null;
             /** Lastsuccess */
             lastSuccess?: string | null;
             /** Medianlagseconds */
@@ -7969,6 +7982,12 @@ export interface components {
             name: string;
             /** Observedat */
             observedAt?: string | null;
+            /** Policyseconds */
+            policySeconds?: number | null;
+            /** Portscurrent */
+            portsCurrent?: number | null;
+            /** Portstotal */
+            portsTotal?: number | null;
             /** Provider */
             provider: string;
             /**
@@ -7980,6 +7999,8 @@ export interface components {
             successRate7d?: number | null;
             /** Termsurl */
             termsUrl?: string | null;
+            /** Validthrough */
+            validThrough?: string | null;
         };
         /** SourceStatus */
         SourceStatus: {
@@ -7988,6 +8009,18 @@ export interface components {
              * Format: date-time
              */
             checkedAt: string;
+            /**
+             * Degraded
+             * @default false
+             */
+            degraded: boolean;
+            /**
+             * Scheduler
+             * @default {}
+             */
+            scheduler: {
+                [key: string]: unknown;
+            };
             /** Sources */
             sources: components["schemas"]["SourceHealth"][];
         };

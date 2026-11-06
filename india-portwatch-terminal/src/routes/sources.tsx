@@ -43,7 +43,7 @@ function SourcesPage() {
           {data?.sources.map((source) => (
             <li
               key={source.id}
-              className="rounded border border-[var(--line)] bg-[var(--panel)] p-4"
+              className={`rounded border border-[var(--line)] bg-[var(--panel)] p-4 ${source.status === "live" ? "" : "text-[var(--text-3)]"}`}
             >
               <p className="font-mono text-xs uppercase text-[var(--text-2)]">
                 {source.provider} ·{" "}
@@ -55,6 +55,8 @@ function SourcesPage() {
               <p className="mt-1 text-sm text-[var(--text-2)]">
                 {source.detail}
               </p>
+              {source.status !== "live" && (source.observedAt || source.availableAt) ?
+                <p className="mt-2 text-xs" data-testid="source-latest-available">Latest available · {formatUtc(source.observedAt ?? source.availableAt)} ({ageLabel(source.dataAgeSeconds)} old)</p> : null}
               <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
                 <dt>Last successful check</dt>
                 <dd>
@@ -72,6 +74,10 @@ function SourcesPage() {
                 <dd>{ageLabel(source.medianLagSeconds)}</dd>
                 <dt>Latest data age</dt>
                 <dd>{ageLabel(source.dataAgeSeconds)}</dd>
+                <dt>Last error</dt>
+                <dd className="max-w-[20rem] break-words">{source.lastError ?? "None recorded"}</dd>
+                <dt>Error time</dt>
+                <dd>{source.lastErrorAt ? formatUtc(source.lastErrorAt) : "Unmeasured"}</dd>
               </dl>
               <div className="mt-3 flex gap-4 text-xs underline underline-offset-2">
                 {source.homepage ? (

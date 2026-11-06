@@ -55,3 +55,13 @@ export function DataNowSources() {
     </>
   );
 }
+
+export function WeatherDataNow() {
+  const { data } = useSourceHealth();
+  const source = data?.sources.find((row) => row.id === "open-meteo-surface");
+  if (source?.status === "live") return <>provider forecast · {source.portsCurrent}/{source.portsTotal} ports current</>;
+  const at = source?.availableAt;
+  return <span className="text-[var(--text-3)]" data-testid="weather-latest-available">
+    {at ? `Latest available · ${formatUtc(at)} (${ageLabel(source.dataAgeSeconds)} old)` : "unavailable · no current snapshot"}
+  </span>;
+}

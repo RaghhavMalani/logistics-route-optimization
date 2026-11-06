@@ -459,7 +459,7 @@ function buildHourlyTimeline(
         : null;
     }),
     stripLabel: "Mean forecast gust (kn)",
-    note: "Hourly Open-Meteo surface and offshore marine forecasts. Issue/observation times unavailable; receipt times retained separately. Rain is a complete UTC-day forecast total. Wind direction comes from the forecast. Coastal fields are spatial interpolation, not observations or whole-route coverage. Operational impact and storm probability are unavailable; October 2 activity keeps its original age.",
+    note: "Hourly Open-Meteo surface and offshore marine forecasts. Issue/observation times unavailable; receipt times retained separately. Rain is a complete UTC-day forecast total. Wind direction comes from the forecast. Coastal fields are spatial interpolation, not observations or whole-route coverage. Operational impact and storm probability are unavailable; activity retains its separate observation date and age.",
   };
 }
 

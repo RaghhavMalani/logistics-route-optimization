@@ -1,4 +1,4 @@
-import { DataNowSources } from "@/components/app/SourceHealth";
+import { DataNowSources, WeatherDataNow } from "@/components/app/SourceHealth";
 /**
  * The vessel operator's bridge view.
  *
@@ -227,11 +227,7 @@ function VesselBridge() {
             >
               <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
-                {workspace.frame.forecast
-                  ? "provider forecast"
-                  : workspace.frame.stations.length
-                    ? "retained map data"
-                    : "unavailable"}{" "}
+                <WeatherDataNow />{" "}
                 · Port activity {activity ?? "unavailable"} · Traffic{" "}
                 {trafficSource.info.label}
                 <DataNowSources />

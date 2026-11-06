@@ -46,11 +46,22 @@ class SourceHealth(BaseModel):
     attempts7d: int = 0
     medianLagSeconds: float | None = None
     dataAgeSeconds: float | None = None
+    availableAt: datetime | None = None
+    validThrough: datetime | None = None
+    lastError: str | None = None
+    lastErrorAt: datetime | None = None
+    core: bool = False
+    policySeconds: float | None = None
+    portsCurrent: int | None = None
+    portsTotal: int | None = None
+    circuit: str | None = None
 
 
 class SourceStatus(BaseModel):
     checkedAt: datetime
     sources: list[SourceHealth]
+    scheduler: dict = {}
+    degraded: bool = False
 
 
 def _retained_imf(now: datetime) -> dict:
@@ -99,4 +110,9 @@ def source_status() -> dict:
             dataAgeSeconds=(now - observed).total_seconds() if observed else None,
             **metrics,
         ))
-    return SourceStatus(checkedAt=now, sources=rows).model_dump()
+    from src.portwatch_os.freshness.truth import core_sources
+    core, scheduler = core_sources(now)
+    ids = {row['id'] for row in core}
+    rows = [row for row in rows if row.id not in ids] + [SourceHealth(**row) for row in core]
+    return SourceStatus(checkedAt=now, sources=rows, scheduler=scheduler,
+                        degraded=bool(scheduler.get('journalError')) or any(row['status'] != 'live' for row in core)).model_dump()
