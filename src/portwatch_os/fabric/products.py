@@ -216,6 +216,26 @@ def _review(terms, checked, finding, *, commercial=REQUIRES_REVIEW,
 
 def _ingest_candidates() -> list[Provider]:
     return [
+        Provider('gdelt-bigquery', 'GDELT / Google BigQuery', homepage='https://www.gdeltproject.org/', products=(
+            ProviderProduct('gdelt-bigquery-gkg', 'GDELT partitioned GKG discovery', (EVENTS,),
+                _review('https://www.gdeltproject.org/about.html',
+                    ('https://blog.gdeltproject.org/geographic-featureid-to-common-name-crosswalk-may-2018-update/amp/',
+                     'https://cloud.google.com/bigquery/docs/best-practices-costs'),
+                    'GDELT data may be reused with citation and link; linked articles retain publisher rights. Collect index dates and document links only. BigQuery compute is billed separately: require an explicit billing project, credentials and a daily byte budget, a partition predicate, a dry run and maximum bytes billed. No paid query is enabled by a default.',
+                    commercial=ALLOWED, government=ALLOWED, redistribution=ALLOWED),
+                endpoint='gdelt-bq.gdeltv2.gkg_partitioned', cost_class=PAID,
+                coverage='Indian maritime document discovery; index metadata, not verified events'),)),
+        Provider('open-meteo-trials', 'Open-Meteo candidate products', homepage='https://open-meteo.com/', products=tuple(
+            ProviderProduct(key, title, (capability,),
+                _review('https://open-meteo.com/en/terms', (docs,),
+                    'Free API service is restricted to noncommercial use; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.',
+                    commercial=PROHIBITED, redistribution=ALLOWED), endpoint=endpoint,
+                coverage='13 registered Indian ports; modelled forecasts, not observations')
+            for key, title, capability, docs, endpoint in (
+                ('open-meteo-marine-extended', 'Marine waves, swell and currents trial', MARINE,
+                 'https://open-meteo.com/en/docs/marine-weather-api', 'https://marine-api.open-meteo.com/v1/marine'),
+                ('open-meteo-ensemble', 'Weather ensemble member trial', WEATHER,
+                 'https://open-meteo.com/en/docs/ensemble-api', 'https://ensemble-api.open-meteo.com/v1/ensemble')))),
         Provider("copernicus-marine", "Copernicus Marine", homepage="https://data.marine.copernicus.eu/", products=(
             ProviderProduct(
                 "copernicus-marine-forecast", "Global Ocean wave and current forecasts", (MARINE,),

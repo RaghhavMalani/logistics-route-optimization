@@ -28,6 +28,7 @@ than implied.
 | Frankfurter / European Central Bank | `frankfurter-ecb-fx` |  | `PLANNED` | none | allowed | allowed | allowed | required | none | free | daily |
 | GDACS | `gdacs-alerts` | disaster | `CONFIGURABLE` | none | allowed | allowed | allowed | required | none | free | hourly |
 | GDELT | `gdelt-events` | events | `AVAILABLE` | GdeltAdapter | allowed | allowed | allowed | required | none | free | near_realtime |
+| GDELT / Google BigQuery | `gdelt-bigquery-gkg` | events | `PLANNED` | none | allowed | allowed | allowed | required | none | paid | daily |
 | Global Fishing Watch | `gfw-api` | vessel_registry | `PLANNED` | none | **prohibited** | *requires review* | *requires review* | required | api_key | free | daily |
 | God's Eye View | `gods-eye-view-code` | geography | `AVAILABLE` | none | allowed | allowed | allowed | required | none | free | static |
 | IMD RSMC New Delhi | `imd-rsmc-cyclone` | disaster | `PLANNED` | none | *requires review* | *requires review* | *requires review* | required | none | free | hourly |
@@ -39,6 +40,8 @@ than implied.
 | Natural Earth | `natural-earth-vectors` | geography | `AVAILABLE` | none | allowed | allowed | allowed | not required | none | free | static |
 | Open-Meteo | `open-meteo-free` | weather, marine | `AVAILABLE` | OpenMeteoAdapter, OpenMeteoMarineAdapter | **prohibited** | *requires review* | allowed | required | none | free | hourly |
 | Open-Meteo | `open-meteo-customer` | weather, marine | `CONFIGURABLE` | OpenMeteoAdapter, OpenMeteoMarineAdapter | allowed | allowed | allowed | required | api_key | paid | hourly |
+| Open-Meteo candidate products | `open-meteo-marine-extended` | marine | `PLANNED` | none | **prohibited** | *requires review* | allowed | required | none | free | daily |
+| Open-Meteo candidate products | `open-meteo-ensemble` | weather | `PLANNED` | none | **prohibited** | *requires review* | allowed | required | none | free | daily |
 | PortWatch | `ais-replay` | ais | `AVAILABLE` | none | allowed | allowed | allowed | not required | none | free | static |
 | Press Information Bureau / Ministry of Ports, Shipping and Waterways | `pib-ports-rss` | events | `PLANNED` | none | *requires review* | *requires review* | *requires review* | required | none | free | hourly |
 | Spire Maritime | `spire-ais` | ais, vessel_registry | `PLANNED` | none | allowed | allowed | *requires review* | not required | contract | enterprise | near_realtime |
@@ -151,6 +154,24 @@ Reviewed: 2026-11-04
 The feed Global Eye ingests.
 
 Coverage: global news.
+
+### GDELT / Google BigQuery
+
+<https://www.gdeltproject.org/>
+
+#### `gdelt-bigquery-gkg` — GDELT partitioned GKG discovery
+
+Commercial use allowed · government use allowed · redistribution allowed
+
+Terms: <https://www.gdeltproject.org/about.html>
+
+Checked: <https://www.gdeltproject.org/about.html>, <https://blog.gdeltproject.org/geographic-featureid-to-common-name-crosswalk-may-2018-update/amp/>, <https://cloud.google.com/bigquery/docs/best-practices-costs>
+
+Reviewed: 2026-11-04
+
+> GDELT data may be reused with citation and link; linked articles retain publisher rights. Collect index dates and document links only. BigQuery compute is billed separately: require an explicit billing project, credentials and a daily byte budget, a partition predicate, a dry run and maximum bytes billed. No paid query is enabled by a default.
+
+Coverage: Indian maritime document discovery; index metadata, not verified events. Endpoint: `gdelt-bq.gdeltv2.gkg_partitioned`.
 
 ### Global Fishing Watch
 
@@ -373,6 +394,38 @@ Reviewed: 2026-09-12
 Needs OPEN_METEO_API_KEY. Same adapter, different host.
 
 Coverage: global. Endpoint: `customer-api.open-meteo.com`.
+
+### Open-Meteo candidate products
+
+<https://open-meteo.com/>
+
+#### `open-meteo-marine-extended` — Marine waves, swell and currents trial
+
+Commercial use **prohibited** · government use *requires review* · redistribution allowed
+
+Terms: <https://open-meteo.com/en/terms>
+
+Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/marine-weather-api>
+
+Reviewed: 2026-11-04
+
+> Free API service is restricted to noncommercial use; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
+
+Coverage: 13 registered Indian ports; modelled forecasts, not observations. Endpoint: `https://marine-api.open-meteo.com/v1/marine`.
+
+#### `open-meteo-ensemble` — Weather ensemble member trial
+
+Commercial use **prohibited** · government use *requires review* · redistribution allowed
+
+Terms: <https://open-meteo.com/en/terms>
+
+Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/ensemble-api>
+
+Reviewed: 2026-11-04
+
+> Free API service is restricted to noncommercial use; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
+
+Coverage: 13 registered Indian ports; modelled forecasts, not observations. Endpoint: `https://ensemble-api.open-meteo.com/v1/ensemble`.
 
 ### PortWatch
 
