@@ -149,7 +149,8 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
 
     # ---------------------------------------------------------------- key --
     def key_present() -> Optional[str]:
-        if not os.getenv(KEY_ENV):
+        from src.utils.settings import get_settings
+        if not get_settings().AISSTREAM_API_KEY:
             raise Skip(f"{KEY_ENV} is not set; nothing can be verified without a real key")
         return None
     if not report.check("key present", key_present):

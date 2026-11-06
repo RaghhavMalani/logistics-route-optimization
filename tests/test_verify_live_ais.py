@@ -82,7 +82,8 @@ class VerifyLiveAisTests(unittest.TestCase):
     def setUp(self):
         self.utility = _load_utility()
         self.lines: List[str] = []
-        self._key = os.environ.pop("AISSTREAM_API_KEY", None)
+        self._key = os.environ.get("AISSTREAM_API_KEY")
+        os.environ["AISSTREAM_API_KEY"] = ""
         os.environ["PORTWATCH_LICENCE_MODE"] = "DEMO"
 
     def tearDown(self):
