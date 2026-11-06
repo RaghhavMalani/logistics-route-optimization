@@ -1,13 +1,13 @@
 # Panel runbook
 
-The review starts at 13:30 IST on November 4, 2026. Verification only from 12:15 to 12:30 IST. Code freezes at 12:30 IST.
+Verified production release: 6 November 2026 IST. Open [the main terminal](https://india-portwatch.vercel.app/login) first. Production Vercel and Railway both serve SHA `7bdeb9690b7c501ef147ad36cf04f4f173900c0f`. The complete role handoff path passed at 1366×768 and 1280×720, including Tour, Research and the ×60 split twin. Release evidence and rollback commands are in `work/integration/RESEARCH_RELEASE_STATUS.md` and `work/integration/ROLLBACK.md`.
 
 ## How Raghhav starts it
 
 Open PowerShell and run:
 
 ```powershell
-cd 'D:/LogisticOptimization-_Capstone_168/work/panel-review-integration'
+cd 'D:/LogisticOptimization-_Capstone_168/work/integrated-20261104'
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-panel.ps1
 ```
 
@@ -19,7 +19,7 @@ To stop both services, run this from the same folder:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-panel.ps1
 ```
 
-The [isolated hosted preview](https://india-portwatch-ep8o88yck-flash2404s-projects.vercel.app/login) is the fallback. Chrome may prompt you to sign in to Vercel.
+The [isolated hosted preview](https://india-portwatch-58inua1ac-flash2404s-projects.vercel.app/login) and [local login](http://127.0.0.1:4264/login) are fallbacks. Chrome may prompt you to sign in to Vercel for the preview. The preview remains isolated at SHA `2e43af315d75faa5d138830b274dc6406ef4df1c`; the local rehearsal checkout reports `e33068c58183b8adee0d6ce6b86f60997337d1ad` and stays running as detached processes.
 
 ## Demo click path
 
@@ -51,4 +51,4 @@ node qa/panel-smoke.mjs --panel --headed
 node qa/panel-smoke.mjs --replay
 ```
 
-At 12:30 IST, check projector size, browser zoom, the REPLAY badge and offline slides.
+Before presenting, check projector size, browser zoom, the REPLAY badge and offline slides.

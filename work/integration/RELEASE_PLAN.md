@@ -1,6 +1,6 @@
 # Production release plan
 
-Prepared 5 November 2026 IST. Execution requires explicit merge authorization. The production resources below were inspected read-only.
+Updated after the verified 6 November 2026 IST release. Execution of a future release requires explicit merge authorization and the exact-main CI gate below. Current production is `7bdeb9690b7c501ef147ad36cf04f4f173900c0f`; Vercel `dpl_CaL7pM197KbrJozKkm6YUchapfVQ` and Railway `082b734f-9efb-4348-b7f9-16cb585c640e`. Both viewport smokes and the foreground ×60 split twin passed with zero recorded errors. Automatic promotion was re-enabled only after those checks. The completed release's prior rollback targets and fresh on-volume backup are in `ROLLBACK.md`; `RESEARCH_RELEASE_STATUS.md` records its final receipts.
 
 ## Mandatory exact-main CI gate
 
@@ -13,23 +13,23 @@ if ($LASTEXITCODE -ne 0) { throw 'Production release gate failed' }
 
 The gate checks the live GitHub main ref, the latest push workflow for that SHA, all backend/build jobs, all four browser shards and the isolated Research browser job. It rejects missing, queued, running, skipped or failed jobs. Save the run URL and gate receipt with the release evidence. Run the gate again immediately before Railway upload and Vercel promotion. If main advances, qualify the new SHA before continuing.
 
-Hold automatic Vercel production alias assignment from the PR merge through production verification. A Git-created build may remain staged. Assign production traffic only after the exact-main gate passes and Railway reports the same SHA. Re-enable automatic production promotion only after every production check passes. The next release repeats this entire gate and hold procedure.
+Disable automatic Vercel production alias assignment BEFORE merging the next release PR, and hold it through exact-main CI and production verification. Re-enabling it after one successful release does not waive this gate for the next merge. A Git-created build may remain staged. Assign production traffic only after the exact-main gate passes and Railway reports the same SHA. Re-enable automatic production promotion only after every production check passes. The next release repeats this entire gate and hold procedure.
 
 | Resource | Current rollback reference |
 | --- | --- |
 | Vercel project | `india-portwatch` in `flash2404s-projects` |
 | Production alias | [india-portwatch.vercel.app](https://india-portwatch.vercel.app) |
-| Vercel deployment | `dpl_7M6Jy4gZetTzM28ppd4AmbcS2s3a`, ready at `451492fafd6993c6c1573697465e9d202094a07b` |
-| Immutable Vercel URL | [Current deployment](https://india-portwatch-9isxjt105-flash2404s-projects.vercel.app) |
+| Vercel deployment | `dpl_CaL7pM197KbrJozKkm6YUchapfVQ`, ready at `7bdeb9690b7c501ef147ad36cf04f4f173900c0f` |
+| Immutable Vercel URL | [Current deployment](https://india-portwatch-gj8z8uoeq-flash2404s-projects.vercel.app) |
 | Railway project | `983b8896-688f-47ea-a693-6985e84ab03b` |
 | Railway production environment and service | `7a940de4-9c13-411e-ad59-eb30ee42a9d4` and `128a61e8-a333-4c93-aa77-550d4e923495` |
-| Railway production deployment | `734e4a9f-4a18-452b-81e3-4d74e8da3f24`, successful |
+| Railway production deployment | `082b734f-9efb-4348-b7f9-16cb585c640e`, successful |
 | Railway production API | [india-portwatch-api.up.railway.app](https://india-portwatch-api.up.railway.app) |
 | Isolated preview API | [feature-integration preview](https://api-feature-integration-20261104-feature-integration-20261104.up.railway.app) |
 
 ## Before the cutover
 
-1. Complete the mandatory exact-main CI gate and save its receipt. Review the CI baseline. Confirm the rollback deployment IDs again immediately before the release. Capture the current alias's frontend SHA and same-origin backend release identity separately. The current production frontend was released with an isolated API rewrite, so the old Vercel alias and old production Railway service can report different SHAs.
+1. Complete the mandatory exact-main CI gate and save its receipt. Review the CI baseline. Confirm fresh rollback deployment IDs again immediately before the release. Capture the current alias's frontend SHA and same-origin backend release identity separately. The current production alias uses the production API rewrite; older rollback targets may retain an isolated API rewrite and depend on that older service. Preserve those dependencies through the rollback window. Check free volume capacity before the fresh state backup. Production's volume is now 1,024 MB; do not delete state or accepted backups to bypass a failed backup gate.
 2. Prepare the two static rewrite rules below in `india-portwatch-terminal/vercel.json` as part of the future reviewed release change. Keep the production host match first. Use an exact hostname and verify any additional production aliases explicitly. Retain the Vercel framework and build configuration.
 
    ```json
@@ -67,6 +67,6 @@ Hold automatic Vercel production alias assignment from the PR merge through prod
 
 ## Rollback
 
-- **Vercel** — restore the deployment captured immediately before cutover using `vercel rollback <id> --scope flash2404s-projects`. The current reference is `dpl_7M6Jy4gZetTzM28ppd4AmbcS2s3a`. Verify the alias and its original same-origin API binding after rollback. [Vercel Instant Rollback](https://vercel.com/docs/instant-rollback)
-- **Railway** — in the production environment, open the production service's Deployments tab and select **Rollback** on the recorded previous successful deployment. The current reference is `734e4a9f-4a18-452b-81e3-4d74e8da3f24`. Confirm the deployment is eligible under retention and verify direct health and state. Use the backup and incident process if writes need recovery. [Railway Deployment Actions](https://docs.railway.com/deployments/deployment-actions)
+- **Vercel** — restore the deployment captured immediately before the future cutover using `vercel rollback <id> --scope flash2404s-projects`. Current production to record for a future release is `dpl_CaL7pM197KbrJozKkm6YUchapfVQ`. To undo the completed 6 November release itself, use its separately recorded prior ID in `ROLLBACK.md`. Verify the alias and its same-origin API binding after rollback. [Vercel Instant Rollback](https://vercel.com/docs/instant-rollback)
+- **Railway** — in the production environment, open the production service's Deployments tab and select **Rollback** on the freshly recorded previous successful deployment. Current production to record for a future release is `082b734f-9efb-4348-b7f9-16cb585c640e`. The completed release's prior image is separately recorded in `ROLLBACK.md`. Confirm eligibility under retention and verify direct health and state. Use the backup and incident process if writes need recovery. [Railway Deployment Actions](https://docs.railway.com/deployments/deployment-actions)
 - If any production verification check fails, immediately restore both recorded deployments. Recheck the Vercel alias, the restored Railway image identity and both health endpoints. A Railway rollback creates a new deployment from the recorded image. Save that new ID and verify its image digest matches the rollback record.

@@ -1,22 +1,33 @@
-# Research release status: held before deployment
+# Research release status: LIVE
 
-The Research fix is merged through [PR #11](https://github.com/RaghhavMalani/logistics-route-optimization/pull/11). All eight PR CI jobs passed. Main remains `7bdeb9690b7c501ef147ad36cf04f4f173900c0f`; all eight jobs on its [push CI run](https://github.com/RaghhavMalani/logistics-route-optimization/actions/runs/42025923232) passed before the production backup was attempted.
+Verified 6 November 2026 IST. Production frontend and production Railway both report `7bdeb9690b7c501ef147ad36cf04f4f173900c0f`.
 
-The release is held because the production `/app/state` volume has zero free bytes at its 500 MB capacity. Three fresh-backup attempts failed before acceptance. Their incomplete backup folders were removed by guarded cleanup. Each temporary SSH key was removed and API enumeration confirmed its absence. No accepted fresh backup exists. Existing state and the previous accepted backup were retained on-volume.
+| Receipt | Value |
+| --- | --- |
+| Main terminal | https://india-portwatch.vercel.app |
+| Production API | https://india-portwatch-api.up.railway.app |
+| Fix PR | https://github.com/RaghhavMalani/logistics-route-optimization/pull/11 |
+| Green PR CI | https://github.com/RaghhavMalani/logistics-route-optimization/actions/runs/42024365020 |
+| Green exact-main CI | https://github.com/RaghhavMalani/logistics-route-optimization/actions/runs/42025923232 |
+| Production Vercel | `dpl_CaL7pM197KbrJozKkm6YUchapfVQ` |
+| Production Railway | `082b734f-9efb-4348-b7f9-16cb585c640e` |
+| Automatic Vercel promotion | Restored to `true` after all production checks passed |
 
-No new Railway deployment, release-variable change, Vercel promotion or automatic-promotion re-enable was performed. The production alias still serves Vercel `dpl_7M6Jy4gZetTzM28ppd4AmbcS2s3a`, frontend SHA `451492fafd6993c6c1573697465e9d202094a07b`. The production Railway rollback deployment remains `923268ac-7170-44f3-9f03-9dfa79411418`. Its old health payload does not identify an application SHA, so a production backend SHA is not claimed.
+The original test failures were renderer contention and deadline overruns, not evidence dates or startup imports. The fix retained original assertions and timeouts, isolated Research CI rendering, explicitly settled unrelated traffic motion and added an assertion that corrupt originals never trigger a download. Each affected test passed ten repeated checks after the fix. PR CI was green before the normal merge; all eight jobs on the resulting main push CI were green before production writes. Exact-main gate receipts were saved before backup, Railway upload, Vercel promotion and finalization. The backend CI job reported 1,772 passed and two existing skips.
 
-On 6 November 2026 IST, the old production API reported `status=degraded`: `/app/state/portwatch_ledger.db` and `/app/state/portwatch_advisories.db` could not open with `disk I/O error`. Railway still reported a 500 MB volume, approximately 495.87 MB used. The operator was asked to increase the volume to at least 1 GB without deleting state or backups. The authenticated CLI exposes no resize operation; the available dashboard session was not signed in.
+The full production path passed at 1366×768 and 1280×720: reachable login, 3D tour, S10, Company approval, Port review/issue, Vessel acknowledgement/acceptance, Port outcome, Company completion, Admin, Research benchmark and all four direct demo entries. Both JSON reports have empty error arrays. The foreground ×60 split twin advanced from +04:00 to +24:00; all 22 samples were foreground, both metric clocks reached hour 24, both displayed metrics changed and its errors array is empty. The comparison capture and 20-second MP4 are retained.
 
-The local rehearsal stack was restored using the existing detached launcher. `http://127.0.0.1:4264/login` returned 200, its backend returned `status=ok`, and both reported the existing rehearsal SHA `e33068c58183b8adee0d6ce6b86f60997337d1ad`.
+The storage blocker was repaired by a reviewed single safe resize from 500 MB to 1,024 MB. No state, old backups, archives or credentials were deleted. The fresh accepted backup is `/app/state/.release-backups/20261106-151145-research-7bdeb969`: 2,391 files and 42 SQLite databases with integrity checks. All backup bytes stayed on-volume. `ROLLBACK.md` contains every name, size and SHA-256, confirmed key removal and the exact guarded restore command.
 
-After capacity is increased: verify current main and the exact-main gate again; refresh both rollback IDs; run the guarded fresh on-volume backup; verify all file hashes and key removal; deploy production Railway at the qualified main SHA; manually promote the matching staged Vercel deployment; run both production smoke sizes and the foreground ×60 split twin. Roll back both immediately on any production verification failure. Re-enable automatic promotion only after all checks pass.
+The superseded performance and twin preview deployments are stopped, with instances confirmed `STOPPED`; their configurations and history remain. The old November 2 preview API is retained because the previous Vercel rollback target rewrites there. The verified isolated fallback remains healthy at SHA `2e43af315d75faa5d138830b274dc6406ef4df1c` and service `b051a10f-6691-4c7a-9eff-490eb217752e`. Local login remains running at http://127.0.0.1:4264/login on the existing rehearsal checkout.
 
-Rollback commands for the currently recorded targets:
+Immediate rollback for this release restores BOTH recorded prior images:
 
 ```powershell
 vercel rollback dpl_7M6Jy4gZetTzM28ppd4AmbcS2s3a --scope flash2404s-projects --yes
-railway api 'mutation { deploymentRollback(id: "923268ac-7170-44f3-9f03-9dfa79411418") }'
+railway api 'mutation { deploymentRollback(id: "573c7252-fb5c-4114-9421-7aac1203fbc2") }'
 ```
 
-Full diagnosis: `work/integration/RESEARCH_FAILURES.md`. Rollback details: `work/integration/ROLLBACK.md`. Raw evidence: `work/integration/research-failures-20261105/` in the shared workspace.
+The Railway target is the healthy prior image after volume resizing, whose digest matches the earlier restored deployment. A rollback creates a new deployment from that image. Restore the four release-only environment values from `release-vars-before.json` with `skipDeploys=true`, and verify both endpoints and image identities. Volume restoration, if required, follows the separately verified maintenance start command in `ROLLBACK.md` before application workers start. Do not force-push or rewrite main.
+
+Evidence root: `D:/LogisticOptimization-_Capstone_168/work/integration/research-failures-20261105/`. Receipts include `FINAL_RELEASE.json`, all exact-main CI gates, production binding, two viewport reports/screenshots, `production-twin/capture.json`, `production-twin/twin-comparison-20s.mp4`, key-removal confirmation and backup metadata. Infrastructure repair/cleanup receipts are in `work/railway-operations-20261106/`.
