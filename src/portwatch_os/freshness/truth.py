@@ -31,7 +31,7 @@ def core_sources(now):
     coordinator = install_product_jobs(get_coordinator())
 
     def job_metrics(artifacts):
-        jobs = [coordinator.describe(key, now=now)['job'] for key in artifacts if key in coordinator.artifacts()]
+        jobs = [coordinator.attempt_metrics(key, now) for key in artifacts if key in coordinator.artifacts()]
         successes = [row['lastGood']['finishedAt'] for row in jobs if row.get('lastGood')]
         errors = sorted((row for row in jobs if row.get('lastErrorAt')), key=lambda row: row['lastErrorAt'], reverse=True)
         count = sum(row.get('attempts7d', 0) for row in jobs)
@@ -88,4 +88,4 @@ def core_sources(now):
                      'detail': f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.',
                      'termsUrl': 'https://open-meteo.com/en/terms',
                      **job_metrics([f'current_{kind}_{port.locode}' for port in PORTS])})
-    return rows, coordinator.status(now=now)['scheduler']
+    return rows, coordinator.scheduler_status()

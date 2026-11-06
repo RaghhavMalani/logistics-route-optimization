@@ -390,6 +390,23 @@ class RefreshCoordinator:
         return self._thread is not None and self._thread.is_alive()
 
     # -- the trust surface -------------------------------------------------
+    def scheduler_status(self) -> Dict[str, Any]:
+        return {"running": self.running, "tickSeconds": self.tick_seconds, "ticks": self.ticks,
+                "singleOwner": self.ownership is not None, "journalError": self.journal_error}
+
+    def attempt_metrics(self, artifact, moment):
+        """Read attempt evidence without probing every derived artifact."""
+        record = self.record(artifact)
+        with record.lock:
+            good = record.last_good.to_dict() if record.last_good else None
+            last = record.last_result.to_dict() if record.last_result else None
+            circuit = 'OPEN' if record.attempts_this_cycle >= record.job.policy.max_attempts and record.next_attempt_at and record.next_attempt_at > moment else 'CLOSED'
+        return {'lastGood': good, 'circuit': circuit,
+                **(self.journal.metrics(artifact, moment) if self.journal else
+                   {'successRate7d': None, 'attempts7d': 0,
+                    'lastError': last.get('error') if last else None,
+                    'lastErrorAt': last.get('finishedAt') if last and not last['ok'] else None})}
+
     def status(self, *, now: Optional[datetime] = None) -> Dict[str, Any]:
         moment = now or wall_now()  # wall-clock: ages are real
         rows = []
@@ -397,8 +414,7 @@ class RefreshCoordinator:
             rows.append(self.describe(artifact, now=moment))
         return {
             "at": moment.isoformat(timespec="seconds"),
-            "scheduler": {"running": self.running, "tickSeconds": self.tick_seconds, "ticks": self.ticks,
-                          "singleOwner": self.ownership is not None, "journalError": self.journal_error},
+            "scheduler": self.scheduler_status(),
             "artifacts": rows,
             "summary": {
                 state: sum(1 for r in rows if r["state"] == state)

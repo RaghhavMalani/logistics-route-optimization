@@ -5,6 +5,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from statistics import median
 
 
 def safe_error(error):
@@ -81,12 +82,18 @@ class FreshnessJournal:
                               (artifact, since, until)).fetchall()
             state = db.execute('SELECT last_error FROM refresh_state WHERE artifact=?', (artifact,)).fetchone()
         attempted = [row for row in rows if not row[1]]
+        lags = []
+        for row in attempted:
+            sample = json.loads(row[2])
+            if row[0] and sample.get('observedAt'):
+                lags.append(max(0, (datetime.fromisoformat(sample['finishedAt']) - datetime.fromisoformat(sample['observedAt'])).total_seconds()))
         errors = [json.loads(row[2]) for row in rows if not row[0]]
         if not errors and state and state[0]:
             retained = json.loads(state[0])
             if datetime.fromisoformat(retained['finishedAt']) <= now:
                 errors = [retained]
         return {'attempts7d': len(attempted),
+                'medianLagSeconds': median(lags) if lags else None,
                 'successRate7d': sum(bool(row[0]) for row in attempted) / len(attempted) if attempted else None,
                 'lastError': errors[0]['error'] if errors else None,
                 'lastErrorAt': errors[0]['finishedAt'] if errors else None}
