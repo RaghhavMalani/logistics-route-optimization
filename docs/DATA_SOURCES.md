@@ -167,7 +167,7 @@ Terms: <https://www.gdeltproject.org/about.html>
 
 Checked: <https://www.gdeltproject.org/about.html>, <https://blog.gdeltproject.org/geographic-featureid-to-common-name-crosswalk-may-2018-update/amp/>, <https://cloud.google.com/bigquery/docs/best-practices-costs>
 
-Reviewed: 2026-11-04
+Reviewed: 2026-11-06
 
 > GDELT data may be reused with citation and link; linked articles retain publisher rights. Collect index dates and document links only. BigQuery compute is billed separately: require an explicit billing project, credentials and a daily byte budget, a partition predicate, a dry run and maximum bytes billed. No paid query is enabled by a default.
 
@@ -407,7 +407,7 @@ Terms: <https://open-meteo.com/en/terms>
 
 Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/marine-weather-api>
 
-Reviewed: 2026-11-04
+Reviewed: 2026-11-06
 
 > Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
 
@@ -421,7 +421,7 @@ Terms: <https://open-meteo.com/en/terms>
 
 Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/ensemble-api>
 
-Reviewed: 2026-11-04
+Reviewed: 2026-11-06
 
 > Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
 

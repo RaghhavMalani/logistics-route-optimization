@@ -199,7 +199,8 @@ _INGEST_REVIEWED = "2026-11-04"
 
 
 def _review(terms, checked, finding, *, commercial=REQUIRES_REVIEW,
-            government=REQUIRES_REVIEW, redistribution=REQUIRES_REVIEW):
+            government=REQUIRES_REVIEW, redistribution=REQUIRES_REVIEW,
+            reviewed_at=_INGEST_REVIEWED):
     return LicencePolicy(
         commercial_use=commercial,
         government_use=government,
@@ -207,7 +208,7 @@ def _review(terms, checked, finding, *, commercial=REQUIRES_REVIEW,
         attribution_required=True,
         evidence=TermsEvidence(
             checked_urls=((terms,) if terms else ()) + tuple(checked),
-            reviewed_at=_INGEST_REVIEWED,
+            reviewed_at=reviewed_at,
             terms_url=terms,
             finding=finding,
         ),
@@ -222,14 +223,14 @@ def _ingest_candidates() -> list[Provider]:
                     ('https://blog.gdeltproject.org/geographic-featureid-to-common-name-crosswalk-may-2018-update/amp/',
                      'https://cloud.google.com/bigquery/docs/best-practices-costs'),
                     'GDELT data may be reused with citation and link; linked articles retain publisher rights. Collect index dates and document links only. BigQuery compute is billed separately: require an explicit billing project, credentials and a daily byte budget, a partition predicate, a dry run and maximum bytes billed. No paid query is enabled by a default.',
-                    commercial=ALLOWED, government=ALLOWED, redistribution=ALLOWED),
+                    commercial=ALLOWED, government=ALLOWED, redistribution=ALLOWED, reviewed_at='2026-11-06'),
                 endpoint='gdelt-bq.gdeltv2.gkg_partitioned', cost_class=PAID,
                 coverage='Indian maritime document discovery; index metadata, not verified events'),)),
         Provider('open-meteo-trials', 'Open-Meteo candidate products', homepage='https://open-meteo.com/', products=tuple(
             ProviderProduct(key, title, (capability,),
                 _review('https://open-meteo.com/en/terms', (docs,),
                     'Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.',
-                    commercial=PROHIBITED, redistribution=ALLOWED), endpoint=endpoint,
+                    commercial=PROHIBITED, redistribution=ALLOWED, reviewed_at='2026-11-06'), endpoint=endpoint,
                 coverage='13 registered Indian ports; modelled forecasts, not observations')
             for key, title, capability, docs, endpoint in (
                 ('open-meteo-marine-extended', 'Marine waves, swell and currents trial', MARINE,
