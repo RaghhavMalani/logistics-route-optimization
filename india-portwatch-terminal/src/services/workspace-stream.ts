@@ -76,6 +76,7 @@ export function subscribeWorkspaceStream(token: string, mode: string | undefined
   return () => {
     current.listeners.delete(listener);
     if (current.listeners.size === 0) {
+      listener.state(false);
       current.controller.abort();
       clearTimeout(current.retry);
       streams.delete(key);

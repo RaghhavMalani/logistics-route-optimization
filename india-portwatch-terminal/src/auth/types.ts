@@ -140,6 +140,8 @@ export interface AuthAdapter {
 }
 
 export function isRoleAllowed(role: Role, pathname: string): boolean {
+  // Sources is public. A retiring workspace guard must allow its client navigation.
+  if (pathname === "/sources") return true;
   return ROLE_PROFILE[role].scope.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
