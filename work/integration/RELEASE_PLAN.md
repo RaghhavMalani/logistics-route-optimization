@@ -1,6 +1,6 @@
 # Production release plan
 
-Prepared 5 November 2026 IST. Execution requires explicit merge authorization. The production resources below were inspected read-only.
+Updated 11 November 2026 IST after recovering production on `7bdeb96`. Execution requires explicit authorization for the release SHA. Refresh the rollback IDs in the table from the live services immediately before each cutover.
 
 ## Mandatory exact-main CI gate
 
@@ -15,17 +15,25 @@ The gate checks the live GitHub main ref, the latest push workflow for that SHA,
 
 Hold automatic Vercel production alias assignment from the PR merge through production verification. A Git-created build may remain staged. Assign production traffic only after the exact-main gate passes and Railway reports the same SHA. Re-enable automatic production promotion only after every production check passes. The next release repeats this entire gate and hold procedure.
 
+## State volume reserve and backup retention
+
+Measure the mounted `/app/state` filesystem. Use its actual free bytes since the provider's volume usage display can lag. Create a fresh on-volume backup for the release after exact-main CI passes and record its path, file sizes, SHA-256 hashes, SQLite integrity verification and temporary SSH key removal in the rollback evidence. The backup refuses to start with less than 1.5 times the estimated full copy size, including SQLite WAL pages and filesystem overhead. It also refuses a copy projected to leave less than 20% free. Keep at most two verified release backup sets once the new set verifies. The latest verified set is always retained. Before pruning, record the older sets' file names, sizes and hashes in rollback history. Delete only the oldest verified sets after the newer two verify. Preserve unverified folders for investigation and leave other production files untouched.
+
+Use `scripts/Invoke-ProductionVolume.ps1 -Action inventory -EvidenceDir <release-evidence>` to read free bytes and backup hashes. For a release, run the same script with `-Action backup -Name <dated-backup-name> -ExpectedSha <full-main-sha>`. Record the retention decision and file receipts first. Pass `-Action prune -PruneReceipt <receipt.json>` with the rollback history path under `history` and the exact oldest names and signatures under `signatures`. The prune operation rechecks both the candidates and the protected sets. Record free bytes before and after the backup and retention in the release evidence.
+
+Use `scripts/Deploy-ProductionRailway.ps1 -ExpectedSha <full-main-sha> -Package <clean-backend-package> -EvidenceDir <release-evidence>` for the production upload. It requires green CI on that SHA, a verified matching backup with its temporary key removed, and at least 20% actual free space after backup. The backend reports `stateCapacity.freeBytes`, `totalBytes`, `freePercent` and the 20% reserve in `/api/health` and reports degraded below the reserve. Verify the mounted capacity again after startup. Keep mutable provider inputs, caches and outputs under `/app/state/live` so restart-time integrity checks still match the reviewed image. Confirm the frontend and backend artifact SHAs before starting the public smoke.
+
 | Resource | Current rollback reference |
 | --- | --- |
 | Vercel project | `india-portwatch` in `flash2404s-projects` |
 | Production alias | [india-portwatch.vercel.app](https://india-portwatch.vercel.app) |
-| Vercel deployment | `dpl_7M6Jy4gZetTzM28ppd4AmbcS2s3a`, ready at `451492fafd6993c6c1573697465e9d202094a07b` |
-| Immutable Vercel URL | [Current deployment](https://india-portwatch-9isxjt105-flash2404s-projects.vercel.app) |
+| Vercel deployment | `dpl_CaL7pM197KbrJozKkm6YUchapfVQ`, ready at `7bdeb9690b7c501ef147ad36cf04f4f173900c0f` |
+| Immutable Vercel URL | [Current deployment](https://india-portwatch-gj8z8uoeq-flash2404s-projects.vercel.app) |
 | Railway project | `983b8896-688f-47ea-a693-6985e84ab03b` |
 | Railway production environment and service | `7a940de4-9c13-411e-ad59-eb30ee42a9d4` and `128a61e8-a333-4c93-aa77-550d4e923495` |
-| Railway production deployment | `734e4a9f-4a18-452b-81e3-4d74e8da3f24`, successful |
+| Railway production deployment | `e7eb1e73-6e54-487c-acf5-eee29eb57f22`, restored from the `7bdeb96` image |
 | Railway production API | [india-portwatch-api.up.railway.app](https://india-portwatch-api.up.railway.app) |
-| Isolated preview API | [feature-integration preview](https://api-feature-integration-20261104-feature-integration-20261104.up.railway.app) |
+| Isolated preview API | [live-now preview](https://api-live-now-live-now-preview-20261106.up.railway.app) |
 
 ## Before the cutover
 
@@ -41,7 +49,7 @@ Hold automatic Vercel production alias assignment from the PR merge through prod
      },
      {
        "source": "/api/:path*",
-       "destination": "https://api-feature-integration-20261104-feature-integration-20261104.up.railway.app/api/:path*"
+      "destination": "https://api-live-now-live-now-preview-20261106.up.railway.app/api/:path*"
      }
    ]
    ```
@@ -59,7 +67,7 @@ Hold automatic Vercel production alias assignment from the PR merge through prod
 
 ## Cutover and production smoke
 
-1. Run the mandatory exact-main gate again. Deploy the **production Railway service** at that exact SHA. Confirm the deployment is healthy at its direct `/api/health`, that its artifact and release SHA match, and that production's volume and required data are ready. Save the Railway receipt.
+1. Run the guarded production Railway upload described above. Confirm direct `/api/health` has matching artifact and release SHAs, healthy durable stores and at least 20% free space. Save the Railway receipt.
 2. Run the mandatory exact-main gate again. Stage or select the same frontend SHA and manually promote it after Railway passes. Check the alias's Vercel deployment ID and SHA. On the alias, verify `/api/health` resolves to the verified **production** Railway service, environment, deployment and SHA. Recheck the preview alias is still isolated.
 3. On [the production terminal](https://india-portwatch.vercel.app), confirm `/login` says **Data service: Reachable**, `/tour` renders 3D, and all four demo buttons open their workspaces. Use isolated demo sessions for the S10 → Company approval → Port review/issue → Vessel acknowledgement/acceptance → Port outcome → Company completed → Admin → Research benchmark path at 1366×768 and 1280×720. Confirm role screen packets, no unexpected browser or API errors, and record screenshots and the SHA receipt.
 4. Run `qa/panel-smoke.mjs production` with a fresh verified receipt. Its production guard must identify the production service and environment listed above, the deployed Railway ID and the exact-main gate SHA. Retain its host, source-artifact and release-identity assertions.
@@ -67,6 +75,6 @@ Hold automatic Vercel production alias assignment from the PR merge through prod
 
 ## Rollback
 
-- **Vercel** — restore the deployment captured immediately before cutover using `vercel rollback <id> --scope flash2404s-projects`. The current reference is `dpl_7M6Jy4gZetTzM28ppd4AmbcS2s3a`. Verify the alias and its original same-origin API binding after rollback. [Vercel Instant Rollback](https://vercel.com/docs/instant-rollback)
-- **Railway** — in the production environment, open the production service's Deployments tab and select **Rollback** on the recorded previous successful deployment. The current reference is `734e4a9f-4a18-452b-81e3-4d74e8da3f24`. Confirm the deployment is eligible under retention and verify direct health and state. Use the backup and incident process if writes need recovery. [Railway Deployment Actions](https://docs.railway.com/deployments/deployment-actions)
+- **Vercel** — restore the deployment captured immediately before cutover using `vercel rollback <id> --scope flash2404s-projects`. Verify the alias and its original same-origin API binding after rollback. [Vercel Instant Rollback](https://vercel.com/docs/instant-rollback)
+- **Railway** — in the production environment, open the production service's Deployments tab and select **Rollback** on the recorded previous successful deployment. Confirm the deployment is eligible under retention and verify direct health and state. Use the backup and incident process if writes need recovery. If a legacy container restart rejects a changed image input, restore a clean container from the recorded immutable image and keep the attached volume. [Railway Deployment Actions](https://docs.railway.com/deployments/deployment-actions)
 - If any production verification check fails, immediately restore both recorded deployments. Recheck the Vercel alias, the restored Railway image identity and both health endpoints. A Railway rollback creates a new deployment from the recorded image. Save that new ID and verify its image digest matches the rollback record.
