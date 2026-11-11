@@ -191,7 +191,8 @@ class AisModeTests(unittest.TestCase):
     """
 
     def _client(self, key):
-        return AisStreamClient(TrackStore(), api_key=key)
+        # An explicit empty credential must not read the developer's .env key.
+        return AisStreamClient(TrackStore(), api_key=key or '')
 
     def test_without_a_key_research_shows_simulated_traffic(self):
         mode = ais_mode(licence_mode="RESEARCH", client=self._client(None), now=NOW)
@@ -268,16 +269,17 @@ class AisModeTests(unittest.TestCase):
     def test_the_process_client_is_not_started_by_reading_status(self):
         """Asking what mode we are in must not dial the server."""
         from src.portwatch_os.fabric.ais import client as client_module
+        from unittest.mock import patch
 
         client_module.reset_client()
-        try:
-            os.environ[AisStreamAdapter.ENV_KEY] = "a-key"
-            client = client_module.get_client()
-            self.assertTrue(client.configured)
-            self.assertIsNone(client._thread)
-        finally:
-            os.environ.pop(AisStreamAdapter.ENV_KEY, None)
-            client_module.reset_client()
+        # Exercise a configured, approved deployment, while still forbidding I/O.
+        with patch.dict(os.environ, {AisStreamAdapter.ENV_KEY: 'a-key', 'PORTWATCH_AIS_PUBLICATION_APPROVED': '1'}):
+            try:
+                client = client_module.get_client()
+                self.assertTrue(client.configured)
+                self.assertIsNone(client._thread)
+            finally:
+                client_module.reset_client()
 
 
 class ArtefactAdapterTests(unittest.TestCase):

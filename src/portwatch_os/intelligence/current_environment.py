@@ -81,9 +81,9 @@ def dated(snapshot, now=None):
             "status": "CURRENT" if age <= TTL[snapshot["kind"]] else "STALE"}
 
 
-def read(kind, port):
+def read(kind, port, *, at=None):
     path = _path(kind, port)
-    return dated(json.loads(path.read_text(encoding="utf-8"))) if path.exists() else {
+    return dated(json.loads(path.read_text(encoding="utf-8")), now=at) if path.exists() else {
         "kind": kind, "status": "UNAVAILABLE", "rows": [], "availableAt": None,
         "issuedAt": None, "observedAt": None, "source": URLS[kind]}
 
@@ -112,7 +112,7 @@ def _hazards(text, now):
     return list(rows.values())
 
 
-def refresh(kind, port, *, force=False):
+def refresh(kind, port, *, force=False, strict=False):
     """Fixed providers only, bounded calls, retain old timestamps on failure."""
     with LOCK:
         previous = read(kind, port)
@@ -163,6 +163,8 @@ def refresh(kind, port, *, force=False):
             temp.write_text(json.dumps(snapshot), encoding="utf-8"); temp.replace(path)
         return dated(snapshot)
     except (requests.RequestException, ValueError, KeyError, TypeError, ET.ParseError):
+        if strict:
+            raise
         return {**previous, "status": "STALE" if previous.get("availableAt") else "UNAVAILABLE",
                 "reason": "Provider refresh failed; previous receipt time retained."}
 

@@ -21,6 +21,7 @@ import { Route as PortRouteRouteImport } from './routes/port/route'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as SarRouteImport } from './routes/sar'
 import { Route as SimRouteImport } from './routes/sim'
+import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as TourRouteImport } from './routes/tour'
 import { Route as VesselRouteRouteImport } from './routes/vessel/route'
 import { Route as WxRouteImport } from './routes/wx'
@@ -129,6 +130,11 @@ const SarRoute = SarRouteImport.update({
 const SimRoute = SimRouteImport.update({
   id: '/sim',
   path: '/sim',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourcesRoute = SourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TourRoute = TourRouteImport.update({
@@ -391,6 +397,7 @@ export interface FileRoutesByFullPath {
   '/research': typeof ResearchRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
+  '/sources': typeof SourcesRoute
   '/tour': typeof TourRoute
   '/wx': typeof WxRoute
   '/admin/agents': typeof AdminAgentsRoute
@@ -450,6 +457,7 @@ export interface FileRoutesByTo {
   '/research': typeof ResearchRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
+  '/sources': typeof SourcesRoute
   '/tour': typeof TourRoute
   '/wx': typeof WxRoute
   '/admin/agents': typeof AdminAgentsRoute
@@ -514,6 +522,7 @@ export interface FileRoutesById {
   '/research': typeof ResearchRoute
   '/sar': typeof SarRoute
   '/sim': typeof SimRoute
+  '/sources': typeof SourcesRoute
   '/tour': typeof TourRoute
   '/wx': typeof WxRoute
   '/admin/agents': typeof AdminAgentsRoute
@@ -579,6 +588,7 @@ export interface FileRouteTypes {
     | '/research'
     | '/sar'
     | '/sim'
+    | '/sources'
     | '/tour'
     | '/wx'
     | '/admin/agents'
@@ -638,6 +648,7 @@ export interface FileRouteTypes {
     | '/research'
     | '/sar'
     | '/sim'
+    | '/sources'
     | '/tour'
     | '/wx'
     | '/admin/agents'
@@ -701,6 +712,7 @@ export interface FileRouteTypes {
     | '/research'
     | '/sar'
     | '/sim'
+    | '/sources'
     | '/tour'
     | '/wx'
     | '/admin/agents'
@@ -765,6 +777,7 @@ export interface RootRouteChildren {
   ResearchRoute: typeof ResearchRoute
   SarRoute: typeof SarRoute
   SimRoute: typeof SimRoute
+  SourcesRoute: typeof SourcesRoute
   TourRoute: typeof TourRoute
   WxRoute: typeof WxRoute
 }
@@ -853,6 +866,13 @@ declare module '@tanstack/react-router' {
       path: '/sim'
       fullPath: '/sim'
       preLoaderRoute: typeof SimRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sources': {
+      id: '/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof SourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tour': {
@@ -1347,6 +1367,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResearchRoute: ResearchRoute,
   SarRoute: SarRoute,
   SimRoute: SimRoute,
+  SourcesRoute: SourcesRoute,
   TourRoute: TourRoute,
   WxRoute: WxRoute,
 }

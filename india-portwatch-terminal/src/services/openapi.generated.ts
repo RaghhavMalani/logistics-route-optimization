@@ -6348,6 +6348,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/source-readings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Readings */
+        get: operations["source_readings_api_public_source_readings__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Status */
+        get: operations["source_status_api_public_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/weather-feedback": {
         parameters: {
             query?: never;
@@ -7783,6 +7817,17 @@ export interface components {
             /** Optionid */
             optionId: string;
         };
+        /** ReadingValue */
+        ReadingValue: {
+            /** Detail */
+            detail?: string | null;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: string | null;
+        };
         /** RegistryPosition */
         RegistryPosition: {
             /** Lat */
@@ -7928,6 +7973,100 @@ export interface components {
              * @default 0
              */
             tailPreference: number;
+        };
+        /** SourceHealth */
+        SourceHealth: {
+            /**
+             * Attempts7D
+             * @default 0
+             */
+            attempts7d: number;
+            /** Availableat */
+            availableAt?: string | null;
+            /** Circuit */
+            circuit?: string | null;
+            /**
+             * Core
+             * @default false
+             */
+            core: boolean;
+            /** Dataageseconds */
+            dataAgeSeconds?: number | null;
+            /** Detail */
+            detail: string;
+            /** Homepage */
+            homepage?: string | null;
+            /** Id */
+            id: string;
+            /** Lasterror */
+            lastError?: string | null;
+            /** Lasterrorat */
+            lastErrorAt?: string | null;
+            /** Lastsuccess */
+            lastSuccess?: string | null;
+            /** Medianlagseconds */
+            medianLagSeconds?: number | null;
+            /** Name */
+            name: string;
+            /** Observedat */
+            observedAt?: string | null;
+            /** Policyseconds */
+            policySeconds?: number | null;
+            /** Portscurrent */
+            portsCurrent?: number | null;
+            /** Portstotal */
+            portsTotal?: number | null;
+            /** Provider */
+            provider: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "live" | "stale" | "unavailable";
+            /** Successrate7D */
+            successRate7d?: number | null;
+            /** Termsurl */
+            termsUrl?: string | null;
+            /** Trial */
+            trial?: {
+                [key: string]: unknown;
+            } | null;
+            /** Validthrough */
+            validThrough?: string | null;
+        };
+        /** SourceReading */
+        SourceReading: {
+            /** Label */
+            label: string;
+            /**
+             * Validat
+             * Format: date-time
+             */
+            validAt: string;
+            /** Values */
+            values: components["schemas"]["ReadingValue"][];
+        };
+        /** SourceStatus */
+        SourceStatus: {
+            /**
+             * Checkedat
+             * Format: date-time
+             */
+            checkedAt: string;
+            /**
+             * Degraded
+             * @default false
+             */
+            degraded: boolean;
+            /**
+             * Scheduler
+             * @default {}
+             */
+            scheduler: {
+                [key: string]: unknown;
+            };
+            /** Sources */
+            sources: components["schemas"]["SourceHealth"][];
         };
         /** ValidationError */
         ValidationError: {
@@ -19917,6 +20056,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_readings_api_public_source_readings__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceReading"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_status_api_public_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceStatus"];
                 };
             };
         };

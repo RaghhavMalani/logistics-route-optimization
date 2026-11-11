@@ -430,14 +430,17 @@ function EconomicsPanel({ context }: { context: IntelligenceContext }) {
     <>
       <div className="intel-panel-heading">
         <h2>Economic context</h2>
-        <span>FRED</span>
+        <span>Reference series</span>
       </div>
       <p className="intel-muted">
         Global market context for fuel, settlement and operating costs. Quotes
         keep their observation dates.
       </p>
       {context.economics.map((q) => (
-        <article className="intel-quote" key={q.id}>
+        <article
+          className={`intel-quote ${q.status === "STALE" ? "intel-muted" : ""}`}
+          key={q.id}
+        >
           <div>
             <h3>{q.label}</h3>
             <span className={q.status === "STALE" ? "intel-stale" : ""}>
@@ -455,7 +458,13 @@ function EconomicsPanel({ context }: { context: IntelligenceContext }) {
               ? "No previous observation"
               : `${q.changePct > 0 ? "+" : ""}${q.changePct.toFixed(2)}% from previous observation`}
           </p>
-          <time>{time(q.observedAt)}</time>
+          <time>
+            {q.status === "STALE" && q.observedAt ? "Latest available · " : ""}
+            {time(q.observedAt)}
+            {q.status === "STALE" && q.ageHours != null
+              ? ` (${(q.ageHours / 24).toFixed(1)} days old)`
+              : ""}
+          </time>
           <p>{q.shippingConnection}</p>
           <a href={q.source} target="_blank" rel="noreferrer">
             View source series ↗

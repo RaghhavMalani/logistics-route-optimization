@@ -83,4 +83,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 # registry and the decision engine's memory are per process; a second worker
 # would hold a second world and answer differently. Scale by giving this
 # process more CPU, not by adding workers.
-CMD ["sh", "-c", "exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["sh", "-c", "python -m src.portwatch_os.freshness.bootstrap && exec uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

@@ -26,7 +26,8 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-CACHE = ROOT / "data" / "portwatch"
+from src.utils.config import DATA_DIR
+CACHE = DATA_DIR / "portwatch"
 CACHE.mkdir(parents=True, exist_ok=True)
 ORG = "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/ArcGIS/rest/services"
 
@@ -130,7 +131,9 @@ def _query(svc, where, order=None, fields="*", page=1000, max_records=200000, re
 
 def _save(df, name):
     if df is not None and not df.empty:
-        df.to_csv(CACHE / name, index=False)
+        temporary = CACHE / (name + '.tmp')
+        df.to_csv(temporary, index=False)
+        temporary.replace(CACHE / name)
     return df
 
 
@@ -140,7 +143,7 @@ def _cached(name):
 
 
 # ---------------------------------------------------------------------------
-def fetch_port_activity(days: int = 400) -> pd.DataFrame:
+def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFrame:
     """Daily India port activity + trade (vessel calls by type, import/export).
 
     Also refreshes the per-port history files under data/portwatch/history/
@@ -150,8 +153,11 @@ def fetch_port_activity(days: int = 400) -> pd.DataFrame:
     since = (pd.Timestamp.today() - pd.Timedelta(days=days)).strftime("%Y-%m-%d")
     where = f"country='India' AND date>=DATE '{since}'"
     try:
-        df = _query("Daily_Ports_Data", where, order="date")
+        df = _query("Daily_Ports_Data", where, order="date,portid")
         if not df.empty:
+            previous = _cached('port_activity.csv')
+            if not previous.empty:
+                df = pd.concat([previous, df], ignore_index=True).drop_duplicates(['portid', 'date'], keep='last')
             df["canon"] = df["portid"].map(CANON).fillna(df["portid"])
             _save(df, "port_activity.csv")
             hist_dir = CACHE / "history"
@@ -159,12 +165,20 @@ def fetch_port_activity(days: int = 400) -> pd.DataFrame:
             for pid in CANON:
                 g = df[df["portid"] == pid]
                 if not g.empty:
-                    (g[["date", "portcalls", "import", "export"]]
-                       .sort_values("date")
-                       .to_csv(hist_dir / f"{pid}.csv", index=False))
+                    path = hist_dir / f'{pid}.csv'
+                    rows = g[['date', 'portcalls', 'import', 'export']]
+                    if path.exists():
+                        rows = pd.concat([pd.read_csv(path), rows], ignore_index=True)
+                    temporary = path.with_suffix('.tmp')
+                    rows.drop_duplicates('date', keep='last').sort_values('date').to_csv(temporary, index=False)
+                    temporary.replace(path)
             return df
     except Exception as exc:
+        if strict:
+            raise
         print("port activity fetch failed:", exc)
+    if strict:
+        raise RuntimeError('PortWatch returned no usable activity rows; retained observations are unchanged')
     return _cached("port_activity.csv")
 
 

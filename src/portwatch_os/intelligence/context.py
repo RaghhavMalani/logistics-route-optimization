@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.portwatch_os.clock import LIVE, get_clock, world_now
+from src.portwatch_os.clock import LIVE, get_clock, wall_now, world_now
+from src.portwatch_os.fabric.products import ProductCatalogue
+from src.portwatch_os.freshness.reviewed_sources import ECB_RATES, ecb_context, permits_publication
 
 SERIES = (
     ("brent", "Brent crude", "DCOILBRENTEU", "USD/bbl", "Fuel and energy cost exposure"),
@@ -27,6 +29,18 @@ def economic_context(cache_dir: Path) -> list[dict]:
             quote["shippingConnection"] += "; historical publication vintages unavailable"
             result.append(quote)
             continue
+        if key == "usd_inr":
+            _, product = ProductCatalogue().product(ECB_RATES)
+            if permits_publication(product):
+                now = wall_now()  # wall-clock: compare the live ECB reference date to real time.
+                quote.update(
+                    label="USD / INR · ECB cross rate", series="ECB-EUR-CROSS",
+                    source="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+                    shippingConnection="ECB reference rates via Frankfurter. INR per USD is derived from same-date EUR legs.",
+                    **ecb_context(now),
+                )
+                result.append(quote)
+                continue
         if key in ('usd_inr','brent'):
             from src.portwatch_os.intelligence.free_sources import public_product
             public=public_product('fred_fx' if key=='usd_inr' else 'fred_brent')

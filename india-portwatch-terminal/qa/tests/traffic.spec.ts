@@ -10,6 +10,7 @@
 import type { Page } from "@playwright/test";
 
 import { expect, seedSession, settle, test, type Role } from "../harness";
+import { freshWeatherFixture } from "../fresh-weather";
 
 async function mapReady(page: Page): Promise<void> {
   // Wait for a fleet, not for a clock. Three workers each running an eight
@@ -195,6 +196,7 @@ test("scrubbing the forecast moves the weather and the predicted fleet", async (
   context,
   page,
 }) => {
+  await freshWeatherFixture(page, context);
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   // At NOW there is nothing to predict, so no ghosts are drawn.

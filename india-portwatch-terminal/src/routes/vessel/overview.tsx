@@ -1,3 +1,4 @@
+import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * The vessel operator's bridge view.
  *
@@ -132,12 +133,6 @@ function VesselBridge() {
     );
   }
 
-  const health = workspace.health.data;
-  const activity = (
-    ["live", "cached", "stale", "synthetic", "unavailable"] as const
-  ).find((status) =>
-    health?.sources?.[status]?.some((name) => name.startsWith("Port activity")),
-  );
   const worst = worstExposure(exposure);
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") {
@@ -224,16 +219,13 @@ function VesselBridge() {
               data-map-camera-inset="right"
               className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2"
             >
-              <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
+              <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
-                {workspace.frame.forecast
-                  ? "provider forecast"
-                  : workspace.frame.stations.length
-                    ? "retained map data"
-                    : "unavailable"}{" "}
-                · Port activity {activity ?? "unavailable"} · Traffic{" "}
+                <WeatherDataNow />{" "}
+                · Port activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
                 {trafficSource.info.label}
-              </p>
+                <DataNowSources />
+              </div>
               <WorkspaceHandoffCard view="vessel" />
               {selectedFix?.owned ? (
                 <section

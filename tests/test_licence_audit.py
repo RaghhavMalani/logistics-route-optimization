@@ -206,7 +206,7 @@ class EvidenceTests(unittest.TestCase):
         payload = SignalFabric(mode=RESEARCH).product("aisstream-websocket").to_dict()
         self.assertEqual(payload["policy"]["commercialUse"], REQUIRES_REVIEW)
         self.assertIn("evidence", payload["policy"])
-        self.assertEqual(payload["policy"]["evidence"]["reviewedAt"], "2026-09-12")
+        self.assertEqual(payload["policy"]["evidence"]["reviewedAt"], "2026-11-04")
 
 
 if __name__ == "__main__":

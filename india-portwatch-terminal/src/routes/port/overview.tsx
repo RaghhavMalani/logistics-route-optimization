@@ -1,3 +1,4 @@
+import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * The port controller's cockpit.
  *
@@ -145,12 +146,6 @@ function PortCockpitScreen() {
       )
     : [80.3, 13.1];
 
-  const health = workspace.health.data;
-  const activity = (
-    ["live", "cached", "stale", "synthetic", "unavailable"] as const
-  ).find((status) =>
-    health?.sources?.[status]?.some((name) => name.startsWith("Port activity")),
-  );
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") workspace.setSelectedVesselId(hit.id);
     workspace.flyTo(
@@ -218,24 +213,14 @@ function PortCockpitScreen() {
               className="pointer-events-none absolute right-2.5 top-2.5 z-20 flex w-[320px] flex-col gap-2"
               style={{ bottom: bottomStack + 8 }}
             >
-              <p className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
+              <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
                 <strong>Data now</strong> · Weather{" "}
-                {workspace.frame.forecast
-                  ? "current provider forecast"
-                  : workspace.frame.stations.length
-                    ? "retained map data"
-                    : "unavailable"}{" "}
-                · Port activity {activity ?? "status unavailable"} · Traffic{" "}
+                <WeatherDataNow />{" "}
+                · Port activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
                 {trafficSource.info.label} · Congestion{" "}
-                {health?.targetStatus === "EXPIRED"
-                  ? "expired"
-                  : (health?.forecastOriginStatus
-                      ?.toLowerCase()
-                      .replaceAll("_", " ") ?? "status unavailable")}
-                {health?.forecastOrigin
-                  ? ` (origin ${health.forecastOrigin.slice(0, 10)})`
-                  : ""}
-              </p>
+                <DatedSource id="congestion-forecast" />
+                <DataNowSources />
+              </div>
               <PortHomeHandoffs portCode={port.code} />
               {selectedFix ? (
                 <VesselInspector

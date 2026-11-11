@@ -499,7 +499,8 @@ def get_client() -> AisStreamClient:
                 for box in boxes:
                     if len(box)!=2 or any(len(p)!=2 for p in box): raise ValueError('AIS corners require latitude/longitude pairs')
                     if any(not -90<=p[0]<=90 or not -180<=p[1]<=180 for p in box) or abs(box[0][0]-box[1][0])>10 or abs(box[0][1]-box[1][1])>10: raise ValueError('Local AIS regions must span at most ten degrees')
-            _CLIENT = AisStreamClient(on_observation=_fuse, recorder=_recorder_from_env(),bounding_boxes=boxes)
+            _CLIENT = AisStreamClient(on_observation=_fuse, recorder=_recorder_from_env(),bounding_boxes=boxes,
+                                     api_key=get_settings().AISSTREAM_API_KEY if publication_approved() else '')
         return _CLIENT
 
 
@@ -595,9 +596,14 @@ def start_client() -> AisStreamClient:
             client.status.last_error = f"replay file not found: {path}"
             log.warning("AIS replay requested but %s does not exist", path)
         return client
-    if client.configured:
+    if client.configured and publication_approved():
         client.start()
     return client
+
+
+def publication_approved() -> bool:
+    """A key permits access; deployment publication needs a separate rights gate."""
+    return (get_settings().PORTWATCH_AIS_PUBLICATION_APPROVED or '').lower() in ('1', 'true', 'yes')
 
 
 def stop_client() -> None:

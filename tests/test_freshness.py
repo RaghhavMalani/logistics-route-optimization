@@ -296,7 +296,10 @@ class ProductJobsTests(unittest.TestCase):
     """The real artifacts, probed on disk. No network; no job is run."""
 
     def setUp(self):
-        os.environ["PORTWATCH_LICENCE_MODE"] = "DEMO"
+        from unittest.mock import patch
+        environment = patch.dict(os.environ, {"PORTWATCH_LICENCE_MODE": "DEMO", "AISSTREAM_API_KEY": ""})
+        environment.start()
+        self.addCleanup(environment.stop)
         reset_telemetry()
 
     def tearDown(self):
@@ -325,8 +328,6 @@ class ProductJobsTests(unittest.TestCase):
     def test_traffic_under_the_replay_is_simulated_and_not_a_job(self):
         from src.portwatch_os.freshness.jobs import probe_traffic, traffic_eligibility
 
-        if os.getenv("AISSTREAM_API_KEY"):
-            self.skipTest("a live key is configured")
         self.assertEqual(probe_traffic().override_state, "SIMULATED")
         self.assertIsNotNone(traffic_eligibility())
 

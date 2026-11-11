@@ -16,8 +16,8 @@ Claims, in order:
     licence                 the deployment's mode may use AISStream (DEMO / RESEARCH)
     connect                 the client opened a socket and subscribed
     observations            valid position reports arrived (count, message types)
-    source timestamp        every accepted report carries the transponder's own
-                            instant, within a stated skew of arrival
+    source timestamp        every accepted report carries an AISStream source
+                            timestamp within a stated skew of arrival
     LIVE_AIS                the traffic state machine moved to LIVE_AIS because
                             observations arrived, and says so
     track storage           the track store holds a track per observed hull
@@ -43,6 +43,7 @@ import hashlib
 import os
 import sys
 import time
+from statistics import median
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -56,6 +57,35 @@ KEY_ENV = "AISSTREAM_API_KEY"
 MAX_FUTURE_SKEW = timedelta(minutes=5)
 #: Nor lag it by more than this and still count as a current observation.
 MAX_LAG = timedelta(hours=6)
+
+# Fixed receiver search boxes. They include approaches and anchorages, so these
+# counts describe observed hulls in the box rather than arrivals or port calls.
+COASTAL_BOXES = {
+    "JNPA": [[18.60, 72.55], [19.08, 73.12]],
+    "Mundra": [[22.55, 69.40], [23.02, 70.05]],
+    "Chennai": [[12.90, 80.20], [13.35, 80.65]],
+    "Paradip": [[19.95, 86.50], [20.45, 87.02]],
+}
+
+
+def coastal_coverage(observations, arrivals):
+    from src.portwatch_os.fabric.ais.messages import POSITION_REPORT, STANDARD_CLASS_B
+
+    result = {}
+    for port, ((south, west), (north, east)) in COASTAL_BOXES.items():
+        reports = [(row, (arrived - row.source_timestamp).total_seconds())
+                   for row, arrived in zip(observations, arrivals)
+                   if row.message_type in (POSITION_REPORT, STANDARD_CLASS_B)
+                   and row.provenance.get("source_time_known")
+                   and south <= row.lat <= north and west <= row.lon <= east]
+        qualified = [(row, lag) for row, lag in reports if 0 <= lag <= MAX_LAG.total_seconds()]
+        lags = [lag for _, lag in qualified]
+        result[port] = {
+            "hulls": len({row.mmsi for row, _ in qualified}),
+            "reports": len(qualified),
+            "medianLagSeconds": round(median(lags), 1) if lags else None,
+        }
+    return result
 
 
 class Skip(Exception):
@@ -111,6 +141,7 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--wait", type=float, default=120.0, help="seconds to listen for observations")
     parser.add_argument("--min-observations", type=int, default=3)
+    parser.add_argument("--coastal", action="store_true", help="Measure the four named Indian coastal boxes")
     args = parser.parse_args(argv)
 
     report = Report()
@@ -118,7 +149,8 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
 
     # ---------------------------------------------------------------- key --
     def key_present() -> Optional[str]:
-        if not os.getenv(KEY_ENV):
+        from src.utils.settings import get_settings
+        if not get_settings().AISSTREAM_API_KEY:
             raise Skip(f"{KEY_ENV} is not set; nothing can be verified without a real key")
         return None
     if not report.check("key present", key_present):
@@ -166,7 +198,10 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
         client = client_factory(on_observation=on_observation)
         out("      (scripted socket: this run tests the utility, not a live feed)")
     else:
-        client = AisStreamClient(on_observation=on_observation)
+        client = AisStreamClient(
+            on_observation=on_observation,
+            bounding_boxes=list(COASTAL_BOXES.values()) if args.coastal else None,
+        )
     state["client"] = client
 
     def connect() -> Optional[str]:
@@ -187,7 +222,7 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
     # ------------------------------------------------------- observations --
     def observations() -> Optional[str]:
         deadline = time.monotonic() + args.wait
-        while time.monotonic() < deadline and len(accepted) < args.min_observations:
+        while time.monotonic() < deadline and (args.coastal or len(accepted) < args.min_observations):
             if client.status.health == AUTH_FAILED:
                 return f"the server refused the credential mid-session: {client.status.last_error}"
             time.sleep(1.0)
@@ -205,14 +240,14 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
             raise Skip("no observations")
         problems = []
         for observation, arrived in zip(accepted, arrivals):
-            if observation.source_timestamp.tzinfo is None:
-                problems.append(f"{_anonymous(observation.mmsi)}: naive timestamp")
+            if observation.source_timestamp.tzinfo is None or not observation.provenance.get("source_time_known"):
+                problems.append(f"{_anonymous(observation.mmsi)}: missing or unqualified source timestamp")
                 continue
             skew = observation.source_timestamp - arrived
             if skew > MAX_FUTURE_SKEW:
-                problems.append(f"{_anonymous(observation.mmsi)}: transponder instant leads arrival by {skew}")
+                problems.append(f"{_anonymous(observation.mmsi)}: source timestamp leads arrival by {skew}")
             elif -skew > MAX_LAG:
-                problems.append(f"{_anonymous(observation.mmsi)}: transponder instant lags arrival by {-skew}")
+                problems.append(f"{_anonymous(observation.mmsi)}: source timestamp lags arrival by {-skew}")
         if problems:
             return "; ".join(problems[:3])
         return None
@@ -293,13 +328,17 @@ def main(argv: Optional[List[str]] = None, *, client_factory: Optional[Callable[
         lons = [o.lon for o in accepted]
         hulls = {o.mmsi for o in accepted}
         text = (f"{len(accepted)} observations from {len(hulls)} hulls; types {', '.join(state.get('types', []))}; "
-                f"box lat {min(lats):.1f}..{max(lats):.1f} lon {min(lons):.1f}..{max(lons):.1f}; "
-                f"first three hulls {', '.join(_anonymous(m) for m in sorted(hulls)[:3])}")
+                f"box lat {min(lats):.1f}..{max(lats):.1f} lon {min(lons):.1f}..{max(lons):.1f}")
         for observation in accepted:
             for field in (observation.mmsi, observation.name, observation.callsign, observation.imo):
                 if field and str(field) in text:
                     return f"the summary would have carried an identity field"
         out(f"      summary: {text}")
+        if args.coastal:
+            for port, metrics in coastal_coverage(accepted, arrivals).items():
+                lag = metrics["medianLagSeconds"]
+                lag_label = f"{lag} s" if lag is not None else "unmeasured"
+                out(f"      {port}: {metrics['hulls']} distinct hulls, {metrics['reports']} reports, median lag {lag_label}")
         return None
     report.check("anonymised summary", summary)
 

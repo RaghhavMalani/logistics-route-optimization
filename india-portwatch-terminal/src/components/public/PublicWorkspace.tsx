@@ -746,14 +746,27 @@ export function PublicWorkspace({ embedded = false }: { embedded?: boolean }) {
                   <section className="workspace-section">
                     <h3>Economic context</h3>
                     {data?.economics.map((e) => (
-                      <p key={e.id}>
+                      <p
+                        key={e.id}
+                        className={
+                          e.status === "STALE"
+                            ? "text-[var(--text-3)]"
+                            : undefined
+                        }
+                      >
                         <a href={e.source} target="_blank" rel="noreferrer">
                           {e.label} ↗
                         </a>{" "}
                         {fmt(e.value)} {e.unit}
                         <br />
                         <small>
-                          {e.status} · {utc(e.observedAt)}
+                          {e.status === "STALE" && e.observedAt
+                            ? "Latest available"
+                            : e.status}{" "}
+                          · {utc(e.observedAt)}
+                          {e.status === "STALE" && e.ageHours != null
+                            ? ` (${(e.ageHours / 24).toFixed(1)} days old)`
+                            : ""}
                         </small>
                         <br />
                         {e.shippingConnection}

@@ -9,7 +9,7 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://api-feature-integration-20261104-feature-integration-20261104.up.railway.app/api/:path*"
+      "destination": "https://api-live-now-live-now-preview-20261106.up.railway.app/api/:path*"
     }
   ],
   "build": {
