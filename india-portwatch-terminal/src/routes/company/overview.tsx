@@ -105,32 +105,45 @@ function fleetRoutes(
 
 function ActionRow({
   row,
-  index,
   onSelect,
   selected,
 }: {
   row: CompanyRiskRow;
-  index: number;
   onSelect: () => void;
   selected: boolean;
 }) {
+  const location = row.chokepoint.replace(/_/g, " ");
+  const hours = row.hoursToRiskArea;
+  const arrival =
+    hours != null && Number.isFinite(hours) && hours >= 0
+      ? `${row.vesselName} is modelled to reach ${location} in ${Math.ceil(hours)} h`
+      : `${row.vesselName} could be affected by ${row.eventTitle}`;
+  const deadline = row.diversionDeadline
+    ? ` by ${formatUtc(row.diversionDeadline)}`
+    : "";
+  const extra = row.delayHoursIfDiverted;
+  const diversionTime = extra != null && Number.isFinite(extra)
+    ? ` (${extra > 0 ? "+" : ""}${Math.round(extra)} h)`
+    : "";
+  const decision = row.recommendedAction === "evaluate_diversion"
+    ? `Decide${deadline} whether to reroute${diversionTime} or keep the current route.`
+    : `Review the exposure${deadline}.`;
   return (
-    <button
+    <div className={cn("border-b border-[var(--line)]/60 last:border-0", selected && "bg-[var(--panel-3)]")}>
+      <button
       type="button"
       onClick={onSelect}
       data-testid="action-required-row"
       data-owned-vessel={row.vesselId}
       className={cn(
-        "block w-full border-b border-[var(--line)]/60 px-2 py-1.5 text-left transition-colors last:border-0",
-        selected ? "bg-[var(--panel-3)]" : "hover:bg-[var(--panel-2)]",
+        "block w-full px-2 py-1.5 text-left transition-colors",
+        !selected && "hover:bg-[var(--panel-2)]",
       )}
     >
-      <div className="flex items-baseline gap-2">
-        <span className="num shrink-0 text-[10px] text-[var(--text-3)]">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[var(--text)]">
-          {row.vesselName}
+      <p className="text-xs font-semibold leading-snug">{arrival}. {decision}</p>
+      <div className="mt-1 flex items-baseline gap-2">
+        <span className="min-w-0 flex-1 text-[10.5px] text-[var(--text-2)]">
+          {row.eventCategoryLabel}
         </span>
         <span
           className={cn(
@@ -140,10 +153,6 @@ function ActionRow({
         >
           <ExposureScore value={row.exposure} />
         </span>
-      </div>
-
-      <div className="mt-[3px] text-[10.5px] leading-snug text-[var(--text-2)]">
-        {row.eventCategoryLabel} · {row.chokepoint.replace(/_/g, "-")}
       </div>
 
       <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
@@ -176,7 +185,14 @@ function ActionRow({
           </span>
         ) : null}
       </div>
-    </button>
+      </button>
+      {row.actionBasis ? (
+        <details className="px-2 pb-1.5 text-[10.5px] text-[var(--text-2)]">
+          <summary className="cursor-pointer">Why</summary>
+          <p className="mt-1">{row.actionBasis}</p>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -504,11 +520,10 @@ function FleetCommand() {
                               {actionRequired.length === 1 ? "" : "s"}
                             </span>
                           </div>
-                          {actionRequired.map((row, index) => (
+                          {actionRequired.map((row) => (
                             <ActionRow
                               key={`${row.vesselId}-${row.eventId}`}
                               row={row}
-                              index={index}
                               selected={selectedVessel === row.vesselId}
                               onSelect={() => setSelectedVessel(row.vesselId)}
                             />

@@ -20,7 +20,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import { useAuth } from "@/auth/AuthProvider";
 import { Chip, PanelTabs } from "@/components/command/panels";
-import { Pill, type Tone } from "@/components/kit/primitives";
+import { formatUtc, Pill, type Tone } from "@/components/kit/primitives";
 import { optionStyles } from "@/lib/maritime/decision-layers";
 import { cn } from "@/lib/utils";
 import {
@@ -153,6 +153,46 @@ export function useCountdown(deadline: string | null): string | null {
   const m = Math.floor((remaining % 3600) / 60);
   const s = Math.floor(remaining % 60);
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
+function decisionLead(problem: DecisionProblem, closed?: string) {
+  const subject = problem.subject.label;
+  if (problem.workflow === "OBSERVED") return `The outcome for ${subject} is recorded.`;
+  if (problem.workflow === "DECLINED") return `The proposed change for ${subject} was declined.`;
+  if (closed) return `${subject} · ${closed}`;
+
+  const risk = problem.evidence.closureModel as
+    | { hoursToRisk?: number | null; alreadyEntered?: boolean }
+    | undefined;
+  const event = (problem.evidence.event as { label?: string } | undefined)?.label;
+  const hours = risk?.hoursToRisk;
+  const context =
+    event && risk?.alreadyEntered
+      ? `${subject} is already in the modelled area affected by ${event}`
+      : event && hours != null && Number.isFinite(hours) && hours >= 0
+        ? `${subject} reaches the modelled area affected by ${event} in ${Math.ceil(hours)} h`
+        : `${subject} has a plan to review`;
+  const deadline = problem.decisionDeadline ? ` by ${formatUtc(problem.decisionDeadline)}` : "";
+  const recommendation = problem.recommendation;
+  if (recommendation?.kind === "WAIT_FOR_MORE_INFORMATION") {
+    return `${context}. Review the missing evidence${deadline} before changing the plan.`;
+  }
+  const choice = problem.options.find((option) => option.optionId === recommendation?.optionId);
+  const current = problem.options.find((option) => option.isBaseline);
+  if (!choice || choice.status !== "FEASIBLE") {
+    return `${context}. Review the available options${deadline}.`;
+  }
+  if (choice.isBaseline || recommendation?.kind === "KEEP_CURRENT_PLAN") {
+    return `${context}. Review whether to keep the current plan${deadline}.`;
+  }
+  const eta = choice.evaluation?.objectives.eta;
+  const currentEta = current?.evaluation?.objectives.eta;
+  const change = eta?.available && currentEta?.available && eta.unit === "h" &&
+    currentEta.unit === "h" && eta.value != null && currentEta.value != null
+    ? Math.round(eta.value - currentEta.value)
+    : null;
+  const timing = change ? ` (${change > 0 ? "+" : ""}${change} h)` : "";
+  return `${context}. Decide${deadline} between ${choice.label}${timing} and the current plan.`;
 }
 
 export function DecisionPanel({
@@ -293,6 +333,9 @@ export function DecisionPanel({
     >
       {/* ------------------------------------------------------- header -- */}
       <div className="pw-decision-header border-b border-[var(--line)] px-2 py-1.5">
+        <p data-testid="decision-lead" className="mb-1 text-xs font-semibold leading-snug [overflow-wrap:anywhere]">
+          {decisionLead(problem, closedWindowStatus)}
+        </p>
         <div className="flex items-center gap-1.5">
           <Pill
             tone={
@@ -307,31 +350,22 @@ export function DecisionPanel({
           >
             {closedWindowStatus ?? "Action required"}
           </Pill>
-          <span
-            className={cn(
-              "min-w-0 flex-1 text-[11px] font-medium text-[var(--text)]",
-              currentWeather?.passageComparison ? "break-words" : "truncate",
-            )}
-          >
-            {problem.subject.label}
-          </span>
           {onClose ? (
             <button
               type="button"
               onClick={onClose}
               aria-label="Close decision"
-              className="text-[10px] text-[var(--text-3)] hover:text-[var(--text)]"
+              className="ml-auto text-[10px] text-[var(--text-3)] hover:text-[var(--text)]"
             >
               ✕
             </button>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate text-[10px] text-[var(--text-2)]">
-          {currentWeather?.passageComparison
-            ? "Declared passage · conditional port approach"
-            : problem.headline.split(" · ").slice(1).join(" · ") ||
-              problem.headline}
-        </p>
+        {currentWeather?.passageComparison ? (
+          <p className="mt-0.5 text-[10px] text-[var(--text-2)]">
+            Declared passage · conditional port approach
+          </p>
+        ) : null}
         <div className="mt-1 flex items-center gap-3 text-[10.5px] text-[var(--text-3)]">
           {!closedWindowStatus ? (
             <span>
@@ -797,6 +831,7 @@ export function DecisionPanel({
 
         {tab === "why" ? (
           <>
+            <p className="px-2 pt-2 text-xs">{problem.headline}</p>
             {currentWeather?.passageComparison ? (
               <div className="space-y-2 p-2 text-xs [overflow-wrap:anywhere]">
                 <p>
