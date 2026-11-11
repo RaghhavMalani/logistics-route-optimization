@@ -1,4 +1,4 @@
-import { ageLabel, sourceStatusLabel, useSourceHealth } from "@/services/source-health";
+import { ageLabel, expectedLagTone, sourceStatusLabel, useSourceHealth } from "@/services/source-health";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
 import { Link } from "@tanstack/react-router";
 
@@ -16,7 +16,11 @@ export function LivePulse() {
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${source.status === "live" ? "bg-emerald-700" : source.status === "expected_lag" ? "bg-amber-400" : source.status === "stale" ? "bg-amber-700" : "bg-neutral-400"}`} />
       <span>{source.name}</span>
       <span>{source.dataAgeSeconds == null ? "—" : ageLabel(source.dataAgeSeconds)}</span>
-      <span className="sr-only">{sourceStatusLabel[source.status]}</span>
+      {source.status === "expected_lag" ? (
+        <span className={expectedLagTone}>
+          Within expected lag
+        </span>
+      ) : <span className="sr-only">{sourceStatusLabel[source.status]}</span>}
     </Link>)}
   </nav>;
 }

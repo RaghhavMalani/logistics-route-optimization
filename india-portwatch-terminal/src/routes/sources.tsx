@@ -7,6 +7,7 @@ import { getJson } from "@/services/api";
 import type { ApiResponse } from "@/services/api-client";
 import {
   ageLabel,
+  expectedLagTone,
   sourceStatusLabel,
   successLabel,
   useSourceHealth,
@@ -109,7 +110,11 @@ function SourcesPage() {
             >
               <p className="font-mono text-xs uppercase text-[var(--text-2)]">
                 {source.provider} ·{" "}
-                {source.status === "live" && source.id === "imf-portwatch-data"
+                {source.status === "expected_lag" ? (
+                  <span className={expectedLagTone}>
+                    {sourceStatusLabel[source.status]}
+                  </span>
+                ) : source.status === "live" && source.id === "imf-portwatch-data"
                   ? "Current daily snapshot"
                   : sourceStatusLabel[source.status]}
               </p>
@@ -153,8 +158,12 @@ function SourcesPage() {
               <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
                 {source.publicationLag ? (
                   <>
-                    <dt>Median observation to first receipt</dt>
-                    <dd>{ageLabel(source.publicationLag.medianSeconds)} · {source.publicationLag.samples} dated samples</dd>
+                    <dt>Provisional publication lag</dt>
+                    <dd>
+                      {ageLabel(source.publicationLag.medianSeconds)} ·{" "}
+                      {source.publicationLag.samples} distinct daily{" "}
+                      {source.publicationLag.samples === 1 ? "collection" : "collections"}
+                    </dd>
                   </>
                 ) : null}
                 <dt>Last successful check</dt>

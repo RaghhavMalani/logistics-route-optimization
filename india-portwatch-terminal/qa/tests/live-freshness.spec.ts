@@ -27,9 +27,28 @@ test("login and Sources expose degradation, source dates and unmeasured rates", 
   await page.goto("/login");
   await expect(page.getByText("Data service", { exact: true }).locator("..").getByText("Reachable", { exact: true })).toBeVisible();
   await expect(page.getByTestId("login-source-freshness")).toHaveText("Degraded · latest available data");
+  await expect(page.getByText("Twin state", { exact: true })).toHaveCount(0);
   await page.goto("/sources");
   await expect(page.getByTestId("source-latest-available")).toHaveCount(3);
   await expect(page.getByText("Unmeasured", { exact: true }).first()).toBeVisible();
+});
+
+test("expected IMF lag is amber and shows the provisional collection count", async ({ context, page }) => {
+  const sources = JSON.parse(fs.readFileSync(new URL("../fixtures/public_sources.json", import.meta.url), "utf8"));
+  const imf = sources.sources.find((source: { id: string }) => source.id === "imf-portwatch-data");
+  imf.status = "expected_lag";
+  imf.publicationLag = { basis: "first_successful_receipt", medianSeconds: 579600, samples: 2 };
+  await context.route("**/api/public/sources", (route) => route.fulfill({ json: sources }));
+  await seedSession(context, "SHIPPING_COMPANY");
+  await page.goto("/company/overview");
+  const pulse = page.getByTestId("live-pulse").locator('[data-source="imf-portwatch-data"]');
+  await expect(pulse.getByText("Within expected lag")).toHaveCSS("background-color", /^(?:rgb|oklch)\(/);
+  await expect(pulse.getByText("Within expected lag")).toHaveClass(/bg-amber-100/);
+  await page.goto("/sources");
+  const card = page.getByRole("heading", { name: "Port activity", exact: true }).locator("..");
+  await expect(card.getByText("Within expected publication lag")).toHaveClass(/bg-amber-100/);
+  await expect(card.getByText("Provisional publication lag")).toBeVisible();
+  await expect(card.getByText("6.7 days · 2 distinct daily collections")).toBeVisible();
 });
 
 test("login badge follows a degraded service with current source data", async ({ context, page }) => {

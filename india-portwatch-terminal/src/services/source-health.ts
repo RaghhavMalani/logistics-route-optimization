@@ -11,6 +11,8 @@ export const sourceStatusLabel: Record<SourceStatus, string> = {
   unavailable: "Unavailable",
 };
 
+export const expectedLagTone = "rounded bg-amber-100 px-1 text-amber-900";
+
 export function useSourceHealth() {
   const streaming = useQuery({
     queryKey: ["source-stream-live"],

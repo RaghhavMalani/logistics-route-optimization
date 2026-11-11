@@ -1,6 +1,7 @@
 import { formatUtc } from "@/components/kit/primitives";
 import {
   ageLabel,
+  expectedLagTone,
   sourceStatusLabel,
   successLabel,
   useSourceHealth,
@@ -74,7 +75,7 @@ export function DatedSource({ id }: { id: string }) {
   const source = data?.sources.find((row) => row.id === id);
   const at = source?.observedAt ?? source?.availableAt;
   const label = source?.status === "expected_lag" ? sourceStatusLabel.expected_lag : "Latest available";
-  return <span data-testid={`dated-source-${id}`} className={source?.status === "live" || source?.status === "expected_lag" ? "" : "text-[var(--text-3)]"}>
+  return <span data-testid={`dated-source-${id}`} className={source?.status === "expected_lag" ? expectedLagTone : source?.status === "live" ? undefined : "text-[var(--text-3)]"}>
     {source?.status === "live" ? "within policy" : at ? `${label} · ${formatUtc(at)} (${ageLabel(source?.dataAgeSeconds)} old)` : "unavailable"}
   </span>;
 }

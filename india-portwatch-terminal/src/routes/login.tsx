@@ -77,19 +77,17 @@ function LoginScreen() {
     }
   };
 
-  const serviceDegraded = health.data?.service?.status === "degraded";
-  const serviceTone = health.isError || serviceDegraded
+  const serviceStatus = health.data?.service?.status;
+  const serviceTone = health.isError || serviceStatus === "degraded"
     ? "crit"
-    : health.isLoading
-      ? "neutral"
-      : "ok";
+    : serviceStatus === "ok" ? "ok" : "neutral";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
       ? "Checking"
-      : serviceDegraded
+      : serviceStatus === "degraded"
         ? "Degraded"
-        : "Reachable";
+        : serviceStatus === "ok" ? "Reachable" : "Unverified";
 
   const forecast = health.isError ? undefined : health.data;
   const originAt = Date.parse(forecast?.forecastOrigin ?? "");
@@ -276,10 +274,6 @@ function LoginScreen() {
               <dd className="text-right text-[var(--text-3)]" data-testid="login-source-freshness">
                 {health.data?.data?.status === "ok" ? "Core sources within policy" :
                   health.data?.data?.status === "degraded" ? "Degraded · latest available data" : "Unmeasured"}
-              </dd>
-              <dt className="text-[var(--text-3)]">Twin state</dt>
-              <dd className="num text-right text-[var(--text-2)]">
-                {health.data?.intelligence ?? "—"}
               </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">

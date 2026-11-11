@@ -52,6 +52,34 @@ def test_upstream_staleness_is_data_degradation_only(tmp_path, monkeypatch):
     assert payload['sourceHealth']['sources'][0]['status'] == 'stale'
 
 
+def test_successful_collection_updates_lag_without_a_forecast_run(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import pandas as pd
+    from app.data import portwatch
+    from src.portwatch_os import clock, freshness
+    from src.portwatch_os.freshness.journal import FreshnessJournal
+
+    journal = FreshnessJournal(tmp_path / "freshness.sqlite3")
+    observed = datetime(2026, 11, 8, tzinfo=timezone.utc)
+    received = datetime(2026, 11, 11, 16, tzinfo=timezone.utc)
+    data = pd.DataFrame([{"portid": "port883", "date": int(observed.timestamp() * 1000),
+                          "portcalls": 5, "import": 0, "export": 0}])
+    monkeypatch.setattr(portwatch, "CACHE", tmp_path)
+    monkeypatch.setattr(portwatch, "_query", lambda *a, **kw: data.copy())
+    monkeypatch.setattr(clock, "wall_now", lambda: received)
+    monkeypatch.setattr(freshness, "get_coordinator", lambda: SimpleNamespace(journal=journal))
+
+    baseline = imf_publication_lag(received, journal.publication_receipts())
+    portwatch.fetch_port_activity(strict=True)
+    portwatch.fetch_port_activity(strict=True)
+    receipts = journal.publication_receipts()
+    assert len(receipts) == 2
+    refreshed = imf_publication_lag(received, receipts)
+    assert refreshed["samples"] == baseline["samples"] + 1
+    assert refreshed["medianSeconds"] < baseline["medianSeconds"]
+
+
 def test_service_faults_remain_degraded_with_current_data(monkeypatch):
     from backend.app.domains.system.health import service_health
     from src.portwatch_os.freshness.write_health import failed_writes, record_write

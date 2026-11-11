@@ -70,12 +70,23 @@ class FreshnessJournal:
             from .publication_lag import HISTORY_WINDOW
             history_cutoff = (result.finished_at - HISTORY_WINDOW).astimezone(timezone.utc).isoformat()
             db.execute("""DELETE FROM refresh_attempts WHERE finished < ? OR
-                       (finished < ? AND (artifact != 'port_forecast' OR ok != 1 OR skipped = 1))""",
+                       (finished < ? AND (artifact NOT IN ('port_forecast', 'port_activity_collection')
+                                          OR ok != 1 OR skipped = 1))""",
                        (history_cutoff, cutoff))
+
+    def record_port_activity_collection(self, observed_at, received_at):
+        received = received_at.astimezone(timezone.utc).isoformat()
+        result = json.dumps({"detail": {"sourceObservedAt": observed_at.isoformat(),
+                                        "sourceReceivedAt": received}})
+        with self.connect() as db:
+            db.execute("""INSERT INTO refresh_attempts(artifact,finished,ok,skipped,result)
+                          VALUES('port_activity_collection',?,1,0,?)""", (received, result))
 
     def publication_receipts(self):
         with self.connect() as db:
-            rows = db.execute("SELECT result FROM refresh_attempts WHERE artifact='port_forecast' AND ok=1 AND skipped=0").fetchall()
+            rows = db.execute("""SELECT result FROM refresh_attempts
+                                WHERE artifact IN ('port_activity_collection', 'port_forecast')
+                                  AND ok=1 AND skipped=0""").fetchall()
         details = [json.loads(row[0]).get('detail', {}) for row in rows]
         return [(row['sourceObservedAt'], row['sourceReceivedAt'])
                 for row in details if row.get('sourceObservedAt') and row.get('sourceReceivedAt')]
