@@ -22,7 +22,7 @@ def classify(at, now, budget, *, valid_through=None):
     return ('live' if current else 'stale'), age
 
 
-def core_sources(now):
+def retained_sources(now):
     from backend.app.services import cache_service as cache
     from src.portwatch_os.freshness import get_coordinator
     from src.portwatch_os.freshness.jobs import install_product_jobs
@@ -88,4 +88,16 @@ def core_sources(now):
                      'detail': f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.',
                      'termsUrl': 'https://open-meteo.com/en/terms',
                      **job_metrics([f'current_{kind}_{port.locode}' for port in PORTS])})
+    try:
+        hazards = current_environment.read('hazards', PORTS[0], at=now)
+    except (ValueError, OSError, KeyError):
+        hazards = {}
+    available = instant(hazards.get('availableAt'))
+    budget = current_environment.TTL['hazards']
+    state, age = classify(available, now, budget)
+    rows.append({'id': 'gdacs-alerts', 'name': 'Regional hazard feed', 'provider': 'GDACS',
+                 'status': state, 'availableAt': available if state != 'unavailable' else None,
+                 'dataAgeSeconds': age, 'policySeconds': budget,
+                 'detail': 'Age of the retained feed response. Check the event timestamps for individual alerts.',
+                 'homepage': 'https://www.gdacs.org/', **job_metrics(['current_gdacs'])})
     return rows, coordinator.scheduler_status()

@@ -149,12 +149,12 @@ def source_status() -> dict:
             dataAgeSeconds=max(0, (now - observed).total_seconds()) if observed else None,
             **metrics,
         ))
-    from src.portwatch_os.freshness.truth import core_sources
-    core, scheduler = core_sources(now)
-    ids = {row['id'] for row in core}
-    rows = [row for row in rows if row.id not in ids] + [SourceHealth(**row) for row in core]
+    from src.portwatch_os.freshness.truth import retained_sources
+    retained, scheduler = retained_sources(now)
+    ids = {row['id'] for row in retained}
+    rows = [row for row in rows if row.id not in ids] + [SourceHealth(**row) for row in retained]
     return SourceStatus(checkedAt=now, sources=rows, scheduler=scheduler,
-                        degraded=bool(scheduler.get('journalError')) or any(row['status'] != 'live' for row in core)).model_dump()
+                        degraded=bool(scheduler.get('journalError')) or any(row.core and row.status != 'live' for row in rows)).model_dump()
 
 
 @router.get("/source-readings/{key}", response_model=list[SourceReading])
