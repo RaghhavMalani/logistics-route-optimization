@@ -16,7 +16,13 @@ export const Route = createFileRoute("/sources")({
   head: () => ({ meta: [{ title: "Sources · PortWatch X" }] }),
 });
 
-function SourceReadings({ id }: { id: string }) {
+const sourceReadingLabels: Record<string, string> = {
+  "open-meteo-marine-extended": "View modelled readings",
+  "open-meteo-ensemble": "View modelled readings",
+  "frankfurter-ecb-fx": "View ECB reference rates",
+};
+
+function SourceReadings({ id, label }: { id: string; label: string }) {
   const [open, setOpen] = useState(false);
   const readings = useQuery({
     queryKey: ["public", "source-readings", id],
@@ -35,7 +41,7 @@ function SourceReadings({ id }: { id: string }) {
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary className="cursor-pointer underline underline-offset-2">
-        View modelled readings
+        {label}
       </summary>
       {readings.isFetching && !readings.data ? (
         <p role="status">Reading retained snapshot…</p>
@@ -126,10 +132,11 @@ function SourcesPage() {
                   policy
                 </p>
               ) : null}
-              {source.status === "live" &&
-              (source.id === "open-meteo-marine-extended" ||
-                source.id === "open-meteo-ensemble") ? (
-                <SourceReadings id={source.id} />
+              {source.status === "live" && sourceReadingLabels[source.id] ? (
+                <SourceReadings
+                  id={source.id}
+                  label={sourceReadingLabels[source.id]}
+                />
               ) : null}
               {source.status !== "live" &&
               (source.observedAt || source.availableAt) ? (

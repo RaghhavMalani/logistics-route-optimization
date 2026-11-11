@@ -5,17 +5,20 @@ from math import isfinite
 
 from src.portwatch_os.fabric.licence import ALLOWED
 from src.portwatch_os.fabric.model import deployment_mode
-from src.portwatch_os.freshness.source_snapshots import Snapshot
+from src.portwatch_os.freshness.source_snapshots import Snapshot, configured_store
 from src.utils.settings import get_settings
 
+ECB_RATES = "frankfurter-ecb-fx"
 PUBLISHED_MAX_AGE = {
     "open-meteo-marine-extended": timedelta(hours=9),
     "open-meteo-ensemble": timedelta(hours=9),
+    ECB_RATES: timedelta(days=4),
 }
 REVIEWED_TRIAL = "trial-live-20261106180034"
 REVIEW_DECISIONS = {
     "open-meteo-marine-extended": "adopted for covered ports",
     "open-meteo-ensemble": "adopted for weather context",
+    ECB_RATES: "adopted for FX reference context",
 }
 
 
@@ -75,3 +78,35 @@ def forecast_readings(sample: Snapshot, product: str, now: datetime) -> tuple[di
     if readings:
         metrics.update(status="live", validThrough=min(horizons))
     return metrics, readings
+
+
+def ecb_readings(sample: Snapshot, now: datetime) -> list[dict]:
+    observed = sample.observed_at
+    if observed is None or not timedelta(0) <= now - observed <= PUBLISHED_MAX_AGE[ECB_RATES]:
+        return []
+    return [{"label": f"EUR/{row['quote']}", "validAt": _valid_time(row['date']), "values": [
+        {"label": "ECB reference rate", "value": str(row['rate']), "unit": f"{row['quote']}/EUR"},
+    ]} for row in sample.payload.get("rates", [])]
+
+
+def ecb_context(now: datetime) -> dict:
+    """Display-only INR per USD cross from same-date retained ECB legs."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    try:
+        store = configured_store()
+        sample = store.latest("published", ECB_RATES) if store else None
+    except (SQLAlchemyError, ValueError):
+        return {}
+    if not sample or sample.observed_at is None or sample.observed_at > now:
+        return {}
+    rates = {row["quote"]: row for row in sample.payload.get("rates", [])}
+    if rates.keys() != {"INR", "USD"} or rates["INR"]["date"] != rates["USD"]["date"]:
+        return {}
+    age = now - sample.observed_at
+    return {
+        "value": rates["INR"]["rate"] / rates["USD"]["rate"],
+        "observedAt": sample.observed_at.date().isoformat(),
+        "ageHours": round(age.total_seconds() / 3600, 1),
+        "status": "CURRENT" if age <= PUBLISHED_MAX_AGE[ECB_RATES] else "STALE",
+    }

@@ -10,7 +10,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.portwatch_os.clock import wall_now
 from src.portwatch_os.fabric.products import ProductCatalogue
 from src.portwatch_os.freshness.reviewed_sources import (
-    PUBLISHED_MAX_AGE, REVIEW_DECISIONS, REVIEWED_TRIAL, forecast_readings, permits_publication,
+    ECB_RATES, PUBLISHED_MAX_AGE, REVIEW_DECISIONS, REVIEWED_TRIAL,
+    ecb_readings, forecast_readings, permits_publication,
 )
 from src.portwatch_os.freshness.source_snapshots import configured_store
 from src.portwatch_os.intelligence import free_sources
@@ -26,7 +27,7 @@ SOURCES = {
     "incois-osf": "Use the official forecast link. A supported data feed and reuse terms are under review.",
     "imd-rsmc-cyclone": "Use the official bulletin link. Reproduction requires permission.",
     "nho-navarea-viii": "Existing retained warning context. Scheduled snapshot trial pending.",
-    "frankfurter-ecb-fx": "Trial only. ECB reference rates are daily.",
+    "frankfurter-ecb-fx": "Daily EUR reference rates from ECB statistics via Frankfurter. No publication on weekends or ECB closure days.",
     "gdelt-events": "Existing discovery context. The shorter query window is trial only.",
     "pib-ports-rss": "Use the official release links. Feed terms and Ministry filtering are under review.",
     "imf-portwatch-data": "Lagged daily aggregates for Paradip. The latest retained data date sets the displayed age.",
@@ -166,9 +167,12 @@ def source_readings(key: str) -> list[dict]:
     try:
         store = configured_store()
         sample = store.latest("published", key) if store else None
+        now = wall_now()  # wall-clock: provider readings must be valid in the real present.
         if sample and key.startswith("open-meteo-"):
-            _, readings = forecast_readings(sample, key, wall_now())
+            _, readings = forecast_readings(sample, key, now)
             return readings
+        if sample and key == ECB_RATES:
+            return ecb_readings(sample, now)
     except (SQLAlchemyError, ValueError):
         pass
     return []

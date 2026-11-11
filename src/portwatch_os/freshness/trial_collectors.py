@@ -41,6 +41,8 @@ def ecb_rates(url: str) -> Snapshot:
         checked[quote] = date.fromisoformat(row["date"])
     # Use the older leg to avoid making partially current coverage appear fresh.
     # The response supplies reference dates only. Midnight UTC is a date anchor.
+    if max(checked.values()) > wall_now().date():  # wall-clock: no future ECB reference dates.
+        raise ValueError("Future ECB reference date")
     reference = datetime.combine(min(checked.values()), time.min, timezone.utc)
     return Snapshot({
         "attribution": "Source: ECB statistics via Frankfurter",

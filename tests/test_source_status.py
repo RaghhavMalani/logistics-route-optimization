@@ -76,3 +76,37 @@ def test_modelled_readings_require_a_published_fresh_snapshot(tmp_path, monkeypa
     monkeypatch.setenv("PORTWATCH_LICENCE_MODE", "DEMO")
     now += timedelta(hours=1)
     assert client.get(path).json() == []
+
+
+def test_ecb_context_replaces_only_the_display_series(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from src.portwatch_os.freshness import reviewed_sources
+    from src.portwatch_os.intelligence import context
+
+    now = datetime(2026, 11, 9, 15, tzinfo=timezone.utc)
+    observed = datetime(2026, 11, 6, tzinfo=timezone.utc)
+    product = reviewed_sources.ECB_RATES
+    store = SnapshotStore(f"sqlite:///{(tmp_path / 'sources.db').as_posix()}")
+    store.initialize()
+    rates = [{"quote": "USD", "rate": 1.25, "date": "2026-11-06"},
+             {"quote": "INR", "rate": 100, "date": "2026-11-06"}]
+    store.record("trial-private", product, now, snapshot=Snapshot({"rates": rates}, observed))
+    monkeypatch.setenv("PORTWATCH_PUBLISH_REVIEWED_SOURCES", product)
+    monkeypatch.setattr(context, "get_clock", lambda: SimpleNamespace(state=SimpleNamespace(mode=context.LIVE)))
+    monkeypatch.setattr(context, "wall_now", lambda: now)
+    monkeypatch.setattr(reviewed_sources, "configured_store", lambda: store)
+    monkeypatch.setattr(source_status, "configured_store", lambda: store)
+    monkeypatch.setattr(source_status, "wall_now", lambda: now)
+    assert context.economic_context(tmp_path)[1]["value"] is None
+
+    store.record("published", product, now, snapshot=Snapshot({"rates": rates}, observed))
+    brent, fx, cpi = context.economic_context(tmp_path)
+    assert (brent["series"], fx["series"], cpi["series"]) == ("DCOILBRENTEU", "ECB-EUR-CROSS", "INDCPIALLMINMEI")
+    assert (fx["value"], fx["status"], fx["observedAt"]) == (80, "CURRENT", "2026-11-06")
+    path = f"/api/public/source-readings/{product}"
+    client = TestClient(app)
+    assert {row["label"] for row in client.get(path).json()} == {"EUR/INR", "EUR/USD"}
+    now += timedelta(days=2)
+    assert context.economic_context(tmp_path)[1]["status"] == "STALE"
+    assert client.get(path).json() == []

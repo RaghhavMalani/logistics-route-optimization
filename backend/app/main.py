@@ -172,6 +172,7 @@ async def _identity_gate(request: Request, call_next):
         public_read = request.method == "GET" and (path in ("/api/public/explore", "/api/public/research", "/api/public/workspace", "/api/public/scenario", "/api/public/weather-feedback")
             or path.startswith("/api/public/research/download/")
             or path in ("/api/public/port-calls", "/api/public/sources")
+            or re.fullmatch(r"/api/public/source-readings/[a-z0-9-]+", path) is not None
             or re.fullmatch(r"/api/public/port-calls/(?:evidence/[a-f0-9]{64}\.pdf|[a-f0-9]{64}/audit)", path) is not None)
         if path.startswith("/api/") and request.method != "OPTIONS" and path not in IDENTITY_EXEMPT and not public_read:
             authorization = request.headers.get("authorization", "")

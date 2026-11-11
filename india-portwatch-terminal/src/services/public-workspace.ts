@@ -55,6 +55,7 @@ export interface Workspace extends Omit<PublicExplore, "ports" | "events"> {
     source: string;
     observedAt: string | null;
     status: string;
+    ageHours?: number | null;
     shippingConnection: string;
   }[];
   cameras: {

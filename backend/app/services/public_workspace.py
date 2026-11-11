@@ -109,7 +109,7 @@ def workspace(mode="current", at=None):
         {"id": "routes", "label": "Shipping routes", "status": "CATALOGUE", "coverage": "Ten trade lanes to Indian ports; comparison geometry, not navigation."},
         {"id": "vessels", "label": "Vessels", "status": "SCENARIO_ONLY", "coverage": data["vesselMeaning"]},
         {"id": "weather", "label": "Weather", "status": "CACHED" if data["weather"] else "UNAVAILABLE", "coverage": "Dated port weather snapshots; no continuous global weather field in this iteration."},
-        {"id": "economics", "label": "Economics", "status": "CACHED" if any(e["value"] is not None for e in data["economics"]) else "UNAVAILABLE", "coverage": "FRED context. Bunker and charter rates in comparisons are explicit visitor assumptions."},
+        {"id": "economics", "label": "Economics", "status": "CACHED" if any(e["value"] is not None for e in data["economics"]) else "UNAVAILABLE", "coverage": "Dated economic reference series. Bunker and charter rates in comparisons are explicit visitor assumptions."},
         {"id": "infrastructure", "label": "Ports & infrastructure", "status": "CATALOGUE", "coverage": "Registered ports and chokepoints; road, rail and live berth feeds not connected."},
         {"id": "cameras", "label": "Port cameras", "status": "UNVERIFIED" if data["cameras"] else "UNAVAILABLE", "coverage": "Only enabled public registry feeds; frame health is shown. Live media withheld outside current view."},
     ]
