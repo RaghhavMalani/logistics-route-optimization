@@ -51,7 +51,7 @@ test("the sign-in screen reports an unreachable service", async ({ context, page
   await killApi(context);
   await page.goto("/login");
   await settle(page);
-  await expect(page.getByRole("heading", { name: "Secure sign-in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Follow a voyage through PortWatch" })).toBeVisible();
   await expect(page.getByText("Unreachable")).toBeVisible({ timeout: 15_000 });
 });
 

@@ -27,7 +27,7 @@ test.describe("anonymous", () => {
       await page.goto(path);
       await settle(page);
       await expect(page).toHaveURL(/\/login/);
-      await expect(page.getByRole("heading", { name: "Secure sign-in" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Follow a voyage through PortWatch" })).toBeVisible();
     });
   }
 
@@ -195,6 +195,7 @@ test.describe("sign-in", () => {
   test("a bad password is refused, and says so", async ({ page }) => {
     await page.goto("/login");
     await settle(page);
+    await page.getByText("Operator access", { exact: true }).click();
     await page.getByLabel("Email").fill("admin@portwatch.demo");
     await page.getByLabel("Password").fill("not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();

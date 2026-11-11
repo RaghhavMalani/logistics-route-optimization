@@ -26,6 +26,9 @@ for (const state of ["current", "expired", "unavailable"] as const) {
     await page.goto("/login");
     await expect(page).toHaveTitle("PortWatch X — Sign in");
     await expect(page.getByRole("button", { name: "Company demo", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Start the 3-minute demo" })).toBeVisible();
+    await expect(page.getByLabel("Email", { exact: true })).toBeHidden();
+    await page.getByText("Live status", { exact: true }).click();
     await expect(page.getByText(new RegExp(`^${ports.length} registered`))).toBeVisible();
     if (state === "unavailable") {
       await expect(page.getByText("Unreachable", { exact: true })).toBeVisible();
