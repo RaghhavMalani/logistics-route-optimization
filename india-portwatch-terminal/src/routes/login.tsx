@@ -77,7 +77,16 @@ function LoginScreen() {
     setError(null);
     try {
       const session = await startDemo(role);
-      writeStory(story ? { step: 0 } : null);
+      writeStory(
+        story && session.demoId
+          ? {
+              step: 0,
+              reached: 0,
+              demoId: session.demoId,
+              requestId: crypto.randomUUID(),
+            }
+          : null,
+      );
       await navigate({ to: ROLE_PROFILE[session.user.role].home });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Demo could not open.");

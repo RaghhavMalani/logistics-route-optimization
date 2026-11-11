@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { AuthProvider } from "@/auth/AuthProvider";
+import { StoryCoach } from "@/components/app/StoryCoach";
 import { WorldProvider } from "@/world/WorldContext";
 import { Button } from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
@@ -145,6 +146,7 @@ function RootComponent() {
         <AuthProvider>
           <WorldProvider>
             <Outlet />
+            <StoryCoach />
           </WorldProvider>
         </AuthProvider>
       )}

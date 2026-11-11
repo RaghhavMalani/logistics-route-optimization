@@ -2,9 +2,14 @@ const STORY_KEY = "portwatch.story.v1";
 
 export interface StorySession {
   step: number;
+  reached: number;
+  demoId: string;
+  requestId: string;
   decisionId?: string;
+  reviewId?: string;
   optionId?: string;
   advisoryId?: string;
+  wait?: { before: number; after: number };
 }
 
 export function readStory(): StorySession | null {

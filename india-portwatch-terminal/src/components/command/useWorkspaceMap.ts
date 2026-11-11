@@ -60,6 +60,7 @@ import type { PortSnapshot } from "@/types/portwatch";
 import type { MarineState, ObservedTracks } from "@/types/portwatch-os";
 import { bearingLine, circleRing, sectorRing } from "@/components/map/geometry";
 import { useCurrentMapWeather } from "@/services/current-inputs";
+import { readStory } from "@/services/story-session";
 
 /* ---------------------------------------------------------------- layers -- */
 
@@ -490,6 +491,17 @@ export function useWorkspaceMap(
     token.current += 1;
     setFocus({ center, zoom, token: token.current });
   }, []);
+  const storyGlided = useRef(false);
+  const storyPort = portByCode.get("INPRT")?.location;
+  useEffect(() => {
+    const step = readStory()?.step;
+    if (storyGlided.current || !storyPort || step == null || ![1, 2, 4, 7].includes(step)) return;
+    const timer = window.setTimeout(() => {
+      storyGlided.current = true;
+      flyTo([storyPort.lon, storyPort.lat], step === 2 || step === 4 ? 8.5 : 6);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [storyPort, flyTo]);
   const fitBounds = useCallback((bounds: MapBounds, padding?: MapPadding) => {
     token.current += 1;
     setFocus({ bounds, padding, token: token.current });
