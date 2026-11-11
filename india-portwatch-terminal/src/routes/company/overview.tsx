@@ -187,9 +187,7 @@ function FleetCommand() {
   const fleet = useCompanyFleet(companyId);
   const [horizon, setHorizon] = useState(72);
   const risk = useCompanyRisk(companyId, horizon);
-  const [planningTab, setPlanningTab] = useState<"fleet" | "scenarios">(
-    "fleet",
-  );
+  const [planningTab, setPlanningTab] = useState<"now" | "fleet" | "scenarios">("now");
   const [scenarioRoute, setScenarioRoute] = useState<DecisionOption | null>(
     null,
   );
@@ -363,47 +361,35 @@ function FleetCommand() {
             </div>
 
             {/* --------------------------------------------------- right -- */}
-            <div
+            <aside
+              aria-label="Fleet Command tools"
+              data-testid="workspace-right-panel"
               data-map-camera-inset="right"
-              className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2"
+              className="pw-company-rail pw-workspace-rail pointer-events-auto absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col overflow-hidden"
             >
-              <WorkspaceHandoffCard view="company" />
-              <div className="pointer-events-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2">
-                <div
-                  className="flex flex-wrap items-center gap-2"
-                  aria-label="Fleet planning tools"
-                >
-                  <button
-                    type="button"
-                    aria-pressed={planningTab === "fleet"}
-                    onClick={() => setPlanningTab("fleet")}
-                    className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs aria-pressed:font-semibold"
-                  >
-                    Fleet intelligence
-                  </button>
-                  {session?.mode === "demo" ? (
-                    <button
-                      type="button"
-                      aria-pressed={planningTab === "scenarios"}
-                      onClick={() => setPlanningTab("scenarios")}
-                      className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs aria-pressed:font-semibold"
-                    >
-                      Scenarios
-                    </button>
-                  ) : null}
-                  <Link to="/company/global-eye" className="text-xs underline">
-                    Global Eye
-                  </Link>
+              <PanelTabs
+                value={planningTab}
+                onChange={(next) => {
+                  setPlanningTab(next);
+                  if (next !== "scenarios") setTab(next === "now" ? "action" : "fleet");
+                }}
+                tabs={[
+                  { value: "now", label: "Now" },
+                  { value: "fleet", label: "Fleet" },
+                  { value: "scenarios", label: "Scenarios" },
+                ]}
+              />
+              {planningTab === "now" ? (
+                <div className="shrink-0 border-b border-[var(--line)]">
+                  <WorkspaceHandoffCard view="company" />
+                  <CompanyIntelligenceQueue />
                 </div>
-                <div className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
-                  <strong>Data now</strong> · Weather{" "}
-                  <WeatherDataNow />{" "}
-                  · Port activity <DatedSource id="imf-portwatch-data" /> ·
-                  Traffic {trafficSource.info.label} · Congestion{" "}
-                  <DatedSource id="congestion-forecast" />
-                  <DataNowSources />
+              ) : null}
+              {planningTab === "scenarios" && session?.mode !== "demo" ? (
+                <div className="p-3 text-xs">
+                  <Link className="underline" to="/company/global-eye">Open passage comparisons in Global Eye</Link>
                 </div>
-              </div>
+              ) : null}
               {session?.mode === "demo" ? (
                 <div
                   hidden={planningTab !== "scenarios"}
@@ -427,7 +413,6 @@ function FleetCommand() {
               <div
                 className={planningTab === "scenarios" ? "hidden" : "contents"}
               >
-                <CompanyIntelligenceQueue />
                 <ObservedSelection
                   workspace={workspace}
                   className="min-h-0 flex-1"
@@ -485,23 +470,12 @@ function FleetCommand() {
                     </Link>
                   </div>
 
-                  <PanelTabs
-                    value={tab}
-                    onChange={setTab}
-                    tabs={[
-                      {
-                        value: "action",
-                        label: "Action required",
-                        count: actionRequired.length,
-                      },
-                      { value: "fleet", label: "Fleet", count: vessels.length },
-                      {
-                        value: "ports",
-                        label: "Ports",
-                        count: portRisk.length,
-                      },
-                    ]}
-                  />
+                  {planningTab === "fleet" ? (
+                    <div className="flex gap-3 border-b border-[var(--line)] px-2 py-1.5 text-xs">
+                      <button type="button" aria-pressed={tab === "fleet"} onClick={() => setTab("fleet")}>Ships</button>
+                      <button type="button" aria-pressed={tab === "ports"} onClick={() => setTab("ports")}>Port exposure</button>
+                    </div>
+                  ) : null}
 
                   {tab === "action" ? (
                     <>
@@ -748,7 +722,15 @@ function FleetCommand() {
                   </FloatPanel>
                 ) : null}
               </div>
-            </div>
+              {planningTab === "now" ? (
+                <div className="p-2 border-t border-[var(--line)] text-xs leading-snug">
+                  <strong>Data now</strong> · Weather <WeatherDataNow />
+                  {" "}· Port activity <DatedSource id="imf-portwatch-data" />
+                  {" "}· Traffic {trafficSource.info.label} · Congestion <DatedSource id="congestion-forecast" />
+                  <DataNowSources opensAbove />
+                </div>
+              ) : null}
+            </aside>
           </>
         }
       />

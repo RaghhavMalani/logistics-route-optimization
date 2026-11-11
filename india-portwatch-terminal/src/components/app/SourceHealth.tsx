@@ -5,7 +5,7 @@ import {
   useSourceHealth,
 } from "@/services/source-health";
 
-export function DataNowSources() {
+export function DataNowSources({ opensAbove = false }: { opensAbove?: boolean }) {
   const { data, isError } = useSourceHealth();
   const sources = data?.sources ?? [];
   const activity = sources.find(({ id }) => id === "imf-portwatch-data");
@@ -29,7 +29,7 @@ export function DataNowSources() {
       {data ? (
         <details className="relative">
           <summary className="cursor-pointer">Recent source checks</summary>
-          <ul className="absolute inset-x-0 top-full z-40 max-h-52 overflow-auto rounded border border-[var(--line)] bg-[var(--panel)] p-2 shadow-sm">
+          <ul className={`absolute inset-x-0 z-40 max-h-52 overflow-auto rounded border border-[var(--line)] bg-[var(--panel)] p-2 shadow-sm ${opensAbove ? "bottom-full" : "top-full"}`}>
             {sources.map((source) => (
               <li
                 key={source.id}

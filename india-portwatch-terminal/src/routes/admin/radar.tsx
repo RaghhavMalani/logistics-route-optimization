@@ -1,3 +1,5 @@
+import { DataNowSources, DatedSource, WeatherDataNow } from "@/components/app/SourceHealth";
+import { useWorkspaceHandoffs } from "@/services/handoffs";
 /**
  * National command.
  *
@@ -37,6 +39,7 @@ import {
   EmptyNote,
   FloatPanel,
   PanelSection,
+  PanelTabs,
 } from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
@@ -56,6 +59,8 @@ function NationalRadar() {
   const { setPortCode } = useAuth();
   const at = useTrafficTick(1);
   const fixes = useFixes(1);
+  const handoffs = useWorkspaceHandoffs();
+  const [railTab, setRailTab] = useState<"now" | "ports" | "scenarios">("now");
   const [following, setFollowing] = useState(false);
 
   const selectedFix = useMemo(
@@ -195,11 +200,22 @@ function NationalRadar() {
             </div>
 
             {/* ------------------------------------------------------- right -- */}
-            <div
+            <aside
+              aria-label="National Command tools"
+              data-testid="workspace-right-panel"
               data-map-camera-inset="right"
-              className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[338px] flex-col gap-2"
+              className="pw-workspace-rail pointer-events-auto absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[338px] flex-col overflow-hidden"
             >
-              {selectedFix ? (
+              <PanelTabs value={railTab} onChange={setRailTab} tabs={[
+                { value: "now", label: "Now" },
+                { value: "ports", label: "Ports" },
+                { value: "scenarios", label: "Scenarios" },
+              ]} />
+              {railTab === "scenarios" ? (
+                <div className="p-3 text-xs">
+                  <Link className="font-medium underline" to="/admin/scenarios">Open the network scenario workbench</Link>
+                </div>
+              ) : selectedFix ? (
                 <VesselInspector
                   fix={selectedFix}
                   ports={workspace.ports}
@@ -282,6 +298,7 @@ function NationalRadar() {
                     </div>
                   </PanelSection>
 
+                  {railTab === "ports" ? (
                   <PanelSection
                     title="Ports by priority"
                     right={`${ranked.length} ranked`}
@@ -327,6 +344,8 @@ function NationalRadar() {
                     </ul>
                   </PanelSection>
 
+                  ) : null}
+                  {railTab === "now" ? <>
                   <PanelSection
                     title="Action queue"
                     right={`${alerts.length} open`}
@@ -360,9 +379,24 @@ function NationalRadar() {
                       </ul>
                     )}
                   </PanelSection>
+                  {handoffs.data?.length ? (
+                    <PanelSection title="Handoffs">
+                      <ul className="space-y-1 text-xs">
+                        {handoffs.data.slice(0, 4).map(item => (
+                          <li key={item.id}>{item.vesselName} · {item.portCode} · {item.state.toLowerCase().replaceAll("_", " ")}</li>
+                        ))}
+                      </ul>
+                    </PanelSection>
+                  ) : null}
+                  <PanelSection title="Data now">
+                    <p className="text-xs">Weather <WeatherDataNow /> · Activity <DatedSource id="imf-portwatch-data" /> · Congestion <DatedSource id="congestion-forecast" /></p>
+                    <div className="text-xs"><DataNowSources opensAbove /></div>
+                  </PanelSection>
+                  </> : null}
+
                 </FloatPanel>
               )}
-            </div>
+            </aside>
           </>
         }
       />

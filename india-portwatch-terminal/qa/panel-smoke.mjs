@@ -295,7 +295,7 @@ async function run(width, height) {
       await expect(page.getByTestId("port-miniature-label")).toHaveCount(0);
       await page.waitForTimeout(8500);
     }
-    await page.getByRole("button", { name: "Scenarios", exact: true }).click();
+    await page.getByRole("tab", { name: "Scenarios", exact: true }).click();
     const scenarios = page.getByTestId("demonstration-scenarios");
     await scenarios.getByLabel("Shipping demonstration scenario").selectOption("S10");
     await scenarios.getByRole("checkbox").check();
@@ -311,7 +311,7 @@ async function run(width, height) {
     await expect(scenarios.getByRole("button", { name: "Propose to port" })).toHaveCount(0);
     await expect(scenarios).not.toContainText(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     await shot("00a-scenario");
-    await page.getByRole("button", { name: "Fleet intelligence", exact: true }).click();
+    await page.getByRole("tab", { name: "Now", exact: true }).click();
     await page.getByRole("button", { name: /Fleet review queue.*3 voyages/ }).click();
     const queue = page.getByTestId("company-fleet-triage");
     await queue.getByRole("button", { name: "Inspect review for PW Meridian" }).click();
