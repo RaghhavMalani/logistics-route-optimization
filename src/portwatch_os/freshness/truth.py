@@ -1,5 +1,6 @@
 """Shared wall-clock freshness truth for API health, Sources and workspace SSE."""
 from datetime import datetime, timezone
+from src.portwatch_os.freshness.publication_lag import IMF_CADENCE, imf_publication_lag
 
 
 def instant(value):
@@ -20,6 +21,17 @@ def classify(at, now, budget, *, valid_through=None):
     age = (now - at).total_seconds()
     current = age <= budget and (valid_through is None or through is not None and through >= now)
     return ('live' if current else 'stale'), age
+
+
+def classify_daily_activity(at, now, lag, *, valid_through=None):
+    cadence = IMF_CADENCE.total_seconds()
+    state, age = classify(at, now, cadence, valid_through=valid_through)
+    through = instant(valid_through)
+    expected = lag["medianSeconds"]
+    if (state == "stale" and expected is not None and cadence < age <= expected
+            and (valid_through is None or through is not None and through >= now)):
+        state = "expected_lag"
+    return state, age
 
 
 def retained_sources(now):
@@ -45,11 +57,14 @@ def retained_sources(now):
     provenance = cache.get_provenance().get('sources', {})
     activity = provenance.get('Port activity (IMF PortWatch)', {})
     observed = activity.get('observed_at')
-    state, age = classify(observed, now, 72 * 3600)
+    receipts = coordinator.journal.publication_receipts() if coordinator.journal else []
+    lag = imf_publication_lag(now, receipts)
+    budget = max(IMF_CADENCE.total_seconds(), lag["medianSeconds"] or 0)
+    state, age = classify_daily_activity(observed, now, lag)
     shared = job_metrics(['port_forecast'])
     rows = [{'id': 'imf-portwatch-data', 'name': 'Port activity', 'provider': 'IMF PortWatch',
              'status': state, 'observedAt': instant(observed), 'dataAgeSeconds': age, 'core': True,
-             'policySeconds': 72 * 3600,
+             'policySeconds': budget, 'publicationLag': lag,
              'detail': 'Daily satellite-AIS aggregates. Age is the observation date, not the export receipt; publication lag remains visible.',
              'termsUrl': 'https://portwatch.imf.org/pages/data-and-methodology', **shared}]
     status = cache.get_live_status()
@@ -60,10 +75,10 @@ def retained_sources(now):
     if valid:
         from datetime import timedelta
         valid = valid.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-    state, age = classify(origin, now, 72 * 3600, valid_through=valid.isoformat() if valid else '')
+    state, age = classify_daily_activity(origin, now, lag, valid_through=valid.isoformat() if valid else '')
     rows.append({'id': 'congestion-forecast', 'name': 'Congestion forecast', 'provider': 'PortWatch model',
                  'status': state, 'observedAt': instant(origin), 'validThrough': valid,
-                 'dataAgeSeconds': age, 'core': True, 'policySeconds': 72 * 3600,
+                 'dataAgeSeconds': age, 'core': True, 'policySeconds': budget, 'publicationLag': lag,
                  'detail': 'Modelled from the latest accepted activity observation. An expired horizon is historical, even after a new export.', **shared})
     for kind, name in [('surface', 'Port weather'), ('marine', 'Marine forecast')]:
         samples = []

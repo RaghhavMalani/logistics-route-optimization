@@ -1,6 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getApi } from "@/services/api-client";
+import { getApi, type ApiResponse } from "@/services/api-client";
+
+type SourceStatus = ApiResponse<"/api/public/sources", "get">["sources"][number]["status"];
+
+export const sourceStatusLabel: Record<SourceStatus, string> = {
+  live: "Current",
+  expected_lag: "Within expected publication lag",
+  stale: "Stale",
+  unavailable: "Unavailable",
+};
 
 export function useSourceHealth() {
   const streaming = useQuery({

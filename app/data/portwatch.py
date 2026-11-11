@@ -155,6 +155,7 @@ def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFram
     try:
         df = _query("Daily_Ports_Data", where, order="date,portid")
         if not df.empty:
+            latest_received_date = max(df["date"].dropna().tolist(), default=None)
             previous = _cached('port_activity.csv')
             if not previous.empty:
                 df = pd.concat([previous, df], ignore_index=True).drop_duplicates(['portid', 'date'], keep='last')
@@ -172,6 +173,7 @@ def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFram
                     temporary = path.with_suffix('.tmp')
                     rows.drop_duplicates('date', keep='last').sort_values('date').to_csv(temporary, index=False)
                     temporary.replace(path)
+            df.attrs["latest_received_date"] = latest_received_date
             return df
     except Exception as exc:
         if strict:

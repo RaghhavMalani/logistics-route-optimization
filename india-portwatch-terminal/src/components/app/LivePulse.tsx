@@ -1,4 +1,4 @@
-import { ageLabel, useSourceHealth } from "@/services/source-health";
+import { ageLabel, sourceStatusLabel, useSourceHealth } from "@/services/source-health";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
 import { Link } from "@tanstack/react-router";
 
@@ -11,12 +11,12 @@ export function LivePulse() {
     <Link to="/sources" className="shrink-0 uppercase tracking-wider">Sources</Link>
     {!health.data ? <span>{health.isError ? "Unavailable · retained source health" : "Checking retained snapshots"}</span> : null}
     {sources.map((source) => <Link key={source.id} to="/sources" data-source={source.id} data-status={source.status}
-      className={`flex shrink-0 items-center gap-1.5 ${source.status === "live" ? "" : "text-[var(--text-3)]"}`}
-      title={`${source.name}: ${source.status}; ${source.lastError ?? source.detail}`}>
-      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${source.status === "live" ? "bg-emerald-700" : source.status === "stale" ? "bg-amber-600" : "bg-neutral-400"}`} />
+      className={`flex shrink-0 items-center gap-1.5 ${source.status === "stale" || source.status === "unavailable" ? "text-[var(--text-3)]" : ""}`}
+      title={`${source.name} · ${sourceStatusLabel[source.status]} · ${source.detail}`}>
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${source.status === "live" ? "bg-emerald-700" : source.status === "expected_lag" ? "bg-amber-400" : source.status === "stale" ? "bg-amber-700" : "bg-neutral-400"}`} />
       <span>{source.name}</span>
       <span>{source.dataAgeSeconds == null ? "—" : ageLabel(source.dataAgeSeconds)}</span>
-      <span className="sr-only">{source.status}</span>
+      <span className="sr-only">{sourceStatusLabel[source.status]}</span>
     </Link>)}
   </nav>;
 }

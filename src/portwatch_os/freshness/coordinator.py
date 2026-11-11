@@ -34,6 +34,7 @@ from src.portwatch_os import telemetry
 from src.portwatch_os.clock import wall_now
 from src.portwatch_os.freshness.job import JobOutcome, RefreshContext, RefreshJob, RefreshResult
 from src.portwatch_os.freshness.journal import safe_error
+from src.portwatch_os.freshness.write_health import is_storage_error, record_write
 from src.portwatch_os.freshness.policy import (
     DISABLED,
     DUE,
@@ -99,6 +100,7 @@ class RefreshCoordinator:
         self.tick_seconds = tick_seconds
         self.max_concurrent = max_concurrent
         self.ticks = 0
+        self.last_tick_at: datetime | None = None
         self.journal = journal
         self.ownership = ownership
         self.journal_error = None
@@ -204,6 +206,7 @@ class RefreshCoordinator:
                 self._cursor = (order.index(artifact) + 1) % max(1, len(order))
                 self._queued.discard(artifact)
         telemetry.gauge("freshness.ticks", self.ticks)
+        self.last_tick_at = wall_now()
         return started
 
     def enqueue(self, artifact: str) -> str:
@@ -290,7 +293,10 @@ class RefreshCoordinator:
                     artifact=policy.artifact, ok=True, started_at=now, finished_at=finished, attempt=attempt,
                     reason=reason, changed=outcome.changed, observed_at=outcome.observed_at, detail=outcome.detail,
                 )
+                record_write(policy.artifact, ok=True)
         except Exception as exc:  # noqa: BLE001 - every failure is a result
+            if is_storage_error(exc):
+                record_write(policy.artifact, ok=False)
             finished = wall_now()  # wall-clock: see above
             result = RefreshResult(
                 artifact=policy.artifact, ok=False, started_at=now, finished_at=finished, attempt=attempt,
@@ -394,6 +400,7 @@ class RefreshCoordinator:
     # -- the trust surface -------------------------------------------------
     def scheduler_status(self) -> Dict[str, Any]:
         return {"running": self.running, "tickSeconds": self.tick_seconds, "ticks": self.ticks,
+                "lastTickAt": self.last_tick_at,
                 "singleOwner": self.ownership is not None, "journalError": self.journal_error}
 
     def attempt_metrics(self, artifact, moment):

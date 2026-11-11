@@ -13,6 +13,7 @@ from src.portwatch_os.fabric.licence import ALLOWED
 from src.portwatch_os.fabric.model import deployment_mode
 from src.portwatch_os.fabric.products import ProviderProduct
 from src.portwatch_os.freshness.source_snapshots import Attempt, Snapshot, SnapshotStore
+from src.portwatch_os.freshness.write_health import record_write
 
 log = logging.getLogger(__name__)
 
@@ -70,11 +71,12 @@ def collect_due(store: SnapshotStore, job: SourceJob, clock: Callable[[], dateti
             return False
         try:
             sample = job.collect()
-            store.record(job.scope, product, clock(), snapshot=sample)
         except Exception as exc:
             # Provider errors may contain URL credentials or response bodies.
             log.warning("Source %s collection failed (%s)", product, type(exc).__name__)
             store.record(job.scope, product, clock(), error=type(exc).__name__)
+        else:
+            store.record(job.scope, product, clock(), snapshot=sample)
         return True
 
 
@@ -82,11 +84,16 @@ async def run_worker(store: SnapshotStore, jobs: list[SourceJob], *, until: date
     from src.portwatch_os.hostperf import opt_out_of_power_throttling
     opt_out_of_power_throttling()
     async def run(job: SourceJob) -> None:
+        writer = f"{job.scope}:{job.product.product_id}"
         # wall-clock: a source trial ends after elapsed time, even during app replay.
         while until is None or wall_now() < until:
             try:
-                await asyncio.to_thread(collect_due, store, job)
+                wrote = await asyncio.to_thread(collect_due, store, job)
+                if wrote and job.scope == "published":
+                    record_write(writer, ok=True)
             except Exception as exc:
+                if job.scope == "published":
+                    record_write(writer, ok=False)
                 log.error("Snapshot storage failed for %s (%s)", job.product.product_id, type(exc).__name__)
             await asyncio.sleep(min(5, job.cadence.total_seconds()))
 

@@ -25,10 +25,22 @@ for (const [role, path] of [
 test("login and Sources expose degradation, source dates and unmeasured rates", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-11-06T12:00:00Z"));
   await page.goto("/login");
+  await expect(page.getByText("Data service", { exact: true }).locator("..").getByText("Reachable", { exact: true })).toBeVisible();
   await expect(page.getByTestId("login-source-freshness")).toHaveText("Degraded · latest available data");
   await page.goto("/sources");
   await expect(page.getByTestId("source-latest-available")).toHaveCount(3);
   await expect(page.getByText("Unmeasured", { exact: true }).first()).toBeVisible();
+});
+
+test("login badge follows a degraded service with current source data", async ({ context, page }) => {
+  const health = JSON.parse(fs.readFileSync(new URL("../fixtures/health.json", import.meta.url), "utf8"));
+  await context.route("**/api/health", (route) => route.fulfill({
+    json: { ...health, status: "degraded", service: { ...health.service, status: "degraded", reasons: ["state_capacity"] },
+      data: { ...health.data, status: "ok" } },
+  }));
+  await page.goto("/login");
+  await expect(page.getByText("Data service", { exact: true }).locator("..").getByText("Degraded", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("login-source-freshness")).toHaveText("Core sources within policy");
 });
 
 test("leaving the last workspace stream resumes Sources polling", async ({ context, page }) => {
