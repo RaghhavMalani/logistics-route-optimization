@@ -1,9 +1,14 @@
-# Marine extension and ensemble — private trials in progress
+# Open-Meteo marine and ensemble
 
-Interim measured coverage at 6 Nov 18:40 UTC: ensemble covers 13 ports with 40 wind members and 72 finite hourly values per member. The corrected marine collector first succeeded at 18:37:15 UTC, covering 12 of 13 requested ports; INCCU has no qualifying coverage. Its recorded success rate so far is 1/5, including the four earlier failures. These early counts are not a 48-hour success claim.
+Reviewed 11 Nov 2026 against the retained evidence from the 48-hour window in [Source trials](README.md). The collectors checked all 13 registered ports on a six-hour cadence with bounded retries. The catalogue records the free-service noncommercial restriction and CC BY 4.0 attribution.
 
-Terms: Open-Meteo free service is noncommercial; data is CC BY 4.0 with attribution. Separate product entries record the Marine and ensemble documentation. Existing surface and wave forecasts have been refreshed for all 13 registered ports; these extended variables remain separate unpublished trials.
+| Product | Successful checks | Latest port coverage | Last successful check (UTC) | Decision |
+| --- | ---: | --- | --- | --- |
+| Extended marine | 8/12 | 12/13 for each of waves, swell, current velocity and current direction. INCCU had no qualifying response. | 8 Nov 12:38:09 | Adopt modelled context for covered ports. |
+| Wind ensemble | 8/8 | 13/13 with finite values across 40 wind series per port. The first qualifying snapshot covered 72 hourly values per series. | 8 Nov 12:06:06 | Adopt the modelled wind member range for context. |
 
-The fixed 48-hour window is in README.md. Ensemble's first successful response set was retained at 6 Nov 18:05:16 UTC. Marine initially failed because some near-port current fields were null. The corrected collector retains those nulls and per-variable coverage alongside usable wave/swell values; missing port responses are counted rather than invented. Each request is bounded to three forecast days and collection to two concurrent locations per product, on a six-hour cadence with retries/backoff/circuit breaker.
+Marine's first four attempts failed under the initial all-fields qualification rule. The collector was corrected to preserve individual nulls alongside usable fields. Its first success came at 6 Nov 18:37:15 UTC. Coverage above describes the latest qualifying sample. The aggregate does not establish continuous coverage at each port.
 
-Provider issue times are unavailable. Receipt availability and forecast valid times are separate; receipt age is not observation lag. Ensemble member coverage is measured, and no uncertainty correction is applied to decision scores. Adoption/coverage/lag decision remains pending the actual 48-hour report. Raw response summaries and attempt evidence remain on the preview snapshot store.
+Both APIs omit model issue time in these responses. Issuance lag is unmeasured. The preview checks response age against nine hours and requires the actual current UTC hour to be covered by finite forecast values. It shows port coverage and modelled readings with their valid times and units. Missing values stay unavailable, including null currents. This extends the independent existing surface and basic marine feed. The wind range describes spread across returned series. No comparison scores or decision-policy inputs use it.
+
+Publication is opt-in for the noncommercial preview. The worker collects new published snapshots in a separate scope. Private trial readings remain private.

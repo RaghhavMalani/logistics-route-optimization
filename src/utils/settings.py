@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     PORTWATCH_BIGQUERY_DAILY_BYTE_CAP: str | None = None
     PORTWATCH_SOURCE_TRIAL_START: str | None = None
     PORTWATCH_SOURCE_TRIAL_PRODUCTS: str | None = None
+    PORTWATCH_PUBLISH_REVIEWED_SOURCES: str | None = None
     PORTWATCH_AUTH_DB: str | None = None
     PORTWATCH_CHOKEPOINTS_URL: str | None = None
     PORTWATCH_CORS_REGEX: str | None = None

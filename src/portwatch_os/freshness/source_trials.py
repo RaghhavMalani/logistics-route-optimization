@@ -1,4 +1,5 @@
-"""Finite, resumable private trials; publication is a separate review."""
+"""Run private trials and approved collection under separate snapshot scopes."""
+import asyncio
 from datetime import datetime, timedelta
 from src.utils.settings import get_settings
 from src.portwatch_os.clock import wall_now
@@ -23,20 +24,33 @@ def configured():
 async def run():
     from scripts.source_ingest import COLLECTORS
     from src.portwatch_os.fabric.products import ProductCatalogue
+    from src.portwatch_os.freshness.reviewed_sources import PUBLISHED_MAX_AGE, permits_publication
     from src.portwatch_os.freshness.source_snapshots import configured_store
     from src.portwatch_os.freshness.source_worker import SourceJob, run_worker
     trial = configured()
     # wall-clock: trial collection stops at its real 48-hour deadline.
-    if trial is None or trial['end'] <= wall_now():
+    active_trial = trial if trial and trial['end'] > wall_now() else None
+    catalogue = ProductCatalogue()
+    published = []
+    for key in PUBLISHED_MAX_AGE:
+        _, product = catalogue.product(key)
+        if permits_publication(product):
+            fetch, cadence = COLLECTORS[key]
+            published.append(SourceJob(product, fetch, cadence, "published", publication_approved=True))
+    if not active_trial and not published:
         return
     store = configured_store()
     if store is None:
-        raise ValueError('An isolated trial snapshot store is required')
+        raise ValueError('A source snapshot store is required')
     store.initialize()
-    catalogue = ProductCatalogue()
-    jobs = []
-    for key in trial['products']:
-        fetch, cadence = COLLECTORS[key]
-        _, product = catalogue.product(key)
-        jobs.append(SourceJob(product, fetch, cadence, trial['scope'], trial_permitted=True))
-    await run_worker(store, jobs, until=trial['end'])
+    workers = []
+    if active_trial:
+        jobs = []
+        for key in active_trial['products']:
+            fetch, cadence = COLLECTORS[key]
+            _, product = catalogue.product(key)
+            jobs.append(SourceJob(product, fetch, cadence, active_trial['scope'], trial_permitted=True))
+        workers.append(run_worker(store, jobs, until=active_trial['end']))
+    if published:
+        workers.append(run_worker(store, published))
+    await asyncio.gather(*workers)

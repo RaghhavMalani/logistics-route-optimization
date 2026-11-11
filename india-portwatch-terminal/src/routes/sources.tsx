@@ -1,6 +1,10 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { formatUtc } from "@/components/kit/primitives";
+import { getJson } from "@/services/api";
+import type { ApiResponse } from "@/services/api-client";
 import {
   ageLabel,
   successLabel,
@@ -11,6 +15,57 @@ export const Route = createFileRoute("/sources")({
   component: SourcesPage,
   head: () => ({ meta: [{ title: "Sources · PortWatch X" }] }),
 });
+
+function SourceReadings({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  const readings = useQuery({
+    queryKey: ["public", "source-readings", id],
+    queryFn: ({ signal }) =>
+      getJson<ApiResponse<"/api/public/source-readings/{key}", "get">>(
+        `/public/source-readings/${encodeURIComponent(id)}`,
+        undefined,
+        { signal },
+      ),
+    enabled: open,
+    refetchInterval: 60_000,
+  });
+  return (
+    <details
+      className="mt-3 text-sm"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="cursor-pointer underline underline-offset-2">
+        View modelled readings
+      </summary>
+      {readings.isFetching && !readings.data ? (
+        <p role="status">Reading retained snapshot…</p>
+      ) : null}
+      {readings.isError || readings.data?.length === 0 ? (
+        <p>No current readings available.</p>
+      ) : null}
+      <ul className="mt-2 grid max-h-72 gap-2 overflow-y-auto">
+        {readings.data?.map((row) => (
+          <li key={row.label} className="border-t border-[var(--line)] pt-2">
+            <strong>{row.label}</strong> · {formatUtc(row.validAt)}
+            <dl className="grid grid-cols-[1fr_auto] gap-x-3">
+              {row.values.map((value) => (
+                <div key={value.label} className="contents">
+                  <dt>{value.label}</dt>
+                  <dd>
+                    {value.value == null
+                      ? "Unavailable"
+                      : `${value.value} ${value.unit}`}
+                    {value.detail ? ` · ${value.detail}` : ""}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
 
 function SourcesPage() {
   const { data, isPending, isError } = useSourceHealth();
@@ -55,9 +110,38 @@ function SourcesPage() {
               <p className="mt-1 text-sm text-[var(--text-2)]">
                 {source.detail}
               </p>
-              {source.trial ? <p className="mt-2 font-mono text-xs">Private 48-hour trial · {String(source.trial.phase)} · unpublished</p> : null}
-              {source.status !== "live" && (source.observedAt || source.availableAt) ?
-                <p className="mt-2 text-xs" data-testid="source-latest-available">Latest available · {formatUtc(source.observedAt ?? source.availableAt)} ({ageLabel(source.dataAgeSeconds)} old)</p> : null}
+              {source.trial ? (
+                <p className="mt-2 font-mono text-xs">
+                  48-hour trial · {String(source.trial.phase)} ·{" "}
+                  {String(source.trial.decision)}
+                  {typeof source.trial.successRate7d === "number" &&
+                  typeof source.trial.attempts7d === "number"
+                    ? ` · ${successLabel(source.trial.successRate7d, source.trial.attempts7d)} checks succeeded`
+                    : null}
+                </p>
+              ) : null}
+              {source.portsTotal != null ? (
+                <p className="mt-2 text-xs">
+                  {source.portsCurrent ?? 0}/{source.portsTotal} ports within
+                  policy
+                </p>
+              ) : null}
+              {source.status === "live" &&
+              (source.id === "open-meteo-marine-extended" ||
+                source.id === "open-meteo-ensemble") ? (
+                <SourceReadings id={source.id} />
+              ) : null}
+              {source.status !== "live" &&
+              (source.observedAt || source.availableAt) ? (
+                <p
+                  className="mt-2 text-xs"
+                  data-testid="source-latest-available"
+                >
+                  Latest available ·{" "}
+                  {formatUtc(source.observedAt ?? source.availableAt)} (
+                  {ageLabel(source.dataAgeSeconds)} old)
+                </p>
+              ) : null}
               <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
                 <dt>Last successful check</dt>
                 <dd>
@@ -76,9 +160,15 @@ function SourcesPage() {
                 <dt>Latest data age</dt>
                 <dd>{ageLabel(source.dataAgeSeconds)}</dd>
                 <dt>Last error</dt>
-                <dd className="max-w-[20rem] break-words">{source.lastError ?? "None recorded"}</dd>
+                <dd className="max-w-[20rem] break-words">
+                  {source.lastError ?? "None recorded"}
+                </dd>
                 <dt>Error time</dt>
-                <dd>{source.lastErrorAt ? formatUtc(source.lastErrorAt) : "Unmeasured"}</dd>
+                <dd>
+                  {source.lastErrorAt
+                    ? formatUtc(source.lastErrorAt)
+                    : "Unmeasured"}
+                </dd>
               </dl>
               <div className="mt-3 flex gap-4 text-xs underline underline-offset-2">
                 {source.homepage ? (

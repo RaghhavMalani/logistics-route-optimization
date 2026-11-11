@@ -8,9 +8,10 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from src.portwatch_os.clock import wall_now
-from src.portwatch_os.fabric.licence import ALLOWED
-from src.portwatch_os.fabric.model import deployment_mode
 from src.portwatch_os.fabric.products import ProductCatalogue
+from src.portwatch_os.freshness.reviewed_sources import (
+    PUBLISHED_MAX_AGE, REVIEW_DECISIONS, REVIEWED_TRIAL, forecast_readings, permits_publication,
+)
 from src.portwatch_os.freshness.source_snapshots import configured_store
 from src.portwatch_os.intelligence import free_sources
 
@@ -19,8 +20,8 @@ router = APIRouter(prefix="/public")
 SOURCES = {
     "aisstream-websocket": "Awaiting retention and display permission. A key alone does not approve reuse; replay remains primary.",
     "gdelt-bigquery-gkg": "Private discovery trial; requires billing project, credentials and daily scan cap. Article bodies are excluded.",
-    "open-meteo-marine-extended": "Private waves, swell and currents trial. Modelled forecast, not station observations.",
-    "open-meteo-ensemble": "Private ensemble member trial; uncertainty is not connected to decision policy.",
+    "open-meteo-marine-extended": "Modelled waves, swell and currents from Open-Meteo (CC BY 4.0). Missing port or field coverage is shown explicitly.",
+    "open-meteo-ensemble": "Modelled wind member range from Open-Meteo (CC BY 4.0). For weather context only.",
     "copernicus-marine-forecast": "Awaiting a Toolbox login and a coastal forecast trial.",
     "incois-osf": "Use the official forecast link. A supported data feed and reuse terms are under review.",
     "imd-rsmc-cyclone": "Use the official bulletin link. Reproduction requires permission.",
@@ -30,10 +31,6 @@ SOURCES = {
     "pib-ports-rss": "Use the official release links. Feed terms and Ministry filtering are under review.",
     "imf-portwatch-data": "Lagged daily aggregates for Paradip. The latest retained data date sets the displayed age.",
 }
-
-# Enter a freshness budget only after the reviewed trial and publication approval.
-PUBLISHED_MAX_AGE: dict[str, timedelta] = {}
-
 
 class SourceHealth(BaseModel):
     id: str
@@ -68,6 +65,19 @@ class SourceStatus(BaseModel):
     degraded: bool = False
 
 
+class ReadingValue(BaseModel):
+    label: str
+    value: str | None
+    unit: str
+    detail: str | None = None
+
+
+class SourceReading(BaseModel):
+    label: str
+    validAt: datetime
+    values: list[ReadingValue]
+
+
 def _retained_imf(now: datetime) -> dict:
     try:
         record = free_sources.public_product("imf", at=now)
@@ -97,12 +107,16 @@ def source_status() -> dict:
     for key, detail in SOURCES.items():
         provider, product = catalogue.product(key)
         metrics: dict = {"status": "unavailable"}
-        if (key in PUBLISHED_MAX_AGE and product.policy.redistribution == ALLOWED
-                and product.policy.permits(deployment_mode())[0]):
+        if permits_publication(product):
             try:
                 store = configured_store()
                 if store is not None:
                     metrics.update(store.health("published", key, now, PUBLISHED_MAX_AGE[key]))
+                    metrics["policySeconds"] = PUBLISHED_MAX_AGE[key].total_seconds()
+                    sample = store.latest("published", key)
+                    if sample and key.startswith("open-meteo-"):
+                        forecast_metrics, _ = forecast_readings(sample, key, now)
+                        metrics.update(forecast_metrics)
                 else:
                     detail = "Snapshot storage is unavailable."
             except (SQLAlchemyError, ValueError):
@@ -114,23 +128,24 @@ def source_status() -> dict:
                 coverage = {}
                 store = configured_store()
                 if store is not None:
-                    measured = store.health(trial['scope'], key, now, timedelta(hours=6))
-                    metrics.update({k: v for k, v in measured.items() if k != 'status'})
+                    measured = store.health(trial['scope'], key, min(now, trial['end']), timedelta(hours=6))
+                    coverage = {k: measured[k] for k in ('attempts7d', 'successRate7d', 'medianLagSeconds', 'lastSuccess', 'lastError')}
                     sample = store.latest(trial['scope'], key)
                     if sample:
-                        coverage = {'coverageKeys': len(sample.payload.get('coverage', {})),
+                        coverage.update({'coverageKeys': len(sample.payload.get('coverage', {})),
                             'precision': sample.payload.get('precision'),
                             'ports': {code: {'error': row.get('error'), 'finiteValues': row.get('finiteValues', {})}
-                                      for code, row in sample.payload.get('ports', {}).items()}}
+                                      for code, row in sample.payload.get('ports', {}).items()}})
+                decision = REVIEW_DECISIONS.get(key) if trial['scope'] == REVIEWED_TRIAL and now >= trial['end'] else None
                 metrics['trial'] = {'startedAt': trial['start'], 'endsAt': trial['end'],
-                    'phase': 'in progress' if now < trial['end'] else 'awaiting review', 'decision': 'pending', **coverage}
+                    'phase': 'in progress' if now < trial['end'] else 'completed', 'decision': decision or 'pending', **coverage}
             except (SQLAlchemyError, ValueError):
                 detail = 'Private trial storage is unavailable; candidate data is unpublished.'
-        observed = metrics.get("observedAt")
+        observed = metrics.get("observedAt") or metrics.get("availableAt")
         rows.append(SourceHealth(
             id=key, name=product.name, provider=provider.name, detail=detail,
             termsUrl=product.policy.evidence.terms_url, homepage=provider.homepage,
-            dataAgeSeconds=(now - observed).total_seconds() if observed else None,
+            dataAgeSeconds=max(0, (now - observed).total_seconds()) if observed else None,
             **metrics,
         ))
     from src.portwatch_os.freshness.truth import core_sources
@@ -139,3 +154,21 @@ def source_status() -> dict:
     rows = [row for row in rows if row.id not in ids] + [SourceHealth(**row) for row in core]
     return SourceStatus(checkedAt=now, sources=rows, scheduler=scheduler,
                         degraded=bool(scheduler.get('journalError')) or any(row['status'] != 'live' for row in core)).model_dump()
+
+
+@router.get("/source-readings/{key}", response_model=list[SourceReading])
+def source_readings(key: str) -> list[dict]:
+    if key not in PUBLISHED_MAX_AGE:
+        return []
+    _, product = ProductCatalogue().product(key)
+    if not permits_publication(product):
+        return []
+    try:
+        store = configured_store()
+        sample = store.latest("published", key) if store else None
+        if sample and key.startswith("open-meteo-"):
+            _, readings = forecast_readings(sample, key, wall_now())
+            return readings
+    except (SQLAlchemyError, ValueError):
+        pass
+    return []

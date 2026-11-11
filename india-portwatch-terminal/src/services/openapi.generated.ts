@@ -6348,6 +6348,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/source-readings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Readings */
+        get: operations["source_readings_api_public_source_readings__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/sources": {
         parameters: {
             query?: never;
@@ -7800,6 +7817,17 @@ export interface components {
             /** Optionid */
             optionId: string;
         };
+        /** ReadingValue */
+        ReadingValue: {
+            /** Detail */
+            detail?: string | null;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit: string;
+            /** Value */
+            value: string | null;
+        };
         /** RegistryPosition */
         RegistryPosition: {
             /** Lat */
@@ -8005,6 +8033,18 @@ export interface components {
             } | null;
             /** Validthrough */
             validThrough?: string | null;
+        };
+        /** SourceReading */
+        SourceReading: {
+            /** Label */
+            label: string;
+            /**
+             * Validat
+             * Format: date-time
+             */
+            validAt: string;
+            /** Values */
+            values: components["schemas"]["ReadingValue"][];
         };
         /** SourceStatus */
         SourceStatus: {
@@ -20007,6 +20047,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_readings_api_public_source_readings__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceReading"][];
                 };
             };
             /** @description Validation Error */

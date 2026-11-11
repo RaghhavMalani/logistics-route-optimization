@@ -23,9 +23,8 @@ from backend.app.services import handoff_events
 async def lifespan(_: FastAPI):
     """Start the live feeds and the freshness coordinator with the process.
 
-    The AISStream client runs only when AISSTREAM_API_KEY is set; without it
-    the call is a no-op and the deployment shows the labelled replay. The key
-    is read here on the server and never leaves it.
+    The AISStream client requires a server-side key and publication approval.
+    The deployment uses the labelled replay until both are configured.
 
     The coordinator replaces the marine module's own refresh thread and the
     operator's memory of when the event register lapses: every artifact has a
@@ -80,14 +79,14 @@ async def lifespan(_: FastAPI):
         intelligence_reconciliation.start()
         authority_notices.start()
     import asyncio
-    from src.portwatch_os.freshness.source_trials import run as run_trials
-    trial_task = asyncio.create_task(run_trials()) if not panel and coordinator.running else None
+    from src.portwatch_os.freshness.source_trials import run as run_source_workers
+    source_task = asyncio.create_task(run_source_workers()) if not panel and coordinator.running else None
     try:
         yield
     finally:
-        if trial_task:
-            trial_task.cancel()
-            await asyncio.gather(trial_task, return_exceptions=True)
+        if source_task:
+            source_task.cancel()
+            await asyncio.gather(source_task, return_exceptions=True)
         coordinator.stop()
         weather_reconciliation.stop()
         intelligence_reconciliation.stop()

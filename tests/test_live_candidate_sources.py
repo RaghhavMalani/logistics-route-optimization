@@ -51,3 +51,25 @@ def test_missing_currents_remain_null_while_wave_coverage_is_measured():
     assert result['finiteValues']['ocean_current_velocity'] == 0
     assert result['hourly']['ocean_current_velocity'] == [None]
     assert result['hourly']['wave_height'] == [1.2]
+
+
+def test_reviewed_products_collect_in_a_separate_scope_after_trial(monkeypatch, tmp_path):
+    import asyncio
+
+    from src.portwatch_os.freshness import source_trials, source_worker
+
+    product = 'open-meteo-ensemble'
+    monkeypatch.setenv('PORTWATCH_SOURCE_TRIAL_START', '2026-11-06T18:00:34+00:00')
+    monkeypatch.setenv('PORTWATCH_SOURCE_TRIAL_PRODUCTS', product)
+    monkeypatch.setenv('PORTWATCH_PUBLISH_REVIEWED_SOURCES', f'{product},nho-navarea-viii')
+    monkeypatch.setenv('PORTWATCH_SOURCE_SNAPSHOT_URL', f'sqlite:///{(tmp_path / "sources.db").as_posix()}')
+    monkeypatch.setenv('PORTWATCH_LICENCE_MODE', 'DEMO')
+    monkeypatch.setattr(source_trials, 'wall_now', lambda: datetime(2026, 11, 11, tzinfo=timezone.utc))
+    calls = []
+
+    async def record_jobs(store, jobs, *, until=None):
+        calls.append(([(job.product.product_id, job.scope) for job in jobs], until))
+
+    monkeypatch.setattr(source_worker, 'run_worker', record_jobs)
+    asyncio.run(source_trials.run())
+    assert calls == [([(product, 'published')], None)]

@@ -2135,6 +2135,47 @@
         "title": "Proposal",
         "type": "object"
       },
+      "ReadingValue": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "label",
+          "value",
+          "unit"
+        ],
+        "title": "ReadingValue",
+        "type": "object"
+      },
       "RegistryPosition": {
         "properties": {
           "lat": {
@@ -2713,6 +2754,33 @@
           "detail"
         ],
         "title": "SourceHealth",
+        "type": "object"
+      },
+      "SourceReading": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "validAt": {
+            "format": "date-time",
+            "title": "Validat",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ReadingValue"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "validAt",
+          "values"
+        ],
+        "title": "SourceReading",
         "type": "object"
       },
       "SourceStatus": {
@@ -23938,6 +24006,49 @@
           }
         },
         "summary": "Scenario"
+      }
+    },
+    "/api/public/source-readings/{key}": {
+      "get": {
+        "operationId": "source_readings_api_public_source_readings__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceReading"
+                  },
+                  "title": "Response Source Readings Api Public Source Readings  Key  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Readings"
       }
     },
     "/api/public/sources": {

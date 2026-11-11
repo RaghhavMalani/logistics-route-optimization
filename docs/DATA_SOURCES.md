@@ -399,7 +399,7 @@ Coverage: global. Endpoint: `customer-api.open-meteo.com`.
 
 <https://open-meteo.com/>
 
-#### `open-meteo-marine-extended` — Marine waves, swell and currents trial
+#### `open-meteo-marine-extended` — Marine waves, swell and currents
 
 Commercial use **prohibited** · government use *requires review* · redistribution allowed
 
@@ -409,11 +409,11 @@ Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/mari
 
 Reviewed: 2026-11-06
 
-> Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
+> Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. Reviewed products supply modelled context only.
 
 Coverage: 13 registered Indian ports; modelled forecasts, not observations. Endpoint: `https://marine-api.open-meteo.com/v1/marine`.
 
-#### `open-meteo-ensemble` — Weather ensemble member trial
+#### `open-meteo-ensemble` — Weather ensemble members
 
 Commercial use **prohibited** · government use *requires review* · redistribution allowed
 
@@ -423,7 +423,7 @@ Checked: <https://open-meteo.com/en/terms>, <https://open-meteo.com/en/docs/ense
 
 Reviewed: 2026-11-06
 
-> Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. These trial snapshots do not change the decision policy.
+> Free API service is restricted to "non-commercial purposes"; data is CC BY 4.0 with attribution. Retain provider response availability and forecast valid times separately. Reviewed products supply modelled context only.
 
 Coverage: 13 registered Indian ports; modelled forecasts, not observations. Endpoint: `https://ensemble-api.open-meteo.com/v1/ensemble`.
 

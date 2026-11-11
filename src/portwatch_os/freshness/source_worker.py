@@ -78,12 +78,12 @@ def collect_due(store: SnapshotStore, job: SourceJob, clock: Callable[[], dateti
         return True
 
 
-async def run_worker(store: SnapshotStore, jobs: list[SourceJob], *, until: datetime) -> None:
+async def run_worker(store: SnapshotStore, jobs: list[SourceJob], *, until: datetime | None = None) -> None:
     from src.portwatch_os.hostperf import opt_out_of_power_throttling
     opt_out_of_power_throttling()
     async def run(job: SourceJob) -> None:
         # wall-clock: a source trial ends after elapsed time, even during app replay.
-        while wall_now() < until:
+        while until is None or wall_now() < until:
             try:
                 await asyncio.to_thread(collect_due, store, job)
             except Exception as exc:
