@@ -42,7 +42,9 @@ export interface HealthSources {
 export interface Health {
   trafficEpoch?: string;
   status: string;
-  service: string;
+  service: ApiResponse<"/api/health", "get">["service"];
+  serviceName: string;
+  data: ApiResponse<"/api/health", "get">["data"];
   serverTimeUtc: string;
   intelligence: "live" | "cached" | "stale" | "not_ready";
   cacheAgeSeconds: number | null;

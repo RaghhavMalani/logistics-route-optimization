@@ -67,10 +67,10 @@ Use `scripts/Deploy-ProductionRailway.ps1 -ExpectedSha <full-main-sha> -Package 
 
 ## Cutover and production smoke
 
-1. Run the guarded production Railway upload described above. Confirm direct `/api/health` has matching artifact and release SHAs, healthy durable stores and at least 20% free space. Save the Railway receipt.
+1. Run the guarded production Railway upload described above. Confirm direct `/api/health` has matching artifact and release SHAs and that `status` and `service.status` both read `ok`. Check the durable stores, at least 20% free space, an advancing scheduler and no unresolved writes. Save the Railway receipt.
 2. Run the mandatory exact-main gate again. Stage or select the same frontend SHA and manually promote it after Railway passes. Check the alias's Vercel deployment ID and SHA. On the alias, verify `/api/health` resolves to the verified **production** Railway service, environment, deployment and SHA. Recheck the preview alias is still isolated.
 3. On [the production terminal](https://india-portwatch.vercel.app), confirm `/login` says **Data service: Reachable**, `/tour` renders 3D, and all four demo buttons open their workspaces. Use isolated demo sessions for the S10 → Company approval → Port review/issue → Vessel acknowledgement/acceptance → Port outcome → Company completed → Admin → Research benchmark path at 1366×768 and 1280×720. Confirm role screen packets, no unexpected browser or API errors, and record screenshots and the SHA receipt.
-4. Run `qa/panel-smoke.mjs production` with a fresh verified receipt. Its production guard must identify the production service and environment listed above, the deployed Railway ID and the exact-main gate SHA. Retain its host, source-artifact and release-identity assertions.
+4. Run `qa/panel-smoke.mjs production` with a fresh verified receipt. Its production guard must identify the production service and environment listed above, the deployed Railway ID and the exact-main gate SHA. Save `data.status` and each source's status and observation or availability date in the report. Upstream freshness does not gate release. Confirm the UI preserves dates and freshness labels, including for expired forecasts and unavailable data.
 5. Check the foreground split twin at ×60 and record the model clock and both panes' metrics. After every production check passes, restore automatic Vercel production alias assignment and save the final receipt. If any check fails, immediately restore both recorded deployments and verify both health endpoints.
 
 ## Rollback

@@ -33,11 +33,17 @@ SOURCES = {
     "imf-portwatch-data": "Lagged daily aggregates for Paradip. The latest retained data date sets the displayed age.",
 }
 
+class PublicationLag(BaseModel):
+    basis: Literal["first_successful_receipt"]
+    samples: int
+    medianSeconds: float | None
+
+
 class SourceHealth(BaseModel):
     id: str
     name: str
     provider: str
-    status: Literal["live", "stale", "unavailable"]
+    status: Literal["live", "expected_lag", "stale", "unavailable"]
     detail: str
     termsUrl: str | None = None
     homepage: str | None = None
@@ -53,6 +59,7 @@ class SourceHealth(BaseModel):
     lastErrorAt: datetime | None = None
     core: bool = False
     policySeconds: float | None = None
+    publicationLag: PublicationLag | None = None
     portsCurrent: int | None = None
     portsTotal: int | None = None
     circuit: str | None = None
@@ -154,7 +161,7 @@ def source_status() -> dict:
     ids = {row['id'] for row in retained}
     rows = [row for row in rows if row.id not in ids] + [SourceHealth(**row) for row in retained]
     return SourceStatus(checkedAt=now, sources=rows, scheduler=scheduler,
-                        degraded=bool(scheduler.get('journalError')) or any(row.core and row.status != 'live' for row in rows)).model_dump()
+                        degraded=any(row.core and row.status in ('stale', 'unavailable') for row in rows)).model_dump()
 
 
 @router.get("/source-readings/{key}", response_model=list[SourceReading])

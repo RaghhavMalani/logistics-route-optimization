@@ -11,7 +11,7 @@ import { Button } from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
 import { cn } from "@/lib/utils";
-import { useSourceHealth, ageLabel } from "@/services/source-health";
+import { ageLabel } from "@/services/source-health";
 
 /** `next` is optional: a direct visit to /login carries no return address. */
 interface LoginSearch {
@@ -77,19 +77,19 @@ function LoginScreen() {
     }
   };
 
-  const serviceTone = health.isError
+  const serviceStatus = health.data?.service?.status;
+  const serviceTone = health.isError || serviceStatus === "degraded"
     ? "crit"
-    : health.isLoading
-      ? "neutral"
-      : "ok";
+    : serviceStatus === "ok" ? "ok" : "neutral";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
       ? "Checking"
-      : "Reachable";
+      : serviceStatus === "degraded"
+        ? "Degraded"
+        : serviceStatus === "ok" ? "Reachable" : "Unverified";
 
   const forecast = health.isError ? undefined : health.data;
-  const sourceHealth = useSourceHealth();
   const originAt = Date.parse(forecast?.forecastOrigin ?? "");
   const originStatus = {
     LIVE: "Current", CACHED_LIVE: "Cached", STALE: "Stale",
@@ -272,11 +272,8 @@ function LoginScreen() {
               </dd>
               <dt className="text-[var(--text-3)]">Source freshness</dt>
               <dd className="text-right text-[var(--text-3)]" data-testid="login-source-freshness">
-                {sourceHealth.data ? sourceHealth.data.degraded ? "Degraded · latest available data" : "Core sources within policy" : "Unmeasured"}
-              </dd>
-              <dt className="text-[var(--text-3)]">Twin state</dt>
-              <dd className="num text-right text-[var(--text-2)]">
-                {health.data?.intelligence ?? "—"}
+                {health.data?.data?.status === "ok" ? "Core sources within policy" :
+                  health.data?.data?.status === "degraded" ? "Degraded · latest available data" : "Unmeasured"}
               </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">

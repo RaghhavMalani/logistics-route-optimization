@@ -1203,6 +1203,273 @@
         "title": "Credentials",
         "type": "object"
       },
+      "DataHealth": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/DataSourceHealth"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "sources"
+        ],
+        "title": "DataHealth",
+        "type": "object"
+      },
+      "DataSourceHealth": {
+        "properties": {
+          "attempts7d": {
+            "default": 0,
+            "title": "Attempts7D",
+            "type": "integer"
+          },
+          "availableAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Availableat"
+          },
+          "circuit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circuit"
+          },
+          "core": {
+            "default": false,
+            "title": "Core",
+            "type": "boolean"
+          },
+          "dataAgeSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataageseconds"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "homepage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homepage"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "lastErrorAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterrorat"
+          },
+          "lastSuccess": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsuccess"
+          },
+          "medianLagSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medianlagseconds"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observedat"
+          },
+          "policySeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policyseconds"
+          },
+          "portsCurrent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portscurrent"
+          },
+          "portsTotal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portstotal"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "publicationLag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationLag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "current",
+              "expected_lag",
+              "stale",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "successRate7d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successrate7D"
+          },
+          "termsUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Termsurl"
+          },
+          "trial": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial"
+          },
+          "validThrough": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validthrough"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "status",
+          "detail"
+        ],
+        "title": "DataSourceHealth",
+        "type": "object"
+      },
       "DelayDistribution": {
         "additionalProperties": false,
         "properties": {
@@ -1431,6 +1698,37 @@
           "items"
         ],
         "title": "HandoffPayload",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DataHealth"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceHealth"
+          },
+          "serviceName": {
+            "title": "Servicename",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "serviceName",
+          "service",
+          "data"
+        ],
+        "title": "HealthResponse",
         "type": "object"
       },
       "IdentityUser": {
@@ -2135,6 +2433,37 @@
         "title": "Proposal",
         "type": "object"
       },
+      "PublicationLag": {
+        "properties": {
+          "basis": {
+            "const": "first_successful_receipt",
+            "title": "Basis",
+            "type": "string"
+          },
+          "medianSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medianseconds"
+          },
+          "samples": {
+            "title": "Samples",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "basis",
+          "samples",
+          "medianSeconds"
+        ],
+        "title": "PublicationLag",
+        "type": "object"
+      },
       "ReadingValue": {
         "properties": {
           "detail": {
@@ -2426,6 +2755,56 @@
         "title": "Selection",
         "type": "object"
       },
+      "ServiceHealth": {
+        "properties": {
+          "capacity": {
+            "additionalProperties": true,
+            "title": "Capacity",
+            "type": "object"
+          },
+          "durableStoresOk": {
+            "title": "Durablestoresok",
+            "type": "boolean"
+          },
+          "failedWriters": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failedwriters",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "scheduler": {
+            "additionalProperties": true,
+            "title": "Scheduler",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reasons",
+          "durableStoresOk",
+          "capacity",
+          "scheduler",
+          "failedWriters"
+        ],
+        "title": "ServiceHealth",
+        "type": "object"
+      },
       "SessionPayload": {
         "properties": {
           "accessToken": {
@@ -2690,9 +3069,20 @@
             "title": "Provider",
             "type": "string"
           },
+          "publicationLag": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicationLag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "enum": [
               "live",
+              "expected_lag",
               "stale",
               "unavailable"
             ],
@@ -12615,9 +13005,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Demo Terminal Health Check Api Demo Terminal Health Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
@@ -19822,9 +20210,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Health Check Api Health Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
