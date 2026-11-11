@@ -26,7 +26,7 @@ SOURCES = {
     "copernicus-marine-forecast": "Awaiting a Toolbox login and a coastal forecast trial.",
     "incois-osf": "Use the official forecast link. A supported data feed and reuse terms are under review.",
     "imd-rsmc-cyclone": "Use the official bulletin link. Reproduction requires permission.",
-    "nho-navarea-viii": "Existing retained warning context. Scheduled snapshot trial pending.",
+    "nho-navarea-viii": "The trial found no qualifying current identifiers. Existing retained warnings are filtered by validity and cancellation.",
     "frankfurter-ecb-fx": "Daily EUR reference rates from ECB statistics via Frankfurter. No publication on weekends or ECB closure days.",
     "gdelt-events": "Existing discovery context. The shorter query window is trial only.",
     "pib-ports-rss": "Use the official release links. Feed terms and Ministry filtering are under review.",

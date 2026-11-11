@@ -19,6 +19,7 @@ REVIEW_DECISIONS = {
     "open-meteo-marine-extended": "adopted for covered ports",
     "open-meteo-ensemble": "adopted for weather context",
     ECB_RATES: "adopted for FX reference context",
+    "nho-navarea-viii": "rejected",
 }
 
 
