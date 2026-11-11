@@ -206,7 +206,7 @@ class RefreshCoordinator:
                 self._cursor = (order.index(artifact) + 1) % max(1, len(order))
                 self._queued.discard(artifact)
         telemetry.gauge("freshness.ticks", self.ticks)
-        self.last_tick_at = wall_now()
+        self.last_tick_at = wall_now()  # wall-clock: scheduler liveness is independent of replay time.
         return started
 
     def enqueue(self, artifact: str) -> str:

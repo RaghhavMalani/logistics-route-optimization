@@ -343,7 +343,8 @@ def refresh_pipeline(context: RefreshContext) -> JobOutcome:
         from src.portwatch_os.intelligence.free_sources import imf_date
         observed = imf_date(observations.attrs.get("latest_received_date"))
         if observed:
-            receipt = {"sourceObservedAt": observed.isoformat(), "sourceReceivedAt": wall_now().isoformat()}
+            received_at = wall_now()  # wall-clock: measure when the provider response actually arrived.
+            receipt = {"sourceObservedAt": observed.isoformat(), "sourceReceivedAt": received_at.isoformat()}
     command = [sys.executable, str(ROOT / "run_award_demo.py"), "--source", source, "--model", model, "--offline"]
     log.info("pipeline refresh: %s", " ".join(command))
     completed = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=45 * 60)
