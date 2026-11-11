@@ -20,6 +20,7 @@ from fastapi import APIRouter
 from backend.app.services import cache_service as cache
 from src.portwatch_os.clock import get_clock, wall_now
 from src.portwatch_os.deployment_artifact import current as source_artifact
+from src.portwatch_os.state_capacity import state_capacity
 
 router = APIRouter()
 # Wall-clock: actual process/module start, never a forecast or observation time.
@@ -176,9 +177,13 @@ def health_check() -> dict:
     stores = durable_stores()
     from backend.app.domains.intelligence.source_status import source_status
     source_health = source_status()
+    from src.utils.config import STATE_DIR
+    capacity = state_capacity(STATE_DIR)
 
     payload = {
-        "status": "ok" if artefacts["forecast"] and stores["ok"] and not source_health['degraded'] else "degraded",
+        "status": "ok" if (artefacts["forecast"] and stores["ok"]
+                            and not source_health["degraded"] and capacity["status"] != "low") else "degraded",
+        "stateCapacity": capacity,
         "sourceHealth": source_health,
         "service": "india-portwatch-backend",
         "release": release_identity(),
