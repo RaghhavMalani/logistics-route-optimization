@@ -68,7 +68,7 @@ def table(directory, name, rows, columns=None, *, latex=True):
                 values.append(tex_escape("--" if value is None else f"{value:.6g}" if isinstance(value, float) else value))
             body.append(" & ".join(values) + r" \\")
         body += [r"\bottomrule", r"\end{tabular}"]
-        (directory / f"{name}.tex").write_text("\n".join(body) + "\n", encoding="utf-8")
+        (directory / f"{name}.tex").write_text("\n".join(body) + "\n", encoding="utf-8", newline="\n")
     return path
 
 
@@ -131,7 +131,7 @@ def results(output, rows, deltas, stable, checks, contrast, case_rows, break_eve
     lines += ["", "[All rule choices](../../paper/tables/e5-rule-choices.csv) · "
               "[Excluded cost components](../../paper/tables/e5-unknown-costs.csv)", "", "## Runtime", ""]
     for i, row in enumerate(bench, 2):
-        lines.append(f"- {row['seconds']:.3f} s · {row['options']} options × {row['consignments']} consignments · "
+        lines.append(f"- {row['profile']} · {row['seconds']:.3f} s · {row['options']} options × {row['consignments']} consignments · "
                      f"{row['futures']} futures · {row['stop']} at USD {row['pairedSeUsd']:.2f} SE. {linked('runtime', i)}")
     output.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

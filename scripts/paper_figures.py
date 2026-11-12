@@ -312,14 +312,20 @@ def sensitivity(study, master, root, smoke):
 def runtime(study, master, smoke):
     cargo = tuple(item.model_copy(update={"id": f"{item.id}-{i}"})
                   for i in range(3) for item in study.consignments)
-    trial = study.model_copy(update={"consignments": cargo})
+    stress = study.model_copy(update={"consignments": cargo})
+    matched = stress.model_copy(update={"options": tuple(
+        option.model_copy(update={"cleanDeliveryHours": 180, "reachClosureHour": None, "areas": (),
+                                  "handlingExposure": 1, "unpoweredHours": 2}) for option in study.options
+    )})
     rows = []
-    for idx in range(1 if smoke else 3):
-        config = Sampling(seed=seed_for(master, 540 + idx), minPower=3 if smoke else 6,
-                          maxPower=4 if smoke else 11, standardErrorThreshold=25)
-        started = perf_counter()
-        _, _, diag = adaptive(trial, config)
-        rows.append({"seed": config.seed, "seconds": perf_counter() - started, "options": len(trial.options),
-                     "consignments": len(cargo), "futures": diag["n"], "stop": diag["stop"],
-                     "pairedSeUsd": diag["difference"]["standardError"], "thresholdUsd": config.standardErrorThreshold})
+    for profile, trial in (("matched clocks", matched), ("Suez stress", stress)):
+        for idx in range(1 if smoke else 3):
+            config = Sampling(seed=seed_for(master, 540 + idx), minPower=3 if smoke else 6,
+                              maxPower=4 if smoke else 11, standardErrorThreshold=25)
+            started = perf_counter()
+            _, _, diag = adaptive(trial, config)
+            rows.append({"profile": profile, "seed": config.seed, "seconds": perf_counter() - started,
+                         "options": len(trial.options), "consignments": len(cargo), "futures": diag["n"],
+                         "stop": diag["stop"], "pairedSeUsd": diag["difference"]["standardError"],
+                         "thresholdUsd": config.standardErrorThreshold})
     return rows

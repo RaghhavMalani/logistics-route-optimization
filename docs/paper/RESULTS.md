@@ -87,6 +87,9 @@ The recorded Ever Given reopening is scored separately in the [conditional repla
 
 ## Runtime
 
-- 0.083 s · 3 options × 12 consignments · 16384 futures · maximum N at USD 213.26 SE. [CSV row](../../paper/tables/runtime.csv#L2)
-- 0.081 s · 3 options × 12 consignments · 16384 futures · maximum N at USD 267.16 SE. [CSV row](../../paper/tables/runtime.csv#L3)
-- 0.083 s · 3 options × 12 consignments · 16384 futures · maximum N at USD 183.15 SE. [CSV row](../../paper/tables/runtime.csv#L4)
+- matched clocks · 0.123 s · 3 options × 12 consignments · 1024 futures · converged at USD 0.00 SE. [CSV row](../../paper/tables/runtime.csv#L2)
+- matched clocks · 0.083 s · 3 options × 12 consignments · 1024 futures · converged at USD 0.00 SE. [CSV row](../../paper/tables/runtime.csv#L3)
+- matched clocks · 0.082 s · 3 options × 12 consignments · 1024 futures · converged at USD 0.00 SE. [CSV row](../../paper/tables/runtime.csv#L4)
+- Suez stress · 0.434 s · 3 options × 12 consignments · 16384 futures · maximum N at USD 213.26 SE. [CSV row](../../paper/tables/runtime.csv#L5)
+- Suez stress · 0.467 s · 3 options × 12 consignments · 16384 futures · maximum N at USD 267.16 SE. [CSV row](../../paper/tables/runtime.csv#L6)
+- Suez stress · 0.463 s · 3 options × 12 consignments · 16384 futures · maximum N at USD 183.15 SE. [CSV row](../../paper/tables/runtime.csv#L7)

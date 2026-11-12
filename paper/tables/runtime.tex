@@ -1,10 +1,13 @@
 % Requires \usepackage{booktabs}
-\begin{tabular}{llllllll}
+\begin{tabular}{lllllllll}
 \toprule
-seed & seconds & options & consignments & futures & stop & pairedSeUsd & thresholdUsd \\
+profile & seed & seconds & options & consignments & futures & stop & pairedSeUsd & thresholdUsd \\
 \midrule
-931298259 & 0.0834227 & 3 & 12 & 16384 & maximum N & 213.261 & 25 \\
-3891853760 & 0.0806682 & 3 & 12 & 16384 & maximum N & 267.158 & 25 \\
-1930934138 & 0.0830102 & 3 & 12 & 16384 & maximum N & 183.147 & 25 \\
+matched clocks & 931298259 & 0.1234 & 3 & 12 & 1024 & converged & 0 & 25 \\
+matched clocks & 3891853760 & 0.0829435 & 3 & 12 & 1024 & converged & 2.5332e-05 & 25 \\
+matched clocks & 1930934138 & 0.0819423 & 3 & 12 & 1024 & converged & 0 & 25 \\
+Suez stress & 931298259 & 0.434282 & 3 & 12 & 16384 & maximum N & 213.261 & 25 \\
+Suez stress & 3891853760 & 0.467476 & 3 & 12 & 16384 & maximum N & 267.158 & 25 \\
+Suez stress & 1930934138 & 0.463319 & 3 & 12 & 16384 & maximum N & 183.147 & 25 \\
 \bottomrule
 \end{tabular}
