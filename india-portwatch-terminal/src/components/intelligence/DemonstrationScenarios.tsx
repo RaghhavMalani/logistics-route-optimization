@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
 import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,20 @@ function formatScenarioTimes(text: string) {
   );
 }
 
+export function useDemonstrationCatalogue(enabled = true) {
+  const { session, identityHeaders } = useAuth();
+  return useQuery({
+    queryKey: ["demonstration-catalogue", identityHeaders],
+    queryFn: ({ signal }) =>
+      getJson<{ scenarios: Scenario[] }>(
+        "/demonstrations/scenarios",
+        identityHeaders,
+        { signal },
+      ),
+    enabled: enabled && session?.mode === "demo",
+  });
+}
+
 export function DemonstrationScenarios({
   onDecision,
   onShowRoute,
@@ -41,16 +56,14 @@ export function DemonstrationScenarios({
   const [ack, setAck] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
-  const q = useQuery({
-    queryKey: ["demonstration-catalogue", identityHeaders],
-    queryFn: ({ signal }) =>
-      getJson<{ scenarios: Scenario[] }>(
-        "/demonstrations/scenarios",
-        identityHeaders,
-        { signal },
-      ),
-    enabled: session?.mode === "demo",
-  });
+  const q = useDemonstrationCatalogue();
+  const scenarioTarget = useWorkspaceTarget("scenario");
+  useEffect(() => {
+    if (scenarioTarget && q.data?.scenarios.some((row) => row.id === scenarioTarget)) {
+      setId(scenarioTarget);
+      setAck(false);
+    }
+  }, [scenarioTarget, q.data]);
   const select = useMutation({
     mutationFn: () =>
       postJson<Result>(

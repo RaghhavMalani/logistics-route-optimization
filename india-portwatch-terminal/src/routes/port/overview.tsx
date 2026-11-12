@@ -173,8 +173,8 @@ function PortCockpitScreen() {
         onSelectVessel={workspace.setSelectedVesselId}
         onSelectObserved={workspace.setSelectedObservedMmsi}
         onHoverVessel={workspace.setHoveredVesselId}
-        selectedPortCode={port.code}
-        onSelectPort={() => undefined}
+        selectedPortCode={workspace.selectedPortCode ?? port.code}
+        onSelectPort={workspace.setSelectedPortCode}
         forceVesselLabels
         maxVesselLabels={12}
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}

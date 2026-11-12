@@ -1,3 +1,4 @@
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
 import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * The vessel operator's bridge view.
@@ -72,6 +73,10 @@ function VesselBridge() {
   const at = useTrafficTick(1);
   const [railTab, setRailTab] = useState<"now" | "traffic" | "scenarios">("now");
   const [following, setFollowing] = useState(true);
+  const targetPort = useWorkspaceTarget("port");
+  useEffect(() => {
+    if (targetPort) setFollowing(false);
+  }, [targetPort]);
   // The follow camera pulls back on a narrower frame for the same reason the
   // port view does: the point is the traffic around the ship, not the ship.
   const followZoom =

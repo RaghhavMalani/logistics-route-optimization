@@ -1,3 +1,5 @@
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
+import { useRouterState } from "@tanstack/react-router";
 /**
  * Everything the three map workspaces share.
  *
@@ -482,6 +484,18 @@ export function useWorkspaceMap(
     options.initialSelectedPort ?? null,
   );
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
+  const targetPort = useWorkspaceTarget("port");
+  const targetHull = useWorkspaceTarget("hull");
+  const commandSearch = useRouterState({ select: (state) => state.location.searchStr });
+  useEffect(() => {
+    if (targetPort) {
+      setSelectedPortCode(targetPort);
+      setSelectedVesselId(null);
+    } else if (targetHull) {
+      setSelectedVesselId(targetHull);
+      setSelectedPortCode(null);
+    }
+  }, [commandSearch, targetPort, targetHull]);
   const [hoveredVesselId, setHoveredVesselId] = useState<string | null>(null);
 
   const [focus, setFocus] = useState<MapFocus | null>(null);

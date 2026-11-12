@@ -33,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
 import { API_BASE } from "@/services/api";
+import { WorkspaceCommandPalette } from "./WorkspaceCommandPalette";
 import { LivePulse } from "./LivePulse";
 import { DatedSource } from "./SourceHealth";
 import { prefetchHome } from "@/services/home-screen";
@@ -614,6 +615,7 @@ function Chrome({ children }: { children: ReactNode }) {
         <ContextCrumb />
         <RoleSwitcher />
         <div className="ml-auto flex items-center gap-2">
+          <WorkspaceCommandPalette />
           <ProfileMenu />
         </div>
       </header>

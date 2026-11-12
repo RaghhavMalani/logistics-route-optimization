@@ -1,6 +1,7 @@
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button, Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
 import {
@@ -31,7 +32,9 @@ function ScenarioRoom() {
   const weather = useWeather();
   const news = useNews();
 
+  const target = useWorkspaceTarget("scenario");
   const [scenarioKey, setScenarioKey] = useState<string | null>(null);
+  useEffect(() => setScenarioKey(target), [target]);
   const [intensity, setIntensity] = useState(1);
   const [runId, setRunId] = useState(0);
 

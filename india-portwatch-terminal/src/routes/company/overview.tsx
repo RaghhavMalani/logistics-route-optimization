@@ -1,3 +1,4 @@
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
 import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
 /**
  * Fleet Command.
@@ -207,7 +208,11 @@ function FleetCommand() {
   const [scenarioRoute, setScenarioRoute] = useState<DecisionOption | null>(
     null,
   );
-  const [selectedVessel, setSelectedVessel] = useState<string | null>(null);
+  const { selectedVesselId: selectedVessel, setSelectedVesselId: setSelectedVessel } = workspace;
+  const scenarioTarget = useWorkspaceTarget("scenario");
+  useEffect(() => {
+    if (scenarioTarget) setPlanningTab("scenarios");
+  }, [scenarioTarget]);
   const previousSelection = useRef<string | null>(null);
   useEffect(() => {
     if (selectedVessel) {
