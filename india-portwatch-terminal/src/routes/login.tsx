@@ -95,19 +95,19 @@ function LoginScreen() {
     }
   };
 
-  const serviceTone = health.isError
+  const serviceStatus = health.data?.service?.status;
+  const serviceTone = health.isError || serviceStatus === "degraded"
     ? "crit"
-    : health.isLoading
-      ? "neutral"
-      : "ok";
+    : serviceStatus === "ok" ? "ok" : "neutral";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
       ? "Checking"
-      : "Reachable";
+      : serviceStatus === "degraded"
+        ? "Degraded"
+        : serviceStatus === "ok" ? "Reachable" : "Unverified";
 
   const forecast = health.isError ? undefined : health.data;
-  const sourceHealth = useSourceHealth();
   const originAt = Date.parse(forecast?.forecastOrigin ?? "");
   const originStatus = {
     LIVE: "Current",
@@ -349,9 +349,14 @@ function LoginScreen() {
               </span>
             </summary>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[11px]">
-              <dt className="text-[var(--text-3)]">Twin state</dt>
-              <dd className="num text-right text-[var(--text-2)]">
-                {health.data?.intelligence ?? "—"}
+              <dt className="text-[var(--text-3)]">Data service</dt>
+              <dd className="flex justify-end">
+                <Pill tone={serviceTone}>{serviceLabel}</Pill>
+              </dd>
+              <dt className="text-[var(--text-3)]">Source freshness</dt>
+              <dd className="text-right text-[var(--text-3)]" data-testid="login-source-freshness">
+                {health.data?.data?.status === "ok" ? "Core sources within policy" :
+                  health.data?.data?.status === "degraded" ? "Degraded · latest available data" : "Unmeasured"}
               </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">

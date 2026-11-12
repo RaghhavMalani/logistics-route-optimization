@@ -7490,6 +7490,77 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** DataHealth */
+        DataHealth: {
+            /** Sources */
+            sources: components["schemas"]["DataSourceHealth"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "degraded" | "unavailable";
+        };
+        /** DataSourceHealth */
+        DataSourceHealth: {
+            /**
+             * Attempts7D
+             * @default 0
+             */
+            attempts7d: number;
+            /** Availableat */
+            availableAt?: string | null;
+            /** Circuit */
+            circuit?: string | null;
+            /**
+             * Core
+             * @default false
+             */
+            core: boolean;
+            /** Dataageseconds */
+            dataAgeSeconds?: number | null;
+            /** Detail */
+            detail: string;
+            /** Homepage */
+            homepage?: string | null;
+            /** Id */
+            id: string;
+            /** Lasterror */
+            lastError?: string | null;
+            /** Lasterrorat */
+            lastErrorAt?: string | null;
+            /** Lastsuccess */
+            lastSuccess?: string | null;
+            /** Medianlagseconds */
+            medianLagSeconds?: number | null;
+            /** Name */
+            name: string;
+            /** Observedat */
+            observedAt?: string | null;
+            /** Policyseconds */
+            policySeconds?: number | null;
+            /** Portscurrent */
+            portsCurrent?: number | null;
+            /** Portstotal */
+            portsTotal?: number | null;
+            /** Provider */
+            provider: string;
+            publicationLag?: components["schemas"]["PublicationLag"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "current" | "expected_lag" | "stale" | "unavailable";
+            /** Successrate7D */
+            successRate7d?: number | null;
+            /** Termsurl */
+            termsUrl?: string | null;
+            /** Trial */
+            trial?: {
+                [key: string]: unknown;
+            } | null;
+            /** Validthrough */
+            validThrough?: string | null;
+        };
         /** DelayDistribution */
         DelayDistribution: {
             /** Declaration */
@@ -7573,6 +7644,20 @@ export interface components {
         HandoffPayload: {
             /** Items */
             items: components["schemas"]["HandoffItem"][];
+        };
+        /** HealthResponse */
+        HealthResponse: {
+            data: components["schemas"]["DataHealth"];
+            service: components["schemas"]["ServiceHealth"];
+            /** Servicename */
+            serviceName: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "degraded";
+        } & {
+            [key: string]: unknown;
         };
         /** IdentityUser */
         IdentityUser: {
@@ -7817,6 +7902,18 @@ export interface components {
             /** Optionid */
             optionId: string;
         };
+        /** PublicationLag */
+        PublicationLag: {
+            /**
+             * Basis
+             * @constant
+             */
+            basis: "first_successful_receipt";
+            /** Medianseconds */
+            medianSeconds: number | null;
+            /** Samples */
+            samples: number;
+        };
         /** ReadingValue */
         ReadingValue: {
             /** Detail */
@@ -7926,6 +8023,28 @@ export interface components {
              */
             vesselId: "PWD-001" | "PWD-002" | "PWD-003";
         };
+        /** ServiceHealth */
+        ServiceHealth: {
+            /** Capacity */
+            capacity: {
+                [key: string]: unknown;
+            };
+            /** Durablestoresok */
+            durableStoresOk: boolean;
+            /** Failedwriters */
+            failedWriters: string[];
+            /** Reasons */
+            reasons: string[];
+            /** Scheduler */
+            scheduler: {
+                [key: string]: unknown;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "degraded";
+        };
         /** SessionPayload */
         SessionPayload: {
             /** Accesstoken */
@@ -8018,11 +8137,12 @@ export interface components {
             portsTotal?: number | null;
             /** Provider */
             provider: string;
+            publicationLag?: components["schemas"]["PublicationLag"] | null;
             /**
              * Status
              * @enum {string}
              */
-            status: "live" | "stale" | "unavailable";
+            status: "live" | "expected_lag" | "stale" | "unavailable";
             /** Successrate7D */
             successRate7d?: number | null;
             /** Termsurl */
@@ -13005,9 +13125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17255,9 +17373,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };

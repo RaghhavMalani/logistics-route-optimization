@@ -60,7 +60,7 @@ function SystemState() {
         context={<span>Service, artefacts and access</span>}
         meta={
           <>
-            <span className="num">{data?.service ?? "—"}</span>
+            <span className="num">{data?.serviceName ?? "—"}</span>
             <span className="num">
               server {formatUtc(data?.serverTimeUtc ?? null)}
             </span>

@@ -153,6 +153,10 @@ jobs:
     # action queue, and no agent holding an EXECUTE ceiling.
     name: Browser regression (production build, shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # Chromium and its system dependencies match @playwright/test in the lockfile.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -175,8 +179,6 @@ jobs:
           cache-dependency-path: india-portwatch-terminal/package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
       # The suite builds the app itself (node-server preset) and replays a
       # recorded API, so it needs no backend and no network. Route, guard,
       # traffic, routing, agentic and degraded-mode specs all run here.
@@ -197,6 +199,9 @@ jobs:
   research-browser:
     name: Browser Research (isolated renderer)
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
+      options: --ipc=host
     defaults:
       run:
         working-directory: india-portwatch-terminal
@@ -209,8 +214,6 @@ jobs:
           cache-dependency-path: india-portwatch-terminal/package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
       - name: Research date, evidence and download contracts at both viewports
         run: node qa/run-browser-ci.mjs --research-only
       - name: Upload the report on failure

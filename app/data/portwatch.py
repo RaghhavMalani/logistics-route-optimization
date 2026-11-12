@@ -155,6 +155,12 @@ def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFram
     try:
         df = _query("Daily_Ports_Data", where, order="date,portid")
         if not df.empty:
+            from src.portwatch_os.clock import wall_now
+            from src.portwatch_os.freshness import get_coordinator
+            from src.portwatch_os.intelligence.free_sources import imf_date
+
+            received = wall_now()  # wall-clock: stamp the successful provider response independently of replay.
+            latest_received_date = max(df["date"].dropna().tolist(), default=None)
             previous = _cached('port_activity.csv')
             if not previous.empty:
                 df = pd.concat([previous, df], ignore_index=True).drop_duplicates(['portid', 'date'], keep='last')
@@ -172,6 +178,10 @@ def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFram
                     temporary = path.with_suffix('.tmp')
                     rows.drop_duplicates('date', keep='last').sort_values('date').to_csv(temporary, index=False)
                     temporary.replace(path)
+            observed = imf_date(latest_received_date)
+            journal = get_coordinator().journal
+            if observed is not None and journal is not None:
+                journal.record_port_activity_collection(observed, received)
             return df
     except Exception as exc:
         if strict:

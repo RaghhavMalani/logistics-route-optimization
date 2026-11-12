@@ -1,6 +1,8 @@
 import { formatUtc } from "@/components/kit/primitives";
 import {
   ageLabel,
+  expectedLagTone,
+  sourceStatusLabel,
   successLabel,
   useSourceHealth,
 } from "@/services/source-health";
@@ -11,6 +13,7 @@ export function DataNowSources({ opensAbove = false }: { opensAbove?: boolean })
   const activity = sources.find(({ id }) => id === "imf-portwatch-data");
   const live = sources.filter(({ status }) => status === "live").length;
   const stale = sources.filter(({ status }) => status === "stale").length;
+  const expected = sources.filter(({ status }) => status === "expected_lag").length;
   return (
     <>
       <div className="pt-1">
@@ -18,7 +21,7 @@ export function DataNowSources({ opensAbove = false }: { opensAbove?: boolean })
           Source health
         </a>
         {data
-          ? ` · ${live} current · ${stale} stale · ${sources.length - live - stale} unavailable`
+          ? ` · ${live} current · ${expected} within expected publication lag · ${stale} stale · ${sources.length - live - expected - stale} unavailable`
           : isError
             ? " · unavailable"
             : " · checking"}
@@ -36,6 +39,7 @@ export function DataNowSources({ opensAbove = false }: { opensAbove?: boolean })
                 className="border-b border-[var(--line)] py-1 last:border-b-0"
               >
                 <strong>{source.name}</strong>
+                <p>{sourceStatusLabel[source.status]}</p>
                 <p>
                   Last success{" "}
                   {source.lastSuccess
@@ -70,7 +74,8 @@ export function DatedSource({ id }: { id: string }) {
   const { data } = useSourceHealth();
   const source = data?.sources.find((row) => row.id === id);
   const at = source?.observedAt ?? source?.availableAt;
-  return <span data-testid={`dated-source-${id}`} className={source?.status === "live" ? "" : "text-[var(--text-3)]"}>
-    {source?.status === "live" ? "within policy" : at ? `Latest available · ${formatUtc(at)} (${ageLabel(source?.dataAgeSeconds)} old)` : "unavailable"}
+  const label = source?.status === "expected_lag" ? sourceStatusLabel.expected_lag : "Latest available";
+  return <span data-testid={`dated-source-${id}`} className={source?.status === "expected_lag" ? expectedLagTone : source?.status === "live" ? undefined : "text-[var(--text-3)]"}>
+    {source?.status === "live" ? "within policy" : at ? `${label} · ${formatUtc(at)} (${ageLabel(source?.dataAgeSeconds)} old)` : "unavailable"}
   </span>;
 }

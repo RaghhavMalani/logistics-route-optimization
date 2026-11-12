@@ -27,6 +27,7 @@ async def run():
     from src.portwatch_os.freshness.reviewed_sources import PUBLISHED_MAX_AGE, permits_publication
     from src.portwatch_os.freshness.source_snapshots import configured_store
     from src.portwatch_os.freshness.source_worker import SourceJob, run_worker
+    from src.portwatch_os.freshness.write_health import record_write
     trial = configured()
     # wall-clock: trial collection stops at its real 48-hour deadline.
     active_trial = trial if trial and trial['end'] > wall_now() else None
@@ -40,9 +41,15 @@ async def run():
     if not active_trial and not published:
         return
     store = configured_store()
-    if store is None:
-        raise ValueError('A source snapshot store is required')
-    store.initialize()
+    try:
+        if store is None:
+            raise ValueError('A source snapshot store is required')
+        store.initialize()
+    except Exception:
+        if published:
+            record_write("source-snapshot-store", ok=False)
+        raise
+    record_write("source-snapshot-store", ok=True)
     workers = []
     if active_trial:
         jobs = []

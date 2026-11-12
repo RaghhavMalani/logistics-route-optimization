@@ -7,6 +7,8 @@ import { getJson } from "@/services/api";
 import type { ApiResponse } from "@/services/api-client";
 import {
   ageLabel,
+  expectedLagTone,
+  sourceStatusLabel,
   successLabel,
   useSourceHealth,
 } from "@/services/source-health";
@@ -90,8 +92,8 @@ function SourcesPage() {
         </p>
         <h1 className="mb-2 text-4xl font-semibold">Sources</h1>
         <p className="mb-6 max-w-2xl text-sm text-[var(--text-2)]">
-          Health of the source snapshots monitored here. Daily products can be
-          current and still lag the present. Private trials appear as
+          Retained source snapshots and their age. Daily products can arrive
+          within their expected publication lag. Private trials appear as
           unavailable in the workspace.
         </p>
         {isPending ? (
@@ -104,13 +106,17 @@ function SourcesPage() {
           {data?.sources.map((source) => (
             <li
               key={source.id}
-              className={`rounded border border-[var(--line)] bg-[var(--panel)] p-4 ${source.status === "live" ? "" : "text-[var(--text-3)]"}`}
+              className={`rounded border border-[var(--line)] bg-[var(--panel)] p-4 ${source.status === "stale" || source.status === "unavailable" ? "text-[var(--text-3)]" : ""}`}
             >
               <p className="font-mono text-xs uppercase text-[var(--text-2)]">
                 {source.provider} ·{" "}
-                {source.status === "live" && source.id === "imf-portwatch-data"
+                {source.status === "expected_lag" ? (
+                  <span className={expectedLagTone}>
+                    {sourceStatusLabel[source.status]}
+                  </span>
+                ) : source.status === "live" && source.id === "imf-portwatch-data"
                   ? "Current daily snapshot"
-                  : source.status}
+                  : sourceStatusLabel[source.status]}
               </p>
               <h2 className="mt-1 text-lg font-semibold">{source.name}</h2>
               <p className="mt-1 text-sm text-[var(--text-2)]">
@@ -150,6 +156,16 @@ function SourcesPage() {
                 </p>
               ) : null}
               <dl className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+                {source.publicationLag ? (
+                  <>
+                    <dt>Provisional publication lag</dt>
+                    <dd>
+                      {ageLabel(source.publicationLag.medianSeconds)} ·{" "}
+                      {source.publicationLag.samples} distinct daily{" "}
+                      {source.publicationLag.samples === 1 ? "collection" : "collections"}
+                    </dd>
+                  </>
+                ) : null}
                 <dt>Last successful check</dt>
                 <dd>
                   {source.lastSuccess ? (

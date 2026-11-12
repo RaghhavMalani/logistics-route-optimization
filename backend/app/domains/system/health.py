@@ -11,21 +11,55 @@ from __future__ import annotations
 
 from src.utils.settings import get_settings
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
+from sqlite3 import DatabaseError
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter
+from pydantic import BaseModel, ConfigDict
 
+from backend.app.domains.intelligence.source_status import SourceHealth
 from backend.app.services import cache_service as cache
 from src.portwatch_os.clock import get_clock, wall_now
 from src.portwatch_os.deployment_artifact import current as source_artifact
+from src.portwatch_os.state_capacity import state_capacity
 
 router = APIRouter()
 # Wall-clock: actual process/module start, never a forecast or observation time.
 # wall-clock: runtime boot identity records when this process actually started.
 _PROCESS_START = wall_now().isoformat()
 _PROCESS_BOOT = str(uuid4())
+
+HealthStatus = Literal["ok", "degraded"]
+
+
+class ServiceHealth(BaseModel):
+    status: HealthStatus
+    reasons: list[str]
+    durableStoresOk: bool
+    capacity: dict
+    scheduler: dict
+    failedWriters: list[str]
+
+
+class DataSourceHealth(SourceHealth):
+    status: Literal["current", "expected_lag", "stale", "unavailable"]
+
+
+class DataHealth(BaseModel):
+    status: Literal["ok", "degraded", "unavailable"]
+    sources: list[DataSourceHealth]
+
+
+class HealthResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: HealthStatus
+    serviceName: str
+    service: ServiceHealth
+    data: DataHealth
 
 #: Intelligence older than this is reported as stale rather than live.
 LIVE_BUDGET_SECONDS = 30 * 60
@@ -144,7 +178,33 @@ def durable_stores(*, fresh: bool = False) -> dict:
     return value
 
 
-@router.get("/health")
+def service_health(now, release, stores, capacity, scheduler, failed_writers):
+    from src.portwatch_os.freshness.truth import instant
+    from src.portwatch_os.panel_runtime import snapshot_at
+
+    reasons = []
+    environment = release["environment"]
+    enabled = (get_settings().PORTWATCH_FRESHNESS_SCHEDULER or "1").lower() not in ("0", "false", "no", "off")
+    required = environment == "production" or (environment != "UNKNOWN" and enabled and snapshot_at() is None)
+    last_tick = instant(scheduler.get("lastTickAt"))
+    tick_timeout = timedelta(seconds=max(60, 3 * (scheduler.get("tickSeconds") or 0)))
+    if required and (not scheduler.get("running") or not scheduler.get("singleOwner")
+                     or last_tick is None or now - last_tick > tick_timeout):
+        reasons.append("scheduler")
+    if not stores["ok"]:
+        reasons.append("durable_stores")
+    if capacity["status"] == "low" or environment == "production" and capacity["status"] != "ok":
+        reasons.append("state_capacity")
+    if failed_writers or scheduler.get("journalError"):
+        reasons.append("state_writes")
+    return ServiceHealth(
+        status="degraded" if reasons else "ok", reasons=reasons,
+        durableStoresOk=stores["ok"], capacity=capacity,
+        scheduler={**scheduler, "required": required}, failedWriters=failed_writers,
+    ).model_dump()
+
+
+@router.get("/health", response_model=HealthResponse)
 def health_check() -> dict:
     now = wall_now()  # wall-clock: serverTimeUtc is the server's own time
     export_age = cache.artefact_age_seconds(cache.STATUS_CACHE)
@@ -175,13 +235,32 @@ def health_check() -> dict:
     # open is reported here with its path, and the readiness page refuses.
     stores = durable_stores()
     from backend.app.domains.intelligence.source_status import source_status
-    source_health = source_status()
+    from src.portwatch_os.freshness.write_health import failed_writes, is_storage_error
+    writes = failed_writes()
+    try:
+        source_health = source_status()
+    except (DatabaseError, OSError) as error:
+        if not is_storage_error(error):
+            raise
+        writes.append("freshness-journal")
+        source_health = {"sources": [], "scheduler": {}, "degraded": True}
+    from src.utils.config import STATE_DIR
+    capacity = state_capacity(STATE_DIR)
+    release = release_identity()
+    service = service_health(now, release, stores, capacity, source_health.get("scheduler", {}), writes)
+    data_sources = [{**row, "status": "current" if row["status"] == "live" else row["status"]}
+                    for row in source_health["sources"]]
+    data_status = ("unavailable" if not data_sources else
+                   "degraded" if source_health["degraded"] else "ok")
 
     payload = {
-        "status": "ok" if artefacts["forecast"] and stores["ok"] and not source_health['degraded'] else "degraded",
+        "status": service["status"],
+        "service": service,
+        "data": {"status": data_status, "sources": data_sources},
+        "stateCapacity": capacity,
         "sourceHealth": source_health,
-        "service": "india-portwatch-backend",
-        "release": release_identity(),
+        "serviceName": "india-portwatch-backend",
+        "release": release,
         "artifact": source_artifact(),
         "runtime": {"bootId": _PROCESS_BOOT, "startedAt": _PROCESS_START, "pid": os.getpid()},
         "serverTimeUtc": now.isoformat(),

@@ -9,7 +9,7 @@ const replay = process.argv.includes("--replay");
 const panelMode = process.argv.includes("--panel");
 const production = process.argv.includes("production");
 const retainedSources = process.argv.includes("--expect-retained-sources");
-if (production && retainedSources) throw new Error("Production acceptance requires current core sources.");
+if (production && retainedSources) throw new Error("The retained-source check is only for legacy previews.");
 const miniature = process.argv.includes("--miniature");
 const checkApprovalStyle = production || process.argv.includes("--check-approval-style");
 if (replay && panelMode) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
@@ -45,7 +45,17 @@ if (!local) {
   const healthResponse = await fetch(api + "/health", { signal: AbortSignal.timeout(15_000) });
   assert.equal(healthResponse.status, 200);
   const health = await healthResponse.json();
-  if (retainedSources) {
+  if (health.service?.status) {
+    assert.equal(health.status, health.service.status);
+    assert.equal(health.service.status, "ok", JSON.stringify(health.service.reasons));
+    console.log(JSON.stringify({
+      dataStatus: health.data.status,
+      sources: health.data.sources.map(({ id, status, observedAt, availableAt }) =>
+        ({ id, status, observedAt, availableAt })),
+    }));
+  } else if (production) {
+    throw new Error("Production must expose explicit service health.");
+  } else if (retainedSources) {
     assert.equal(health.status, "degraded");
     assert.equal(health.durableStores.ok, true);
     assert.equal(health.sourceHealth.degraded, true);
