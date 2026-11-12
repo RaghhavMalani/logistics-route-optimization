@@ -1,3 +1,4 @@
+import { CongestionScore } from "@/components/kit/CongestionScore";
 /**
  * The vessel inspector.
  *
@@ -387,17 +388,11 @@ export function VesselInspector({
       >
         {destination ? (
           <>
-            <Field label="Congestion now">
-              <Num
-                value={
-                  destination.observedCongestionIndex ??
-                  destination.congestionIndex
-                }
-                digits={1}
-              />
+            <Field label="Observed congestion">
+              <CongestionScore value={destination.observedCongestionIndex} history={destination.congestionHistory} />
             </Field>
-            <Field label="Congestion at arrival">
-              <Num value={congestionOnArrival} digits={1} />
+            <Field label="Congestion forecast at arrival">
+              <CongestionScore value={congestionOnArrival} />
             </Field>
             <Field label="Predicted berth wait">
               <Num value={destination.delayHours} digits={1} unit="h" />

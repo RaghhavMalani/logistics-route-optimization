@@ -1,3 +1,4 @@
+import { ExposureScore } from "@/components/company/ExposureScore";
 /**
  * Global Eye: the event register and the impact chain.
  *
@@ -322,7 +323,7 @@ export function LaneRow({ lane }: { lane: LaneExposure }) {
             `text-[var(--${exposureTone(lane.exposure)})]`,
           )}
         >
-          {lane.exposure.toFixed(2)}
+          <ExposureScore value={lane.exposure} />
         </span>
       </div>
       <div className="mt-[2px] flex items-center gap-1.5 text-[10px] text-[var(--text-3)]">
@@ -385,7 +386,7 @@ export function VesselExposureRow({
             `text-[var(--${exposureTone(row.exposure)})]`,
           )}
         >
-          {row.exposure.toFixed(2)}
+          <ExposureScore value={row.exposure} />
         </span>
       </div>
       <div className="mt-[2px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
@@ -434,7 +435,7 @@ export function PortExposureRow({ row }: { row: PortExposure }) {
           `text-[var(--${exposureTone(row.exposure)})]`,
         )}
       >
-        {row.exposure.toFixed(2)}
+        <ExposureScore value={row.exposure} />
       </span>
     </div>
   );

@@ -5,7 +5,7 @@ export function ExposureScore({ value }: { value: number }) {
   const band = value >= 0.55 ? "High" : value >= 0.3 ? "Medium" : "Low";
   return (
     <span title={exposureBasis}>
-      Exposure {value.toFixed(2)} / 1 · {band}
+      Exposure {value.toFixed(2)} / 1 index · {band}
     </span>
   );
 }

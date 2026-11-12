@@ -1,9 +1,10 @@
+import { CongestionScore } from "@/components/kit/CongestionScore";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
-import { QuantileChart, Sparkline } from "@/components/kit/charts";
+import { QuantileChart } from "@/components/kit/charts";
 import { Page, PageBody, PageHeader, Panel, StatStrip, Toolbar } from "@/components/kit/layout";
 import {
   KeyValue,
@@ -91,8 +92,8 @@ function AdminPorts() {
       sort: (port) => port.congestionIndex,
     },
     { key: "regime", header: "Regime", width: 118, render: (port) => <span className="num text-[var(--text-2)]">{port.regime}</span>, sort: (port) => port.regime },
-    { key: "observed", header: "Observed", align: "right", width: 96, render: (port) => <Num value={port.observedCongestionIndex} />, sort: (port) => port.observedCongestionIndex },
-    { key: "day1", header: "Day-1", align: "right", width: 88, render: (port) => <Num value={port.congestionIndex} />, sort: (port) => port.congestionIndex },
+    { key: "observed", header: "Observed", align: "right", width: 96, render: (port) => <CongestionScore value={port.observedCongestionIndex} history={port.congestionHistory} />, sort: (port) => port.observedCongestionIndex },
+    { key: "day1", header: "Day-1", align: "right", width: 88, render: (port) => <CongestionScore value={port.congestionIndex} />, sort: (port) => port.congestionIndex },
     { key: "peak", header: "Peak", align: "right", width: 100, render: (port) => (<span className="num">{port.peakCongestionIndex.toFixed(1)}<span className="ml-1 text-[10px] text-[var(--text-3)]">d{port.peakDay}</span></span>), sort: (port) => port.peakCongestionIndex },
     { key: "wait", header: "Wait", align: "right", width: 88, render: (port) => <Num value={port.delayHours} unit="h" />, sort: (port) => port.delayHours },
     { key: "calls", header: "Calls/day", align: "right", width: 100, render: (port) => <Num value={port.vesselCalls} />, sort: (port) => port.vesselCalls },
@@ -134,19 +135,6 @@ function AdminPorts() {
       width: 108,
       render: (port) => <ProvenanceTag status={port.dataStatus} ageHours={port.dataAgeHours} />,
       sort: (port) => port.dataAgeHours,
-    },
-    {
-      key: "trend",
-      header: "14 days",
-      width: 92,
-      render: (port) => (
-        <Sparkline
-          data={port.congestionHistory.map((point) => point.value)}
-          tone={riskTone(port.risk)}
-          height={16}
-          fill={false}
-        />
-      ),
     },
   ];
 

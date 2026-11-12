@@ -1,8 +1,9 @@
+import { CongestionScore, CongestionForecastBand } from "@/components/kit/CongestionScore";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useFleetIntel } from "@/components/app/fleet-context";
-import { QuantileChart, Sparkline } from "@/components/kit/charts";
+import { QuantileChart } from "@/components/kit/charts";
 import { Page, PageBody, PageHeader, Panel, SegmentedControl, StatStrip, Toolbar } from "@/components/kit/layout";
 import {
   KeyValue,
@@ -106,7 +107,7 @@ function DestinationPorts() {
       header: "Observed",
       align: "right",
       width: 96,
-      render: (port) => <Num value={port.observedCongestionIndex} />,
+      render: (port) => <CongestionScore value={port.observedCongestionIndex} history={port.congestionHistory} />,
       sort: (port) => port.observedCongestionIndex,
     },
     {
@@ -114,7 +115,7 @@ function DestinationPorts() {
       header: "Day-1",
       align: "right",
       width: 90,
-      render: (port) => <Num value={port.congestionIndex} />,
+      render: (port) => <CongestionScore value={port.congestionIndex} />,
       sort: (port) => port.congestionIndex,
     },
     {
@@ -123,9 +124,7 @@ function DestinationPorts() {
       align: "right",
       width: 106,
       render: (port) => (
-        <span className="num text-[var(--text-3)]">
-          {port.forecastQ10?.toFixed(0) ?? "—"}–{port.forecastQ90?.toFixed(0) ?? "—"}
-        </span>
+        <CongestionForecastBand low={port.forecastQ10} high={port.forecastQ90} />
       ),
       sort: (port) => (port.forecastQ90 ?? 0) - (port.forecastQ10 ?? 0),
     },
@@ -178,19 +177,6 @@ function DestinationPorts() {
         </span>
       ),
       sort: (port) => port.confidence,
-    },
-    {
-      key: "trend",
-      header: "14-day trend",
-      width: 96,
-      render: (port) => (
-        <Sparkline
-          data={port.congestionHistory.map((point) => point.value)}
-          tone={riskTone(port.risk)}
-          height={16}
-          fill={false}
-        />
-      ),
     },
   ];
 

@@ -1,3 +1,4 @@
+import { CongestionScore } from "@/components/kit/CongestionScore";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
@@ -167,7 +168,7 @@ function FleetBoard() {
       render: (row) =>
         row.destination ? (
           <span className="flex items-center justify-end gap-2">
-            <Num value={row.destination.congestionIndex} />
+            <CongestionScore value={row.destination.congestionIndex} />
             <Pill tone={riskTone(row.destination.risk)}>{riskLabel(row.destination.risk)}</Pill>
           </span>
         ) : (

@@ -1,3 +1,4 @@
+import { CongestionScore, congestionBand } from "@/components/kit/CongestionScore";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
@@ -70,7 +71,7 @@ function PortForecast() {
       header: "q10",
       align: "right",
       width: 70,
-      render: (row) => <Num value={row.q10} />,
+      render: (row) => <CongestionScore value={row.q10} />,
       sort: (row) => row.q10,
     },
     {
@@ -78,7 +79,7 @@ function PortForecast() {
       header: "q50",
       align: "right",
       width: 70,
-      render: (row) => <Num value={row.q50} className="text-[var(--text)]" />,
+      render: (row) => <CongestionScore value={row.q50} />,
       sort: (row) => row.q50,
     },
     {
@@ -86,7 +87,7 @@ function PortForecast() {
       header: "q90",
       align: "right",
       width: 70,
-      render: (row) => <Num value={row.q90} />,
+      render: (row) => <CongestionScore value={row.q90} />,
       sort: (row) => row.q90,
     },
     {
@@ -95,7 +96,7 @@ function PortForecast() {
       align: "right",
       width: 100,
       hint: "q90 − q10 after conformal calibration",
-      render: (row) => <Num value={row.intervalWidth} />,
+      render: (row) => <Num value={row.intervalWidth} unit="pts" />,
       sort: (row) => row.intervalWidth,
     },
     {
@@ -175,13 +176,13 @@ function PortForecast() {
         items={[
           {
             label: "Day-1 median",
-            value: first?.q50.toFixed(1) ?? "n/a",
+            value: first ? `${first.q50.toFixed(1)} / 100 pts · ${congestionBand(first.q50)}` : "n/a",
             tone: (first?.q50 ?? 0) >= 50 ? "warn" : "ok",
             note: first ? `band ${first.q10.toFixed(0)}–${first.q90.toFixed(0)}` : "no rows",
           },
           {
             label: "Horizon peak",
-            value: peak?.congestionIndex.toFixed(1) ?? "n/a",
+            value: peak ? `${peak.congestionIndex.toFixed(1)} / 100 pts · ${congestionBand(peak.congestionIndex)}` : "n/a",
             tone: (peak?.congestionIndex ?? 0) >= 65 ? "crit" : "warn",
             note: peak ? `day ${peak.day} · ${peak.dateLabel}` : "no rows",
           },

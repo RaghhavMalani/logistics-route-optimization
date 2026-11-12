@@ -299,16 +299,18 @@ function VesselBridge() {
                 </FloatPanel>
               ) : null}
 
-              {railTab === "traffic" && selectedFix ? (
+              {railTab === "traffic" && selectedFix && contacts.length === 0 ? (
+                <div className="pw-handoff-card pointer-events-auto px-3 py-2 text-xs text-[var(--text-3)]">
+                  No contact inside 60 nm.
+                </div>
+              ) : null}
+              {railTab === "traffic" && selectedFix && contacts.length > 0 ? (
                 <FloatPanel
                   title="Traffic around own ship"
                   note={`${contacts.length} within 60 nm`}
                   className="min-h-0 flex-1"
                 >
-                  {contacts.length === 0 ? (
-                    <EmptyNote>No contact inside 60 nautical miles.</EmptyNote>
-                  ) : (
-                    <PanelSection title="Contacts">
+                  <PanelSection title="Contacts">
                       <ul className="space-y-[2px]">
                         {contacts.slice(0, 6).map((contact) => (
                           <li key={contact.fix.id}>
@@ -367,8 +369,7 @@ function VesselBridge() {
                           </li>
                         ))}
                       </ul>
-                    </PanelSection>
-                  )}
+                  </PanelSection>
                 </FloatPanel>
               ) : null}
 

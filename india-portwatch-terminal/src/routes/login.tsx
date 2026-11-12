@@ -11,7 +11,7 @@ import { Button } from "@/components/kit/layout";
 import { Pill } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
 import { cn } from "@/lib/utils";
-import { useSourceHealth, ageLabel } from "@/services/source-health";
+import { ageLabel } from "@/services/source-health";
 import { writeStory } from "@/services/story-session";
 
 /** `next` is optional: a direct visit to /login carries no return address. */
@@ -107,6 +107,7 @@ function LoginScreen() {
         ? "Degraded"
         : serviceStatus === "ok" ? "Reachable" : "Unverified";
 
+  const sourceStatus = health.data?.data?.status;
   const forecast = health.isError ? undefined : health.data;
   const originAt = Date.parse(forecast?.forecastOrigin ?? "");
   const originStatus = {
@@ -329,16 +330,16 @@ function LoginScreen() {
                   aria-hidden
                   className={cn(
                     "size-1.5 rounded-full",
-                    sourceHealth.data
-                      ? sourceHealth.data.degraded
+                    sourceStatus && sourceStatus !== "unavailable"
+                      ? sourceStatus === "degraded"
                         ? "bg-amber-600"
                         : "bg-emerald-700"
                       : "bg-neutral-400",
                   )}
                 />
                 <span>
-                  {sourceHealth.data
-                    ? sourceHealth.data.degraded
+                  {sourceStatus && sourceStatus !== "unavailable"
+                    ? sourceStatus === "degraded"
                       ? "Degraded · latest available data"
                       : "Core sources within policy"
                     : "Unmeasured"}
@@ -349,15 +350,6 @@ function LoginScreen() {
               </span>
             </summary>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[11px]">
-              <dt className="text-[var(--text-3)]">Data service</dt>
-              <dd className="flex justify-end">
-                <Pill tone={serviceTone}>{serviceLabel}</Pill>
-              </dd>
-              <dt className="text-[var(--text-3)]">Source freshness</dt>
-              <dd className="text-right text-[var(--text-3)]" data-testid="login-source-freshness">
-                {health.data?.data?.status === "ok" ? "Core sources within policy" :
-                  health.data?.data?.status === "degraded" ? "Degraded · latest available data" : "Unmeasured"}
-              </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">
                 {Number.isFinite(originAt)

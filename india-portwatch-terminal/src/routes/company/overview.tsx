@@ -231,8 +231,8 @@ function FleetCommand() {
   const fixes = useFixes(1);
 
   const vessels = useMemo(() => fleet.data?.vessels ?? [], [fleet.data]);
-  const actionRequired = risk.data?.actionRequired ?? [];
-  const monitorOnly = risk.data?.monitorOnly ?? [];
+  const actionRequired = risk.data?.actionRequired.filter((row) => row.exposure > 0) ?? [];
+  const monitorOnly = risk.data?.monitorOnly.filter((row) => row.exposure > 0) ?? [];
 
   const exposureByVessel = useMemo(() => {
     const map = new Map<string, number>();
@@ -249,7 +249,9 @@ function FleetCommand() {
 
   const portRisk = useMemo(
     () =>
-      Object.values(risk.data?.portRisk ?? {}).sort((a, b) => b.risk - a.risk),
+      Object.values(risk.data?.portRisk ?? {})
+        .filter((port) => port.risk > 0)
+        .sort((a, b) => b.risk - a.risk),
     [risk.data?.portRisk],
   );
 

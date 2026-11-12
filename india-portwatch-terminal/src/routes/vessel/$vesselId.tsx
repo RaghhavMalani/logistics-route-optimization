@@ -1,3 +1,4 @@
+import { CongestionScore, CongestionForecastBand } from "@/components/kit/CongestionScore";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -382,16 +383,13 @@ function VesselDetail() {
                   <span className="text-[11.5px]">{riskLabel(destination.risk)}</span>
                 </KeyValue>
                 <KeyValue label="Observed congestion" dense>
-                  <Num value={destination.observedCongestionIndex} />
+                  <CongestionScore value={destination.observedCongestionIndex} history={destination.congestionHistory} />
                 </KeyValue>
                 <KeyValue label="Day-1 forecast" dense>
-                  <Num value={destination.congestionIndex} />
+                  <CongestionScore value={destination.congestionIndex} />
                 </KeyValue>
                 <KeyValue label="80% band" dense>
-                  <span className="num text-[11.5px]">
-                    {destination.forecastQ10?.toFixed(0) ?? "—"}–
-                    {destination.forecastQ90?.toFixed(0) ?? "—"}
-                  </span>
+                  <CongestionForecastBand low={destination.forecastQ10} high={destination.forecastQ90} />
                 </KeyValue>
                 <KeyValue label="Anchorage waiting" dense>
                   <Num value={destination.anchorageCount} />
