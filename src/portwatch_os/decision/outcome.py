@@ -38,6 +38,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+import numpy as np
+
 from src.portwatch_os.decision.model import DecisionOption, DecisionProblem
 
 
@@ -130,6 +132,27 @@ def option_derived(option: DecisionOption) -> Dict[str, Any]:
     return (option.provenance.get("rejectedEvaluation") or {}).get("derived", {}) or {}
 
 
+def _reopening_queue(drain, arrival_share):
+    return drain * arrival_share
+
+
+def _residual_queue(remaining, drain, maximum=max):
+    return remaining * (remaining / maximum(1.0, drain))
+
+
+def queue_wait_hours(arrival, blocked, reopened, cleared):
+    """Evaluate the same closure and backlog arithmetic on aligned hours."""
+    drain = np.maximum(cleared - reopened, 0)
+    closure = np.maximum(reopened - blocked, 1 / 3600)
+    share = np.clip((arrival - blocked) / closure, 0, 1)
+    remaining = np.maximum(cleared - arrival, 0)
+    return np.where(
+        arrival < reopened,
+        reopened - arrival + _reopening_queue(drain, share),
+        _residual_queue(remaining, drain, np.maximum),
+    )
+
+
 def closure_delay_hours(
     option: DecisionOption,
     window: ClosureWindow,
@@ -173,14 +196,13 @@ def closure_delay_hours(
     if arrival < reopened:
         wait = (reopened - arrival).total_seconds() / 3600.0
         share = (arrival - blocked_from).total_seconds() / max(1.0, (reopened - blocked_from).total_seconds())
-        queue = drain_hours * max(0.0, min(1.0, share))
+        queue = _reopening_queue(drain_hours, max(0.0, min(1.0, share)))
         return {"hours": round(hold + wait + queue, 1),
                 "how": f"held {hold:.0f} h, waited {wait:.0f} h for the reopening, then {queue:.0f} h of "
                        f"queue (arrival share {share:.2f} of the blocked period)"}
     if arrival < cleared:
         remaining = (cleared - arrival).total_seconds() / 3600.0
-        fraction = remaining / max(1.0, drain_hours)
-        queue = remaining * fraction
+        queue = _residual_queue(remaining, drain_hours)
         return {"hours": round(hold + queue, 1),
                 "how": f"held {hold:.0f} h, arrived after the reopening, {queue:.0f} h of residual queue"}
     return {"hours": round(hold, 1), "how": f"held {hold:.0f} h; arrived after the backlog had cleared"}

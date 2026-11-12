@@ -125,3 +125,93 @@ def test_rollup_prices_correlated_losses_and_cvar_boundary_mass():
     assert cvar(np.array([0.0] * 96 + [100.0] * 4)) == pytest.approx(80)
     with pytest.raises(ValueError, match="aligned futures"):
         combine_costs({"A": a}, 3)
+
+
+def risk_study(**changes):
+    from src.portwatch_os.decision.cargo_sampling import RiskStudy
+    options = [
+        {"id": "keep", "label": "Keep", "action": "proceed", "cleanDeliveryHours": 175,
+         "reachClosureHour": 26, "areas": ["RED_SEA"], "dwellHours": 12, "detentionHours": 14,
+         "unpoweredHours": 2, "fuelTonnes": 50, "source": "ASSUMPTION · test passage"},
+        {"id": "slow", "label": "Slow steam", "action": "slow_steam", "cleanDeliveryHours": 188,
+         "reachClosureHour": 39, "areas": ["RED_SEA"], "dwellHours": 12, "detentionHours": 14,
+         "unpoweredHours": 1, "fuelTonnes": 44, "source": "ASSUMPTION · test passage"},
+    ]
+    inputs = dict(
+        problemId="test", at=AT, reportingCurrency="USD", keepOptionId="keep", plannedDeliveryHours=175,
+        options=options, consignments=demo_consignments(AT)["PWD-001"],
+        closure={"medianHours": 35, "source": "ASSUMPTION · test closure"},
+        handling={"kind": "DISCRETE", "values": [0, 4], "weights": [.5, .5],
+                  "declaration": "ASSUMPTION · test handling"},
+        fuel={"low": 440, "high": 620, "currency": "USD", "source": "ASSUMPTION · test fuel"},
+        scope="ASSUMPTION · test only",
+    )
+    return RiskStudy(**(inputs | changes))
+
+
+def test_sobol_prefix_inverse_distributions_and_shared_futures():
+    import numpy as np
+    from src.portwatch_os.decision.cargo_sampling import (
+        ClosureBasis, Sampling, closure_icdf, handling_icdf, map_futures, sample_losses,
+        triangular_icdf, worlds_for,
+    )
+
+    model = risk_study()
+    config = Sampling(seed=381)
+    a, b = worlds_for(config, 5), worlds_for(config, 6)
+    np.testing.assert_array_equal(a, b[:, :32])
+    assert not np.array_equal(a[0], a[1])
+    np.testing.assert_allclose(triangular_icdf(np.array([0, .25, 1]), 0, 1, 4), [0, 1, 4])
+    np.testing.assert_array_equal(handling_icdf(np.array([0, .499, .5, .99]), model.handling), [0, 0, 4, 4])
+    closure = ClosureBasis(medianHours=28, logSigma=.55, fizzleProbability=.2, source="Test assumption")
+    np.testing.assert_allclose(closure_icdf(np.array([.1, .6]), closure), [0, 28])
+    worlds = map_futures(model, a)
+    option = model.options[0]
+    other = option.model_copy(update={"id": "clone"})
+    first = sample_losses(model, option, worlds)
+    second = sample_losses(model, other, worlds)
+    np.testing.assert_array_equal(first.arrival, second.arrival)
+    np.testing.assert_array_equal(first.costs.known_subtotal, second.costs.known_subtotal)
+
+
+def test_adaptive_requires_two_ranks_and_reproducible_bytes():
+    import json
+    from src.portwatch_os.decision.cargo_sampling import Sampling, adaptive, study_bytes
+
+    model = risk_study(consignments=[], timeCostPerHour=300, timeCostBasis="ASSUMPTION · time cost")
+    config = Sampling(seed=68, minPower=4, maxPower=7, standardErrorThreshold=100000)
+    stages = []
+    _, _, info = adaptive(model, config, progress=stages.append)
+    assert info["converged"] and info["n"] == 256
+    assert len(stages) == 2 and not stages[0]["stable"] and stages[1]["stable"]
+    a = study_bytes(model, config)
+    assert a == study_bytes(model.model_validate_json(model.model_dump_json()), config)
+    b = study_bytes(model, config.model_copy(update={"seed": 69}))
+    assert json.loads(a)["sampleHash"] != json.loads(b)["sampleHash"]
+    assert json.loads(a)["inputHash"] == json.loads(b)["inputHash"]
+
+
+def test_retained_weather_and_fx_respect_as_of_cutoff():
+    from datetime import timedelta
+    from src.portwatch_os.decision.cargo_market import retained_fx, retained_weather
+    from src.portwatch_os.freshness.source_snapshots import Snapshot, SnapshotStore
+
+    store = SnapshotStore("sqlite:///:memory:")
+    store.initialize()
+    future = AT + timedelta(hours=1)
+    weather = {"availableAt": AT.isoformat(), "ports": {"INNSA": {
+        "units": {"wind_speed_10m": "kn"},
+        "hourly": {"time": [future.isoformat()], "wind_speed_10m_member01": [11], "wind_speed_10m_member02": [21]},
+    }}}
+    store.record("published", "open-meteo-ensemble", AT, snapshot=Snapshot(weather, None))
+    store.record("published", "open-meteo-ensemble", future, snapshot=Snapshot(
+        weather | {"availableAt": future.isoformat()}, None))
+    assert retained_weather(store, AT, "INNSA", future).windKn == (11, 21)
+    assert retained_weather(store, AT, "INNSA", future + timedelta(days=3)) is None
+    for days, usd_rate in ((-2, 1.1), (-1, 1.2), (1, 1.3)):
+        stamp = AT + timedelta(days=days)
+        rates = [{"quote": quote, "rate": rate, "date": stamp.date().isoformat()}
+                 for quote, rate in [("USD", usd_rate), ("INR", 100)]]
+        store.record("published", "frankfurter-ecb-fx", stamp, snapshot=Snapshot({"rates": rates}, stamp))
+    history = retained_fx(store, AT)
+    assert [row["USD"] for row in history.datedQuotes] == [1.1, 1.2]

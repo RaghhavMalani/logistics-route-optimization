@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import cached_property
 from typing import Mapping
 
 import numpy as np
@@ -43,7 +44,7 @@ class CostBreakdown:
     unknown: dict[str, str]
     basis: dict[str, tuple[str, ...]]
 
-    @property
+    @cached_property
     def known_subtotal(self) -> FloatArray | None:
         if not self.components:
             return None

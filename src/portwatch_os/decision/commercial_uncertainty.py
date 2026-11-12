@@ -131,3 +131,12 @@ def simulate(context:CommercialContext,problem:dict,at,config:Simulation,*,check
             'Only additional downstream handling delay varies. Physical passage, hourly weather gates and fuel remain frozen.',
             'One shared shock across all candidates/consignments; other dependence structures are not identified.',
             'No safety/restriction gate is traded for money; missing material costs prevent a total-cost pick.'])
+
+
+def simulate_cargo(study, config, *, progress=None):
+    """Extend the paired shadow study to declared cargo costs and joint futures."""
+    from .cargo_sampling import calculate, study_bytes
+    if progress is not None:
+        return calculate(study, config, progress=progress)
+    import json
+    return json.loads(study_bytes(study, config))
