@@ -423,9 +423,9 @@ def input_key(study: RiskStudy, config: Sampling) -> str:
                    "sampling": config.model_dump(mode="json", exclude={"seed"})})
 
 
-def calculate(study: RiskStudy, config: Sampling, *, progress=None) -> dict:
+def calculate(study: RiskStudy, config: Sampling, *, progress=None, policy=None, sensitivity=False) -> dict:
     rows, futures, diagnostics = adaptive(study, config, progress=progress)
-    return {
+    report = {
         "version": VERSION, "problemId": study.problemId, "inputHash": input_key(study, config), "seed": config.seed,
         "sampleHash": digest(futures.uniforms.tolist()), "scope": study.scope, "currency": study.reportingCurrency,
         "asOf": study.at.isoformat(), "keepOptionId": study.keepOptionId, "diagnostics": diagnostics,
@@ -438,6 +438,12 @@ def calculate(study: RiskStudy, config: Sampling, *, progress=None) -> dict:
                                     for option in study.options}},
         "options": public_losses(rows, futures),
     }
+    if policy is not None:
+        from .cargo_policy import closure_sweep, decide
+        report["decision"] = decide(study, rows, futures, policy)
+        if sensitivity:
+            report["closureSensitivity"] = closure_sweep(study, config, policy)
+    return report
 
 
 @lru_cache(maxsize=24)

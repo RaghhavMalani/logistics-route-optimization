@@ -215,3 +215,63 @@ def test_retained_weather_and_fx_respect_as_of_cutoff():
         store.record("published", "frankfurter-ecb-fx", stamp, snapshot=Snapshot({"rates": rates}, stamp))
     history = retained_fx(store, AT)
     assert [row["USD"] for row in history.datedQuotes] == [1.1, 1.2]
+
+
+def test_five_rules_on_known_rankings():
+    import numpy as np
+    from src.portwatch_os.decision.cargo_risk import CostBreakdown
+    from src.portwatch_os.decision.cargo_policy import RuleSettings, decide
+    from src.portwatch_os.decision.cargo_sampling import OptionLoss, Sampling, map_futures, worlds_for
+
+    study = risk_study()
+    config = Sampling(seed=9, minPower=3, maxPower=3, scrambles=4)
+    worlds = map_futures(study, worlds_for(config, 3))
+    keep = np.full(32, 9.)
+    hedge = np.array([1.] * 24 + [18.] * 8)
+    misses = np.array([True] * 16 + [False] * 16)
+    rows = [
+        OptionLoss(study.options[0], keep, CostBreakdown(32, {"loss": keep}, {}, {}), [], np.zeros(32, dtype=bool)),
+        OptionLoss(study.options[1], hedge, CostBreakdown(32, {"loss": hedge}, {}, {}), [], misses),
+    ]
+    for rule, winner in [("R1", "slow"), ("R2", "keep"), ("R3", "keep"), ("R4", "keep"), ("R5", "keep")]:
+        result = decide(study, rows, worlds, RuleSettings(rule=rule, epsilon=.2, q=.7))
+        assert result["optionId"] == winner and result["rule"] == rule
+    with pytest.raises(ValidationError):
+        RuleSettings(rule="R2")
+
+    rows[1] = OptionLoss(study.options[1], keep, CostBreakdown(32, {"loss": np.full(32, 8.)}, {}, {}), [],
+                         np.zeros(32, dtype=bool))
+    assert decide(study, rows, worlds, RuleSettings(rule="R5", q=.95))["optionId"] == "slow"
+
+
+def test_value_of_information_observes_status_and_respects_branch_point():
+    from src.portwatch_os.decision.cargo_policy import RuleSettings, decide
+    from src.portwatch_os.decision.cargo_sampling import Sampling, adaptive
+
+    options = [
+        {"id": "keep", "label": "Keep", "action": "proceed", "cleanDeliveryHours": 40,
+         "reachClosureHour": 8, "weatherExposure": 0, "handlingExposure": 0, "berthExposure": 0,
+         "source": "ASSUMPTION · test passage"},
+        {"id": "cape", "label": "Cape", "action": "reroute", "cleanDeliveryHours": 60,
+         "latestStartHour": 12, "weatherExposure": 0, "handlingExposure": 0, "berthExposure": 0,
+         "source": "ASSUMPTION · test passage"},
+    ]
+    study = risk_study(
+        options=options, consignments=[], fuel=None, nextRefreshHour=6, plannedDeliveryHours=40,
+        timeCostPerHour=100, timeCostBasis="ASSUMPTION · test",
+        closure={"medianHours": 60, "logSigma": 0, "fizzleProbability": .5, "drainFraction": 0,
+                 "source": "ASSUMPTION · test closure"},
+    )
+    config = Sampling(seed=10, minPower=4, maxPower=5)
+    rows, futures, _ = adaptive(study, config)
+    settings = RuleSettings(rule="R1", allowWait=True)
+    result = decide(study, rows, futures, settings)
+    assert result["status"] == "WAIT"
+    info = result["valueOfInformation"]
+    assert info["actionIfOpen"] == ["keep"]
+    assert info["actionIfStillClosed"] == ["cape"]
+    assert info["savingsFromWaiting"]["estimate"] == pytest.approx(400)
+
+    study = study.model_copy(update={"options": (study.options[0], study.options[1].model_copy(update={"latestStartHour": 3}))})
+    rows, futures, _ = adaptive(study, config)
+    assert decide(study, rows, futures, settings)["valueOfInformation"] is None

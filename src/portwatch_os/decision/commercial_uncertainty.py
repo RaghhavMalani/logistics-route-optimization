@@ -133,10 +133,10 @@ def simulate(context:CommercialContext,problem:dict,at,config:Simulation,*,check
             'No safety/restriction gate is traded for money; missing material costs prevent a total-cost pick.'])
 
 
-def simulate_cargo(study, config, *, progress=None):
+def simulate_cargo(study, config, *, progress=None, policy=None, sensitivity=False):
     """Extend the paired shadow study to declared cargo costs and joint futures."""
     from .cargo_sampling import calculate, study_bytes
-    if progress is not None:
-        return calculate(study, config, progress=progress)
+    if progress is not None or policy is not None:
+        return calculate(study, config, progress=progress, policy=policy, sensitivity=sensitivity)
     import json
     return json.loads(study_bytes(study, config))
