@@ -1157,7 +1157,7 @@ export function MaritimeMap({
                 data-testid="port-miniature-label"
                 className="num ml-1 text-[10px] text-[var(--text-3)]"
               >
-                · schematic
+                · schematic · {miniature.weatherLabel}
               </span>
             ) : null}
             {label.sub ? (

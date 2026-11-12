@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as T from "three";
 import type { PortTwinState, TwinMetrics } from "@/types/portwatch-os";
+import type { MiniatureWeather } from "@/components/miniature/use-port-weather";
 import { createTwinWorld } from "./twin-world";
 import { twinSelection } from "./twin-selection";
 import type { TwinOverlay, TwinSelection } from "./twin-presentation";
@@ -11,6 +12,7 @@ export interface PortTwinSceneProps {
   state: PortTwinState;
   overlay: TwinOverlay;
   metrics?: TwinMetrics | null;
+  weather?: MiniatureWeather | null;
   playback?: TwinPlayback | null;
   simulationHour?: number;
   clock?: TwinClock;
@@ -69,6 +71,7 @@ export function PortTwinScene({ className, framing, ...props }: PortTwinScenePro
     const point = new T.Vector2();
     let frame = 0;
     let paintCount = 0;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let dirty = true;
     const paint = () => {
       frame = 0;
@@ -96,7 +99,10 @@ export function PortTwinScene({ className, framing, ...props }: PortTwinScenePro
         container.dataset.modelHour = model?.hour.toFixed(3) ?? "";
         dirty = false;
       }
+      const { animate, shadows } = world.updateWeather(current.current.weather ?? null, !motion.matches);
+      renderer.shadowMap.enabled = shadows;
       renderer.render(world.scene, camera);
+      if (animate) schedule();
       container.dataset.drawCalls = String(renderer.info.render.calls);
       container.dataset.frameCount = String(++paintCount);
     };
@@ -231,6 +237,7 @@ export function PortTwinScene({ className, framing, ...props }: PortTwinScenePro
       props.selectedId,
       props.playback,
       props.simulationHour,
+      props.weather,
     ],
   );
 

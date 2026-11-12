@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePortWeather } from "@/components/miniature/use-port-weather";
 import type { CustomLayerInterface, Map as MapLibreMap } from "maplibre-gl";
 import {
   GROVE_ZOOM,
@@ -37,6 +38,11 @@ export function usePortMiniature(
   enabled: boolean,
 ) {
   const [active, setActive] = useState<PortMiniatureTarget | null>(null);
+  const port = enabled ? active : null;
+  const { weather, label } = usePortWeather(port?.code ?? null, port?.center[1], port?.center[0]);
+  const currentWeather = useRef({ code: port?.code, weather });
+  currentWeather.current = { code: port?.code, weather };
+  useEffect(() => { map?.triggerRepaint(); }, [map, weather]);
   const latest = useRef(ports);
   const refresh = useRef<(() => void) | null>(null);
   latest.current = ports;
@@ -108,7 +114,9 @@ export function usePortMiniature(
           : null;
       sync(SCHEMATIC_ID, schematic, () =>
         import("./port-miniature-layer").then(
-          ({ createPortMiniature }) => createPortMiniature,
+          ({ createPortMiniature }) => (target) => createPortMiniature(target, () =>
+            currentWeather.current.code === target.code ? currentWeather.current.weather : null,
+          ),
         ),
       );
     };
@@ -137,5 +145,5 @@ export function usePortMiniature(
   }, [enabled, map]);
 
   useEffect(() => refresh.current?.(), [ports]);
-  return enabled ? active : null;
+  return useMemo(() => port ? { ...port, weatherLabel: label } : null, [port, label]);
 }

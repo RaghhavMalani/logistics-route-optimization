@@ -17,6 +17,8 @@ export function portSceneLayer(
   scene: THREE.Scene,
   drawAt: (map: MapLibreMap, model: THREE.Matrix4) => boolean,
   resources: Iterable<THREE.BufferGeometry | THREE.Material>,
+  weather?: (map: MapLibreMap, lighting: ReturnType<typeof createMiniatureLighting>) => boolean,
+  disposeWeather?: () => void,
 ): CustomLayerInterface {
   const camera = new THREE.Camera();
   const model = new THREE.Matrix4();
@@ -48,10 +50,14 @@ export function portSceneLayer(
         .fromArray(frame.defaultProjectionData.mainMatrix)
         .multiply(model);
       camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+      const animate = weather?.(map, lighting);
       entry.renderer.resetState();
+      entry.renderer.shadowMap.enabled = lighting.sun.castShadow;
       entry.renderer.render(scene, camera);
+      if (animate) map.triggerRepaint();
     },
     onRemove() {
+      disposeWeather?.();
       lighting.dispose();
       const disposable = new Set(resources);
       scene.traverse((object) => {

@@ -53,6 +53,8 @@ import {
   type TwinSelection,
 } from "./twin-presentation";
 
+import { usePortWeather } from "@/components/miniature/use-port-weather";
+import { usePorts } from "@/services/hooks";
 import { createTwinPlayback } from "./twin-playback";
 import { twinCallPickId, twinSelection } from "./twin-selection";
 import { useTwinClock } from "./use-twin-clock";
@@ -85,6 +87,8 @@ function SceneFallback({ label }: { label: string }) {
 
 export function PortTwinScreen({ portCode }: { portCode: string }) {
   const twin = usePortTwin(portCode);
+  const location = usePorts().data?.find((port) => port.code === portCode)?.location;
+  const { weather, label: weatherLabel } = usePortWeather(portCode, location?.lat, location?.lon);
   const [overlay, setOverlay] = useState<TwinOverlay>("utilisation");
   const [showModel, setShowModel] = useState(false);
   const [comparing, setComparing] = useState(false);
@@ -267,6 +271,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                 illustrate modelled throughput.
               </span>
             </span>
+            <span data-testid="twin-weather-status" className="text-xs">{weatherLabel}</span>
           </span>
         }
         meta={
@@ -345,6 +350,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                         framing="comparison"
                         state={laneState}
                         overlay={overlay}
+                        weather={weather}
                         playback={run}
                         clock={transport.clock}
                         selectedId={
@@ -376,6 +382,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                   state={state}
                   overlay={overlay}
                   metrics={metrics}
+                  weather={weather}
                   playback={showModel && !decisionOption ? playback : null}
                   clock={transport.clock}
                   selectedId={selection?.id ?? null}

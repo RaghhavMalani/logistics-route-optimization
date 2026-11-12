@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { createPortSceneWeather } from "@/components/miniature/port-scene-weather";
+import type { MiniatureWeather } from "@/components/miniature/use-port-weather";
 import { createMiniatureBuilders } from "@/components/miniature/builders";
 import { seededRandom } from "@/components/miniature/rng";
 import {
@@ -25,12 +27,17 @@ function batchBoxes(group: THREE.Group, unitBox: THREE.BoxGeometry) {
   for (const [material, matrices] of batches) {
     const mesh = new THREE.InstancedMesh(unitBox, material, matrices.length);
     matrices.forEach((matrix, index) => mesh.setMatrixAt(index, matrix));
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
     group.add(mesh);
   }
 }
 
-export function createPortMiniature(port: PortMiniatureTarget) {
+export function createPortMiniature(
+  port: PortMiniatureTarget,
+  weather: () => MiniatureWeather | null,
+) {
   const scene = new THREE.Scene();
   const core = new THREE.Group();
   const detail = new THREE.Group();
@@ -84,6 +91,8 @@ export function createPortMiniature(port: PortMiniatureTarget) {
       }
     }
   }
+  stacks.castShadow = true;
+  stacks.receiveShadow = true;
   stacks.computeBoundingSphere();
   core.add(stacks);
   placeTrees(
@@ -98,6 +107,9 @@ export function createPortMiniature(port: PortMiniatureTarget) {
   const rotation = new THREE.Matrix4().makeRotationY(
     ((90 - port.shore.bearing) * Math.PI) / 180,
   );
+  const center = new THREE.Vector3(9, 0.7, 0);
+  const effects = createPortSceneWeather(scene, center, 52, 58, 90 + port.shore.bearing);
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let previousZoom = -1;
   let anchor = port.center;
   return portSceneLayer(
@@ -115,5 +127,14 @@ export function createPortMiniature(port: PortMiniatureTarget) {
       return inView(map, anchor, 75);
     },
     [unitBox, ...Object.values(M)],
+    (_map, light) => {
+      const { direction, night, animate } = effects.draw(weather(), Date.now(), !motion.matches);
+      light.follow(center, 45, direction);
+      light.sun.castShadow = Boolean(direction && !night);
+      light.sun.intensity = night ? 0.12 : 3.6;
+      light.hemi.intensity = night ? 0.72 : 3.3;
+      return animate;
+    },
+    effects.dispose,
   );
 }
