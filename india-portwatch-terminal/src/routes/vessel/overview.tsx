@@ -43,11 +43,13 @@ import {
 } from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
-import { formatUtc, Num, Pill } from "@/components/kit/primitives";
+import { Num, Pill } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { formatBearing } from "@/lib/maritime/geo";
-import { worstExposure } from "@/lib/maritime/weather-field";
+import { BridgePassage } from "@/components/command/BridgePassage";
+import { useAuth } from "@/auth/AuthProvider";
+import { useAdvisories } from "@/services/os-hooks";
 import { WorkspaceHandoffCard } from "@/components/advisory/WorkspaceHandoffCard";
 import { waypoint } from "@/lib/maritime/searoutes";
 import { NAV_STATUS_LABEL, VESSEL_CLASSES } from "@/lib/maritime/traffic-types";
@@ -64,6 +66,8 @@ function VesselBridge() {
   const workspace = useWorkspaceMap();
   const { source: trafficSource } = useTraffic();
   const fleet = useFleet();
+  const { identityHeaders } = useAuth();
+  const accepted = useAdvisories(identityHeaders, { state: "accepted" });
   const fixes = useFixes(1);
   const at = useTrafficTick(1);
   const [railTab, setRailTab] = useState<"now" | "traffic" | "scenarios">("now");
@@ -135,7 +139,11 @@ function VesselBridge() {
     );
   }
 
-  const worst = worstExposure(exposure);
+  const recommendation = accepted.data?.advisories
+    .filter((row) => row.state === "accepted" && row.recipientVesselId === ownRow?.id)
+    .sort((a, b) => (b.respondedAt ?? "").localeCompare(a.respondedAt ?? ""))
+    .find((row) => typeof row.recommendation.recommendedSpeedKn === "number");
+  const recommendedSpeed = recommendation?.recommendation.recommendedSpeedKn;
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") {
       workspace.setSelectedVesselId(hit.id);
@@ -230,33 +238,16 @@ function VesselBridge() {
               ]} />
               {railTab === "now" ? <WorkspaceHandoffCard view="vessel" /> : null}
               {railTab === "now" && selectedFix?.owned ? (
-                <section
-                  aria-label="Passage at a glance"
-                  className="pointer-events-auto shrink-0 rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2.5"
-                >
-                  <h2 className="text-sm font-semibold">
-                    Passage · {selectedFix.name}
-                  </h2>
-                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                    <dt>Route</dt>
-                    <dd>
-                      {ownRow?.originPortCode ?? "Unavailable"} →{" "}
-                      {ownRow?.intendedPortCode ?? "Unavailable"}
-                    </dd>
-                    <dt>ETA</dt>
-                    <dd>
-                      {selectedFix.etaMs == null
-                        ? "Unavailable"
-                        : formatUtc(new Date(selectedFix.etaMs).toISOString())}
-                    </dd>
-                    <dt>Passage weather</dt>
-                    <dd>
-                      {worst
-                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route ${exposure.length === 1 ? "sample" : "samples"}`
-                        : "No forecast coverage for this passage"}
-                    </dd>
-                  </dl>
-                </section>
+                <BridgePassage
+                  name={selectedFix.name}
+                  origin={ownRow?.originPortCode}
+                  destination={ownRow?.intendedPortCode}
+                  eta={selectedFix.etaMs}
+                  at={at}
+                  recommendedSpeed={typeof recommendedSpeed === "number" && Number.isFinite(recommendedSpeed) && recommendedSpeed > 0 ? recommendedSpeed : undefined}
+                  exposure={exposure}
+                  timeline={workspace.timeline}
+                />
               ) : null}
               {railTab === "traffic" && owned.length > 0 ? (
                 <FloatPanel

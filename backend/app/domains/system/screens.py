@@ -99,7 +99,7 @@ def _screen_identity(request: Request, role: str, prefetch: bool):
 
 
 def _fragments(request: Request, screen: str, who, session: dict | None, port: str | None):
-    from backend.app.domains.advisories import handoffs
+    from backend.app.domains.advisories import advisories, handoffs
     from backend.app.domains.intelligence import current_inputs, source_status
     from backend.app.domains.ports import model, ports, weather
     from backend.app.domains.system import health
@@ -140,6 +140,12 @@ def _fragments(request: Request, screen: str, who, session: dict | None, port: s
         if sandbox is not None:
             result["/company/decision-triage"] = partial(company.fleet_decision_triage, request)
             result["/demonstrations/scenarios"] = demonstrations.catalogue
+    if screen == "vessel-home":
+        result["/advisories?state=accepted"] = partial(
+            advisories.list_advisories,
+            state="accepted", port_code=None, vessel_id=None, actor=None,
+            role=None, header_port=None, organisation=None, vessel_ids=None, admin=None,
+        )
     if screen in ("port-home", "vessel-home"):
         candidate = who.port_code if screen == "port-home" and who.port_code else port
         candidate = candidate or (sandbox.world.get("portCode") if sandbox else None) or "INNSA"

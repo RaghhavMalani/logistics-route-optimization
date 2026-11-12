@@ -39,7 +39,16 @@ export function useWorkspaceHandoffs(enabled = true) {
     setLive(false);
     if (!enabled || !token || !ready) return;
     return subscribeWorkspaceStream(token, mode, {
-      items: (items) => client.setQueryData(key, items),
+      items: (items) => {
+        const previous = client.getQueryData<HomeHandoff[] | null>(key);
+        client.setQueryData(key, items);
+        if (session?.user.role !== "VESSEL_OPERATOR") return;
+        const accepted = (rows?: HomeHandoff[] | null) => rows?.filter((row) => row.state === "ACCEPTED").map((row) => row.id).sort().join(",");
+        if (accepted(previous) !== accepted(items)) {
+          invalidateHomePackets();
+          void client.invalidateQueries({ queryKey: ["advisories"] });
+        }
+      },
       sources: (sources) => {
         const sourceKey = ["public", "source-health"];
         type Sources = ApiResponse<"/api/public/sources", "get">;
@@ -59,6 +68,6 @@ export function useWorkspaceHandoffs(enabled = true) {
         if (!connected) client.setQueryData(["source-stream-live"], false);
       },
     });
-  }, [enabled, token, mode, ready, client, key]);
+  }, [enabled, token, mode, ready, client, key, session?.user.role]);
   return query;
 }
