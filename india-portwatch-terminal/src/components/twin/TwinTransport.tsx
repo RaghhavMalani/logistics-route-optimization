@@ -12,18 +12,20 @@ export function TwinTransport({
   enabled,
   onPlay,
   onSeek,
+  compact = false,
 }: {
   transport: ReturnType<typeof useTwinClock>;
   duration: number;
   enabled: boolean;
   onPlay: () => void;
   onSeek: (hour: number) => void;
+  compact?: boolean;
 }) {
   const { position, playing, rate, setRate } = transport;
   return (
     <section
       aria-label="Modelled simulation timeline"
-      className="shrink-0 border-t border-[var(--line)] bg-[var(--panel)] px-3 py-2"
+      className={compact ? "min-w-[260px] flex-1 px-2 py-1" : "shrink-0 border-t border-[var(--line)] bg-[var(--panel)] px-3 py-2"}
     >
       <div className="flex items-center gap-2.5">
         <button
@@ -73,7 +75,7 @@ export function TwinTransport({
           </output>
         </label>
       </div>
-      <p className="mt-0.5 text-[10px] text-[var(--text-3)]">
+      <p className={compact ? "sr-only" : "mt-0.5 text-[10px] text-[var(--text-3)]"}>
         Modelled time · ×1 advances one simulated minute per second.
       </p>
     </section>

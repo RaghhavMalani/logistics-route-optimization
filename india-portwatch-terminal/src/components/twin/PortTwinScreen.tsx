@@ -345,6 +345,16 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                     {...comparisonRuns}
                     winner={comparison.data.winner}
                     hour={horizon}
+                    transport={
+                      <TwinTransport
+                        compact
+                        transport={transport}
+                        duration={duration}
+                        enabled={modelAvailable}
+                        onSeek={seekModel}
+                        onPlay={transport.toggle}
+                      />
+                    }
                     renderScene={(lane, run, laneState) => (
                       <PortTwinScene
                         framing="comparison"
@@ -500,6 +510,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               )}
             </div>
           </div>
+          {!comparing ? (
           <TwinTransport
             transport={transport}
             duration={duration}
@@ -510,6 +521,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               transport.toggle();
             }}
           />
+          ) : null}
         </div>
 
         {/* ------------------------------------------------------ panels -- */}

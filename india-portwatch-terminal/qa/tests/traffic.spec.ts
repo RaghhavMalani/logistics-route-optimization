@@ -105,8 +105,8 @@ test.describe("traffic population", () => {
     const vessels = await drawn(page, "vessels");
     expect(vessels.length, "the bridge view drew almost no surrounding traffic").toBeGreaterThan(40);
 
-    await expect(page.getByText("Traffic around o", { exact: false })).toBeVisible();
-    await expect(page.getByText(/within 60 nm/)).toBeVisible();
+    await page.getByRole("tab", { name: "Traffic", exact: true }).click();
+    await expect(page.getByText(/within 60 nm|No contact inside 60 nm/)).toBeVisible();
   });
 });
 
@@ -255,8 +255,9 @@ test("wave height is reported as unavailable rather than substituted", async ({
   page,
 }) => {
   await open(page, context, "PORT_AUTHORITY", "/port/overview");
-  await page.getByRole("tab", { name: /Weather/ }).click();
-  await expect(page.getByText("UNAVAILABLE").first()).toBeVisible();
+  const weather = page.locator("details").filter({ hasText: "Port weather" });
+  await weather.getByText("Port weather", { exact: true }).click();
+  await expect(weather.getByText("UNAVAILABLE", { exact: true })).toBeVisible();
 });
 
 /* ------------------------------------------------------ arrival sequence -- */

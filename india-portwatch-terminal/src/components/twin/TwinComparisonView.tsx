@@ -15,12 +15,14 @@ export function TwinComparisonView({
   lookahead,
   winner,
   hour,
+  transport,
   renderScene,
 }: {
   baseline: TwinPlayback;
   lookahead: TwinPlayback;
   winner: "fcfs" | "lookahead" | null;
   hour: number;
+  transport: ReactNode;
   renderScene: (
     lane: ComparisonLane,
     playback: TwinPlayback,
@@ -35,9 +37,10 @@ export function TwinComparisonView({
       className="flex h-full min-h-0 flex-col bg-[var(--panel)]"
       aria-label="Modelled policy comparison"
     >
+      <div className="flex flex-wrap items-center border-b border-[var(--line)]">
       <p
         data-testid="twin-comparison-winner"
-        className="border-b border-[var(--line)] px-3 py-2 text-xs text-[var(--text-2)]"
+        className="px-3 py-1.5 text-xs text-[var(--text-2)]"
       >
         <span className="eyebrow mr-2">24-hour result</span>
         <strong>
@@ -46,6 +49,8 @@ export function TwinComparisonView({
             : `${COMPARISON_LABELS[winner === "fcfs" ? "baseline" : "lookahead"]} wins on the modelled objective.`}
         </strong>
       </p>
+      {transport}
+      </div>
       <div
         className="grid min-h-0 flex-1"
         style={{ gridTemplateColumns: `minmax(0,${split}fr) 10px minmax(0,${100 - split}fr)` }}
@@ -91,7 +96,7 @@ export function TwinComparisonView({
                 <strong className="text-xs">{COMPARISON_LABELS[lane]}</strong>
               </figcaption>
               <div
-                className="relative min-h-[65svh] flex-1"
+                className="relative min-h-[calc(65svh+1px)] flex-1"
                 data-testid={`twin-pane-${lane}`}
               >
                 <div className="absolute inset-0">{renderScene(lane, playback, state)}</div>

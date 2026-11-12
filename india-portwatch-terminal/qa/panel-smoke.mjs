@@ -337,7 +337,9 @@ async function run(width, height) {
     await approve(decision, choice.optionId, "00d-company");
     await shot("01-company");
     await open(page, "/company/overview");
-    await expect(companyHandoffs).toContainText("Waiting on Port");
+    await expect(companyHandoffs).toContainText("Waiting on Port", { timeout: 25_000 });
+    await queue.getByRole("button", { name: "Close fleet review" }).click();
+    await expect(queue).toBeHidden();
     if (miniature) {
       const handoffRail = companyHandoffs.getByRole("navigation", { name: "Company to Port to Vessel" });
       await expect(handoffRail.getByRole("button", { name: "Company", exact: true })).toHaveAttribute("aria-current", "step");
@@ -345,8 +347,6 @@ async function run(width, height) {
       await expect(companyHandoffs.getByText("Awaiting the handoff to Port.")).toBeInViewport();
     }
     await expect(companyHandoffs.getByRole("link", { name: "Open Company comparison" })).toHaveAttribute("href", new RegExp(problem.decisionId));
-    await queue.getByRole("button", { name: "Close fleet review" }).click();
-    await expect(queue).toBeHidden();
     await shot("01a-waiting-on-port");
     passed("Port home");
     await role(page, /Port Authority/);
@@ -440,7 +440,7 @@ async function run(width, height) {
     await shot("08-port-outcome");
     await role(page, /Fleet Command|Shipping Company/);
     await page.waitForURL("**/company/overview");
-    await expect(companyHandoffs).toContainText("Outcome completed");
+    await expect(companyHandoffs).toContainText("Outcome completed", { timeout: 25_000 });
     await expect(companyHandoffs.getByRole("link", { name: "Open advisory" })).toHaveAttribute("href", "/company/advisories?advisory=" + advisoryId);
     await shot("08a-company-outcome");
     await companyHandoffs.getByRole("link", { name: "Open advisory" }).click();

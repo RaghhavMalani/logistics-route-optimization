@@ -1,3 +1,4 @@
+import { CongestionScore } from "@/components/kit/CongestionScore";
 import { DataNowSources, DatedSource, WeatherDataNow } from "@/components/app/SourceHealth";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
 /**
@@ -317,7 +318,7 @@ function NationalRadar() {
                                   11.5,
                                 );
                             }}
-                            className="grid w-full grid-cols-[16px_1fr_38px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
+                            className="grid w-full grid-cols-[16px_minmax(0,1fr)_85px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
                           >
                             <span className="num text-[10.5px] text-[var(--text-3)]">
                               {String(index + 1).padStart(2, "0")}
@@ -325,11 +326,9 @@ function NationalRadar() {
                             <span className="truncate text-[11px] text-[var(--text)]">
                               {port.name}
                             </span>
-                            <Num
-                              value={port.congestionIndex}
-                              digits={0}
-                              className="text-right text-[11px]"
-                            />
+                            <span className="text-right text-[10px]" title="Day-1 congestion forecast">
+                              <CongestionScore value={port.congestionIndex} />
+                            </span>
                             <span className="flex justify-end">
                               <Pill tone={riskTone(port.risk)}>
                                 {riskLabel(port.risk)}

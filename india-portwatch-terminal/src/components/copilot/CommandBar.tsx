@@ -44,10 +44,10 @@ export function CommandBar() {
   const [outcomes, setOutcomes] = useState<DispatchOutcome[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  /* Cmd/Ctrl+K opens it; Escape puts it away. */
+  /* Cmd/Ctrl+Shift+K opens it; Escape puts it away. */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setOpen(true);
         window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -104,7 +104,7 @@ export function CommandBar() {
       >
         <span>Ask the world</span>
         <kbd className="num rounded border border-[var(--line)] px-1 text-[10px]">
-          ⌘K
+          ⇧⌘K
         </kbd>
       </button>
     );

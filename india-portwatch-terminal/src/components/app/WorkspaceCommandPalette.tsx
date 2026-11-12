@@ -29,7 +29,7 @@ export function WorkspaceCommandPalette() {
   const { data: demo } = useDemonstrationCatalogue(open && companyDemo);
   useEffect(() => {
     const handle = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "k") return;
       event.preventDefault();
       setOpen((value) => !value);
     };

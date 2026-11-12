@@ -77,7 +77,7 @@ async function screenShot(width, height, [name, role, path]) {
       await expect.poll(() => metrics.getAttribute("data-hour")).not.toBe("0");
       report.height = height;
       report.paneRatio = (await pane.boundingBox()).height / height;
-      assert(report.paneRatio >= 0.649, `Split pane uses ${report.paneRatio} of viewport`);
+      assert(report.paneRatio >= 0.65, `Split pane uses ${report.paneRatio} of viewport`);
       const divider = page.getByRole("separator", { name: "Resize policy comparison panes" });
       const original = await pane.boundingBox();
       const handle = await divider.boundingBox();
@@ -94,7 +94,7 @@ async function screenShot(width, height, [name, role, path]) {
       await checkMap(page, name, report);
     }
     await page.screenshot({ path: join(output, `${width}x${height}-${name}.png`) });
-    if (width === 1366 && name === "port") {
+    if (width === 1366 && role && name !== "twin") {
       await page.keyboard.press("Control+k");
       const palette = page.getByRole("dialog", { name: "Command palette" });
       await expect(palette).toBeVisible();
@@ -104,8 +104,12 @@ async function screenShot(width, height, [name, role, path]) {
       await result.click();
       const kdl = page.locator("[data-map-port-label]").filter({ hasText: /KDL|Kandla|Deendayal/i });
       await expect(kdl.first()).toBeVisible({ timeout: 15_000 });
-      await checkMap(page, "port KDL", report);
-      await page.screenshot({ path: join(output, "1366x768-port-kdl.png") });
+      await page.waitForURL(/port=INIXY/);
+      await expect(kdl.filter({ hasText: "schematic" }).first()).toBeVisible({ timeout: 20_000 });
+      const chart = {};
+      await checkMap(page, name + " KDL", chart);
+      report.focusedLabels = chart.labels;
+      await page.screenshot({ path: join(output, `1366x768-${name}-kdl.png`) });
     }
     console.log(`${width}×${height} ${name}`, JSON.stringify(report));
   } finally {
