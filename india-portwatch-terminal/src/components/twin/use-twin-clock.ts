@@ -13,7 +13,7 @@ export function useTwinClock(duration: number, enabled: boolean) {
   const listeners = useRef(new Set<() => void>());
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [rate, setRate] = useState<TwinRate>(1);
+  const [rate, setRate] = useState<TwinRate>(60);
   const clock = useMemo<TwinClock>(
     () => ({
       read: () => hour.current,
@@ -42,15 +42,13 @@ export function useTwinClock(duration: number, enabled: boolean) {
     setPlaying(false);
     setPosition(hour.current);
   }, []);
-  const toggle = () => {
+  const play = useCallback(() => {
     if (!enabled) return;
-    if (playing) {
-      pause();
-    } else {
-      if (hour.current >= duration) seek(0);
-      setPlaying(true);
-    }
-  };
+    if (hour.current >= duration) seek(0);
+    setPlaying(true);
+  }, [duration, enabled, seek]);
+
+  const toggle = playing ? pause : play;
 
   useEffect(() => {
     if (!enabled || !playing) return;
@@ -90,6 +88,7 @@ export function useTwinClock(duration: number, enabled: boolean) {
     position,
     playing: enabled && playing,
     pause,
+    play,
     seek,
     toggle,
     rate,

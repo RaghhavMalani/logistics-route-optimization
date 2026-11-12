@@ -98,17 +98,15 @@ test.describe("3D digital twin", () => {
     ["PORT_AUTHORITY", "/port/twin"],
     ["NATIONAL_ADMIN", "/admin/twins"],
   ] as Array<[Role, string]>) {
-    test(`${path} renders with its schematic banner`, async ({ context, page, recorder }) => {
+    test(`${path} renders with its schematic disclosure`, async ({ context, page, recorder }) => {
       await seedSession(context, role);
       await page.goto(path);
       await settle(page);
 
-      // The banner is the point. A schematic twin that does not say so is the
-      // one thing this screen must never be.
-      await expect(page.getByTestId("twin-schematic-banner")).toBeVisible();
-      await expect(
-        page.getByText(/not a surveyed port plan/i).first(),
-      ).toBeVisible();
+      const schematic = page.getByRole("button", { name: "SCHEMATIC", exact: true });
+      await expect(schematic).toBeVisible();
+      await schematic.focus();
+      await expect(page.getByRole("tooltip")).toContainText(/not a surveyed port plan/i);
 
       await expect(page.getByTestId("twin-inspector")).toBeVisible();
       await expect(page.getByTestId("twin-optimizer")).toBeVisible();
