@@ -74,9 +74,10 @@ function VesselBridge() {
   const [railTab, setRailTab] = useState<"now" | "traffic" | "scenarios">("now");
   const [following, setFollowing] = useState(true);
   const targetPort = useWorkspaceTarget("port");
+  const targetHull = useWorkspaceTarget("hull");
   useEffect(() => {
-    if (targetPort) setFollowing(false);
-  }, [targetPort]);
+    if (targetPort || targetHull) setFollowing(false);
+  }, [targetPort, targetHull]);
   // The follow camera pulls back on a narrower frame for the same reason the
   // port view does: the point is the traffic around the ship, not the ship.
   const followZoom =
@@ -85,10 +86,12 @@ function VesselBridge() {
   const owned = useMemo(() => fixes.filter((fix) => fix.owned), [fixes]);
 
   // The operator lands on their own bridge, not on an empty selection.
-  const { selectedVesselId, setSelectedVesselId } = workspace;
+  const { selectedPortCode, selectedVesselId, setSelectedVesselId } = workspace;
   useEffect(() => {
-    if (!selectedVesselId && owned.length) setSelectedVesselId(owned[0].id);
-  }, [owned, selectedVesselId, setSelectedVesselId]);
+    if (!targetPort && !selectedPortCode && !selectedVesselId && owned.length) {
+      setSelectedVesselId(owned[0].id);
+    }
+  }, [owned, selectedPortCode, selectedVesselId, setSelectedVesselId, targetPort]);
 
   const selectedFix = useMemo(
     () =>

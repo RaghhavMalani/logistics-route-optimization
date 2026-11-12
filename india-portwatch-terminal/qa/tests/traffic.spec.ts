@@ -110,6 +110,20 @@ test.describe("traffic population", () => {
   });
 });
 
+test("the bridge command palette keeps a requested port in view", async ({ context, page }) => {
+  await open(page, context, "VESSEL_OPERATOR", "/vessel/overview");
+  await context.route("**/api/**/intelligence/current?**", (route) => route.fulfill({
+    json: { portCode: "INIXY", status: "HISTORICAL_UNAVAILABLE", sources: {}, hourly: [], daily: [], regionalHazards: [] },
+  }));
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await palette.getByRole("combobox").fill("KDL");
+  await palette.getByRole("option", { name: /Deendayal/ }).click();
+  await page.waitForURL(/port=INIXY/);
+  const label = page.locator("[data-map-port-label]").filter({ hasText: /KDL/ });
+  await expect(label.getByTestId("port-miniature-label")).toBeVisible({ timeout: 20_000 });
+});
+
 /* ---------------------------------------------------------------- filters -- */
 
 test("a type legend isolates its vessel class and All types restores the chart", async ({ context, page }) => {

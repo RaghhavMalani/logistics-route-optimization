@@ -427,7 +427,7 @@ export function useWorkspaceMap(
 
   // Tell the clock how far the forecast actually reaches, so the scrubber and
   // the play control cannot run past the data.
-  const clock = useTraffic().clock;
+  const { clock, fixAt, dataView } = useTraffic();
   useEffect(() => {
     if (!timeline.available) return;
     clock.setMaxOffsetHours(
@@ -484,18 +484,6 @@ export function useWorkspaceMap(
     options.initialSelectedPort ?? null,
   );
   const [selectedVesselId, setSelectedVesselId] = useState<string | null>(null);
-  const targetPort = useWorkspaceTarget("port");
-  const targetHull = useWorkspaceTarget("hull");
-  const commandSearch = useRouterState({ select: (state) => state.location.searchStr });
-  useEffect(() => {
-    if (targetPort) {
-      setSelectedPortCode(targetPort);
-      setSelectedVesselId(null);
-    } else if (targetHull) {
-      setSelectedVesselId(targetHull);
-      setSelectedPortCode(null);
-    }
-  }, [commandSearch, targetPort, targetHull]);
   const [hoveredVesselId, setHoveredVesselId] = useState<string | null>(null);
 
   const [focus, setFocus] = useState<MapFocus | null>(null);
@@ -505,17 +493,39 @@ export function useWorkspaceMap(
     token.current += 1;
     setFocus({ center, zoom, token: token.current });
   }, []);
+  const targetPort = useWorkspaceTarget("port");
+  const targetHull = useWorkspaceTarget("hull");
+  const commandSearch = useRouterState({ select: (state) => state.location.searchStr });
+  const appliedCommand = useRef("");
+  useEffect(() => {
+    if (appliedCommand.current === commandSearch) return;
+    if (targetPort) {
+      const location = portByCode.get(targetPort)?.location;
+      if (!location) return;
+      setSelectedPortCode(targetPort);
+      setSelectedVesselId(null);
+      flyTo([location.lon, location.lat], 11.5);
+    } else if (targetHull) {
+      const fix = fixAt(targetHull, clock.now());
+      if (!fix) return;
+      setSelectedVesselId(targetHull);
+      setSelectedPortCode(null);
+      flyTo([fix.lon, fix.lat], 8.5);
+    }
+    setSelectedObservedMmsi(null);
+    appliedCommand.current = commandSearch;
+  }, [clock, commandSearch, fixAt, flyTo, portByCode, targetHull, targetPort]);
   const storyGlided = useRef(false);
   const storyPort = portByCode.get("INPRT")?.location;
   useEffect(() => {
     const step = readStory()?.step;
-    if (storyGlided.current || !storyPort || step == null || ![1, 2, 4, 7].includes(step)) return;
+    if (targetPort || targetHull || storyGlided.current || !storyPort || step == null || ![1, 2, 4, 7].includes(step)) return;
     const timer = window.setTimeout(() => {
       storyGlided.current = true;
       flyTo([storyPort.lon, storyPort.lat], step === 2 || step === 4 ? 8.5 : 6);
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [storyPort, flyTo]);
+  }, [storyPort, flyTo, targetPort, targetHull]);
   const fitBounds = useCallback((bounds: MapBounds, padding?: MapPadding) => {
     token.current += 1;
     setFocus({ bounds, padding, token: token.current });
@@ -564,7 +574,6 @@ export function useWorkspaceMap(
   // Observed AIS is polled only while the server says the source is observed;
   // a replay deployment asks once and stops.
   const fabricHealth = useSignalHealth("DEMO");
-  const { dataView } = useTraffic();
   const publicAis = usePublicAis(dataView === "provider");
   const trafficMode =
     dataView === "provider"
