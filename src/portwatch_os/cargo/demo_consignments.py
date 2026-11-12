@@ -44,6 +44,7 @@ def demo_consignments(epoch: str | datetime) -> dict[str, list[dict]]:
             "currency": assumption("USD"),
             "cifValue": assumption(usd(value)),
             "handlingClass": assumption(handling),
+            "perishable": assumption(handling == "reefer"),
             "deliveryDeadline": assumption(deadline),
             "latePenalty": assumption({
                 "amount": usd({1: 960, 2: 180, 3: 25}[priority]),

@@ -103,6 +103,7 @@ class CargoRiskTerms(Strict):
     cifValue: Sourced[Amount] | None = None
     insuredValue: Sourced[Amount] | None = None
     handlingClass: Sourced[Literal["dry", "reefer", "DG"]] | None = None
+    perishable: Sourced[bool] | None = None
     reeferSetPointC: Sourced[Annotated[Decimal, Field(ge=-100, le=100)]] | None = None
     maxUnpoweredHours: Sourced[Nonnegative] | None = None
     remainingShelfLifeHours: Sourced[Nonnegative] | None = None
