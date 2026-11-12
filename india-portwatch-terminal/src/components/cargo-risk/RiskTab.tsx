@@ -333,7 +333,7 @@ export function RiskTab({ problemId }: { problemId: string }) {
         path,
         { rule, seed: SEED, jobId },
         identityHeaders,
-        { signal },
+        { signal, timeoutMs: 45_000 },
       ),
     staleTime: Infinity,
     retry: false,

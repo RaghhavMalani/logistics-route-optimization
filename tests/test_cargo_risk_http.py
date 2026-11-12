@@ -65,6 +65,10 @@ def test_cargo_report_retains_exact_seeded_bytes_and_privacy(tmp_path, monkeypat
         assert len(report["cargo"]) == 3
         assert report["seed"] == 19 and len(report["inputHash"]) == 64
         assert report["sourceBasis"]["options"]["keep"]["weather"].startswith("Frozen approach gate")
+        assert report["closureSensitivity"] == {
+            "grid": [{"closureHours": 0, "optionId": "slow"}, {"closureHours": 48, "optionId": "slow"}],
+            "flips": [], "basis": "Closure duration does not enter the delivery clock for these options.",
+        }
         assert report["options"][0]["cost"]["expected"] is None
         assert any(key.endswith("general_average") for key in report["options"][0]["cost"]["unknown"])
         second = commercial.cargo_risk_study(problem.decision_id, request.model_copy(update={"jobId": uuid4()}), Response())

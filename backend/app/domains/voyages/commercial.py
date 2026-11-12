@@ -322,15 +322,22 @@ def cargo_risk_study(decision_id: str, payload: CargoRiskRequest, response: Resp
     previous = engine.ledger.get_decision(key)
     if previous:
         return _private_report(previous.recommendation)
+    closure_sensitive = any(option.reachClosureHour is not None and option.reachClosureHour >= 0 for option in study.options)
     try:
         with jobs.study(_owner(scoped), str(payload.jobId) if payload.jobId else None) as control:
-            output = simulate_cargo(study, config, policy=policy, sensitivity=True, progress=control.update_progress)
+            output = simulate_cargo(study, config, policy=policy, sensitivity=closure_sensitive,
+                                    progress=control.update_progress)
     except jobs.Busy as exc:
         raise HTTPException(429, str(exc), headers={"Retry-After": "5"}) from exc
     except jobs.BudgetExceeded as exc:
         raise HTTPException(408, str(exc)) from exc
     except jobs.Cancelled as exc:
         raise HTTPException(409, str(exc)) from exc
+    if not closure_sensitive:
+        output["closureSensitivity"] = {
+            "grid": [{"closureHours": hour, "optionId": output["decision"]["optionId"]} for hour in (0, 48)],
+            "flips": [], "basis": "Closure duration does not enter the delivery clock for these options.",
+        }
     for option in study.options:
         basis = output["sourceBasis"]["options"][option.id]
         if option.weatherExposure == 0:
