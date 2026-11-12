@@ -1,0 +1,27 @@
+% Requires \usepackage{booktabs}
+\begin{tabular}{llll}
+\toprule
+case & rule & selected & reason \\
+\midrule
+s10-meridian & R1 & slow & 10 kn has the lowest expected cost (similar median arrival versus keep · complete declared cost). \\
+s10-meridian & R2 & slow & 10 kn minimizes expected cost within the 10\% priority-1 miss limit (similar median arrival versus keep · complete declared cost). \\
+s10-meridian & R3 & slow & 10 kn has the lowest CVaR95 (similar median arrival versus keep · complete declared cost). \\
+s10-meridian & R4 & slow & 10 kn minimizes the worst sampled regret in cost (similar median arrival versus keep · complete declared cost). \\
+s10-meridian & R5 & slow & 10 kn beats keep in 100.0\% of paired futures with no higher CVaR95 (similar median arrival versus keep · complete declared cost). \\
+suez-reefer & R1 & keep & Keep via Suez has the lowest expected cost (similar median arrival versus keep · complete declared cost). \\
+suez-reefer & R2 & -- & No option has a known priority-1 miss probability within the declared limit. \\
+suez-reefer & R3 & slow & Slow steam via Suez has the lowest CVaR95 (+17.2 h at the median versus keep · complete declared cost). \\
+suez-reefer & R4 & keep & Keep via Suez minimizes the worst sampled regret in cost (similar median arrival versus keep · complete declared cost). \\
+suez-reefer & R5 & keep & Keep via Suez stays in place because no intervention beats keep in at least 90\% of futures without a higher CVaR95 within the declared chance limit (similar median arrival versus keep · complete declared cost). \\
+suez-time-critical & R1 & keep & Keep via Suez has the lowest expected cost (similar median arrival versus keep · complete declared cost). \\
+suez-time-critical & R2 & -- & No option has a known priority-1 miss probability within the declared limit. \\
+suez-time-critical & R3 & cape & Reroute via Cape has the lowest CVaR95 (+80.7 h at the median versus keep · complete declared cost). \\
+suez-time-critical & R4 & cape & Reroute via Cape minimizes the worst sampled regret in cost (+80.7 h at the median versus keep · complete declared cost). \\
+suez-time-critical & R5 & keep & Keep via Suez stays in place because no intervention beats keep in at least 90\% of futures without a higher CVaR95 within the declared chance limit (similar median arrival versus keep · complete declared cost). \\
+ever-given & R1 & keep & Keep via Suez has the lowest expected cost (similar median arrival versus keep · complete declared cost). \\
+ever-given & R2 & -- & No option has a known priority-1 miss probability within the declared limit. \\
+ever-given & R3 & slow & Slow steam via Suez has the lowest CVaR95 (+17.2 h at the median versus keep · complete declared cost). \\
+ever-given & R4 & keep & Keep via Suez minimizes the worst sampled regret in cost (similar median arrival versus keep · complete declared cost). \\
+ever-given & R5 & keep & Keep via Suez stays in place because no intervention beats keep in at least 90\% of futures without a higher CVaR95 within the declared chance limit (similar median arrival versus keep · complete declared cost). \\
+\bottomrule
+\end{tabular}

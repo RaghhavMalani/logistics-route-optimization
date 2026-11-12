@@ -1,0 +1,18 @@
+% Requires \usepackage{booktabs}
+\begin{tabular}{llllllllll}
+\toprule
+case & rule & scope & gridMinHours & gridMaxHours & futuresPerPoint & lowerHours & upperHours & fromOptionId & toOptionId \\
+\midrule
+s10-meridian & R1 & No flip within the registered grid & 0 & 48 & 512 & -- & -- & -- & -- \\
+suez-reefer & R1 & flip bracket & 0 & 432 & 512 & 40.5 & 54 & slow & keep \\
+suez-reefer & R1 & flip bracket & 0 & 432 & 512 & 81 & 94.5 & keep & slow \\
+suez-reefer & R1 & flip bracket & 0 & 432 & 512 & 121.5 & 135 & slow & keep \\
+suez-reefer & R1 & flip bracket & 0 & 432 & 512 & 175.5 & 189 & keep & slow \\
+suez-time-critical & R1 & flip bracket & 0 & 432 & 512 & 40.5 & 54 & slow & keep \\
+suez-time-critical & R1 & flip bracket & 0 & 432 & 512 & 229.5 & 243 & keep & cape \\
+ever-given & R1 & flip bracket & 0 & 432 & 512 & 54 & 67.5 & slow & keep \\
+ever-given & R1 & flip bracket & 0 & 432 & 512 & 81 & 94.5 & keep & slow \\
+ever-given & R1 & flip bracket & 0 & 432 & 512 & 94.5 & 108 & slow & keep \\
+ever-given & R1 & flip bracket & 0 & 432 & 512 & 148.5 & 162 & keep & slow \\
+\bottomrule
+\end{tabular}

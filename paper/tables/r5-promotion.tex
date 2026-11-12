@@ -1,0 +1,17 @@
+% Requires \usepackage{booktabs}
+\begin{tabular}{lllllllll}
+\toprule
+split & metric & observed & threshold & comparison & passes & captured & eligible & pairedCases \\
+\midrule
+validation & vesselCoverage & 0.9 & 0.9 & >= & True & -- & -- & -- \\
+validation & cargoCoverage & 0.94 & 0.9 & >= & True & -- & -- & -- \\
+validation & vesselCapture & 0 & 0.5 & >= & False & 0 & 5 & -- \\
+validation & vesselP90Hours & 0 & 1 & <= & True & -- & -- & -- \\
+validation & pairedCargoP90CostUsd & 0 & 47931.7 & <= & True & -- & -- & 94 \\
+test & vesselCoverage & 0.95 & 0.9 & >= & True & -- & -- & -- \\
+test & cargoCoverage & 0.91 & 0.9 & >= & True & -- & -- & -- \\
+test & vesselCapture & 0 & 0.5 & >= & False & 0 & 10 & -- \\
+test & vesselP90Hours & 0 & 1 & <= & True & -- & -- & -- \\
+test & pairedCargoP90CostUsd & 0 & 46614.3 & <= & True & -- & -- & 182 \\
+\bottomrule
+\end{tabular}

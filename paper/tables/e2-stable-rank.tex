@@ -1,0 +1,10 @@
+% Requires \usepackage{booktabs}
+\begin{tabular}{lll}
+\toprule
+method & futuresPerOptionToStableRank & criterion \\
+\midrule
+Independent PRNG & 4096 & Two consecutive same-sign 95\% intervals excluding zero \\
+CRN PRNG & 512 & Two consecutive same-sign 95\% intervals excluding zero \\
+CRN scrambled Sobol & 512 & Two consecutive same-sign 95\% intervals excluding zero \\
+\bottomrule
+\end{tabular}

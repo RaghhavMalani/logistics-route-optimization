@@ -1,0 +1,17 @@
+id,domain,split,error
+vessel-1006,vessel,validation,VesselDecisionError: Benchmark hull 1006 is not reached by benchmark closure 1006 at 2026-09-14T12:00:00+00:00; there is no routing decision to make from this event
+vessel-1036,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1041,vessel,validation,VesselDecisionError: Benchmark hull 1041 is not reached by benchmark closure 1041 at 2026-09-14T12:00:00+00:00; there is no routing decision to make from this event
+vessel-1069,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1072,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1074,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1085,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1089,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1090,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+vessel-1094,vessel,validation,ValueError: No baseline routing with a modelled delivery clock
+cargo-1006,cargo,validation,ValueError: No baseline routing with a modelled delivery clock
+cargo-1007,cargo,validation,ValueError: No baseline routing with a modelled delivery clock
+cargo-1008,cargo,validation,ValueError: No baseline routing with a modelled delivery clock
+cargo-1023,cargo,validation,ValueError: No baseline routing with a modelled delivery clock
+cargo-1079,cargo,validation,ValueError: No baseline routing with a modelled delivery clock
+cargo-1081,cargo,validation,ValueError: No baseline routing with a modelled delivery clock
