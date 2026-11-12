@@ -357,19 +357,19 @@ function FleetCommand() {
         focus={workspace.focus}
         overlay={
           <>
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
               <MaritimeSearch ports={workspace.ports} onPick={onPick} />
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
               <EnvironmentLegend
                 workspace={workspace}
                 frame={workspace.frame}
               />
             </div>
 
-            <div className="pointer-events-none absolute right-[372px] top-2.5 z-30">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute right-[372px] top-2.5 z-30">
               <AgentConsole />
             </div>
 

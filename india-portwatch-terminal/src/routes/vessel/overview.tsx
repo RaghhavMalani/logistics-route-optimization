@@ -198,7 +198,7 @@ function VesselBridge() {
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
         overlay={
           <>
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-110px)] w-[216px] flex-col gap-2">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-110px)] w-[216px] flex-col gap-2">
               <MaritimeSearch
                 ports={workspace.ports}
                 onPick={onPick}
@@ -207,11 +207,11 @@ function VesselBridge() {
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div className="pointer-events-none absolute right-[346px] top-2.5 z-30 max-[900px]:hidden">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute right-[346px] top-2.5 z-30 max-[900px]:hidden">
               <AgentConsole />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
               <VesselClassLegend />
               <EnvironmentLegend
                 workspace={workspace}

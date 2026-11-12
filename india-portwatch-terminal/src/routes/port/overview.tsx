@@ -180,7 +180,7 @@ function PortCockpitScreen() {
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
         overlay={
           <>
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
               <MaritimeSearch
                 ports={workspace.ports}
                 onPick={onPick}
@@ -189,7 +189,7 @@ function PortCockpitScreen() {
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] flex items-center gap-2">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] flex items-center gap-2">
               <div className="pointer-events-auto flex items-center gap-2 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-[4px] backdrop-blur-[3px]">
                 <PortSwitcher className="w-[168px]" />
               </div>
@@ -312,7 +312,7 @@ function PortCockpitScreen() {
               />
             </div>
 
-            <div className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-20">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-20">
               {traffic && plan ? (
                 <FloatPanel
                   title="Traffic board"

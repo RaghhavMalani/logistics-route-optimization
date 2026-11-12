@@ -168,19 +168,19 @@ function NationalRadar() {
         overlay={
           <>
             {/* -------------------------------------------------- top left -- */}
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
               <MaritimeSearch ports={workspace.ports} onPick={onPick} />
               <TrafficFilters workspace={workspace} />
             </div>
 
             {/* The command surface. Collapsed to a strip so the chart stays the
                 product; it expands over the map and closes again. */}
-            <div className="pointer-events-none absolute right-[352px] top-2.5 z-30">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute right-[352px] top-2.5 z-30">
               <AgentConsole />
             </div>
 
             {/* ------------------------------------------------- bottom left -- */}
-            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
+            <div data-map-label-occluder="children" className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
               <VesselClassLegend />
               <EnvironmentLegend
                 workspace={workspace}

@@ -857,7 +857,21 @@ export function MaritimeMap({
       const currentZoom = instance.getZoom();
       const active =
         currentZoom >= SCHEMATIC_ZOOM ? miniatureRef.current : null;
+      const container = instance.getContainer();
+      const frame = container.getBoundingClientRect();
       const boxes: Array<[number, number, number, number]> = [];
+      for (const overlay of container.parentElement?.querySelectorAll<HTMLElement>(
+        "[data-map-camera-inset], [data-map-label-occluder]",
+      ) ?? []) {
+        const obstacles = overlay.dataset.mapLabelOccluder === "children" ? [...overlay.children] : [overlay];
+        for (const obstacle of obstacles) {
+          const rect = obstacle.getBoundingClientRect();
+          if (rect.width && rect.height) {
+            boxes.push([rect.left - frame.left - 3, rect.top - frame.top - 3,
+              rect.right - frame.left + 3, rect.bottom - frame.top + 3]);
+          }
+        }
+      }
       const fits = (x: number, y: number, width: number, height = 13) => {
         const box: [number, number, number, number] = [
           x,
@@ -865,6 +879,7 @@ export function MaritimeMap({
           x + width,
           y + height / 2,
         ];
+        if (box[0] < 6 || box[1] < 6 || box[2] > frameW - 6 || box[3] > frameH - 6) return false;
         for (const other of boxes) {
           if (
             box[0] < other[2] &&
@@ -887,6 +902,7 @@ export function MaritimeMap({
         )
         .map((label) => project(label.lon, label.lat))
         .filter(inFrame);
+      for (const { x, y } of markerPoints) boxes.push([x - 6, y - 6, x + 6, y + 6]);
       for (const label of [...settings.current.labels].sort(
         (a, b) =>
           Number(b.id === active?.code) - Number(a.id === active?.code) ||
@@ -897,47 +913,50 @@ export function MaritimeMap({
         const portLabel = settings.current.portIds.has(label.id);
         if (portLabel && !settings.current.portsOn) continue;
         const isSchematic = active?.code === label.id;
-        const width =
-          14 +
-          label.text.length * 6.2 +
-          (label.sub?.length ?? 0) * 5.2 +
-          (isSchematic ? 65 : 0);
-        let x =
-          point.x + 12 + width < frameW ? point.x + 12 : point.x - width - 12;
-        let y = point.y - 11;
+        const width = Math.max(
+          14 + label.text.length * 6.2 + (label.sub?.length ?? 0) * 5.2 + (isSchematic ? 65 : 0),
+          isSchematic ? 10 + active.weatherLabel.length * 5.6 : 0,
+        );
+        const height = isSchematic ? 28 : 14;
+        const left = point.x - width - 12;
+        const right = point.x + 12;
+        const above = point.y - 10 - height / 2;
+        const below = point.y + 10 + height / 2;
+        const centered = Math.max(6, Math.min(frameW - width - 6, point.x - width / 2));
+        const candidates = [
+          [right, point.y - 11], [left, point.y - 11],
+          [centered, above], [centered, below],
+          [right, below + 8], [left, below + 8],
+          [centered, below + 23], [centered, above - 23],
+        ];
         if (isSchematic) {
           const inland = instance.project(schematicAnchor(active, currentZoom));
           const dx = inland.x - point.x;
           const dy = inland.y - point.y;
-          // Put the label on the seaward side of the pin in screen space.
-          const seawardX = dx >= 0 ? point.x - width - 14 : point.x + 14;
-          if (
-            Math.abs(dx) >= 0.6 * Math.abs(dy) &&
-            seawardX >= 6 &&
-            seawardX + width <= frameW - 6
-          ) {
-            x = seawardX;
-          } else {
-            x = Math.max(6, Math.min(frameW - width - 6, point.x - width / 2));
-            y = point.y + (dy >= 0 ? -22 : 22);
-          }
+          const seaward = Math.abs(dx) >= 0.6 * Math.abs(dy)
+            ? [dx >= 0 ? left : right, point.y - 10]
+            : [centered, dy >= 0 ? above : below];
+          candidates.unshift(seaward);
         }
-        if (x < 6 || x + width > frameW - 6 || !fits(x, y, width)) continue;
-        placedLabels.push({ label, x, y });
+        const position = candidates.find(([x, y]) => fits(x, y, width, height));
+        if (position) placedLabels.push({ label, x: position[0], y: position[1] });
       }
 
       // No traffic, no traffic names: a chart whose hulls are hidden must not
       // keep naming them.
       const placedVessels: Overlay["vessels"] = [];
       for (const label of settings.current.trafficOn
-        ? (latest?.labels ?? [])
+        ? [...(latest?.labels ?? [])].sort((a, b) => Number(b.emphasis ?? false) - Number(a.emphasis ?? false))
         : []) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
-        const width = 12 + label.text.length * 5.6;
-        if (!label.emphasis && !fits(point.x + 9, point.y - 9, width, 12))
-          continue;
-        placedVessels.push({ label, x: point.x, y: point.y });
+        const width = 12 + label.text.length * 6 + (label.sub?.length ?? 0) * 5.6;
+        const positions = [
+          [point.x + 9, point.y - 9], [point.x - width - 9, point.y - 9],
+          [point.x + 9, point.y + 12], [point.x - width - 9, point.y + 12],
+        ];
+        const position = positions.find(([x, y]) => fits(x, y, width, 12));
+        if (position) placedVessels.push({ label, x: position[0], y: position[1] });
       }
 
       const placedClusters: Overlay["clusters"] = [];
@@ -950,15 +969,18 @@ export function MaritimeMap({
         const y = [point.y, point.y - 13, point.y + 13].find(
           (top) =>
             inFrame({ x: point.x, y: top }) &&
-            fits(point.x - width / 2, top, width) &&
-            !markerPoints.some((port) => Math.hypot(port.x - point.x, port.y - top) < 18),
+            !markerPoints.some((port) => Math.hypot(port.x - point.x, port.y - top) < 18) &&
+            fits(point.x - width / 2, top, width),
         );
         if (y !== undefined) placedClusters.push({ mark, x: point.x, y });
       }
 
       const seas = SEA_LABELS.filter((sea) => currentZoom >= sea.minZoom)
         .map((sea) => ({ sea, point: project(sea.lon, sea.lat) }))
-        .filter(({ point }) => inFrame(point))
+        .filter(({ sea, point }) => {
+          const width = sea.name.length * 8.5;
+          return inFrame(point) && fits(point.x - width / 2, point.y, width, 15);
+        })
         .map(({ sea, point }) => ({
           id: sea.id,
           name: sea.name,
@@ -1018,12 +1040,18 @@ export function MaritimeMap({
     const stopMotion = () => {
       if (motion.matches) instance.stop();
     };
+    const occlusion = new ResizeObserver(() => { overlayDirty = true; });
+    const occluders = instance.getContainer().parentElement?.querySelectorAll(
+      "[data-map-camera-inset], [data-map-label-occluder]",
+    );
+    for (const element of occluders ?? []) occlusion.observe(element);
     instance.on("move", invalidate);
     instance.on("resize", invalidate);
     motion.addEventListener("change", stopMotion);
 
     return () => {
       cancelAnimationFrame(raf);
+      occlusion.disconnect();
       document.removeEventListener("visibilitychange", syncVisibility);
       instance.off("move", invalidate);
       instance.off("resize", invalidate);
@@ -1086,8 +1114,8 @@ export function MaritimeMap({
                 : "font-medium text-[var(--text)]",
             )}
             style={{
-              left: x + 9,
-              top: y - 9,
+              left: x,
+              top: y - 6,
               textShadow:
                 "0 0 3px var(--panel), 0 0 6px var(--panel), 1px 1px 0 var(--panel)",
             }}
@@ -1157,12 +1185,17 @@ export function MaritimeMap({
                 data-testid="port-miniature-label"
                 className="num ml-1 text-[10px] text-[var(--text-3)]"
               >
-                · schematic · {miniature.weatherLabel}
+                · schematic
               </span>
             ) : null}
             {label.sub ? (
               <span className="num ml-1 text-[10.5px] text-[var(--text-3)]">
                 {label.sub}
+              </span>
+            ) : null}
+            {miniature?.code === label.id ? (
+              <span className="block text-[9.5px] text-[var(--text-3)]">
+                {miniature.weatherLabel}
               </span>
             ) : null}
           </button>
