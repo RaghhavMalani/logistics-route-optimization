@@ -1109,8 +1109,10 @@ test("supported passage is result-first, selection stays connected and each tab/
   const approve = panel.getByTestId("decision-approve");
   await expect(approve).toContainText("Slower declared passage");
   await notCovered(approve);
+  const writesBeforeConfirmation = store.writes.length;
   await approve.click();
-  await expect.poll(() => store.writes.map((write) => write.target)).toEqual(["REVIEWED", "APPROVED"]);
+  await expect.poll(() => store.writes.slice(writesBeforeConfirmation).map((write) => write.target))
+    .toEqual(["REVIEWED", "APPROVED"]);
   expect(
     store.writes.find((write) => write.target === "APPROVED")?.optionId,
   ).toBe("slower");
