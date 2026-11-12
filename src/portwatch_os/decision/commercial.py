@@ -9,9 +9,9 @@ import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 VERSION = 'commercial-components-v1'
 POLICY = 'declared-company-component-policy-v1'
@@ -70,6 +70,75 @@ class Penalty(Strict):
     contractBasis: str = Field(min_length=3,max_length=400)
 
 
+T = TypeVar("T")
+Nonnegative = Annotated[Decimal, Field(ge=0, le=1_000_000_000)]
+Fraction = Annotated[Decimal, Field(ge=0, le=1)]
+Currency = Annotated[str, Field(pattern=r"^[A-Z]{3}$")]
+
+
+class Sourced(Strict, Generic[T]):
+    """Basis describes the term; the enclosing Consignment records its availability."""
+
+    value: T
+    basis: Literal["declared", "contract", "tariff", "assumption"]
+    source: str = Field(min_length=3, max_length=400)
+
+
+class LateCharge(Strict):
+    amount: Amount
+    unit: Literal["per_day", "flat"]
+
+
+class WarRiskTerm(Strict):
+    area: str = Field(min_length=1, max_length=100)
+    required: Sourced[bool]
+    premiumRate: Sourced[Fraction] | None = None
+
+
+class CargoRiskTerms(Strict):
+    """Optional commercial terms for the stochastic study, separate from feasibility."""
+
+    commodityHsCode: Sourced[Annotated[str, Field(pattern=r"^[0-9]{2,10}$")]] | None = None
+    currency: Sourced[Currency] | None = None
+    cifValue: Sourced[Amount] | None = None
+    insuredValue: Sourced[Amount] | None = None
+    handlingClass: Sourced[Literal["dry", "reefer", "DG"]] | None = None
+    reeferSetPointC: Sourced[Annotated[Decimal, Field(ge=-100, le=100)]] | None = None
+    maxUnpoweredHours: Sourced[Nonnegative] | None = None
+    remainingShelfLifeHours: Sourced[Nonnegative] | None = None
+    imdgClass: Sourced[Annotated[str, Field(pattern=r"^[1-9](?:\.[1-6])?$")]] | None = None
+    deliveryDeadline: Sourced[datetime] | None = None
+    latePenalty: Sourced[LateCharge] | None = None
+    freeTimeHours: Sourced[Nonnegative] | None = None
+    detentionFreeHours: Sourced[Nonnegative] | None = None
+    demurrageRatePerDay: Sourced[Amount] | None = None
+    detentionRatePerDay: Sourced[Amount] | None = None
+    annualInventoryRate: Sourced[Fraction] | None = None
+    priority: Sourced[Literal[1, 2, 3]] | None = None
+    margin: Sourced[Amount] | None = None
+    cargoPolicyRate: Sourced[Fraction] | None = None
+    deductible: Sourced[Amount] | None = None
+    separateDeductibleEventProbability: Sourced[Fraction] | None = None
+    excludedAreas: Sourced[list[str]] | None = None
+    warRiskAreas: Sourced[list[WarRiskTerm]] | None = None
+    generalAverageExposed: Sourced[bool] | None = None
+    generalAverageContribution: Sourced[Amount] | None = None
+    generalAverageEventProbability: Sourced[Fraction] | None = None
+
+    @field_validator("deliveryDeadline")
+    @classmethod
+    def aware_deadline(cls, term):
+        return term.model_copy(update={"value": instant(term.value)}) if term else None
+
+    @model_validator(mode="after")
+    def unique_war_areas(self):
+        if self.warRiskAreas:
+            areas = [area.area.casefold().strip() for area in self.warRiskAreas.value]
+            if len(areas) != len(set(areas)) or "" in areas:
+                raise ValueError("War-risk areas must have distinct names")
+        return self
+
+
 class Consignment(Strict):
     id: str = Field(min_length=1,max_length=80)
     goodsClass: str = Field(min_length=1,max_length=100)
@@ -110,9 +179,41 @@ class Consignment(Strict):
     inventoryUnit: str | None = None
     basis: Basis
 
+    riskTerms: CargoRiskTerms | None = None
+
+    @model_serializer(mode="wrap")
+    def retain_legacy_shape(self, serialize):
+        result = serialize(self)
+        if self.riskTerms is None:
+            result.pop("riskTerms", None)
+        return result
+
     @field_validator('deadline','shelfLifeReferenceAt')
     @classmethod
     def aware(cls,v): return instant(v) if v is not None else None
+
+
+def insured_value_for_risk(shipment: Consignment) -> Sourced[Amount] | None:
+    terms = shipment.riskTerms
+    if terms and terms.insuredValue is not None:
+        return terms.insuredValue
+    if shipment.insuredValue is not None:
+        return Sourced[Amount](
+            value=shipment.insuredValue,
+            basis="assumption" if shipment.basis.kind == "SIMULATION" else "declared",
+            source=shipment.basis.source,
+        )
+    if terms and terms.cifValue is not None:
+        cif = terms.cifValue
+        return Sourced[Amount](
+            value=Amount(
+                amount=(cif.value.amount * Decimal("1.10")).quantize(Decimal("0.000001")),
+                currency=cif.value.currency,
+            ),
+            basis="assumption",
+            source="CIF × 1.10 modelling default; CIF basis: " + cif.source[:320],
+        )
+    return None
 
 
 class Charge(Strict):
