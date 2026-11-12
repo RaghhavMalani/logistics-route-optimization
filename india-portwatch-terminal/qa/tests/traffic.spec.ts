@@ -255,9 +255,9 @@ test("wave height is reported as unavailable rather than substituted", async ({
   page,
 }) => {
   await open(page, context, "PORT_AUTHORITY", "/port/overview");
-  const weather = page.locator("details").filter({ hasText: "Port weather" });
-  await weather.getByText("Port weather", { exact: true }).click();
-  await expect(weather.getByText("UNAVAILABLE", { exact: true })).toBeVisible();
+  const weather = page.locator("summary").filter({ hasText: /^Port weather$/ });
+  await weather.click();
+  await expect(weather.locator("..").getByText("UNAVAILABLE", { exact: true })).toBeVisible();
 });
 
 /* ------------------------------------------------------ arrival sequence -- */
