@@ -31,15 +31,21 @@ class Control:
     stop: Event = field(default_factory=Event)
     status: str = 'RUNNING'
     elapsed: float = 0.0
+    progress: dict | None = None
 
     def checkpoint(self):
         if self.stop.is_set(): raise Cancelled('Study cancelled; earlier retained results are unchanged')
         # Monotonic compute duration, independent of forecast/replay world time.
         if monotonic() - self.started > self.budget: raise BudgetExceeded('Study exceeded its compute budget; reduce the sample/input size')
 
+    def update_progress(self, stage):
+        self.checkpoint()
+        self.progress = stage
+
     def public(self):
         return dict(id=self.id,status=self.status,budgetSeconds=self.budget,
-                    elapsedSeconds=round(self.elapsed,4),parallelStudies=1)
+                    elapsedSeconds=round(self.elapsed,4),parallelStudies=1,
+                    **({"progress": self.progress} if self.progress is not None else {}))
 
 
 @contextmanager

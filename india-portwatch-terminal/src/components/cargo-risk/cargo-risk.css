@@ -1,0 +1,222 @@
+.cargo-risk {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.65rem;
+  font-size: 0.75rem;
+  color: var(--text);
+}
+.cargo-risk-lead,
+.cargo-risk-section,
+.cargo-risk-card {
+  display: grid;
+  gap: 0.48rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.65rem;
+  background: var(--surface);
+}
+.cargo-risk h2,
+.cargo-risk h3,
+.cargo-risk p {
+  margin: 0;
+}
+.cargo-risk h2 {
+  font-size: 1.16rem;
+  line-height: 1.15;
+  font-weight: 680;
+}
+.cargo-risk h3 {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.cargo-risk small,
+.cargo-chart-row span,
+.cargo-risk dt {
+  color: var(--text-2);
+}
+.cargo-kicker,
+.cargo-source {
+  font: 600 0.61rem/1.35 var(--font-mono, monospace);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+.cargo-kicker {
+  color: var(--text-2);
+}
+.cargo-source {
+  display: inline-block;
+  padding: 0 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.cargo-rule,
+.cargo-chart-row > div:first-child,
+.cargo-chart-row > div:last-child:not(.cargo-plot),
+.cargo-range,
+.cargo-risk-card dl > div,
+.cargo-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.55rem;
+}
+.cargo-rule select,
+.cargo-risk button {
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0.2rem 0.38rem;
+  background: var(--surface-2);
+  color: var(--text);
+  max-width: 100%;
+}
+.cargo-chart-row {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.26rem 0;
+}
+.cargo-plot {
+  position: relative;
+  height: 1rem;
+  margin-inline: 0.25rem;
+  border-bottom: 1px solid var(--line);
+}
+.cargo-fan {
+  position: absolute;
+  top: 0.28rem;
+  height: 0.48rem;
+  border-radius: 5px;
+  background: var(--info-dim);
+}
+.cargo-p50,
+.cargo-dot,
+.cargo-mean,
+.cargo-tail {
+  position: absolute;
+  width: 0.3rem;
+  height: 0.3rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+}
+.cargo-p50,
+.cargo-dot {
+  top: 0.35rem;
+  background: var(--info);
+}
+.cargo-mean,
+.cargo-tail {
+  height: 0.85rem;
+  width: 2px;
+  top: 0;
+  border-radius: 0;
+  background: var(--text);
+}
+.cargo-tail {
+  background: var(--unc);
+}
+.cargo-range input {
+  width: 100%;
+  accent-color: var(--info);
+}
+.cargo-deadline-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.cargo-deadline-table td,
+.cargo-deadline-table th {
+  padding: 0.24rem 0.2rem;
+  border-bottom: 1px solid var(--line);
+}
+.cargo-deadline-table tbody th {
+  font-weight: 500;
+}
+.cargo-card-grid {
+  display: grid;
+  gap: 0.42rem;
+}
+.cargo-risk-card header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.4rem;
+}
+.cargo-risk-card header small,
+.cargo-model small {
+  display: block;
+}
+.cargo-risk-card dl {
+  display: grid;
+  gap: 0.22rem;
+  margin: 0;
+}
+.cargo-risk-card dd {
+  margin: 0;
+}
+.cargo-tone {
+  font-size: 0.62rem;
+  padding: 0 0.22rem;
+  border-radius: 3px;
+}
+.cargo-tone-ok {
+  color: var(--ok);
+  background: var(--ok-dim);
+}
+.cargo-tone-warn,
+.cargo-risk [data-tone="warn"] {
+  color: var(--warn);
+}
+.cargo-tone-warn {
+  background: var(--warn-dim);
+}
+.cargo-tone-crit,
+.cargo-risk [data-tone="crit"] {
+  color: var(--crit);
+}
+.cargo-tone-crit {
+  background: var(--crit-dim);
+}
+.cargo-tone-unknown {
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.cargo-progress meter {
+  display: block;
+  width: 100%;
+  height: 0.55rem;
+}
+.cargo-progress meter::-webkit-meter-optimum-value {
+  background: var(--info);
+}
+.cargo-progress[data-tone="warn"] meter::-webkit-meter-optimum-value {
+  background: var(--warn);
+}
+.cargo-progress[data-tone="crit"] meter::-webkit-meter-optimum-value {
+  background: var(--crit);
+}
+.cargo-drivers {
+  display: flex;
+  height: 0.34rem;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cargo-sources,
+.cargo-risk-card ul {
+  margin: 0.28rem 0 0;
+  padding-left: 1.1rem;
+}
+.cargo-hash {
+  overflow-wrap: anywhere;
+}
+.cargo-model {
+  margin: 0;
+}
+.cargo-model figcaption {
+  padding: 0.3rem 0;
+}
+.cargo-miniature canvas {
+  display: block;
+  max-width: 100%;
+}
