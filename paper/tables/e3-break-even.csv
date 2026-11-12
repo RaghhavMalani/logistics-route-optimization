@@ -1,0 +1,12 @@
+case,rule,scope,gridMinHours,gridMaxHours,futuresPerPoint,lowerHours,upperHours,fromOptionId,toOptionId
+s10-meridian,R1,No flip within the registered grid,0.0,48.0,512,,,,
+suez-reefer,R1,flip bracket,0.0,432.0,512,40.5,54.0,slow,keep
+suez-reefer,R1,flip bracket,0.0,432.0,512,81.0,94.5,keep,slow
+suez-reefer,R1,flip bracket,0.0,432.0,512,121.5,135.0,slow,keep
+suez-reefer,R1,flip bracket,0.0,432.0,512,175.5,189.0,keep,slow
+suez-time-critical,R1,flip bracket,0.0,432.0,512,40.5,54.0,slow,keep
+suez-time-critical,R1,flip bracket,0.0,432.0,512,229.5,243.0,keep,cape
+ever-given,R1,flip bracket,0.0,432.0,512,54.0,67.5,slow,keep
+ever-given,R1,flip bracket,0.0,432.0,512,81.0,94.5,keep,slow
+ever-given,R1,flip bracket,0.0,432.0,512,94.5,108.0,slow,keep
+ever-given,R1,flip bracket,0.0,432.0,512,148.5,162.0,keep,slow

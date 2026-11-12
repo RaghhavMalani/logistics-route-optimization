@@ -1,9 +1,11 @@
 """Visitor-owned, Company-private commercial planning. No external execution."""
 from __future__ import annotations
 import copy
+import json
 from datetime import timedelta
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+from fastapi import APIRouter, HTTPException, Response
+from pydantic import BaseModel, ConfigDict, Field, UUID4
 from backend.app.identity import current_identity
 from src.portwatch_os.clock import LIVE, get_clock, wall_now
 from src.portwatch_os.sandbox import current_sandbox
@@ -278,3 +280,143 @@ def templates(decision_id:str,example:str='CURRENT_SOURCE'):
         'distribution':{'kind':'DISCRETE','values':[0,4,24],'weights':[.6,.3,.1],'declaration':'Fictional additional downstream handling delay; these weights are assumptions, not empirical frequencies'}},
         'meaning':'Illustrative editable template; not private records, a policy quote or a calibrated distribution',
         'example':example,'description':descriptions[example],'examples':descriptions}
+
+
+class CargoRiskRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rule: Literal["R1", "R2", "R3", "R4", "R5"] = "R1"
+    seed: int = Field(default=20261112, ge=0, le=2**53 - 1)
+    epsilon: float = Field(default=.10, ge=0, le=1)
+    q: float = Field(default=.90, gt=0, le=1)
+    regretMetric: Literal["cost", "hours"] = "cost"
+    nextRefreshHour: float | None = Field(default=None, gt=0, le=72)
+    jobId: UUID4 | None = None
+
+
+def _private_report(result):
+    return Response(json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False),
+                    media_type="application/json", headers={"Cache-Control": "private, no-store"})
+
+
+@router.post("/commercial/comparisons/{decision_id}/cargo-risk")
+def cargo_risk_study(decision_id: str, payload: CargoRiskRequest, response: Response):
+    from backend.app.domains.voyages.cargo_risk_inputs import build_study
+    from src.portwatch_os.decision.cargo_policy import RuleSettings
+    from src.portwatch_os.decision.cargo_sampling import Sampling, input_key
+    from src.portwatch_os.decision.commercial_uncertainty import simulate_cargo
+    from src.portwatch_os.ledger.schema import DecisionRecord
+
+    scoped, who, engine, problem = owned(decision_id)
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        study, cargo, excluded = build_study(scoped, engine, problem)
+    except ValueError as exc:
+        return {"status": "UNAVAILABLE", "reason": str(exc)}
+    if payload.nextRefreshHour is not None:
+        study = study.model_copy(update={"nextRefreshHour": payload.nextRefreshHour})
+    config = Sampling(seed=payload.seed)
+    policy = RuleSettings(rule=payload.rule, epsilon=payload.epsilon, q=payload.q, regretMetric=payload.regretMetric,
+                          allowWait=payload.nextRefreshHour is not None)
+    key = "cargo-risk-" + digest({"input": input_key(study, config), "seed": config.seed,
+                                 "policy": policy.model_dump(mode="json")})
+    previous = engine.ledger.get_decision(key)
+    if previous:
+        return _private_report(previous.recommendation)
+    closure_sensitive = any(option.reachClosureHour is not None and option.reachClosureHour >= 0 for option in study.options)
+    try:
+        with jobs.study(_owner(scoped), str(payload.jobId) if payload.jobId else None) as control:
+            output = simulate_cargo(study, config, policy=policy, sensitivity=closure_sensitive,
+                                    progress=control.update_progress)
+    except jobs.Busy as exc:
+        raise HTTPException(429, str(exc), headers={"Retry-After": "5"}) from exc
+    except jobs.BudgetExceeded as exc:
+        raise HTTPException(408, str(exc)) from exc
+    except jobs.Cancelled as exc:
+        raise HTTPException(409, str(exc)) from exc
+    if not closure_sensitive:
+        output["closureSensitivity"] = {
+            "grid": [{"closureHours": hour, "optionId": output["decision"]["optionId"]} for hour in (0, 48)],
+            "flips": [], "basis": "Closure duration does not enter the delivery clock for these options.",
+        }
+    for option in study.options:
+        basis = output["sourceBasis"]["options"][option.id]
+        if option.weatherExposure == 0:
+            basis["weather"] = "Frozen approach gate; no additional weather perturbation"
+        if option.berthExposure == 0:
+            basis["port"] = "No additional modelled berth delay applied to this approach comparison"
+    if payload.nextRefreshHour is not None:
+        output["sourceBasis"]["refresh"] = "ASSUMPTION · next source refresh hour declared for the wait comparison"
+    result = {
+        **output, "status": "SHADOW", "recordId": key, "cargo": cargo, "excludedOptions": excluded,
+        "privacy": "COMPANY_PRIVATE", "promotion": "RESEARCH_ONLY",
+    }
+    engine.ledger.record_decision(DecisionRecord(
+        decision_id=key, kind="cargo_risk_shadow", subject=decision_id, issued_at=study.at.isoformat(),
+        issuer=who.actor, recommendation=result, reason="Company-private conditional cargo study",
+        model=output["version"],
+    ))
+    return _private_report(result)
+
+
+@router.get("/commercial/comparisons/{decision_id}/cargo-risk/jobs/{job_id}")
+def cargo_risk_progress(decision_id: str, job_id: UUID4, response: Response):
+    scoped, _, _, _ = owned(decision_id)
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        return jobs.inspect(_owner(scoped), str(job_id))
+    except jobs.UnknownJob:
+        return {"status": "PENDING"}
+
+
+class CargoRiskSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decisionId: str = Field(min_length=1, max_length=120)
+    optionId: str = Field(min_length=1, max_length=120)
+
+
+class CargoRiskPortfolio(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    selections: list[CargoRiskSelection] = Field(min_length=1, max_length=6)
+    seed: int = Field(default=20261112, ge=0, le=2**53 - 1)
+
+
+@router.post("/commercial/cargo-risk/portfolio")
+def cargo_risk_portfolio(payload: CargoRiskPortfolio, response: Response):
+    from backend.app.domains.voyages.cargo_risk_inputs import build_study
+    from src.portwatch_os.decision.cargo_sampling import Sampling, company_rollup, input_key
+    from src.portwatch_os.ledger.schema import DecisionRecord
+
+    scoped, who, engine, _ = owned()
+    response.headers["Cache-Control"] = "private, no-store"
+    choices = {}
+    config = Sampling(seed=payload.seed)
+    power = 8
+    try:
+        for selection in payload.selections:
+            _, _, _, problem = owned(selection.decisionId)
+            if problem.subject_id in choices:
+                raise ValueError("Select one option per owned voyage.")
+            study, _, _ = build_study(scoped, engine, problem)
+            choices[problem.subject_id] = (study, selection.optionId)
+        identity = digest({"power": power, "selections": {
+            voyage: [input_key(study, config), option] for voyage, (study, option) in choices.items()
+        }})
+        key = "cargo-risk-portfolio-" + digest([identity, config.seed])
+        previous = engine.ledger.get_decision(key)
+        if previous:
+            return _private_report(previous.recommendation)
+        with jobs.study(_owner(scoped)):
+            result = company_rollup(choices, config, power=power)
+    except jobs.Busy as exc:
+        raise HTTPException(429, str(exc), headers={"Retry-After": "5"}) from exc
+    except jobs.BudgetExceeded as exc:
+        raise HTTPException(408, str(exc)) from exc
+    except ValueError as exc:
+        return {"status": "UNAVAILABLE", "reason": str(exc)}
+    output = {**result, "status": "SHADOW", "privacy": "COMPANY_PRIVATE", "inputHash": identity, "recordId": key}
+    engine.ledger.record_decision(DecisionRecord(
+        decision_id=key, kind="cargo_risk_shadow", subject="portfolio", issued_at=next(iter(choices.values()))[0].at.isoformat(),
+        issuer=who.actor, recommendation=output, reason="Company-private conditional cargo portfolio",
+        model="cargo-paired-sobol-v1",
+    ))
+    return _private_report(output)

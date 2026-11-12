@@ -498,6 +498,407 @@
         "title": "CameraEvidence",
         "type": "object"
       },
+      "CargoRiskPortfolio": {
+        "additionalProperties": false,
+        "properties": {
+          "seed": {
+            "default": 20261112,
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "selections": {
+            "items": {
+              "$ref": "#/components/schemas/CargoRiskSelection"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Selections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "selections"
+        ],
+        "title": "CargoRiskPortfolio",
+        "type": "object"
+      },
+      "CargoRiskRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "epsilon": {
+            "default": 0.1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Epsilon",
+            "type": "number"
+          },
+          "jobId": {
+            "anyOf": [
+              {
+                "format": "uuid4",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jobid"
+          },
+          "nextRefreshHour": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 72.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextrefreshhour"
+          },
+          "q": {
+            "default": 0.9,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Q",
+            "type": "number"
+          },
+          "regretMetric": {
+            "default": "cost",
+            "enum": [
+              "cost",
+              "hours"
+            ],
+            "title": "Regretmetric",
+            "type": "string"
+          },
+          "rule": {
+            "default": "R1",
+            "enum": [
+              "R1",
+              "R2",
+              "R3",
+              "R4",
+              "R5"
+            ],
+            "title": "Rule",
+            "type": "string"
+          },
+          "seed": {
+            "default": 20261112,
+            "maximum": 9007199254740991.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "title": "CargoRiskRequest",
+        "type": "object"
+      },
+      "CargoRiskSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "decisionId": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Decisionid",
+            "type": "string"
+          },
+          "optionId": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Optionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decisionId",
+          "optionId"
+        ],
+        "title": "CargoRiskSelection",
+        "type": "object"
+      },
+      "CargoRiskTerms": {
+        "additionalProperties": false,
+        "description": "Optional commercial terms for the stochastic study, separate from feasibility.",
+        "properties": {
+          "annualInventoryRate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cargoPolicyRate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cifValue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commodityHsCode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____0-9__2_10________"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____A-Z__3________"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deductible": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deliveryDeadline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_datetime_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "demurrageRatePerDay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detentionFreeHours": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detentionRatePerDay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "excludedAreas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_list_str__"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "freeTimeHours": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generalAverageContribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generalAverageEventProbability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generalAverageExposed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_bool_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handlingClass": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Literal__dry____reefer____DG___"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "imdgClass": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____1-9____1-6__________"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "insuredValue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latePenalty": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_LateCharge_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Amount_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxUnpoweredHours": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "perishable": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_bool_"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Literal_1__2__3__"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reeferSetPointC": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_-100___Le_le_100_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remainingShelfLifeHours": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "separateDeductibleEventProbability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warRiskAreas": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_list_WarRiskTerm__"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CargoRiskTerms",
+        "type": "object"
+      },
       "Charge": {
         "additionalProperties": false,
         "properties": {
@@ -1091,6 +1492,16 @@
             "default": false,
             "title": "Required",
             "type": "boolean"
+          },
+          "riskTerms": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CargoRiskTerms"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "shelfLifeReferenceAt": {
             "anyOf": [
@@ -1841,6 +2252,28 @@
           "csvText"
         ],
         "title": "ImportInput",
+        "type": "object"
+      },
+      "LateCharge": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Amount"
+          },
+          "unit": {
+            "enum": [
+              "per_day",
+              "flat"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "unit"
+        ],
+        "title": "LateCharge",
         "type": "object"
       },
       "ObservationInput": {
@@ -3206,6 +3639,502 @@
         "title": "SourceStatus",
         "type": "object"
       },
+      "Sourced_Amount_": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Amount"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Amount]",
+        "type": "object"
+      },
+      "Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_-100___Le_le_100_____": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": -100.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Annotated[Decimal, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=-100), Le(le=100)])]]",
+        "type": "object"
+      },
+      "Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maximum": 1000000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Annotated[Decimal, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=1000000000)])]]",
+        "type": "object"
+      },
+      "Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Annotated[Decimal, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=1)])]]",
+        "type": "object"
+      },
+      "Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____0-9__2_10________": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[0-9]{2,10}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[_PydanticGeneralMetadata(pattern='^[0-9]{2,10}$')])]]",
+        "type": "object"
+      },
+      "Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____1-9____1-6__________": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[1-9](?:\\.[1-6])?$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[_PydanticGeneralMetadata(pattern='^[1-9](?:\\\\.[1-6])?$')])]]",
+        "type": "object"
+      },
+      "Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____A-Z__3________": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[_PydanticGeneralMetadata(pattern='^[A-Z]{3}$')])]]",
+        "type": "object"
+      },
+      "Sourced_LateCharge_": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/LateCharge"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[LateCharge]",
+        "type": "object"
+      },
+      "Sourced_Literal_1__2__3__": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "enum": [
+              1,
+              2,
+              3
+            ],
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Literal[1, 2, 3]]",
+        "type": "object"
+      },
+      "Sourced_Literal__dry____reefer____DG___": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "enum": [
+              "dry",
+              "reefer",
+              "DG"
+            ],
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[Literal['dry', 'reefer', 'DG']]",
+        "type": "object"
+      },
+      "Sourced_bool_": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[bool]",
+        "type": "object"
+      },
+      "Sourced_datetime_": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "format": "date-time",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[datetime]",
+        "type": "object"
+      },
+      "Sourced_list_WarRiskTerm__": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "items": {
+              "$ref": "#/components/schemas/WarRiskTerm"
+            },
+            "title": "Value",
+            "type": "array"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[list[WarRiskTerm]]",
+        "type": "object"
+      },
+      "Sourced_list_str__": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "enum": [
+              "declared",
+              "contract",
+              "tariff",
+              "assumption"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 400,
+            "minLength": 3,
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Value",
+            "type": "array"
+          }
+        },
+        "required": [
+          "value",
+          "basis",
+          "source"
+        ],
+        "title": "Sourced[list[str]]",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3244,6 +4173,36 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WarRiskTerm": {
+        "additionalProperties": false,
+        "properties": {
+          "area": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Area",
+            "type": "string"
+          },
+          "premiumRate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "required": {
+            "$ref": "#/components/schemas/Sourced_bool_"
+          }
+        },
+        "required": [
+          "area",
+          "required"
+        ],
+        "title": "WarRiskTerm",
         "type": "object"
       },
       "WorldClockPayload": {
@@ -6013,6 +6972,42 @@
         "summary": "Cargo Optimize"
       }
     },
+    "/api/commercial/cargo-risk/portfolio": {
+      "post": {
+        "operationId": "cargo_risk_portfolio_api_commercial_cargo_risk_portfolio_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CargoRiskPortfolio"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cargo Risk Portfolio"
+      }
+    },
     "/api/commercial/comparisons/{decision_id}": {
       "get": {
         "operationId": "retained_api_commercial_comparisons__decision_id__get",
@@ -6048,6 +7043,100 @@
           }
         },
         "summary": "Retained"
+      }
+    },
+    "/api/commercial/comparisons/{decision_id}/cargo-risk": {
+      "post": {
+        "operationId": "cargo_risk_study_api_commercial_comparisons__decision_id__cargo_risk_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CargoRiskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cargo Risk Study"
+      }
+    },
+    "/api/commercial/comparisons/{decision_id}/cargo-risk/jobs/{job_id}": {
+      "get": {
+        "operationId": "cargo_risk_progress_api_commercial_comparisons__decision_id__cargo_risk_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cargo Risk Progress"
       }
     },
     "/api/commercial/evaluate": {
@@ -10150,6 +11239,54 @@
         "summary": "Demo Terminal Cargo Optimize"
       }
     },
+    "/api/demo/terminal/commercial/cargo-risk/portfolio": {
+      "post": {
+        "operationId": "demo_terminal_cargo_risk_portfolio_api_demo_terminal_commercial_cargo_risk_portfolio_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CargoRiskPortfolio"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Demo Terminal Cargo Risk Portfolio"
+      }
+    },
     "/api/demo/terminal/commercial/comparisons/{decision_id}": {
       "get": {
         "operationId": "demo_terminal_retained_api_demo_terminal_commercial_comparisons__decision_id__get",
@@ -10195,6 +11332,120 @@
           }
         },
         "summary": "Demo Terminal Retained"
+      }
+    },
+    "/api/demo/terminal/commercial/comparisons/{decision_id}/cargo-risk": {
+      "post": {
+        "operationId": "demo_terminal_cargo_risk_study_api_demo_terminal_commercial_comparisons__decision_id__cargo_risk_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CargoRiskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Demo Terminal Cargo Risk Study"
+      }
+    },
+    "/api/demo/terminal/commercial/comparisons/{decision_id}/cargo-risk/jobs/{job_id}": {
+      "get": {
+        "operationId": "demo_terminal_cargo_risk_progress_api_demo_terminal_commercial_comparisons__decision_id__cargo_risk_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_id",
+            "required": true,
+            "schema": {
+              "title": "Decision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Demo Terminal Cargo Risk Progress"
       }
     },
     "/api/demo/terminal/commercial/evaluate": {
