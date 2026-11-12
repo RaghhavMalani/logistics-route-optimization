@@ -186,9 +186,10 @@ async function run(width, height) {
     console.log(`PASS ${width}×${height} · ${beat}`);
     beat = next;
   };
-  const postResponse = (suffix) => {
+  const postResponse = (suffix, target) => {
     const pending = page.waitForResponse((response) =>
-      new URL(response.url()).pathname.endsWith(suffix) && response.request().method() === "POST");
+      new URL(response.url()).pathname.endsWith(suffix) && response.request().method() === "POST" &&
+      (target === undefined || response.request().postDataJSON()?.target === target));
     // A failed locator can exit before the response promise is awaited.
     pending.catch(() => {});
     return pending;
@@ -203,8 +204,8 @@ async function run(width, height) {
     await expect(button).toHaveCSS("background-color", "rgb(201, 70, 26)");
     await expect(button).toHaveCSS("color", "rgb(255, 255, 255)");
   }
-  async function approve(panel, choice, capturePrefix) {
-    await panel.getByRole("button", { name: "Continue to Decide", exact: true }).click();
+  async function approve(panel, choice, capturePrefix, port = false) {
+    if (!port) await panel.getByRole("button", { name: "Continue to Decide", exact: true }).click();
     if (miniature) {
       const rail = panel.getByRole("navigation", { name: "Decision progress" });
       await expect(rail.getByRole("button", { name: "Computed", exact: true })).toHaveAttribute("aria-current", "step");
@@ -212,22 +213,21 @@ async function run(width, height) {
       await rail.getByRole("button", { name: "Observed", exact: true }).click();
       await expect(panel.locator("[data-workflow-stage=OBSERVED]")).toBeInViewport();
       await rail.getByRole("button", { name: "Computed", exact: true }).click();
-      await expect(panel.getByTestId("decision-review")).toBeInViewport();
+      await expect(panel.getByTestId("decision-approve")).toBeInViewport();
     }
     await shot(`${capturePrefix}-decide`);
-    const reviewing = postResponse("/transition");
-    await panel.getByTestId("decision-review").click();
-    await read(reviewing);
-    if (miniature) {
-      await expect(panel.getByRole("navigation", { name: "Decision progress" }).getByRole("button", { name: "Reviewed" })).toHaveAttribute("aria-current", "step");
-    }
+    const reviewing = postResponse("/transition", "REVIEWED");
+    const changed = postResponse("/transition", "APPROVED");
     const approveButton = panel.getByTestId("decision-approve");
+    if (port) await expect(approveButton).toHaveText("Approve and issue to vessel");
     if (checkApprovalStyle) await expectPrimary(approveButton);
-    await shot(`${capturePrefix}-reviewed`);
-    const changed = postResponse("/transition");
     await approveButton.click();
+    assert.equal((await read(reviewing)).workflow, "REVIEWED");
     const result = await read(changed);
+    assert.equal(result.workflow, "APPROVED");
     assert.equal(result.humanChoice, choice);
+    assert(result.workflowHistory.some(entry => entry.state === "REVIEWED"));
+    assert(result.workflowHistory.some(entry => entry.state === "APPROVED"));
     return result;
   }
   async function advisoryAction(card, state, id) {
@@ -375,24 +375,18 @@ async function run(width, height) {
       await expect(rail.getByRole("button", { name: "Port", exact: true })).toHaveAttribute("aria-current", "step");
       await page.waitForTimeout(1800);
     }
-    await approve(panel, choice.optionId, "03a-port");
-    await shot("03a-port-approved");
-    const issuePending = postResponse("/handoff");
-    await panel.getByTestId("decision-handoff").click();
-    const issue = await read(issuePending);
-    const advisoryId = issue.advisories[0].advisoryId;
+    const draft = postResponse("/handoff");
+    const opened = postResponse("/transition", "under_review");
+    const issued = postResponse("/transition", "issued");
+    await approve(panel, choice.optionId, "03a-port", true);
+    const handoff = await read(draft);
+    const advisoryId = handoff.advisories[0].advisoryId;
     results.advisoryId = advisoryId;
-    await page.getByRole("button", { name: /Needs action/ }).click();
-    let card = page.getByTestId("advisory-card").filter({ hasText: "PW Meridian" }).first();
-    await card.locator("button").first().click();
-    await expect(panel.getByRole("button", { name: "Run frozen demo outcome" })).toBeDisabled();
-    await shot("03a-port-draft");
-    await advisoryAction(card, "under_review", advisoryId);
-    await expect(card.locator("button").first()).toHaveAttribute("aria-expanded", "true");
-    await expect(card.getByTestId("advisory-action-issued")).toBeVisible();
-    await shot("03b-port-open-for-review");
+    assert.equal(handoff.advisories[0].state, "draft");
+    assert.equal((await read(opened)).state, "under_review");
+    assert.equal((await read(issued)).state, "issued");
     if (results.recording) results.recording.issue = seconds();
-    await advisoryAction(card, "issued", advisoryId);
+    let card;
     await expect(panel.getByRole("button", { name: "Run frozen demo outcome" })).toBeDisabled();
     await shot("04-port-issued");
     passed("Vessel acknowledges and accepts");

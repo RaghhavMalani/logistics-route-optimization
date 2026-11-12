@@ -1105,14 +1105,12 @@ test("supported passage is result-first, selection stays connected and each tab/
   await panel.getByRole("tab", { name: "Options", exact: false }).click();
   await panel.getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
-  const review = panel.getByTestId("decision-review");
-  await expect(review).toBeVisible();
-  await notCovered(review);
-  await review.click();
+  await expect(panel.getByTestId("decision-review")).toHaveCount(0);
   const approve = panel.getByTestId("decision-approve");
   await expect(approve).toContainText("Slower declared passage");
   await notCovered(approve);
   await approve.click();
+  await expect.poll(() => store.writes.map((write) => write.target)).toEqual(["REVIEWED", "APPROVED"]);
   expect(
     store.writes.find((write) => write.target === "APPROVED")?.optionId,
   ).toBe("slower");
@@ -1160,7 +1158,6 @@ test("lower modeled fuel cannot hide a declared deadline rejection", async ({
   await current.click();
   await panel.getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
-  await panel.getByTestId("decision-review").click();
   await expect(panel.getByTestId("decision-approve")).toHaveText(
     "Approve current plan",
   );
@@ -1217,7 +1214,6 @@ test("insufficient approach coverage cannot invent a recommendation or enable ap
   ).toBeDisabled();
   await panel.getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
-  await panel.getByTestId("decision-review").click();
   await expect(panel.getByTestId("decision-approve")).toBeDisabled();
 });
 

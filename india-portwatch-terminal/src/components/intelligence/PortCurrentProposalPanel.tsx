@@ -91,6 +91,10 @@ export function PortCurrentProposalPanel({
   const decision = useDecision(proposal?.reviewDecisionId ?? null);
   const advisories = useAdvisories(identityHeaders, { portCode }, 8000);
   const linkedAdvisories = decision.data?.evidence.advisories;
+  const issueComplete = Array.isArray(linkedAdvisories) && linkedAdvisories.length > 0 &&
+    linkedAdvisories.every((id) => advisories.data?.advisories.some(
+      (row) => row.advisoryId === id && !["draft", "under_review"].includes(row.state),
+    ));
   const vesselAccepted =
     !advisories.isError &&
     Array.isArray(linkedAdvisories) &&
@@ -277,7 +281,8 @@ export function PortCurrentProposalPanel({
               compare={compare}
               onSelectOption={setSelected}
               onToggleCompare={setCompare}
-              canHandoff
+              issueOnApprove
+              issueComplete={issueComplete}
               closedWindowStatus={closedWindowStatus}
             />
           </div>

@@ -30,7 +30,7 @@ const chapters: ReadonlyArray<{
     role: "SHIPPING_COMPANY",
     title: "Company chooses 10 kn",
     coach:
-      "Compare the assumed anchorage wait at both speeds. Approving sends the saved comparison to the port for review.",
+      "Compare the assumed anchorage wait at both speeds. One confirmation records Company review and approval, then sends the comparison to Port.",
     action: "Approve 10 kn",
   },
   {
