@@ -205,7 +205,7 @@ def main():
             "bootstrap": "E1 [master,901,domainIndex]; E4 [master,904]",
             "figures": "E5 cargo [master,510..513], E2 [master,520], E3 [master,521..522], E5 [master,530..533], runtime [master,540..542]",
         },
-        "packages": {name: version(name) for name in ("numpy", "scipy", "matplotlib", "pydantic", "pandas", "networkx")},
+        "packages": {name: version(name) for name in ("numpy", "scipy", "matplotlib", "pydantic", "pandas")},
         "python": platform.python_version(), "platform": platform.platform(),
         "cpu": os.getenv("PROCESSOR_IDENTIFIER") or platform.processor() or platform.machine(),
         "logicalCpus": os.cpu_count(), "runtimeSeconds": {**runtimes, "total": perf_counter() - started},
