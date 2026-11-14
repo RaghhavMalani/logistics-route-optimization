@@ -226,7 +226,7 @@ class WeatherShadowAnalysis:
             body = json.loads(raw)
         except (ValueError, UnicodeDecodeError):
             raise QualificationError("unsupported_original_response_shape") from None
-        if not isinstance(body, dict):
+        if not isinstance(body, dict) and not (folder == "archive" and isinstance(body, list)):
             raise QualificationError("unsupported_original_response_shape")
         self._responses[key] = body
         return body
@@ -293,6 +293,7 @@ class WeatherShadowAnalysis:
             raise QualificationError("forecast_receipt_identity_or_origin_mismatch")
         if row.provenance.get("snapshotId") not in (None, snapshot_id):
             raise QualificationError("forecast_receipt_identity_or_origin_mismatch")
+        return receipt
 
     def _qualify(self, row, outcome, now):
         extra = row.context.extra
@@ -353,10 +354,16 @@ class WeatherShadowAnalysis:
                 or not _near(requested, location)):
             raise QualificationError("outcome_location_mismatch")
         forecast_hash, outcome_hash = annotation.get("responseSha256"), outcome.get("responseSha256")
-        self._forecast_receipt(annotation, row)
+        receipt = self._forecast_receipt(annotation, row)
         if row.provenance.get("responseSha256") not in (None, forecast_hash):
             raise QualificationError("forecast_provenance_hash_mismatch")
         forecast_body = self._response("archive", forecast_hash)
+        if isinstance(forecast_body, list):
+            index = receipt.get("responseLocationIndex")
+            if (row.model != "Open-Meteo surface" or type(index) is not int
+                    or not 0 <= index < len(forecast_body) or not isinstance(forecast_body[index], dict)):
+                raise QualificationError("unsupported_original_response_shape")
+            forecast_body = forecast_body[index]
         outcome_body = self._response("outcomes", outcome_hash)
         forecast_grid = _location({"lat": forecast_body.get("latitude"), "lon": forecast_body.get("longitude")})
         outcome_grid = _location({"lat": outcome_body.get("latitude"), "lon": outcome_body.get("longitude")})

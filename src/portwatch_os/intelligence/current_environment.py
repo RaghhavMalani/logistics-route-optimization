@@ -160,7 +160,7 @@ def _hourly(data, expected):
     return rows, units, grid
 
 
-def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at, *, digest=None):
+def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at, *, digest=None, location_index=None):
     snapshot = {"kind": kind, "portCode": port.locode if kind != "hazards" else None,
                     "source": URLS[kind], "issuedAt": None, "observedAt": None,
                     "availableAt": at.isoformat(), "fetchedAt": at.isoformat(), "rows": rows, "units": units,
@@ -171,7 +171,9 @@ def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at
     # A multi-location original is shared across the ports. Compare the parsed
     # local forecast so a change at another port cannot re-date an unchanged one.
     if digest is not None:
-        identical = previous.get("rows") == rows and previous.get("returnedGrid") == grid
+        identical = (previous.get("rows") == rows and previous.get("returnedGrid") == grid
+                     and previous.get("units") == units)
+        snapshot["responseLocationIndex"] = location_index
     if identical and previous.get("availableAt"):
         snapshot["availableAt"] = previous["availableAt"]
     snapshot["lastSuccessfulCheckAt"] = at.isoformat()
@@ -230,8 +232,8 @@ def refresh_surface_batch(ports):
     digest = hashlib.sha256(response.content).hexdigest()
     return {port.locode: _save_snapshot("surface", port, read("surface", port, at=received),
             {**common, "latitude": port.lat, "longitude": port.lon}, rows, units, grid,
-            response.content, received, digest=digest)
-            for port, (rows, units, grid) in zip(ports, decoded)}
+            response.content, received, digest=digest, location_index=index)
+            for index, (port, (rows, units, grid)) in enumerate(zip(ports, decoded))}
 
 
 def bundle(port):

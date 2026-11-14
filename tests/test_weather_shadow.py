@@ -42,7 +42,7 @@ def _raw(day, variable, value, location=None):
 
 def add(state, index=0, *, port="INNSA", variable="wind_speed", raw=10., observed=15.,
         horizon=5, issue_minutes=0, provider="Open-Meteo surface", outcome_kind="reanalysis",
-        outcome_source="Open-Meteo ERA5 archive", lag=6):
+        outcome_source="Open-Meteo ERA5 archive", lag=6, batch=False):
     ledger, evidence, root = state
     issued = START+timedelta(days=index, minutes=issue_minutes)
     day = (issued+timedelta(days=horizon)).date().isoformat()
@@ -50,11 +50,13 @@ def add(state, index=0, *, port="INNSA", variable="wind_speed", raw=10., observe
     valid, available = start+timedelta(days=1), start+timedelta(days=1+lag)
     location = {"lat": port_registry.resolve(port).lat, "lon": port_registry.resolve(port).lon}
     body = _raw(day, variable, raw, location)
-    raw_bytes = json.dumps(body).encode()
+    raw_bytes = json.dumps([_raw(day, variable, raw+1), body] if batch else body).encode()
     digest = hashlib.sha256(raw_bytes).hexdigest()
     (root/"archive"/(digest+".response")).write_bytes(raw_bytes)
     snapshot = {"portCode": port, "kind": "surface", "availableAt": issued.isoformat(),
                 "responseSha256": digest, "request": {"latitude": location["lat"], "longitude": location["lon"]}}
+    if batch:
+        snapshot["responseLocationIndex"] = 1
     snapshot_id = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
     snapshot["snapshotId"] = snapshot_id
     (root/"archive"/(snapshot_id+".json")).write_text(json.dumps(snapshot), encoding="utf-8")
@@ -91,6 +93,13 @@ def add(state, index=0, *, port="INNSA", variable="wind_speed", raw=10., observe
 
 def report(state, **kwargs):
     return WeatherShadowAnalysis(*state).report(now=NOW, **kwargs)
+
+
+def test_batched_original_uses_the_location_bound_to_the_receipt(state):
+    add(state, batch=True, port="INPRT")
+    result = report(state)
+    assert result["summary"]["qualifiedSnapshots"] == 1
+    assert result["contexts"][0]["targets"][0]["raw"] == 10
 
 
 def update(evidence, table, key, body):
