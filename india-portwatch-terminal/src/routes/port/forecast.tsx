@@ -1,4 +1,4 @@
-import { CongestionScore, congestionBand } from "@/components/kit/CongestionScore";
+import { CongestionScore, CongestionForecastBand } from "@/components/kit/CongestionScore";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
@@ -176,19 +176,17 @@ function PortForecast() {
         items={[
           {
             label: "Day-1 median",
-            value: first ? `${first.q50.toFixed(1)} / 100 pts · ${congestionBand(first.q50)}` : "n/a",
-            tone: (first?.q50 ?? 0) >= 50 ? "warn" : "ok",
-            note: first ? `band ${first.q10.toFixed(0)}–${first.q90.toFixed(0)}` : "no rows",
+            value: <CongestionScore value={first?.q50} compact />,
+            note: first ? <CongestionForecastBand low={first.q10} high={first.q90} /> : "no rows",
           },
           {
             label: "Horizon peak",
-            value: peak ? `${peak.congestionIndex.toFixed(1)} / 100 pts · ${congestionBand(peak.congestionIndex)}` : "n/a",
-            tone: (peak?.congestionIndex ?? 0) >= 65 ? "crit" : "warn",
+            value: <CongestionScore value={peak?.congestionIndex} compact />,
             note: peak ? `day ${peak.day} · ${peak.dateLabel}` : "no rows",
           },
           {
             label: "Widest band",
-            value: widest?.intervalWidth.toFixed(1) ?? "n/a",
+            value: widest ? `${widest.intervalWidth.toFixed(1)} pts` : "n/a",
             tone: "unc",
             note: widest ? `day ${widest.day} — least certain horizon` : "no rows",
           },
@@ -199,7 +197,7 @@ function PortForecast() {
           },
           {
             label: "Conformal offset",
-            value: first?.conformalOffset?.toFixed(2) ?? "n/a",
+            value: first?.conformalOffset == null ? "n/a" : `${first.conformalOffset.toFixed(2)} pts`,
             note: "per-horizon calibration applied to the band",
           },
           {

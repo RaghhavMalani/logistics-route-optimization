@@ -300,7 +300,7 @@ function VesselBridge() {
 
               {railTab === "traffic" && selectedFix && contacts.length === 0 ? (
                 <div className="pw-handoff-card pointer-events-auto px-3 py-2 text-xs text-[var(--text-3)]">
-                  No contact inside 60 nm.
+                  No contacts inside 60 nm.
                 </div>
               ) : null}
               {railTab === "traffic" && selectedFix && contacts.length > 0 ? (
