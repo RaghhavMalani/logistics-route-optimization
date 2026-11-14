@@ -31,9 +31,11 @@ export function DataNowSources({
           : isError
             ? " · unavailable"
             : " · checking"}
-        {activity?.dataAgeSeconds != null
-          ? ` · IMF data ${ageLabel(activity.dataAgeSeconds)} old`
-          : null}
+        {activity?.detail.startsWith("IMF publication lag")
+          ? ` · ${activity.detail}`
+          : activity?.dataAgeSeconds != null
+            ? ` · IMF data ${ageLabel(activity.dataAgeSeconds)} old`
+            : null}
       </div>
       {data ? (
         <details className="relative">

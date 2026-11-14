@@ -142,6 +142,30 @@ def _cached(name):
     return pd.read_csv(p) if p.exists() else pd.DataFrame()
 
 
+def _publish_observation_receipt(rows, received):
+    from src.portwatch_os.intelligence.free_sources import imf_date
+
+    dates = {}
+    for port, values in rows.groupby("portid", sort=False):
+        parsed = (imf_date(value) for value in values["date"].dropna())
+        latest = max((day for day in parsed if day is not None and day <= received), default=None)
+        if latest is not None:
+            dates[str(port)] = latest.date().isoformat()
+    target = CACHE / "observation_receipt.json"
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps({"collectedAt": received.isoformat(), "dates": dates}), encoding="utf-8")
+    temporary.replace(target)
+    return max(dates.values(), default=None)
+
+
+def observation_receipt():
+    try:
+        receipt = json.loads((CACHE / "observation_receipt.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return receipt if isinstance(receipt, dict) and isinstance(receipt.get("dates"), dict) else {}
+
+
 # ---------------------------------------------------------------------------
 def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFrame:
     """Daily India port activity + trade (vessel calls by type, import/export).
@@ -160,7 +184,7 @@ def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFram
             from src.portwatch_os.intelligence.free_sources import imf_date
 
             received = wall_now()  # wall-clock: stamp the successful provider response independently of replay.
-            latest_received_date = max(df["date"].dropna().tolist(), default=None)
+            collected = df
             previous = _cached('port_activity.csv')
             if not previous.empty:
                 df = pd.concat([previous, df], ignore_index=True).drop_duplicates(['portid', 'date'], keep='last')
@@ -178,7 +202,7 @@ def fetch_port_activity(days: int = 400, *, strict: bool = False) -> pd.DataFram
                     temporary = path.with_suffix('.tmp')
                     rows.drop_duplicates('date', keep='last').sort_values('date').to_csv(temporary, index=False)
                     temporary.replace(path)
-            observed = imf_date(latest_received_date)
+            observed = imf_date(_publish_observation_receipt(collected, received))
             journal = get_coordinator().journal
             if observed is not None and journal is not None:
                 journal.record_port_activity_collection(observed, received)
