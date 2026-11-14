@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
+import { ROLE_PROFILE, ROLES, type Role } from "@/auth/types";
 import { useDemonstrationCatalogue } from "@/components/intelligence/DemonstrationScenarios";
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -14,13 +15,15 @@ import { usePorts, useScenarios } from "@/services/hooks";
 import type { ScenarioDefinition } from "@/types/portwatch";
 import { NAVIGATION } from "./navigation";
 import { useTraffic } from "./traffic-context";
+import { requestS10Command } from "./use-workspace-target";
 
 export function WorkspaceCommandPalette() {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [scenario, setScenario] = useState<ScenarioDefinition | null>(null);
+  const [switchError, setSwitchError] = useState(false);
   const { role, profile } = useWorkspace();
-  const { session } = useAuth();
+  const { session, switchDemo, setViewAs } = useAuth();
   const navigate = useNavigate();
   const { source } = useTraffic();
   const { data: ports } = usePorts();
@@ -50,14 +53,31 @@ export function WorkspaceCommandPalette() {
     if (!next) {
       setTerm("");
       setScenario(null);
+      setSwitchError(false);
     }
   };
   const go = (href: string) => {
     change(false);
     void navigate({ href });
   };
-  const target = (key: string, value: string, route = profile.home) =>
-    go(`${route}?${new URLSearchParams({ [key]: value, command: String(Date.now()) })}`);
+  const target = (key: string, value: string, route = profile.home, run = false) => {
+    const command = String(Date.now());
+    if (run) requestS10Command(command);
+    go(`${route}?${new URLSearchParams({ [key]: value, command })}`);
+  };
+  const changeRole = async (next: Role) => {
+    if (session?.mode === "demo") {
+      try {
+        await switchDemo(next);
+        change(false);
+      } catch {
+        setSwitchError(true);
+      }
+    } else {
+      setViewAs(next);
+      go(ROLE_PROFILE[next].home);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={change}>
@@ -77,6 +97,7 @@ export function WorkspaceCommandPalette() {
         <DialogDescription className="px-3 pb-2 text-xs text-[var(--text-3)]">
           Open a workspace page or search for a port, hull or scenario.
         </DialogDescription>
+        {switchError ? <p role="status" className="px-3 pb-2 text-xs">Role switch failed. Try again.</p> : null}
         {scenario ? (
           <section className="border-t border-[var(--line)] p-3">
             <p className="eyebrow">Modelled scenario</p>
@@ -98,7 +119,17 @@ export function WorkspaceCommandPalette() {
                     <item.icon aria-hidden="true" />{item.label}
                   </CommandItem>
                 ))}
+                <CommandItem value="Research" onSelect={() => go("/research")}>Research</CommandItem>
               </CommandGroup>
+              {session?.mode === "demo" || session?.user.role === "NATIONAL_ADMIN" ? (
+                <CommandGroup heading="Switch role">
+                  {ROLES.filter((next) => next !== role).map((next) => (
+                    <CommandItem key={next} keywords={["role", next]} onSelect={() => void changeRole(next)}>
+                      {ROLE_PROFILE[next].label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
               {term.trim().length >= 2 ? (
                 <>
                   <CommandGroup heading="Ports">
@@ -121,6 +152,11 @@ export function WorkspaceCommandPalette() {
                         {row.id} · {row.title}
                       </CommandItem>
                     ))}
+                    {demo?.scenarios.some((row) => row.id === "S10") ? (
+                      <CommandItem onSelect={() => target("scenario", "S10", profile.home, true)}>
+                        Run S10 with fictional inputs
+                      </CommandItem>
+                    ) : null}
                     {scenarios?.map((row) => (
                       <CommandItem
                         key={row.key}
