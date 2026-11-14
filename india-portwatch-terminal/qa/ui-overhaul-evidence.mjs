@@ -10,7 +10,7 @@ if (
   ) ||
   !/^[a-f0-9]{40}$/.test(sha) ||
   !output ||
-  !["all", "screens", "story", "research", "twin-weather"].includes(mode)
+  !["all", "screens", "story", "research", "twin-weather", "twin-stale"].includes(mode)
 ) {
   throw new Error(
     "Pass the isolated preview origin, full SHA, evidence directory and optional mode.",
@@ -23,7 +23,7 @@ assert.equal(health.release?.sha, sha);
 assert.equal(health.service?.status, "ok");
 
 const browser = await chromium.launch(
-  mode === "twin-weather"
+  mode === "twin-weather" || mode === "twin-stale"
     ? {
         headless: false,
         args:
@@ -162,25 +162,7 @@ async function screenShot(width, height, [name, role, path]) {
       path: join(output, `${width}x${height}-${name}.png`),
     });
     if (role && name !== "twin") {
-      await page.keyboard.press("Control+k");
-      const palette = page.getByRole("dialog", { name: "Command palette" });
-      await expect(palette).toBeVisible();
-      await palette.getByRole("combobox").fill("KDL");
-      const result = palette
-        .getByRole("option", { name: /Kandla|Deendayal/i })
-        .first();
-      await expect(result).toBeVisible();
-      const input = palette.getByRole("combobox");
-      const id = await result.getAttribute("id");
-      for (
-        let step = 0;
-        step < 12 && (await input.getAttribute("aria-activedescendant")) !== id;
-        step++
-      ) {
-        await input.press("ArrowDown");
-      }
-      await expect(input).toHaveAttribute("aria-activedescendant", id);
-      await page.keyboard.press("Enter");
+      await chooseCommand(page, "KDL", /Kandla|Deendayal/i);
       const kdl = page
         .locator("[data-map-port-label]")
         .filter({ hasText: /KDL|Kandla|Deendayal/i });
@@ -200,6 +182,45 @@ async function screenShot(width, height, [name, role, path]) {
   } finally {
     await context.close();
   }
+}
+
+async function chooseCommand(page, text, name) {
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const input = palette.getByRole("combobox");
+  await expect(input).toBeVisible();
+  await input.fill(text);
+  const result = palette.getByRole("option", { name }).first();
+  await expect(result).toBeVisible();
+  for (let step = 0; step < 30 && (await result.getAttribute("aria-selected")) !== "true"; step++) {
+    await input.press("ArrowDown");
+  }
+  await expect(result).toHaveAttribute("aria-selected", "true");
+  await input.press("Enter");
+}
+
+async function checkWorkspaceCommands() {
+  const report = { name: "workspace commands", errors: [] };
+  reports.push(report);
+  const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+  try {
+    const page = await context.newPage();
+    watch(page, report);
+    await page.goto(origin + "/login");
+    await page.getByRole("button", { name: "Company demo", exact: true }).click();
+    await page.waitForURL("**/company/overview");
+    const pending = page.waitForResponse((response) => response.url().endsWith("/demonstrations/select") && response.request().method() === "POST");
+    await chooseCommand(page, "Run S10", /Run S10 with fictional inputs/);
+    const result = await pending;
+    assert.equal(result.status(), 200);
+    assert.equal(result.request().postDataJSON().scenarioId, "S10");
+    assert.equal(result.request().postDataJSON().acknowledged, true);
+    await chooseCommand(page, "Port Authority", "Port Authority");
+    await page.waitForURL("**/port/overview");
+    await chooseCommand(page, "Research", "Research");
+    await page.waitForURL("**/research");
+    await expect(page.getByRole("region", { name: "What the study found" })).toBeVisible();
+  } finally { await context.close(); }
 }
 
 async function story() {
@@ -258,8 +279,8 @@ async function story() {
   }
 }
 
-async function measureTwin({ record = false, suppressWeather = false } = {}) {
-  const report = { name: "twin-weather", record, suppressWeather, errors: [] };
+async function measureTwin({ record = false, suppressWeather = false, expectStale = suppressWeather } = {}) {
+  const report = { name: "twin-weather", record, suppressWeather, expectStale, errors: [] };
   reports.push(report);
   const context = await browser.newContext({
     viewport: { width: 1366, height: 768 },
@@ -287,11 +308,12 @@ async function measureTwin({ record = false, suppressWeather = false } = {}) {
     await page.goto(origin + "/port/twin");
     const status = page.getByTestId("twin-weather-status");
     await expect(status).toHaveText(
-      suppressWeather
+      expectStale
         ? /stale · effects off/
         : /Current hourly forecast · Open-Meteo/,
       { timeout: 25_000 },
     );
+    report.weatherLabel = await status.textContent();
     await page.getByRole("button", { name: "Compare policies" }).click();
     const panes = page.getByTestId("port-twin-scene");
     const start = () =>
@@ -327,7 +349,7 @@ async function measureTwin({ record = false, suppressWeather = false } = {}) {
       });
     if (record) {
       await page.screenshot({
-        path: join(output, "1366x768-twin-current-weather.png"),
+        path: join(output, `1366x768-twin-${expectStale ? "stale" : "current"}-weather.png`),
       });
       await page.waitForTimeout(20_000);
     }
@@ -335,7 +357,7 @@ async function measureTwin({ record = false, suppressWeather = false } = {}) {
   } finally {
     await context.close();
     if (video) {
-      await video.saveAs(join(output, "twin-current-weather.webm"));
+      await video.saveAs(join(output, `twin-${expectStale ? "stale" : "current"}-weather.webm`));
       await video.delete();
     }
   }
@@ -355,6 +377,7 @@ try {
     }
   }
   if (mode === "all" || mode === "story") await story();
+  if (mode === "all" || mode === "screens") await checkWorkspaceCommands();
   if (mode === "twin-weather") {
     await measureTwin();
     await measureTwin({ suppressWeather: true });
@@ -366,6 +389,7 @@ try {
       "Twin rendered under 50 fps",
     );
   }
+  if (mode === "twin-stale") await measureTwin({ record: true, expectStale: true });
   assert(
     reports.every((report) => report.errors.length === 0),
     "Browser or API errors in evidence",

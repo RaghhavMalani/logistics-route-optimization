@@ -109,7 +109,7 @@ export function WorkspaceCommandPalette() {
             </button>
           </section>
         ) : (
-          <Command className="bg-[var(--panel)] text-[var(--text)]">
+          <Command loop className="bg-[var(--panel)] text-[var(--text)]">
             <CommandInput value={term} onValueChange={setTerm} placeholder="Pages, ports, hulls, scenarios" />
             <CommandList>
               <CommandEmpty>No matching results.</CommandEmpty>
@@ -134,7 +134,7 @@ export function WorkspaceCommandPalette() {
                 <>
                   <CommandGroup heading="Ports">
                     {ports?.filter((port) => port.location).map((port) => (
-                      <CommandItem key={port.code} value={`${port.short} ${port.name} ${port.code}`} onSelect={() => target("port", port.code)}>
+                      <CommandItem key={port.code} value={port.short} keywords={[port.name, port.code]} onSelect={() => target("port", port.code)}>
                         {port.name} · {port.code}
                       </CommandItem>
                     ))}
