@@ -11,7 +11,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
-import { usePorts, useScenarios } from "@/services/hooks";
+import { usePortRegistry, useScenarios } from "@/services/hooks";
 import type { ScenarioDefinition } from "@/types/portwatch";
 import { NAVIGATION } from "./navigation";
 import { useTraffic } from "./traffic-context";
@@ -26,7 +26,7 @@ export function WorkspaceCommandPalette() {
   const { session, switchDemo, setViewAs } = useAuth();
   const navigate = useNavigate();
   const { source } = useTraffic();
-  const { data: ports } = usePorts();
+  const { data: ports } = usePortRegistry();
   const { data: scenarios } = useScenarios(open);
   const companyDemo = role === "SHIPPING_COMPANY" && session?.mode === "demo";
   const { data: demo } = useDemonstrationCatalogue(open && companyDemo);

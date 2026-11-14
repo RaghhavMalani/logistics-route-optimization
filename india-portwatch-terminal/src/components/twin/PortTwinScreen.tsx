@@ -54,7 +54,7 @@ import {
 } from "./twin-presentation";
 
 import { usePortWeather } from "@/components/miniature/use-port-weather";
-import { usePorts } from "@/services/hooks";
+import { usePortRegistry } from "@/services/hooks";
 import { createTwinPlayback } from "./twin-playback";
 import { twinCallPickId, twinSelection } from "./twin-selection";
 import { useTwinClock } from "./use-twin-clock";
@@ -87,7 +87,7 @@ function SceneFallback({ label }: { label: string }) {
 
 export function PortTwinScreen({ portCode }: { portCode: string }) {
   const twin = usePortTwin(portCode);
-  const location = usePorts().data?.find((port) => port.code === portCode)?.location;
+  const location = usePortRegistry().data?.find((port) => port.code === portCode)?.location;
   const { weather, label: weatherLabel } = usePortWeather(portCode, location?.lat, location?.lon);
   const [overlay, setOverlay] = useState<TwinOverlay>("utilisation");
   const [showModel, setShowModel] = useState(false);
