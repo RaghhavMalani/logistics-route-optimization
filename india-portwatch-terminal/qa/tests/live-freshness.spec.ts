@@ -16,8 +16,12 @@ for (const [role, path] of [
     await expect(pulse).toHaveCount(1);
     await expect(pulse.locator('[data-source="imf-portwatch-data"]')).toHaveAttribute("data-status", "stale");
     await expect(pulse.locator('[data-source="aisstream-websocket"]')).toHaveAttribute("data-status", "unavailable");
-    await expect(page.getByTestId("weather-offset")).toHaveText("Latest available");
+    await expect(page.getByTestId("weather-offset")).toHaveText("Latest available · 28 Aug 00:00Z (70.5 days)");
     await expect(page.getByRole("button", { name: "NOW", exact: true })).toHaveCount(0);
+    if (role === "VESSEL_OPERATOR") {
+      const routeWeather = page.getByRole("region", { name: "Passage at a glance" });
+      await expect(routeWeather.getByText("Latest available · 28 Aug 00:00Z (70.5 days)")).toBeVisible();
+    }
     await expect(page.getByTestId('dated-source-imf-portwatch-data').first()).toContainText('Latest available');
   });
 }

@@ -103,7 +103,7 @@ export function WorkspaceCommandPalette() {
                 <>
                   <CommandGroup heading="Ports">
                     {ports?.filter((port) => port.location).map((port) => (
-                      <CommandItem key={port.code} keywords={[port.short]} onSelect={() => target("port", port.code)}>
+                      <CommandItem key={port.code} value={`${port.short} ${port.name} ${port.code}`} onSelect={() => target("port", port.code)}>
                         {port.name} · {port.code}
                       </CommandItem>
                     ))}
