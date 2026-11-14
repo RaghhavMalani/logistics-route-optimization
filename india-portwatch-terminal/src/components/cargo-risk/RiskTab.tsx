@@ -4,6 +4,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { formatUtc } from "@/components/kit/primitives";
 import { CargoCard, Source } from "./CargoCard";
+import { CARGO_STUDY_SEED } from "./types";
 import { money, percent, tone } from "./view-model";
 import type {
   Interval,
@@ -15,7 +16,7 @@ import type {
 import "./cargo-risk.css";
 
 const CargoMiniature = lazy(() => import("./CargoMiniature"));
-const SEED = 20261112;
+const SEED = CARGO_STUDY_SEED;
 
 function isRiskReport(value: RiskResponse | undefined): value is RiskReport {
   return value?.status === "SHADOW";

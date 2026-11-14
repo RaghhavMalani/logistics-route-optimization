@@ -45,6 +45,7 @@ import {
 } from "@/components/miniature/WorkflowRail";
 import { CommercialReview } from "./CommercialReview";
 import { RiskTab } from "@/components/cargo-risk/RiskTab";
+import { DecisionTradeoff } from "@/components/cargo-risk/DecisionTradeoff";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
@@ -912,6 +913,10 @@ export function DecisionPanel({
         ) : null}
 
         {tab === "workflow" ? (
+          <>
+          {session?.user.role === "SHIPPING_COMPANY" ? (
+            <DecisionTradeoff key={problem.decisionId} problemId={problem.decisionId} />
+          ) : null}
           <WorkflowView
             problem={problem}
             target={workflowTarget}
@@ -971,6 +976,7 @@ export function DecisionPanel({
             }
             handoffResult={workflow.handoff.data ?? null}
           />
+          </>
         ) : null}
       </div>
       {tab === "options" &&
