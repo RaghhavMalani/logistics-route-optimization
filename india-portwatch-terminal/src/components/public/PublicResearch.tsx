@@ -8,6 +8,7 @@ import {
 import { DataState, LinePlot, PublicShell } from "./PublicShell";
 import { fmt, utc } from "./format";
 import { PublicPortCases } from "./PublicPortCases";
+import { ModelStatus } from "./ModelStatus";
 
 const pct = (n?: number | null) =>
   n == null ? "Unavailable" : `${fmt(n * 100)}%`;
@@ -405,6 +406,7 @@ export function PublicResearch() {
           Source · docs/DECISION_BENCHMARK.md
         </a>
       </section>
+      <ModelStatus />
       <PublicPortCases />
       {query.isPending || query.isError ? (
         <DataState

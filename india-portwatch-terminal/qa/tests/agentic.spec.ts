@@ -220,7 +220,7 @@ test.describe("agent console", () => {
     // The replayed run carries a chain, so the trace must render.
     await expect(console_.getByText(/tool calls/)).toBeVisible({ timeout: 15_000 });
     await expect(
-      console_.getByText(/Agents orchestrate and explain/),
+      console_.getByText(/Rule-routed specialists run the checks/),
     ).toBeVisible();
   });
 

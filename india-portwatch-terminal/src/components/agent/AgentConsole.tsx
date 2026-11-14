@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
-  Sparkles,
+  ListChecks,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -254,8 +254,8 @@ export function AgentConsole({ className }: { className?: string }) {
           className,
         )}
       >
-        <Sparkles size={11} className="text-[var(--info)]" />
-        Ask PortWatch
+        <ListChecks size={11} className="text-[var(--info)]" />
+        Run specialist checks
       </button>
     );
   }
@@ -271,13 +271,13 @@ export function AgentConsole({ className }: { className?: string }) {
       )}
     >
       <header className="flex h-[26px] shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-2)]/85 px-2">
-        <Sparkles size={11} className="text-[var(--info)]" />
+        <ListChecks size={11} className="text-[var(--info)]" />
         <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-2)]">
-          Ask PortWatch
+          Specialist checks
         </span>
         <button
           type="button"
-          aria-label="Close the agent console"
+          aria-label="Close specialist checks"
           onClick={() => setOpen(false)}
           className="text-[var(--text-3)] hover:text-[var(--text)]"
         >
@@ -317,13 +317,13 @@ export function AgentConsole({ className }: { className?: string }) {
         {mutation.isPending ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[11px] text-[var(--text-3)]">
             <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
-            Running the chain…
+            Running specialist checks…
           </div>
         ) : mutation.isError ? (
           <p className="px-3 py-4 text-[11px] leading-relaxed text-[var(--crit)]">
             {mutation.error instanceof Error
               ? mutation.error.message
-              : "The agent run failed."}
+              : "The specialist checks failed."}
           </p>
         ) : run ? (
           <>
@@ -415,15 +415,17 @@ export function AgentConsole({ className }: { className?: string }) {
             </ul>
 
             <footer className="border-t border-[var(--line)] px-2 py-1.5">
-              <p className="text-[10px] leading-snug text-[var(--text-3)]">{run.note}</p>
+              <p className="text-[10px] leading-snug text-[var(--text-3)]">
+                {run.note?.replace("Agents orchestrate and explain.", "Rule-routed specialists run the checks.")
+                  .replace("No agent may execute an action.", "Execution requires an authenticated approver.")}
+              </p>
             </footer>
           </>
         ) : (
           <p className="px-3 py-4 text-[11px] leading-relaxed text-[var(--text-3)]">
-            Ask a question and the orchestrator routes it to the specialists that can
-            answer it. Every number in the answer comes from a tool in the trace, and
-            every tool names the model that computed it. Agents cannot execute
-            anything — a drafted advisory still has to be issued by a controller.
+            Keyword rules select the specialist tools for a check. The trace shows
+            each tool, its source and the model that produced its numbers. A
+            controller must issue any drafted advisory.
           </p>
         )}
       </div>

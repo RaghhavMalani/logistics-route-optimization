@@ -43,12 +43,12 @@ function AgentsScreen() {
   if (architecture.isLoading || architecture.isError) {
     return (
       <ScreenFallback
-        title="Agents"
-        context={<span>Orchestration, tools and the approval boundary</span>}
+        title="Specialists"
+        context={<span>Rule-routed tools, provenance and the approval boundary</span>}
         isLoading={architecture.isLoading}
         error={architecture.error}
         retry={() => void architecture.refetch()}
-        label="Reading the agent registry"
+        label="Reading the specialist registry"
       />
     );
   }
@@ -59,8 +59,8 @@ function AgentsScreen() {
   return (
     <Page>
       <PageHeader
-        title="Agents"
-        context={<span>Orchestration, tools and the approval boundary</span>}
+        title="Specialists"
+        context={<span>Rule-routed tools, provenance and the approval boundary</span>}
         meta={
           <>
             <span className="num">{data.agents.length} specialists</span>
@@ -107,7 +107,7 @@ function AgentsScreen() {
               </Section>
             </Panel>
 
-            <Panel title="Command agent">
+            <Panel title="Rule routing">
               <Section title={data.command.name}>
                 <p className="text-[10.5px] leading-relaxed text-[var(--text-2)]">
                   {data.command.purpose}

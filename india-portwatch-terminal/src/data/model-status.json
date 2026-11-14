@@ -1,0 +1,10 @@
+[
+  { "component": "GBM + conformal", "status": "Evaluated", "basis": "Chronological port-pressure forecasts" },
+  { "component": "HMM regimes", "status": "Evaluated · no gain", "basis": "Forecast feature comparison" },
+  { "component": "Temporal Fusion Transformer (TFT)", "status": "Implemented · unevaluated here", "basis": "Optional forecast training path" },
+  { "component": "Cargo cost model and decision rules", "status": "Evaluated", "basis": "Synthetic cases" },
+  { "component": "Berth Q-learning", "status": "Evaluated in simulation · rejected", "basis": "Compared with constrained lookahead" },
+  { "component": "Satellite scene detection", "status": "Planned" },
+  { "component": "HMM-driven Monte Carlo", "status": "Planned" },
+  { "component": "Voyage reinforcement learning", "status": "Planned" }
+]

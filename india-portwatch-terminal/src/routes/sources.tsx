@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { formatUtc } from "@/components/kit/primitives";
+import { ModelStatus } from "@/components/public/ModelStatus";
 import { getJson } from "@/services/api";
 import type { ApiResponse } from "@/services/api-client";
 import {
@@ -96,6 +97,7 @@ function SourcesPage() {
           within their expected publication lag. Private trials appear as
           unavailable in the workspace.
         </p>
+        <ModelStatus />
         {isPending ? (
           <p role="status">Checking retained source health…</p>
         ) : null}

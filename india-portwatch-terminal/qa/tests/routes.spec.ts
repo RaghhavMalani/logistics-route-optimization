@@ -57,7 +57,7 @@ const SCREENS: Record<Role, Screen[]> = {
     { path: "/admin/companies", heading: "Companies" },
     { path: "/admin/model", heading: "Model Intelligence" },
     { path: "/admin/learning", heading: "Learning" },
-    { path: "/admin/agents", heading: "Agents" },
+    { path: "/admin/agents", heading: "Specialists" },
     { path: "/admin/scenarios", heading: "Scenario Room" },
     { path: "/admin/intelligence", heading: "Event Intelligence" },
     { path: "/admin/data", heading: "Data Sources" },
