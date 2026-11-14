@@ -93,9 +93,13 @@ export function PaperFindings() {
         </article>
       </div>
       <p className="public-note">
-        <a href="/portwatch-study.pdf" className="public-download">
-          Read the paper (PDF)
-        </a>
+        {import.meta.env.VITE_PORTWATCH_PUBLIC_PAPER === "true" ? (
+          <a href="/portwatch-study.pdf" className="public-download">
+            Read the paper (PDF)
+          </a>
+        ) : (
+          "Paper under review"
+        )}
         {" · Source revision "}
         <code>{paperSourceSha.slice(0, 7)}</code>
       </p>

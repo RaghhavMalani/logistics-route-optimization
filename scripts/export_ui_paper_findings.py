@@ -62,7 +62,7 @@ def main():
                       for row in decisions],
     }
     (TERMINAL / "src/data/paper-findings.v1.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8", newline="\n")
-    (TERMINAL / "public/portwatch-study.pdf").write_bytes(blob("docs/paper/paper.pdf"))
+    (TERMINAL / "assets/portwatch-study.pdf").write_bytes(blob("docs/paper/paper.pdf"))
 
 
 if __name__ == "__main__":

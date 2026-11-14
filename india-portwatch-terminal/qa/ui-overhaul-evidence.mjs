@@ -157,9 +157,12 @@ async function screenShot(width, height, [name, role, path]) {
           findings.getByText("SYNTHETIC CORPUS", { exact: true }),
         ).toHaveCount(3);
         await expect(findings.getByText(/0 choices changed/)).toBeVisible();
+        await expect(findings.getByText("Paper under review")).toBeVisible();
+        await expect(
+          findings.getByRole("link", { name: /Read the paper/ }),
+        ).toHaveCount(0);
         const pdf = await context.request.get(origin + "/portwatch-study.pdf");
-        assert.equal(pdf.status(), 200);
-        assert.equal((await pdf.body()).subarray(0, 5).toString(), "%PDF-");
+        assert.equal(pdf.status(), 404);
         await findings.scrollIntoViewIfNeeded();
       }
     } else if (role) {
