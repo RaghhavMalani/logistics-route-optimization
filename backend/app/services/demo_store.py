@@ -27,6 +27,7 @@ def utc_now():
 
 
 def seed_world(at):
+    from src.portwatch_os.cargo.demo_consignments import demo_consignments
     from src.portwatch_os.panel_runtime import snapshot_at
 
     anchor = snapshot_at()
@@ -39,6 +40,7 @@ def seed_world(at):
             {"id": "PWD-001", "name": "PW Meridian", "laneCode": "EUR_IND", "portCode": "INNSA", "hoursToRisk": 24, "etaHours": 180, "lat": 33.5, "lon": 26.9, "cargo": "640 TEU · scheduled inland connection", "status": "Approaching restriction", "mmsi": None},
             {"id": "PWD-002", "name": "PW Coromandel", "laneCode": "EUR_IND", "portCode": "INNSA", "hoursToRisk": -8, "etaHours": 140, "lat": 29.3, "lon": 32.8, "cargo": "420 TEU · refrigerated cargo", "status": "Committed passage", "mmsi": None},
             {"id": "PWD-003", "name": "PW Konkan", "laneCode": "GULF_IND", "portCode": "INNSA", "hoursToRisk": 36, "etaHours": 84, "lat": 25.6, "lon": 53.4, "cargo": "300 TEU · feeder connection", "status": "Approaching Hormuz", "mmsi": None}],
+        "cargoRiskConsignments": demo_consignments(at),
         "comparisons": [], "proposal": None, "portComparison": None, "advisories": [], "history": []}
 
 

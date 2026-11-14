@@ -1,0 +1,1353 @@
+{
+  "candidateGrid": [
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.5
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.5
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.5
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.5
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.5
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.5
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.55
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.55
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.55
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.55
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.55
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.55
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.6
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.6
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.6
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.6
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.6
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.6
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.65
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.65
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.65
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.65
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.65
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.65
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.7
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.7
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.7
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.7
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.7
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.7
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.75
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.75
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.75
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.75
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.75
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.75
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.8
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.8
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.8
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.8
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.8
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.8
+    },
+    {
+      "epsilon": 0.1,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.9
+    },
+    {
+      "epsilon": 0.2,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.9
+    },
+    {
+      "epsilon": 0.35,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.9
+    },
+    {
+      "epsilon": 0.5,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.9
+    },
+    {
+      "epsilon": 0.75,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.9
+    },
+    {
+      "epsilon": 1.0,
+      "metrics": {
+        "cargo": {
+          "actIsBest": 6,
+          "captureRate": 1.0,
+          "captured": 6,
+          "interventions": 6,
+          "meanCost": 0.0,
+          "p90Hours": 309.6455746360024,
+          "scored": 37
+        },
+        "vessel": {
+          "actIsBest": 3,
+          "captureRate": 0.0,
+          "captured": 0,
+          "interventions": 0,
+          "meanCost": 39.86486486486486,
+          "p90Hours": 0.0,
+          "scored": 37
+        }
+      },
+      "q": 0.9
+    }
+  ],
+  "corpora": {
+    "test": [
+      5001,
+      200
+    ],
+    "tuning": [
+      1,
+      40
+    ],
+    "validation": [
+      1001,
+      100
+    ]
+  },
+  "failures": [
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-23",
+      "split": "tuning"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-30",
+      "split": "tuning"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-36",
+      "split": "tuning"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-22",
+      "split": "tuning"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-35",
+      "split": "tuning"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-37",
+      "split": "tuning"
+    },
+    {
+      "domain": "vessel",
+      "error": "VesselDecisionError: Benchmark hull 1006 is not reached by benchmark closure 1006 at 2026-09-14T12:00:00+00:00; there is no routing decision to make from this event",
+      "id": "vessel-1006",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1036",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "VesselDecisionError: Benchmark hull 1041 is not reached by benchmark closure 1041 at 2026-09-14T12:00:00+00:00; there is no routing decision to make from this event",
+      "id": "vessel-1041",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1069",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1072",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1074",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1085",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1089",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1090",
+      "split": "validation"
+    },
+    {
+      "domain": "vessel",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "vessel-1094",
+      "split": "validation"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-1006",
+      "split": "validation"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-1007",
+      "split": "validation"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-1008",
+      "split": "validation"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-1023",
+      "split": "validation"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-1079",
+      "split": "validation"
+    },
+    {
+      "domain": "cargo",
+      "error": "ValueError: No baseline routing with a modelled delivery clock",
+      "id": "cargo-1081",
+      "split": "validation"
+    }
+  ],
+  "gate": {
+    "cargoP90CostMaxRatioVsIncumbent": 1.05,
+    "evaluate": [
+      "validation",
+      "test"
+    ],
+    "minimumCoverageFraction": 0.9,
+    "vesselCaptureMinFraction": 0.5,
+    "vesselP90MaxHours": 1
+  },
+  "registeredInputs": {
+    "scripts/tune_cargo_policy.py": "dee4a3f206c442de758318841bfdf8f2689bca38ae9fe0a7c088f5572e935246",
+    "src/portwatch_os/cargo/demo_consignments.py": "6734453e74c812cf63812814f39b9c3fd5ac892347850feb95afa828f6293604",
+    "src/portwatch_os/decision/benchmark.py": "d4e55a166c49f28d412260904def006fb13a1e5bbe893558b600733ccf79c297",
+    "src/portwatch_os/decision/cargo_policy.py": "68a2ca39c89554b75b50c70dfae9409c2ed53701cfaf0eb645ec92892f89ed28",
+    "src/portwatch_os/decision/cargo_risk.py": "3090ed7dd3ca652e90f420a89a28a201e05d32e0ed7093f2b1f033cab0fbfeae",
+    "src/portwatch_os/decision/cargo_sampling.py": "2e402e6819a4d87e7de64552a2d7a35b9548b2ded0b3c50f5cdfca06ec34c770",
+    "src/portwatch_os/decision/outcome.py": "b94f014cdb7e55c3074c65c74c8359002eacb437befb78d6d3bed8236bb35a9c",
+    "src/portwatch_os/decision/paper_corpus.py": "965ea1819bc918ea893562fcbb4e7ac82841ac8f9ad88fdec1dedfd594bd7695"
+  },
+  "registrationHash": "47f4dcdc1b98cdce2d1ff25ed3d4a6baac49db6639c28c7cc442428c5c5f72dd",
+  "seed": 20261112,
+  "selected": {
+    "epsilon": 0.1,
+    "q": 0.9
+  },
+  "testInspected": false,
+  "tuningCriterion": "Prefer vessel p90 <= 1 h, then maximize sum of two capture rates, minimize weighted mean cost regret, minimize interventions, prefer higher q and lower epsilon",
+  "validation": {
+    "cargo": {
+      "actIsBest": 20,
+      "captureRate": 0.95,
+      "captured": 19,
+      "interventions": 19,
+      "meanCost": 31.636015639930655,
+      "p90Hours": 339.34201350210986,
+      "scored": 94
+    },
+    "vessel": {
+      "actIsBest": 5,
+      "captureRate": 0.0,
+      "captured": 0,
+      "interventions": 0,
+      "meanCost": 268.3333333333333,
+      "p90Hours": 0.0,
+      "scored": 90
+    }
+  },
+  "version": "cargo-paper-preregistration-v1"
+}

@@ -56,3 +56,32 @@ Active policy: `portwatch_robust`.
 - It does not reward a hedge that loses on net. A policy that never intervenes on a corpus where no intervention pays is measured as correct on that corpus; the beneficial-intervention capture figure says how many paying interventions it declined, and the reader decides whether that is acceptable.
 - The truth's backlog drain is drawn from a range the policy does not see; the policy's own drain is the mean of two recorded closures. The queue-model-agreement check inside the policy guards against a recommendation that rests on the drain assumption alone.
 - PORT and CARGO are unchanged by the candidate; the gate checks them for regressions only.
+
+## Cargo-aware R5 preregistration
+
+Registration: [paper/PREREGISTRATION.json](../paper/PREREGISTRATION.json). The
+registry stores the master seed, full tuning grid, code-input hashes, selected
+thresholds and validation metrics. The only fitting command reads tuning
+(seeds 1–40). It evaluates its fixed choice on validation (1001–1100).
+The original vessel benchmark keeps its historical IDs. Synthetic cargo uses
+distinct routing seeds offset by 100,000 and independently seeded cargo terms
+and market/handling futures. The test IDs (5001–5200) were withheld from this
+phase. Published historical incumbent aggregates were already known.
+
+The candidate is a research-only comparison. Promotion requires **all** of the
+following on both validation and test, evaluated with the locked thresholds:
+
+- R5 has at least 90% scoreable case coverage in each corpus.
+- R5 vessel p90 realised regret is at most 1 hour.
+- R5 improves on keep in at least half of the vessel act-is-best cases,
+  counted over all eligible cases. With ten such cases this requires five
+  captures. An empty denominator cannot pass this gate.
+- On paired scoreable cargo cases, R5 p90 cost regret is at most 105% of the
+  active robust incumbent's p90 cost regret. If the incumbent is at zero,
+  the candidate must also be at zero.
+
+Coverage, abstentions, both test results and the verdict are published even
+if validation has already rejected promotion. The rules and parameter grid
+are fixed before the test run. The incumbent remains the operating default.
+
+Locked registration hash: 47f4dcdc1b98cdce2d1ff25ed3d4a6baac49db6639c28c7cc442428c5c5f72dd

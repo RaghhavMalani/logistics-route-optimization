@@ -697,6 +697,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/commercial/cargo-risk/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cargo Risk Portfolio */
+        post: operations["cargo_risk_portfolio_api_commercial_cargo_risk_portfolio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/commercial/comparisons/{decision_id}": {
         parameters: {
             query?: never;
@@ -706,6 +723,40 @@ export interface paths {
         };
         /** Retained */
         get: operations["retained_api_commercial_comparisons__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commercial/comparisons/{decision_id}/cargo-risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cargo Risk Study */
+        post: operations["cargo_risk_study_api_commercial_comparisons__decision_id__cargo_risk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/commercial/comparisons/{decision_id}/cargo-risk/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cargo Risk Progress */
+        get: operations["cargo_risk_progress_api_commercial_comparisons__decision_id__cargo_risk_jobs__job_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1723,6 +1774,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/demo/terminal/commercial/cargo-risk/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Demo Terminal Cargo Risk Portfolio */
+        post: operations["demo_terminal_cargo_risk_portfolio_api_demo_terminal_commercial_cargo_risk_portfolio_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/demo/terminal/commercial/comparisons/{decision_id}": {
         parameters: {
             query?: never;
@@ -1732,6 +1800,40 @@ export interface paths {
         };
         /** Demo Terminal Retained */
         get: operations["demo_terminal_retained_api_demo_terminal_commercial_comparisons__decision_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/terminal/commercial/comparisons/{decision_id}/cargo-risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Demo Terminal Cargo Risk Study */
+        post: operations["demo_terminal_cargo_risk_study_api_demo_terminal_commercial_comparisons__decision_id__cargo_risk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/demo/terminal/commercial/comparisons/{decision_id}/cargo-risk/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Demo Terminal Cargo Risk Progress */
+        get: operations["demo_terminal_cargo_risk_progress_api_demo_terminal_commercial_comparisons__decision_id__cargo_risk_jobs__job_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7310,6 +7412,90 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** CargoRiskPortfolio */
+        CargoRiskPortfolio: {
+            /**
+             * Seed
+             * @default 20261112
+             */
+            seed: number;
+            /** Selections */
+            selections: components["schemas"]["CargoRiskSelection"][];
+        };
+        /** CargoRiskRequest */
+        CargoRiskRequest: {
+            /**
+             * Epsilon
+             * @default 0.1
+             */
+            epsilon: number;
+            /** Jobid */
+            jobId?: string | null;
+            /** Nextrefreshhour */
+            nextRefreshHour?: number | null;
+            /**
+             * Q
+             * @default 0.9
+             */
+            q: number;
+            /**
+             * Regretmetric
+             * @default cost
+             * @enum {string}
+             */
+            regretMetric: "cost" | "hours";
+            /**
+             * Rule
+             * @default R1
+             * @enum {string}
+             */
+            rule: "R1" | "R2" | "R3" | "R4" | "R5";
+            /**
+             * Seed
+             * @default 20261112
+             */
+            seed: number;
+        };
+        /** CargoRiskSelection */
+        CargoRiskSelection: {
+            /** Decisionid */
+            decisionId: string;
+            /** Optionid */
+            optionId: string;
+        };
+        /**
+         * CargoRiskTerms
+         * @description Optional commercial terms for the stochastic study, separate from feasibility.
+         */
+        CargoRiskTerms: {
+            annualInventoryRate?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            cargoPolicyRate?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            cifValue?: components["schemas"]["Sourced_Amount_"] | null;
+            commodityHsCode?: components["schemas"]["Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____0-9__2_10________"] | null;
+            currency?: components["schemas"]["Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____A-Z__3________"] | null;
+            deductible?: components["schemas"]["Sourced_Amount_"] | null;
+            deliveryDeadline?: components["schemas"]["Sourced_datetime_"] | null;
+            demurrageRatePerDay?: components["schemas"]["Sourced_Amount_"] | null;
+            detentionFreeHours?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"] | null;
+            detentionRatePerDay?: components["schemas"]["Sourced_Amount_"] | null;
+            excludedAreas?: components["schemas"]["Sourced_list_str__"] | null;
+            freeTimeHours?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"] | null;
+            generalAverageContribution?: components["schemas"]["Sourced_Amount_"] | null;
+            generalAverageEventProbability?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            generalAverageExposed?: components["schemas"]["Sourced_bool_"] | null;
+            handlingClass?: components["schemas"]["Sourced_Literal__dry____reefer____DG___"] | null;
+            imdgClass?: components["schemas"]["Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____1-9____1-6__________"] | null;
+            insuredValue?: components["schemas"]["Sourced_Amount_"] | null;
+            latePenalty?: components["schemas"]["Sourced_LateCharge_"] | null;
+            margin?: components["schemas"]["Sourced_Amount_"] | null;
+            maxUnpoweredHours?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"] | null;
+            perishable?: components["schemas"]["Sourced_bool_"] | null;
+            priority?: components["schemas"]["Sourced_Literal_1__2__3__"] | null;
+            reeferSetPointC?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_-100___Le_le_100_____"] | null;
+            remainingShelfLifeHours?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____"] | null;
+            separateDeductibleEventProbability?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            warRiskAreas?: components["schemas"]["Sourced_list_WarRiskTerm__"] | null;
+        };
         /** Charge */
         Charge: {
             basis: components["schemas"]["Basis"];
@@ -7470,6 +7656,7 @@ export interface components {
              * @default false
              */
             required: boolean;
+            riskTerms?: components["schemas"]["CargoRiskTerms"] | null;
             /** Shelflifereferenceat */
             shelfLifeReferenceAt?: string | null;
             /** Stockoutconsequence */
@@ -7699,6 +7886,15 @@ export interface components {
              * @enum {string}
              */
             recordType: "operations" | "outcomes";
+        };
+        /** LateCharge */
+        LateCharge: {
+            amount: components["schemas"]["Amount"];
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "per_day" | "flat";
         };
         /** ObservationInput */
         ObservationInput: {
@@ -8188,6 +8384,181 @@ export interface components {
             /** Sources */
             sources: components["schemas"]["SourceHealth"][];
         };
+        /** Sourced[Amount] */
+        Sourced_Amount_: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            value: components["schemas"]["Amount"];
+        };
+        /** Sourced[Annotated[Decimal, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=-100), Le(le=100)])]] */
+        "Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_-100___Le_le_100_____": {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: number | string;
+        };
+        /** Sourced[Annotated[Decimal, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=1000000000)])]] */
+        Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1000000000_____: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: number | string;
+        };
+        /** Sourced[Annotated[Decimal, FieldInfo(annotation=NoneType, required=True, metadata=[Ge(ge=0), Le(le=1)])]] */
+        Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: number | string;
+        };
+        /** Sourced[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[_PydanticGeneralMetadata(pattern='^[0-9]{2,10}$')])]] */
+        "Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____0-9__2_10________": {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: string;
+        };
+        /** Sourced[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[_PydanticGeneralMetadata(pattern='^[1-9](?:\\.[1-6])?$')])]] */
+        "Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____1-9____1-6__________": {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: string;
+        };
+        /** Sourced[Annotated[str, FieldInfo(annotation=NoneType, required=True, metadata=[_PydanticGeneralMetadata(pattern='^[A-Z]{3}$')])]] */
+        "Sourced_Annotated_str__FieldInfo_annotation_NoneType__required_True__metadata___PydanticGeneralMetadata_pattern____A-Z__3________": {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: string;
+        };
+        /** Sourced[LateCharge] */
+        Sourced_LateCharge_: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            value: components["schemas"]["LateCharge"];
+        };
+        /** Sourced[Literal[1, 2, 3]] */
+        Sourced_Literal_1__2__3__: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /**
+             * Value
+             * @enum {integer}
+             */
+            value: 1 | 2 | 3;
+        };
+        /** Sourced[Literal['dry', 'reefer', 'DG']] */
+        Sourced_Literal__dry____reefer____DG___: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /**
+             * Value
+             * @enum {string}
+             */
+            value: "dry" | "reefer" | "DG";
+        };
+        /** Sourced[bool] */
+        Sourced_bool_: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: boolean;
+        };
+        /** Sourced[datetime] */
+        Sourced_datetime_: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /**
+             * Value
+             * Format: date-time
+             */
+            value: string;
+        };
+        /** Sourced[list[WarRiskTerm]] */
+        Sourced_list_WarRiskTerm__: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: components["schemas"]["WarRiskTerm"][];
+        };
+        /** Sourced[list[str]] */
+        Sourced_list_str__: {
+            /**
+             * Basis
+             * @enum {string}
+             */
+            basis: "declared" | "contract" | "tariff" | "assumption";
+            /** Source */
+            source: string;
+            /** Value */
+            value: string[];
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -8200,6 +8571,13 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WarRiskTerm */
+        WarRiskTerm: {
+            /** Area */
+            area: string;
+            premiumRate?: components["schemas"]["Sourced_Annotated_Decimal__FieldInfo_annotation_NoneType__required_True__metadata__Ge_ge_0___Le_le_1_____"] | null;
+            required: components["schemas"]["Sourced_bool_"];
         };
         /** WorldClockPayload */
         WorldClockPayload: {
@@ -9565,12 +9943,112 @@ export interface operations {
             };
         };
     };
+    cargo_risk_portfolio_api_commercial_cargo_risk_portfolio_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CargoRiskPortfolio"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     retained_api_commercial_comparisons__decision_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cargo_risk_study_api_commercial_comparisons__decision_id__cargo_risk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CargoRiskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cargo_risk_progress_api_commercial_comparisons__decision_id__cargo_risk_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decision_id: string;
+                job_id: string;
             };
             cookie?: never;
         };
@@ -11598,6 +12076,41 @@ export interface operations {
             };
         };
     };
+    demo_terminal_cargo_risk_portfolio_api_demo_terminal_commercial_cargo_risk_portfolio_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CargoRiskPortfolio"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     demo_terminal_retained_api_demo_terminal_commercial_comparisons__decision_id__get: {
         parameters: {
             query?: never;
@@ -11606,6 +12119,77 @@ export interface operations {
             };
             path: {
                 decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demo_terminal_cargo_risk_study_api_demo_terminal_commercial_comparisons__decision_id__cargo_risk_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                decision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CargoRiskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demo_terminal_cargo_risk_progress_api_demo_terminal_commercial_comparisons__decision_id__cargo_risk_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                decision_id: string;
+                job_id: string;
             };
             cookie?: never;
         };

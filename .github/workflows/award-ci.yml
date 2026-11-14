@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, feat/backend-maintainability, main]
+    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, feat/backend-maintainability, feat/cargo-monte-carlo, main]
   workflow_dispatch:
 
 concurrency:
@@ -26,7 +26,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt -r requirements-paper.txt
 
       - name: Compile the operations layer
         run: python -m compileall -q src/portwatch_os tests
@@ -44,6 +44,10 @@ jobs:
         # Small deterministic environments only. The 250-episode training run and
         # the TFT stay out of CI; the suite trains 20-40 episodes on fixed seeds.
         run: python -m unittest tests.test_twin_and_cargo -v
+
+      - name: Reproduce the paper smoke on tuning cases
+        timeout-minutes: 2
+        run: python scripts/paper_experiments.py --smoke
 
       - name: Advisory state machine and audit trail
         run: python -m unittest tests.test_advisories -v

@@ -44,6 +44,7 @@ import {
   WorkflowRail,
 } from "@/components/miniature/WorkflowRail";
 import { CommercialReview } from "./CommercialReview";
+import { RiskTab } from "@/components/cargo-risk/RiskTab";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
@@ -66,7 +67,8 @@ type Tab =
   | "money"
   | "why"
   | "workflow"
-  | "business";
+  | "business"
+  | "cargo-risk";
 
 const VERDICT_TONE: Record<CriticVerdict, Tone> = {
   PASS: "ok",
@@ -542,6 +544,10 @@ export function DecisionPanel({
                   session?.user.role === "SHIPPING_COMPANY"
                     ? [{ value: "business" as const, label: "Business" }]
                     : []),
+                  ...(session?.mode === "demo" &&
+                  session.user.role === "SHIPPING_COMPANY"
+                    ? [{ value: "cargo-risk" as const, label: "Cargo risk" }]
+                    : []),
                   { value: "why", label: "Why" },
                   { value: "workflow", label: "Decide" },
                 ]
@@ -550,6 +556,11 @@ export function DecisionPanel({
       </div>
 
       <div ref={comparisonScroll} key={tab} className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "cargo-risk" &&
+        session?.mode === "demo" &&
+        session.user.role === "SHIPPING_COMPANY" ? (
+          <RiskTab key={problem.decisionId} problemId={problem.decisionId} />
+        ) : null}
         {tab === "business" && onNewComparison ? (
           <CommercialReview
             key={problem.decisionId}

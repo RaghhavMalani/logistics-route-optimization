@@ -11,6 +11,7 @@ const production = process.argv.includes("production");
 const retainedSources = process.argv.includes("--expect-retained-sources");
 if (production && retainedSources) throw new Error("The retained-source check is only for legacy previews.");
 const miniature = process.argv.includes("--miniature");
+const cargoRisk = process.argv.includes("--cargo-risk");
 const checkApprovalStyle = production || process.argv.includes("--check-approval-style");
 if (replay && panelMode) throw new Error("Choose the legacy replay smoke or the connected panel smoke.");
 const offline = replay || panelMode;
@@ -186,10 +187,10 @@ async function run(width, height) {
     console.log(`PASS ${width}×${height} · ${beat}`);
     beat = next;
   };
-  const postResponse = (suffix, target) => {
+  const postResponse = (suffix, { target, timeout } = {}) => {
     const pending = page.waitForResponse((response) =>
       new URL(response.url()).pathname.endsWith(suffix) && response.request().method() === "POST" &&
-      (target === undefined || response.request().postDataJSON()?.target === target));
+      (target === undefined || response.request().postDataJSON()?.target === target), { timeout });
     // A failed locator can exit before the response promise is awaited.
     pending.catch(() => {});
     return pending;
@@ -216,8 +217,8 @@ async function run(width, height) {
       await expect(panel.getByTestId("decision-approve")).toBeInViewport();
     }
     await shot(`${capturePrefix}-decide`);
-    const reviewing = postResponse("/transition", "REVIEWED");
-    const changed = postResponse("/transition", "APPROVED");
+    const reviewing = postResponse("/transition", { target: "REVIEWED" });
+    const changed = postResponse("/transition", { target: "APPROVED" });
     const approveButton = panel.getByTestId("decision-approve");
     if (port) await expect(approveButton).toHaveText("Approve and issue to vessel");
     if (checkApprovalStyle) await expectPrimary(approveButton);
@@ -331,6 +332,60 @@ async function run(width, height) {
     await shot("00b-fleet-review");
     await queue.getByRole("link", { name: "Open saved comparison" }).click();
     const decision = page.getByTestId("decision-panel");
+    if (cargoRisk) {
+      if (videoDir) results.cargoRecording = { path: await page.video().path(), startSeconds: seconds() };
+      const reportResponse = postResponse("/cargo-risk", { timeout: 50_000 });
+      await decision.getByRole("tab", { name: "Cargo risk", exact: true }).click();
+      const report = await read(reportResponse);
+      assert.equal(report.status, "SHADOW", report.reason);
+      assert.equal(report.privacy, "COMPANY_PRIVATE");
+      assert.equal(report.promotion, "RESEARCH_ONLY");
+      assert.equal(report.seed, 20261112);
+      assert.match(report.inputHash, /^[a-f0-9]{64}$/);
+      assert.equal(report.options.length, 2);
+      assert.equal(report.cargo.length, 3);
+      const cargo = decision.getByTestId("cargo-risk-tab");
+      await expect(cargo.getByTestId("cargo-rule-reason")).toContainText("R1");
+      await expect(cargo.getByRole("heading", { name: /Arrival fan/ })).toBeVisible();
+      await expect(cargo.getByRole("heading", { name: /Cost distribution/ })).toBeVisible();
+      await shot("00c-cargo-risk");
+      await cargo.getByRole("heading", { name: /Arrival fan/ }).evaluate((node) => node.scrollIntoView({ block: "start" }));
+      await shot("00c-cargo-arrivals");
+      await cargo.getByRole("heading", { name: /Cost distribution/ }).evaluate((node) => node.scrollIntoView({ block: "start" }));
+      await shot("00c-cargo-cost");
+      if (videoDir) {
+        const changedRule = postResponse("/cargo-risk", { timeout: 50_000 });
+        await cargo.getByLabel("Decision rule").selectOption("R3");
+        assert.equal((await read(changedRule)).decision.rule, "R3");
+        await expect(cargo.getByTestId("cargo-rule-reason")).toContainText("R3");
+        await page.waitForTimeout(2500);
+      }
+      const slider = cargo.getByRole("slider");
+      await slider.press("End");
+      await expect(slider).toHaveAttribute("aria-valuetext", "48.0 h");
+      await cargo.getByRole("button", { name: "Show cargo miniature" }).click();
+      const miniatureCanvas = cargo.locator(".cargo-miniature canvas");
+      await expect(miniatureCanvas).toBeVisible();
+      await miniatureCanvas.evaluate((node) => node.scrollIntoView({ block: "start" }));
+      await shot("00c-cargo-miniature");
+      const cards = cargo.getByTestId("cargo-risk-card");
+      await expect(cards).toHaveCount(3);
+      await cards.first().evaluate((node) => node.scrollIntoView({ block: "start" }));
+      await shot("00c-cargo-cards");
+      await cargo.getByLabel("At risk only").check();
+      assert((await cards.count()) <= 3);
+      await cargo.getByLabel("At risk only").uncheck();
+      await cards.first().getByText("Cost drivers and sources", { exact: true }).click();
+      await expect(cards.first()).toContainText("Unknown");
+      if (videoDir) {
+        await page.waitForTimeout(3500);
+        await cargo.getByText("Sources and reproducibility", { exact: true }).click();
+        await cargo.locator(".cargo-hash").scrollIntoViewIfNeeded();
+        const remaining = 32 - (seconds() - results.cargoRecording.startSeconds);
+        if (remaining > 0) await page.waitForTimeout(remaining * 1000);
+      }
+      passed("Company approval");
+    }
     await decision.getByRole("tab", { name: /^Options/ }).click();
     await decision.getByRole("button", { name: /Propose 10 kn on the declared passage/ }).first().click();
     await shot("00c-alternative");
@@ -376,8 +431,8 @@ async function run(width, height) {
       await page.waitForTimeout(1800);
     }
     const draft = postResponse("/handoff");
-    const opened = postResponse("/transition", "under_review");
-    const issued = postResponse("/transition", "issued");
+    const opened = postResponse("/transition", { target: "under_review" });
+    const issued = postResponse("/transition", { target: "issued" });
     await approve(panel, choice.optionId, "03a-port", true);
     const handoff = await read(draft);
     const advisoryId = handoff.advisories[0].advisoryId;
