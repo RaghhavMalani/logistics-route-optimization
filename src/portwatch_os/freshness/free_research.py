@@ -2,7 +2,8 @@
 from src.utils.settings import get_settings
 
 from datetime import timedelta
-from src.portwatch_os.clock import LIVE, get_clock
+from random import uniform
+from src.portwatch_os.clock import LIVE, get_clock, wall_now
 from src.portwatch_os.freshness.job import RefreshJob, JobOutcome
 from src.portwatch_os.freshness.policy import FreshnessPolicy, ArtifactProbe
 from src.portwatch_os.intelligence import free_sources, current_environment as environment
@@ -45,21 +46,44 @@ def jobs():
             backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=3),
             rationale='Explicit noncommercial research. Retained public products; provider cadence and value kind remain separate.'),
             probe=probe,run=run,eligibility=eligibility))
+    # A single scheduler record serializes all surface calls, including retries.
+    # Give each deployment a different phase within the last few minutes of the hour.
+    surface_lead = timedelta(seconds=uniform(180, 300))
+
+    def surface_probe():
+        now = wall_now()
+        checks = [environment.read("surface", port, at=now).get("lastSuccessfulCheckAt")
+                  for port in port_registry.PORTS]
+        return ArtifactProbe(observed_at=min(map(environment.instant, checks)) if all(checks) else None)
+
+    def surface_run(context):
+        rows = environment.refresh_surface_batch(port_registry.PORTS)
+        for port in port_registry.PORTS:
+            environment.retain_feedback(port)
+        checked_at = next(iter(rows.values()))["lastSuccessfulCheckAt"]
+        return JobOutcome(changed=True, observed_at=environment.instant(checked_at),
+                          detail={"ports": len(rows)})
+
+    result.append(RefreshJob(policy=FreshnessPolicy(
+        artifact=environment.SURFACE_BATCH_ARTIFACT, label="All port surface forecasts", provider="Open-Meteo",
+        fresh_for=timedelta(hours=1), lead=surface_lead, stale_after=timedelta(hours=2), max_attempts=3,
+        backoff_base=timedelta(minutes=5), backoff_cap=timedelta(hours=1),
+        rationale="One multi-location hourly forecast and one retry circuit for the surface endpoint."),
+        probe=surface_probe, run=surface_run, eligibility=current_weather_eligibility))
     for port in port_registry.PORTS:
-        for kind in ('surface','marine'):
-            def probe(port=port,kind=kind):
-                row=environment.read(kind,port)
-                return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
-            def run(context,port=port,kind=kind):
-                row=environment.refresh(kind,port,force=True,strict=True)
-                if row['status']!='CURRENT': raise RuntimeError(row.get('reason','No current qualified forecast'))
-                environment.retain_feedback(port)
-                return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
-            result.append(RefreshJob(policy=FreshnessPolicy(artifact=f'current_{kind}_{port.locode}',label=f'{port.name} {kind} forecast',provider='Open-Meteo',
-                fresh_for=timedelta(hours=1),lead=timedelta(minutes=5),stale_after=timedelta(hours=2),max_attempts=2,
-                backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
-                rationale='Current hourly port forecast, independent of lagging activity observations; not station measurements.'),
-                probe=probe,run=run,eligibility=current_weather_eligibility))
+        def probe(port=port):
+            row=environment.read('marine',port)
+            return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
+        def run(context,port=port):
+            row=environment.refresh('marine',port,force=True,strict=True)
+            if row['status']!='CURRENT': raise RuntimeError(row.get('reason','No current qualified forecast'))
+            environment.retain_feedback(port)
+            return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
+        result.append(RefreshJob(policy=FreshnessPolicy(artifact=f'current_marine_{port.locode}',label=f'{port.name} marine forecast',provider='Open-Meteo',
+            fresh_for=timedelta(hours=1),lead=timedelta(minutes=5),stale_after=timedelta(hours=2),max_attempts=2,
+            backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
+            rationale='Current hourly port forecast, independent of lagging activity observations; not station measurements.'),
+            probe=probe,run=run,eligibility=current_weather_eligibility))
     def hazard_probe():
         row=environment.read('hazards',port_registry.PORTS[0])
         return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)

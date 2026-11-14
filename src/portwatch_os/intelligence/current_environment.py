@@ -14,11 +14,11 @@ import math
 import shutil
 from pathlib import Path
 from threading import RLock
-from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
 import requests
 from src.utils import port_registry
 from src.portwatch_os.clock import wall_now, world_now
+from src.portwatch_os.freshness.job import RetryAfterError
 
 PACKAGED = Path(__file__).resolve().parents[3] / "data/cache/current_environment"
 ROOT = Path(get_settings().PORTWATCH_CURRENT_ENVIRONMENT_DIR or PACKAGED)
@@ -47,12 +47,14 @@ if ROOT != PACKAGED:
                 durable_ledger.record_prediction(prediction)
         packaged_ledger.close(); durable_ledger.close()
 LOCK = RLock()
-REFRESH_WORKERS = ThreadPoolExecutor(max_workers=3, thread_name_prefix="public-environment")
-PENDING = set()
-ATTEMPTED = {}
 TTL = {"surface": 3600, "marine": 3600, "hazards": 1800}
 # HTTPS/TLS setup can be reported by urllib3 as a read timeout using the connect budget.
 OPEN_METEO_TIMEOUT = (8, 18)
+SURFACE_UNITS = {"wind_speed_10m": "kn", "wind_gusts_10m": "kn", "wind_direction_10m": "°",
+                 "precipitation": "mm", "visibility": "m"}
+# The five-day case shows today plus D+5, using complete UTC days.
+SURFACE_DAYS = 6
+SURFACE_BATCH_ARTIFACT = "current_surface_batch"
 URLS = {"surface": "https://api.open-meteo.com/v1/forecast",
         "marine": "https://marine-api.open-meteo.com/v1/marine",
         "hazards": "https://www.gdacs.org/xml/rss.xml"}
@@ -123,7 +125,7 @@ def refresh(kind, port, *, force=False, strict=False):
     params = {}
     if kind == "surface":
         params = {"latitude": port.lat, "longitude": port.lon, "timezone": "GMT", "wind_speed_unit": "kn",
-                  "hourly": "wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,visibility", "forecast_days": 10}
+                  "hourly": ",".join(SURFACE_UNITS), "forecast_days": SURFACE_DAYS}
     elif kind == "marine":
         params = {"latitude": port.lat-.15, "longitude": port.lon+(.15 if port.coast == "east" else -.15),
                   "timezone": "GMT", "hourly": "wave_height", "forecast_days": 8}
@@ -138,33 +140,8 @@ def refresh(kind, port, *, force=False, strict=False):
             units = {}
             grid = None
         else:
-            data = response.json(); hourly = data["hourly"]; units = data["hourly_units"]
-            grid = {key: data.get(key) for key in ("latitude", "longitude", "elevation")}
-            expected = {"wind_speed_10m":"kn", "wind_gusts_10m":"kn", "wind_direction_10m":"°", "precipitation":"mm", "visibility":"m"} if kind == "surface" else {"wave_height":"m"}
-            fields = list(expected)
-            if not hourly["time"] or any(field not in hourly or units.get(field) != unit for field, unit in expected.items()):
-                raise ValueError("No hourly weather response")
-            rows = [{"validAt": instant(t).isoformat(), **{
-                f: hourly[f][i] if i < len(hourly[f]) and finite(hourly[f][i]) else None for f in fields}}
-                for i, t in enumerate(hourly["time"])][:240]
-        snapshot = {"kind": kind, "portCode": port.locode if kind != "hazards" else None,
-                    "source": URLS[kind], "issuedAt": None, "observedAt": None,
-                    "availableAt": at.isoformat(), "fetchedAt": at.isoformat(), "rows": rows, "units": units,
-                    "request": params, "returnedGrid": grid, "responseSha256": hashlib.sha256(response.content).hexdigest(),
-                    "timeBasis": "Forecast issue time unavailable; response receipt is availability. Hazard event/publication clocks are retained per item.",
-                    "rights": "Open-Meteo non-commercial API / CC BY 4.0" if kind != "hazards" else "GDACS public alert feed; linked source notices apply."}
-        if previous.get('responseSha256') == snapshot['responseSha256'] and previous.get('availableAt'):
-            snapshot['availableAt']=previous['availableAt']
-        snapshot['lastSuccessfulCheckAt']=at.isoformat()
-        snapshot["snapshotId"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
-        with LOCK:
-            ROOT.mkdir(parents=True, exist_ok=True)
-            archive = ROOT / "archive"; archive.mkdir(exist_ok=True)
-            (archive/(snapshot["snapshotId"]+".json")).write_text(json.dumps(snapshot), encoding="utf-8")
-            (archive/(snapshot["responseSha256"]+".response")).write_bytes(response.content)
-            path = _path(kind, port); temp = path.with_suffix(".tmp")
-            temp.write_text(json.dumps(snapshot), encoding="utf-8"); temp.replace(path)
-        return dated(snapshot)
+            rows, units, grid = _hourly(response.json(), SURFACE_UNITS if kind == "surface" else {"wave_height": "m"})
+        return _save_snapshot(kind, port, previous, params, rows, units, grid, response.content, at)
     except (requests.RequestException, ValueError, KeyError, TypeError, ET.ParseError):
         if strict:
             raise
@@ -172,8 +149,93 @@ def refresh(kind, port, *, force=False, strict=False):
                 "reason": "Provider refresh failed; previous receipt time retained."}
 
 
-def bundle(port, *, allow_fetch=True):
-    snapshots = {kind: refresh(kind, port) if allow_fetch else read(kind, port) for kind in TTL}
+def _hourly(data, expected):
+    hourly, units = data["hourly"], data["hourly_units"]
+    grid = {key: data.get(key) for key in ("latitude", "longitude", "elevation")}
+    if not hourly["time"] or any(field not in hourly or units.get(field) != unit for field, unit in expected.items()):
+        raise ValueError("No hourly weather response")
+    rows = [{"validAt": instant(t).isoformat(), **{
+        field: hourly[field][i] if i < len(hourly[field]) and finite(hourly[field][i]) else None
+        for field in expected}} for i, t in enumerate(hourly["time"])][:240]
+    return rows, units, grid
+
+
+def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at, *, digest=None):
+    snapshot = {"kind": kind, "portCode": port.locode if kind != "hazards" else None,
+                    "source": URLS[kind], "issuedAt": None, "observedAt": None,
+                    "availableAt": at.isoformat(), "fetchedAt": at.isoformat(), "rows": rows, "units": units,
+                    "request": params, "returnedGrid": grid, "responseSha256": digest or hashlib.sha256(original).hexdigest(),
+                    "timeBasis": "Forecast issue time unavailable; response receipt is availability. Hazard event/publication clocks are retained per item.",
+                    "rights": "Open-Meteo non-commercial API / CC BY 4.0" if kind != "hazards" else "GDACS public alert feed; linked source notices apply."}
+    identical = previous.get("responseSha256") == snapshot["responseSha256"]
+    # A multi-location original is shared across the ports. Compare the parsed
+    # local forecast so a change at another port cannot re-date an unchanged one.
+    if digest is not None:
+        identical = previous.get("rows") == rows and previous.get("returnedGrid") == grid
+    if identical and previous.get("availableAt"):
+        snapshot["availableAt"] = previous["availableAt"]
+    snapshot["lastSuccessfulCheckAt"] = at.isoformat()
+    snapshot["snapshotId"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
+    with LOCK:
+        ROOT.mkdir(parents=True, exist_ok=True)
+        archive = ROOT / "archive"
+        archive.mkdir(exist_ok=True)
+        (archive / (snapshot["snapshotId"] + ".json")).write_text(json.dumps(snapshot), encoding="utf-8")
+        raw_path = archive / (snapshot["responseSha256"] + ".response")
+        if not raw_path.exists():
+            temporary = raw_path.with_suffix(".tmp")
+            temporary.write_bytes(original)
+            temporary.replace(raw_path)
+        path = _path(kind, port)
+        temp = path.with_suffix(".tmp")
+        temp.write_text(json.dumps(snapshot), encoding="utf-8")
+        temp.replace(path)
+    return dated(snapshot)
+
+
+def _retry_after(value, received):
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        if value.isascii() and value.isdecimal():
+            return received + timedelta(seconds=int(value))
+        return max(received, parsedate_to_datetime(value).astimezone(timezone.utc))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def refresh_surface_batch(ports):
+    """Collect one validated response, then publish one dated snapshot per port."""
+    common = {"timezone": "GMT", "wind_speed_unit": "kn",
+              "hourly": ",".join(SURFACE_UNITS), "forecast_days": SURFACE_DAYS}
+    params = {**common, "latitude": ",".join(str(port.lat) for port in ports),
+              "longitude": ",".join(str(port.lon) for port in ports)}
+    response = requests.get(URLS["surface"], params=params,
+                            headers={"User-Agent": "PortWatch-Capstone/1.0"}, timeout=OPEN_METEO_TIMEOUT)
+    received = wall_now()
+    if response.status_code == 429:
+        raise RetryAfterError("Open-Meteo surface HTTP 429", _retry_after(response.headers.get("Retry-After"), received))
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, list) or len(payload) != len(ports):
+        raise ValueError("Open-Meteo returned the wrong number of locations")
+    decoded = [_hourly(entry, SURFACE_UNITS) for entry in payload]
+    if any(not finite(grid["latitude"]) or not finite(grid["longitude"])
+           or abs(grid["latitude"] - port.lat) > 0.35 or abs(grid["longitude"] - port.lon) > 0.35
+           or not any(instant(row["validAt"]) <= received < instant(row["validAt"]) + timedelta(hours=1)
+                      and all(finite(row[field]) for field in SURFACE_UNITS) for row in rows)
+           for port, (rows, _, grid) in zip(ports, decoded)):
+        raise ValueError("Open-Meteo location order or current-hour coverage failed validation")
+    digest = hashlib.sha256(response.content).hexdigest()
+    return {port.locode: _save_snapshot("surface", port, read("surface", port, at=received),
+            {**common, "latitude": port.lat, "longitude": port.lon}, rows, units, grid,
+            response.content, received, digest=digest)
+            for port, (rows, units, grid) in zip(ports, decoded)}
+
+
+def bundle(port):
+    snapshots = {kind: read(kind, port) for kind in TTL}
     waves = {r["validAt"]: r["wave_height"] for r in snapshots["marine"]["rows"]}
     hourly = [{**r, "wave_height": waves.get(r["validAt"])} for r in snapshots["surface"]["rows"]]
     regional = [r for r in snapshots["hazards"]["rows"] if 0 <= r["lat"] <= 35 and 45 <= r["lon"] <= 100]
@@ -202,7 +264,7 @@ def map_signals():
     query_at = world_now()
     signals = []
     for port in port_registry.PORTS:
-        data = bundle(port, allow_fetch=False)
+        data = bundle(port)
         if data["sources"]["surface"]["status"] != "CURRENT":
             continue
         marine_current = data["sources"]["marine"]["status"] == "CURRENT"
@@ -226,39 +288,7 @@ def map_signals():
 
 def retained_bundle(port):
     """Projection/decision adapter: no provider request or feedback-ledger write."""
-    return bundle(port,allow_fetch=False)
-
-
-def ensure_current():
-    """Warm expired fixed public sources without blocking the original map contract.
-
-    Three workers, one task per port, five-minute retry backoff after failures.
-    Old receipt times survive refresh errors and are never presented as current.
-    """
-    # wall-clock: collector cadence measures elapsed time since actual successful receipts.
-    now = wall_now()
-    def collect(port):
-        try:
-            refresh("surface", port)
-            refresh("marine", port)
-            # Archive future forecast targets prospectively. No outcomes are invented.
-            retain_feedback(port)
-        finally:
-            with LOCK: PENDING.discard(port.locode)
-    for port in port_registry.PORTS:
-        with LOCK:
-            expired = any(read(kind, port)["status"] != "CURRENT" for kind in ("surface", "marine"))
-            attempted = ATTEMPTED.get(port.locode)
-            if not expired or port.locode in PENDING or (attempted and now-attempted < timedelta(minutes=5)):
-                continue
-            PENDING.add(port.locode); ATTEMPTED[port.locode] = now
-        REFRESH_WORKERS.submit(collect, port)
-    with LOCK:
-        attempted = ATTEMPTED.get("hazards")
-        needed = read("hazards", port_registry.PORTS[0])["status"] != "CURRENT"
-        if needed and (not attempted or now-attempted >= timedelta(minutes=5)):
-            ATTEMPTED["hazards"] = now
-            REFRESH_WORKERS.submit(refresh, "hazards", port_registry.PORTS[0])
+    return bundle(port)
 
 
 def retain_feedback(port):
@@ -269,7 +299,7 @@ def retain_feedback(port):
     from src.portwatch_os.ledger.store import SqliteLedgerStore
     from src.portwatch_os.learning.weather_feedback import WeatherFeedback
     from src.utils.config import PORT_ID, DATE
-    data = bundle(port, allow_fetch=False)
+    data = bundle(port)
     frame = pd.DataFrame([{PORT_ID: port.model_id, DATE: r["date"], **r} for r in data["daily"]])
     if frame.empty: return
     with LOCK:

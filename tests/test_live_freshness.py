@@ -129,3 +129,73 @@ def test_worker_sees_weather_transport_error_and_retains_snapshot(tmp_path, monk
     with pytest.raises(requests.Timeout, match='egress timed out'):
         weather.refresh('surface', port_registry.PORTS[0], force=True, strict=True)
     assert path.read_text() == 'retained original'
+
+
+def test_surface_batch_one_request_with_complete_utc_days(tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    import pytest
+    from src.portwatch_os.freshness.job import RetryAfterError
+    from src.portwatch_os.intelligence import current_environment as weather
+    from src.utils.port_registry import PORTS
+
+    monkeypatch.setattr(weather, "ROOT", tmp_path)
+    monkeypatch.setattr(weather, "wall_now", lambda: NOW)
+    monkeypatch.setattr(weather, "world_now", lambda: NOW)
+    ports = PORTS[:2]
+    hour = NOW.replace(minute=0, second=0, microsecond=0).isoformat()
+    payload = [
+        {"latitude": port.lat, "longitude": port.lon, "hourly_units": weather.SURFACE_UNITS,
+         "hourly": {"time": [hour], **{name: [1.0] for name in weather.SURFACE_UNITS}}}
+        for port in ports
+    ]
+    calls = []
+    response = SimpleNamespace(status_code=200, headers={}, json=lambda: payload,
+                               content=json.dumps(payload).encode(), raise_for_status=lambda: None)
+    def fetch(url, **kwargs):
+        calls.append((url, kwargs))
+        return response
+
+    monkeypatch.setattr(weather.requests, "get", fetch)
+    rows = weather.refresh_surface_batch(ports)
+    assert set(rows) == {port.locode for port in ports}
+    assert len(calls) == 1
+    _, call = calls[0]
+    assert call["timeout"] == (8, 18)
+    assert call["params"]["forecast_days"] == 6
+    assert call["params"]["latitude"] == ",".join(str(port.lat) for port in ports)
+    originals = list((tmp_path / "archive").glob("*.response"))
+    assert len(originals) == 1 and originals[0].read_bytes() == response.content
+
+    response.status_code = 429
+    response.headers["Retry-After"] = "1200"
+    with pytest.raises(RetryAfterError) as throttled:
+        weather.refresh_surface_batch(ports)
+    assert throttled.value.retry_at == NOW + timedelta(minutes=20)
+    assert weather.read("surface", ports[0], at=NOW)["snapshotId"] == rows[ports[0].locode]["snapshotId"]
+
+
+def test_retry_after_sets_a_durable_minimum_wait(tmp_path):
+    from src.portwatch_os.freshness.job import RetryAfterError
+    from src.portwatch_os.freshness.coordinator import RefreshCoordinator
+    from src.portwatch_os.freshness.journal import FreshnessJournal
+    from src.portwatch_os.freshness.job import RefreshJob
+    from src.portwatch_os.freshness.policy import ArtifactProbe, FreshnessPolicy
+    from src.portwatch_os.clock import wall_now
+
+    deadline = wall_now() + timedelta(hours=2)
+    def collect(context):
+        raise RetryAfterError("Open-Meteo surface HTTP 429", deadline)
+
+    job = RefreshJob(FreshnessPolicy("surface", "Open-Meteo", timedelta(hours=1),
+                                   timedelta(hours=2)), lambda: ArtifactProbe(), collect)
+    journal = FreshnessJournal(tmp_path / "journal.sqlite3")
+    first = RefreshCoordinator(journal=journal)
+    first.register(job)
+    first.request("surface", reason="test", wait=True)
+    assert first.record("surface").next_attempt_at == deadline
+    restarted = RefreshCoordinator(journal=journal)
+    restarted.register(job)
+    assert "surface" not in restarted.due(now=deadline - timedelta(seconds=1))
+    assert "surface" in restarted.due(now=deadline)
+    assert journal.recent_outcomes("surface", wall_now(), hours=48)["http429"] == 1

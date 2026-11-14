@@ -5,26 +5,30 @@ import json
 from pathlib import Path
 import pandas as pd
 from src.utils import port_registry
-from src.portwatch_os.intelligence.current_environment import refresh, bundle, ROOT
+from src.portwatch_os.intelligence.current_environment import refresh, refresh_surface_batch, bundle, ROOT
 from src.portwatch_os.ledger.store import SqliteLedgerStore
 from src.portwatch_os.learning.weather_feedback import WeatherFeedback
 from src.utils.config import PORT_ID, DATE
 
 
-def collect(port):
-    states = {kind: refresh(kind, port, force=True) for kind in ("surface", "marine")}
-    return {"portCode": port.locode, **{kind: {k: v.get(k) for k in ("status", "snapshotId", "availableAt")}
-                                       for kind, v in states.items()}}
+def collect_marine(port):
+    return refresh("marine", port, force=True)
 
 
 if __name__ == "__main__":
+    surface = refresh_surface_batch(port_registry.PORTS)
     with ThreadPoolExecutor(max_workers=3) as workers:
-        result = list(workers.map(collect, port_registry.PORTS))
+        marine = list(workers.map(collect_marine, port_registry.PORTS))
+    result = [
+        {"portCode": port.locode, **{kind: {key: row.get(key) for key in ("status", "snapshotId", "availableAt")}
+                                    for kind, row in (("surface", surface[port.locode]), ("marine", waves))}}
+        for port, waves in zip(port_registry.PORTS, marine)
+    ]
     hazards = refresh("hazards", port_registry.resolve("INNSA"), force=True)
     ledger = SqliteLedgerStore(Path("work/capability-upgrades/learning-state/portwatch_ledger.db"))
     feedback = WeatherFeedback(ledger)
     for port in port_registry.PORTS:
-        data = bundle(port, allow_fetch=False)
+        data = bundle(port)
         frame = pd.DataFrame([{PORT_ID: port.model_id, DATE: r["date"], **r} for r in data["daily"]])
         if frame.empty: continue
         for kind, provider, variables in (("surface", "Open-Meteo surface", ("wind_speed", "wind_gust", "rainfall", "visibility")),

@@ -31,6 +31,14 @@ class RefreshContext:
     requested: bool = False
 
 
+class RetryAfterError(RuntimeError):
+    """A provider throttled this refresh and gave an earliest retry instant."""
+
+    def __init__(self, message: str, retry_at: datetime | None):
+        super().__init__(message)
+        self.retry_at = retry_at
+
+
 @dataclass
 class RefreshResult:
     """What one attempt did."""

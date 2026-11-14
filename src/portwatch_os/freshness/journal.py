@@ -99,6 +99,23 @@ class FreshnessJournal:
                 history = [(state[3],)]
         return state, [json.loads(row[0]) for row in reversed(history)]
 
+    def recent_outcomes(self, artifact, now, *, hours):
+        since = (now - timedelta(hours=hours)).astimezone(timezone.utc).isoformat()
+        until = now.astimezone(timezone.utc).isoformat()
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT finished,ok,result FROM refresh_attempts "
+                "WHERE artifact=? AND skipped=0 AND finished>=? AND finished<=? ORDER BY finished",
+                (artifact, since, until),
+            ).fetchall()
+        count = len(rows)
+        successes = sum(bool(row[1]) for row in rows)
+        return {"attempts": count, "successes": successes,
+                "rate": successes / count if count else None,
+                "http429": sum(not row[1] and "HTTP 429" in (json.loads(row[2]).get("error") or "") for row in rows),
+                "firstFinishedAt": rows[0][0] if count else None,
+                "lastFinishedAt": rows[-1][0] if count else None}
+
     def metrics(self, artifact, now):
         since = (now - timedelta(days=7)).astimezone(timezone.utc).isoformat()
         until = now.astimezone(timezone.utc).isoformat()

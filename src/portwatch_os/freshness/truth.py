@@ -95,14 +95,20 @@ def retained_sources(now):
         current = sum(row[0] == 'live' for row in evaluated)
         retained = [row for row in evaluated if row[1] is not None]
         state = 'live' if current == len(PORTS) else 'stale' if retained else 'unavailable'
+        metrics = job_metrics([current_environment.SURFACE_BATCH_ARTIFACT] if kind == "surface" else
+                              [f'current_{kind}_{port.locode}' for port in PORTS])
+        detail = f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.'
+        if kind == "surface" and coordinator.journal:
+            recent = coordinator.journal.recent_outcomes(current_environment.SURFACE_BATCH_ARTIFACT, now, hours=48)
+            detail += f' Batch collections in the last 48 hours: {recent["successes"]}/{recent["attempts"]} successful, {recent["http429"]} rate-limited.'
         rows.append({'id': f'open-meteo-{kind}', 'name': name, 'provider': 'Open-Meteo', 'status': state,
                      'observedAt': None, 'availableAt': min((row[2] for row in retained), default=None),
                      'dataAgeSeconds': max((row[1] for row in retained), default=None),
                      'policySeconds': current_environment.TTL[kind], 'core': True,
                      'portsCurrent': current, 'portsTotal': len(PORTS),
-                     'detail': f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.',
+                     'detail': detail,
                      'termsUrl': 'https://open-meteo.com/en/terms',
-                     **job_metrics([f'current_{kind}_{port.locode}' for port in PORTS])})
+                     **metrics})
     try:
         hazards = current_environment.read('hazards', PORTS[0], at=now)
     except (ValueError, OSError, KeyError):
