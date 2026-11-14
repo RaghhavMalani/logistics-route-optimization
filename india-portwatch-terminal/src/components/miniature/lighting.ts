@@ -12,8 +12,10 @@ export function createMiniatureLighting(scene: T.Scene, mobile: boolean) {
   const direction = new T.Vector3(-0.42, 0.86, 0.32).normalize();
   return {
     sun,
-    follow(target: T.Vector3, size: number) {
-      sun.position.copy(target).addScaledVector(direction, 600);
+    hemi,
+    follow(target: T.Vector3, size: number, heading = direction) {
+      const distance = Math.max(600, size * 1.85);
+      sun.position.copy(target).addScaledVector(heading, distance);
       sun.target.position.copy(target);
       const c = sun.shadow.camera,
         reach = size * 1.25;
@@ -21,8 +23,8 @@ export function createMiniatureLighting(scene: T.Scene, mobile: boolean) {
       c.right = reach;
       c.top = reach;
       c.bottom = -reach;
-      c.near = 200;
-      c.far = 1200;
+      c.near = Math.max(10, distance - reach * 1.2);
+      c.far = distance + reach * 1.6;
       c.updateProjectionMatrix();
     },
     dispose() {

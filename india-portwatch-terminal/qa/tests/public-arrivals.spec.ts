@@ -26,6 +26,7 @@ test.beforeAll(async ({ request }) => {
 
 async function login(page: Page, name: string) {
   await page.goto("/login");
+  await page.getByText("Operator access", { exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill(`${name}@qa.invalid`);
   await page
     .getByLabel("Password", { exact: true })

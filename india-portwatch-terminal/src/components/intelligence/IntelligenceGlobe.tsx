@@ -314,7 +314,9 @@ export default function IntelligenceGlobe({
         ),
         point: {
           pixelSize: p.code === portCode ? 12 : 6,
-          color: color(affectedPorts.includes(p.code) ? COLORS.warn : COLORS.info),
+          color: color(
+            affectedPorts.includes(p.code) ? COLORS.warn : COLORS.info,
+          ),
           outlineColor: color(COLORS.sea),
           outlineWidth: 2,
         },

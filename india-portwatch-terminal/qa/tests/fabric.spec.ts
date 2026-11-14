@@ -32,10 +32,9 @@ test.describe.configure({ timeout: 120_000 });
 async function mapReady(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
-      const sources = (window as any).__portwatchSources;
+      const sources = window.__portwatchSources;
       return Boolean(
-        (window as any).__portwatchMap &&
-        (sources?.vessels?.features?.length ?? 0) > 0,
+        window.__portwatchMap && (sources?.vessels?.features?.length ?? 0) > 0,
       );
     },
     undefined,
@@ -46,8 +45,7 @@ async function mapReady(page: Page): Promise<void> {
 async function featureCount(page: Page, source: string): Promise<number> {
   return page.evaluate(
     (key) =>
-      ((window as any).__portwatchSources?.[key]?.features?.length ??
-        0) as number,
+      (window.__portwatchSources?.[key]?.features?.length ?? 0) as number,
     source,
   );
 }
@@ -64,16 +62,24 @@ async function featureCount(page: Page, source: string): Promise<number> {
  */
 async function clickMark(page: Page, mmsi: string): Promise<string[]> {
   return page.evaluate((id) => {
-    const map = (window as any).__portwatchMap;
-    const feature = (window as any).__portwatchSources.observed.features.find(
-      (f: any) => f.properties.kind === "mark" && f.properties.id === id,
+    const map = window.__portwatchMap;
+    const feature = window.__portwatchSources!.observed.features.find(
+      (f) => f.properties?.kind === "mark" && f.properties.id === id,
     );
-    const point = map.project(feature.geometry.coordinates);
+    if (!map || feature?.geometry.type !== "Point")
+      throw new Error("Observed point is missing from the map");
+    const [lon, lat] = feature.geometry.coordinates;
+    const point = map.project([lon, lat]);
     const canvas = map.getCanvas();
     const rect = canvas.getBoundingClientRect();
     const hits = map
       .queryRenderedFeatures([point.x, point.y], { layers: ["observed-mark"] })
-      .map((hit: any) => hit.properties.id as string);
+      .map((hit) => {
+        const value: unknown = hit.properties.id;
+        if (typeof value !== "string")
+          throw new Error("Rendered AIS mark has no string ID");
+        return value;
+      });
     for (const type of ["mousedown", "mouseup", "click"]) {
       canvas.dispatchEvent(
         new MouseEvent(type, {
@@ -214,22 +220,22 @@ test.describe("traffic source", () => {
 
     // Observed marks and their tracks reach the GL source.
     await page.waitForFunction(
-      () =>
-        ((window as any).__portwatchSources?.observed?.features?.length ?? 0) >
-        0,
+      () => (window.__portwatchSources?.observed?.features?.length ?? 0) > 0,
       undefined,
       { timeout: 15_000 },
     );
     const marks = await page.evaluate(() =>
-      (window as any).__portwatchSources.observed.features
-        .filter((f: any) => f.properties.kind === "mark")
-        .map((f: any) => f.properties),
+      window
+        .__portwatchSources!.observed.features.filter(
+          (f) => f.properties?.kind === "mark",
+        )
+        .map((f) => f.properties ?? {}),
     );
     expect(marks).toHaveLength(4);
-    expect(marks.every((m: any) => m.freshness === "LIVE")).toBe(true);
-    expect(marks.every((m: any) => m.source === "OBSERVED_AIS")).toBe(true);
+    expect(marks.every((m) => m.freshness === "LIVE")).toBe(true);
+    expect(marks.every((m) => m.source === "OBSERVED_AIS")).toBe(true);
     // A position report names nobody: two of the four carry no name.
-    expect(marks.filter((m: any) => !m.name)).toHaveLength(2);
+    expect(marks.filter((m) => !m.name)).toHaveLength(2);
     expect(recorder.pageErrors).toEqual([]);
   });
 
@@ -259,18 +265,18 @@ test.describe("traffic source", () => {
     // The last known positions stay on the chart, marked stale.
     await page.waitForFunction(
       () =>
-        (window as any).__portwatchSources?.observed?.features?.some(
-          (f: any) =>
-            f.properties.kind === "mark" && f.properties.freshness === "STALE",
+        window.__portwatchSources?.observed?.features?.some(
+          (f) =>
+            f.properties?.kind === "mark" && f.properties.freshness === "STALE",
         ),
       undefined,
       { timeout: 15_000 },
     );
     const live = await page.evaluate(
       () =>
-        (window as any).__portwatchSources.observed.features.filter(
-          (f: any) =>
-            f.properties.kind === "mark" && f.properties.freshness === "LIVE",
+        window.__portwatchSources!.observed.features.filter(
+          (f) =>
+            f.properties?.kind === "mark" && f.properties.freshness === "LIVE",
         ).length,
     );
     expect(live).toBe(0);
@@ -301,16 +307,14 @@ test.describe("vessel provenance", () => {
     await mapReady(page);
     await goLive(context, page);
     await page.waitForFunction(
-      () =>
-        ((window as any).__portwatchSources?.observed?.features?.length ?? 0) >
-        0,
+      () => (window.__portwatchSources?.observed?.features?.length ?? 0) > 0,
       undefined,
       { timeout: 15_000 },
     );
 
     // Bring the hull into view, then click it where the map drew it.
     await page.evaluate(() => {
-      (window as any).__portwatchMap.jumpTo({ center: [70.9, 18.6], zoom: 6 });
+      window.__portwatchMap!.jumpTo({ center: [70.9, 18.6], zoom: 6 });
     });
     await page.waitForTimeout(600);
     // Wait for the ring to be drawn, then click it through the map's own
@@ -461,25 +465,20 @@ test.describe("the sea", () => {
       .click();
 
     await page.waitForFunction(
-      () =>
-        ((window as any).__portwatchSources?.seastate?.features?.length ?? 0) >
-        0,
+      () => (window.__portwatchSources?.seastate?.features?.length ?? 0) > 0,
       undefined,
       { timeout: 15_000 },
     );
     const kinds = await page.evaluate(() =>
-      (window as any).__portwatchSources.seastate.features.map(
-        (f: any) => f.properties.kind,
+      window.__portwatchSources!.seastate.features.map(
+        (f) => f.properties?.kind,
       ),
     );
-    expect(kinds.filter((k: string) => k === "cell")).toHaveLength(3);
+    expect(kinds.filter((kind) => kind === "cell")).toHaveLength(3);
     expect(kinds).toContain("current");
     expect(
       await page.evaluate(() =>
-        (window as any).__portwatchMap.getLayoutProperty(
-          "seastate-wave",
-          "visibility",
-        ),
+        window.__portwatchMap!.getLayoutProperty("seastate-wave", "visibility"),
       ),
     ).toBe("visible");
 
@@ -499,7 +498,7 @@ test.describe("the sea", () => {
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__portwatchMap.getLayoutProperty(
+          window.__portwatchMap!.getLayoutProperty(
             "seastate-wave",
             "visibility",
           ),

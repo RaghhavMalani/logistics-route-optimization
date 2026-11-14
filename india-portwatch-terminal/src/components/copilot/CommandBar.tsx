@@ -44,10 +44,14 @@ export function CommandBar() {
   const [outcomes, setOutcomes] = useState<DispatchOutcome[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  /* Cmd/Ctrl+K opens it; Escape puts it away. */
+  /* Cmd/Ctrl+Shift+K opens it; Escape puts it away. */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "k"
+      ) {
         event.preventDefault();
         setOpen(true);
         window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -104,7 +108,7 @@ export function CommandBar() {
       >
         <span>Ask the world</span>
         <kbd className="num rounded border border-[var(--line)] px-1 text-[10px]">
-          ⌘K
+          ⇧⌘K
         </kbd>
       </button>
     );
@@ -141,7 +145,9 @@ export function CommandBar() {
           )}
         />
         {mutation.isPending ? (
-          <span className="num text-[10.5px] text-[var(--text-3)]">working…</span>
+          <span className="num text-[10.5px] text-[var(--text-3)]">
+            working…
+          </span>
         ) : null}
         <button
           type="button"
@@ -191,7 +197,10 @@ export function CommandBar() {
               <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                 What changed
               </p>
-              <ul data-testid="command-applied" className="flex flex-col gap-0.5">
+              <ul
+                data-testid="command-applied"
+                className="flex flex-col gap-0.5"
+              >
                 {applied.map((outcome, index) => (
                   <li
                     key={`${outcome.kind}-${index}`}
@@ -213,14 +222,16 @@ export function CommandBar() {
               <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--text-3)]">
                 Not run
               </p>
-              <ul data-testid="command-refused" className="flex flex-col gap-0.5">
+              <ul
+                data-testid="command-refused"
+                className="flex flex-col gap-0.5"
+              >
                 {refused.map((outcome, index) => (
                   <li
                     key={`${outcome.kind}-${index}`}
                     className="text-[10.5px] text-[var(--text-3)]"
                   >
-                    <Pill tone="neutral">{outcome.kind}</Pill>{" "}
-                    {outcome.reason}
+                    <Pill tone="neutral">{outcome.kind}</Pill> {outcome.reason}
                   </li>
                 ))}
               </ul>

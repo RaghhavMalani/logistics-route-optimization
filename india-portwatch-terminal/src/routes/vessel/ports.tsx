@@ -1,9 +1,21 @@
+import {
+  CongestionScore,
+  CongestionForecastBand,
+} from "@/components/kit/CongestionScore";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useFleetIntel } from "@/components/app/fleet-context";
-import { QuantileChart, Sparkline } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, SegmentedControl, StatStrip, Toolbar } from "@/components/kit/layout";
+import { QuantileChart } from "@/components/kit/charts";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  SegmentedControl,
+  StatStrip,
+  Toolbar,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   MiniBar,
@@ -19,7 +31,9 @@ import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 import { useForecast } from "@/services/hooks";
 import type { PortSnapshot } from "@/types/portwatch";
 
-export const Route = createFileRoute("/vessel/ports")({ component: DestinationPorts });
+export const Route = createFileRoute("/vessel/ports")({
+  component: DestinationPorts,
+});
 
 type Scope = "fleet" | "all";
 
@@ -62,7 +76,9 @@ function DestinationPorts() {
     return (
       <ScreenFallback
         title="Destination Ports"
-        context={<span>Congestion and wait exposure at the ports the fleet calls</span>}
+        context={
+          <span>Congestion and wait exposure at the ports the fleet calls</span>
+        }
         isLoading={isLoading}
         error={error}
         retry={refetch}
@@ -71,7 +87,9 @@ function DestinationPorts() {
     );
   }
 
-  const weatherByCode = new Map(weather.map((signal) => [signal.portCode, signal]));
+  const weatherByCode = new Map(
+    weather.map((signal) => [signal.portCode, signal]),
+  );
   const callsByCode = new Map<string, string[]>();
   for (const row of intel) {
     if (!row.vessel.intendedPortCode) continue;
@@ -86,10 +104,18 @@ function DestinationPorts() {
       header: "Port",
       render: (port) => (
         <span className="flex items-center gap-2">
-          <span className={fleetCodes.has(port.code) ? "text-[var(--text)]" : "text-[var(--text-2)]"}>
+          <span
+            className={
+              fleetCodes.has(port.code)
+                ? "text-[var(--text)]"
+                : "text-[var(--text-2)]"
+            }
+          >
             {port.name}
           </span>
-          {callsByCode.has(port.code) ? <Pill tone="info">declared call</Pill> : null}
+          {callsByCode.has(port.code) ? (
+            <Pill tone="info">declared call</Pill>
+          ) : null}
         </span>
       ),
       sort: (port) => port.name,
@@ -98,7 +124,9 @@ function DestinationPorts() {
       key: "regime",
       header: "Regime",
       width: 132,
-      render: (port) => <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>,
+      render: (port) => (
+        <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>
+      ),
       sort: (port) => port.congestionIndex,
     },
     {
@@ -106,7 +134,12 @@ function DestinationPorts() {
       header: "Observed",
       align: "right",
       width: 96,
-      render: (port) => <Num value={port.observedCongestionIndex} />,
+      render: (port) => (
+        <CongestionScore
+          value={port.observedCongestionIndex}
+          history={port.congestionHistory}
+        />
+      ),
       sort: (port) => port.observedCongestionIndex,
     },
     {
@@ -114,7 +147,7 @@ function DestinationPorts() {
       header: "Day-1",
       align: "right",
       width: 90,
-      render: (port) => <Num value={port.congestionIndex} />,
+      render: (port) => <CongestionScore value={port.congestionIndex} />,
       sort: (port) => port.congestionIndex,
     },
     {
@@ -123,9 +156,10 @@ function DestinationPorts() {
       align: "right",
       width: 106,
       render: (port) => (
-        <span className="num text-[var(--text-3)]">
-          {port.forecastQ10?.toFixed(0) ?? "—"}–{port.forecastQ90?.toFixed(0) ?? "—"}
-        </span>
+        <CongestionForecastBand
+          low={port.forecastQ10}
+          high={port.forecastQ90}
+        />
       ),
       sort: (port) => (port.forecastQ90 ?? 0) - (port.forecastQ10 ?? 0),
     },
@@ -145,7 +179,9 @@ function DestinationPorts() {
       render: (port) => (
         <span className="num">
           {port.peakCongestionIndex.toFixed(1)}
-          <span className="ml-1 text-[10px] text-[var(--text-3)]">d{port.peakDay}</span>
+          <span className="ml-1 text-[10px] text-[var(--text-3)]">
+            d{port.peakDay}
+          </span>
         </span>
       ),
       sort: (port) => port.peakCongestionIndex,
@@ -159,7 +195,11 @@ function DestinationPorts() {
         <Num
           value={weatherByCode.get(port.code)?.impactScore}
           digits={3}
-          tone={(weatherByCode.get(port.code)?.impactScore ?? 0) >= 0.35 ? "warn" : undefined}
+          tone={
+            (weatherByCode.get(port.code)?.impactScore ?? 0) >= 0.35
+              ? "warn"
+              : undefined
+          }
         />
       ),
       sort: (port) => weatherByCode.get(port.code)?.impactScore ?? null,
@@ -172,25 +212,15 @@ function DestinationPorts() {
       render: (port) => (
         <span className="flex items-center justify-end gap-2">
           <span className="w-9">
-            <MiniBar value={port.confidence} tone={port.confidence >= 0.6 ? "ok" : "warn"} />
+            <MiniBar
+              value={port.confidence}
+              tone={port.confidence >= 0.6 ? "ok" : "warn"}
+            />
           </span>
           <Num value={port.confidence} digits={0} scale={100} unit="%" />
         </span>
       ),
       sort: (port) => port.confidence,
-    },
-    {
-      key: "trend",
-      header: "14-day trend",
-      width: 96,
-      render: (port) => (
-        <Sparkline
-          data={port.congestionHistory.map((point) => point.value)}
-          tone={riskTone(port.risk)}
-          height={16}
-          fill={false}
-        />
-      ),
     },
   ];
 
@@ -198,7 +228,9 @@ function DestinationPorts() {
     <Page>
       <PageHeader
         title="Destination Ports"
-        context={<span>Congestion and wait exposure at the ports the fleet calls</span>}
+        context={
+          <span>Congestion and wait exposure at the ports the fleet calls</span>
+        }
         meta={<span className="num">{ports.length} ports in the network</span>}
       />
 
@@ -213,7 +245,8 @@ function DestinationPorts() {
           {
             label: "Severe destinations",
             value: [...fleetCodes].filter(
-              (code) => ports.find((port) => port.code === code)?.risk === "severe",
+              (code) =>
+                ports.find((port) => port.code === code)?.risk === "severe",
             ).length,
             tone: "crit",
             note: "regime SEVERE at the forecast origin",
@@ -223,7 +256,8 @@ function DestinationPorts() {
             value: Math.max(
               0,
               ...[...fleetCodes].map(
-                (code) => ports.find((port) => port.code === code)?.delayHours ?? 0,
+                (code) =>
+                  ports.find((port) => port.code === code)?.delayHours ?? 0,
               ),
             ).toFixed(1),
             unit: "h",
@@ -250,8 +284,15 @@ function DestinationPorts() {
             { value: "all", label: "All ports" },
           ]}
         />
-        <SearchInput value={search} onChange={setSearch} placeholder="Filter ports" className="w-[240px]" />
-        <span className="num ml-auto text-[11px] text-[var(--text-3)]">{rows.length} shown</span>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filter ports"
+          className="w-[240px]"
+        />
+        <span className="num ml-auto text-[11px] text-[var(--text-3)]">
+          {rows.length} shown
+        </span>
       </Toolbar>
 
       <PageBody padded={false} className="flex min-h-0 overflow-hidden">
@@ -263,7 +304,9 @@ function DestinationPorts() {
             selectedKey={activeCode}
             onRowClick={(port) => setSelected(port.code)}
             initialSort="day1"
-            rowTone={(port) => (fleetCodes.has(port.code) ? "var(--info)" : null)}
+            rowTone={(port) =>
+              fleetCodes.has(port.code) ? "var(--info)" : null
+            }
           />
         </Panel>
 
@@ -280,7 +323,9 @@ function DestinationPorts() {
                     <Pill tone={riskTone(active.risk)} solid>
                       {riskLabel(active.risk)}
                     </Pill>
-                    <span className="text-[11.5px] text-[var(--text-2)]">{active.regime}</span>
+                    <span className="text-[11.5px] text-[var(--text-2)]">
+                      {active.regime}
+                    </span>
                     <ProvenanceTag
                       status={active.dataStatus}
                       ageHours={active.dataAgeHours}
@@ -289,7 +334,9 @@ function DestinationPorts() {
                     />
                   </div>
                   <KeyValue label="Authority" dense>
-                    <span className="text-[11.5px]">{active.authority ?? "n/a"}</span>
+                    <span className="text-[11.5px]">
+                      {active.authority ?? "n/a"}
+                    </span>
                   </KeyValue>
                   <KeyValue label="Calls declared here" dense>
                     <span className="text-[11.5px]">
@@ -303,13 +350,20 @@ function DestinationPorts() {
                     <Num value={active.anchorageCount} />
                   </KeyValue>
                   <KeyValue label="Berth utilisation" dense>
-                    <Num value={active.utilization} digits={0} scale={100} unit="%" />
+                    <Num
+                      value={active.utilization}
+                      digits={0}
+                      scale={100}
+                      unit="%"
+                    />
                   </KeyValue>
                   <KeyValue label="Transition risk 24h" dense>
                     <Num value={active.transitionRisk24h} digits={3} />
                   </KeyValue>
                   <KeyValue label="Recommended action" dense>
-                    <span className="text-[11.5px]">{active.actionTitle ?? "none issued"}</span>
+                    <span className="text-[11.5px]">
+                      {active.actionTitle ?? "none issued"}
+                    </span>
                   </KeyValue>
                 </div>
               </Panel>
@@ -342,16 +396,44 @@ function DestinationPorts() {
                   <div className="px-3 py-2">
                     {(
                       [
-                        ["Wind", weatherByCode.get(active.code)?.windKnots, "kn"],
-                        ["Gust", weatherByCode.get(active.code)?.gustKnots, "kn"],
-                        ["Rain 24h", weatherByCode.get(active.code)?.rainfallMm24h, "mm"],
-                        ["Visibility", weatherByCode.get(active.code)?.visibilityKm, "km"],
-                        ["Wave height", weatherByCode.get(active.code)?.waveHeightM, "m"],
-                        ["Impact index", weatherByCode.get(active.code)?.impactScore, ""],
+                        [
+                          "Wind",
+                          weatherByCode.get(active.code)?.windKnots,
+                          "kn",
+                        ],
+                        [
+                          "Gust",
+                          weatherByCode.get(active.code)?.gustKnots,
+                          "kn",
+                        ],
+                        [
+                          "Rain 24h",
+                          weatherByCode.get(active.code)?.rainfallMm24h,
+                          "mm",
+                        ],
+                        [
+                          "Visibility",
+                          weatherByCode.get(active.code)?.visibilityKm,
+                          "km",
+                        ],
+                        [
+                          "Wave height",
+                          weatherByCode.get(active.code)?.waveHeightM,
+                          "m",
+                        ],
+                        [
+                          "Impact index",
+                          weatherByCode.get(active.code)?.impactScore,
+                          "",
+                        ],
                       ] as Array<[string, number | null | undefined, string]>
                     ).map(([label, value, unit]) => (
                       <KeyValue key={label} label={label} dense>
-                        <Num value={value ?? null} digits={unit === "" ? 3 : 1} unit={unit} />
+                        <Num
+                          value={value ?? null}
+                          digits={unit === "" ? 3 : 1}
+                          unit={unit}
+                        />
                       </KeyValue>
                     ))}
                     <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11px] leading-snug text-[var(--text-3)]">

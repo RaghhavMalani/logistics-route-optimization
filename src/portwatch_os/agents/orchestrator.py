@@ -332,9 +332,9 @@ class AgentRun:
             "decisionId": self.decision_id,
             "spatial": [command.to_dict() for command in self.spatial],
             "note": (
-                "Agents orchestrate and explain. Every number above came from a tool "
+                "Rule-routed specialists run the checks. Every number above came from a tool "
                 "listed in the trace, and every tool names the deterministic model that "
-                "produced it. No agent may execute an action."
+                "produced it. Execution requires an authenticated approver."
             ),
         }
 
@@ -631,9 +631,9 @@ class CommandAgent:
             "critic": Critic.describe(),
             "boundary": {
                 "note": (
-                    "Every agent, including the orchestrator, is capped at PROPOSE. "
+                    "Specialist tools and rule routing are capped at PROPOSE. "
                     "EXECUTE tools require an ApprovalContext that can only be built "
-                    "from an authenticated human session, so no agent can reach one."
+                    "from an authenticated human session."
                 ),
             },
         }

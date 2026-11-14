@@ -39,7 +39,9 @@ const screenPaths = new Set([
 
 function homeRole(pathname: string, actor: Role) {
   if (!isRoleAllowed(actor, pathname)) return undefined;
-  return (Object.keys(homes) as HomeRole[]).find((role) => homes[role][1] === pathname);
+  return (Object.keys(homes) as HomeRole[]).find(
+    (role) => homes[role][1] === pathname,
+  );
 }
 
 export function beginHomeNavigation(pathname: string) {
@@ -117,7 +119,12 @@ export async function loadHomeSession(
   return (await packet)?.session ?? null;
 }
 
-export function bootPacket(base: string, actor: Role, token: string, mode: Mode) {
+export function bootPacket(
+  base: string,
+  actor: Role,
+  token: string,
+  mode: Mode,
+) {
   if (!navigation || navigation.until <= Date.now()) return undefined;
   const role = homeRole(navigation.pathname, actor);
   if (!role) return null;

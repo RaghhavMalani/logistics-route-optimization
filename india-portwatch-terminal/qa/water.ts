@@ -11,7 +11,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const GEO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "assets", "geo");
+const GEO = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "src",
+  "assets",
+  "geo",
+);
 
 interface RawGrid {
   grid: {
@@ -41,11 +47,16 @@ export interface RawLeg {
 interface RawRoutes {
   generatedAt: string;
   disclaimer: string;
-  waypoints: Record<string, { name: string; lat: number; lon: number; kind: string }>;
+  waypoints: Record<
+    string,
+    { name: string; lat: number; lon: number; kind: string }
+  >;
   legs: Record<string, RawLeg>;
 }
 
-const gridDoc = JSON.parse(fs.readFileSync(path.join(GEO, "sea-grid.json"), "utf8")) as RawGrid;
+const gridDoc = JSON.parse(
+  fs.readFileSync(path.join(GEO, "sea-grid.json"), "utf8"),
+) as RawGrid;
 export const routesDoc = JSON.parse(
   fs.readFileSync(path.join(GEO, "sea-routes.json"), "utf8"),
 ) as RawRoutes;
@@ -85,7 +96,8 @@ export function firstLandfall(
 ): [number, number] | null {
   if (coords.length < 2) return null;
   let total = 0;
-  for (let i = 0; i < coords.length - 1; i += 1) total += haversineKm(coords[i], coords[i + 1]);
+  for (let i = 0; i < coords.length - 1; i += 1)
+    total += haversineKm(coords[i], coords[i + 1]);
 
   let travelled = 0;
   for (let i = 0; i < coords.length - 1; i += 1) {
@@ -108,7 +120,9 @@ export function firstLandfall(
 
 /** A catalogue leg in either direction. */
 export function leg(from: string, to: string): RawLeg | null {
-  return routesDoc.legs[`${from}>${to}`] ?? routesDoc.legs[`${to}>${from}`] ?? null;
+  return (
+    routesDoc.legs[`${from}>${to}`] ?? routesDoc.legs[`${to}>${from}`] ?? null
+  );
 }
 
 /** Does the polyline pass within `km` of this point at any sample? */
@@ -118,7 +132,10 @@ export function passesNear(
   km: number,
 ): boolean {
   for (let i = 0; i < coords.length - 1; i += 1) {
-    const steps = Math.max(1, Math.ceil(haversineKm(coords[i], coords[i + 1]) / 10));
+    const steps = Math.max(
+      1,
+      Math.ceil(haversineKm(coords[i], coords[i + 1]) / 10),
+    );
     for (let s = 0; s <= steps; s += 1) {
       const f = s / steps;
       const lon = coords[i][0] + (coords[i + 1][0] - coords[i][0]) * f;

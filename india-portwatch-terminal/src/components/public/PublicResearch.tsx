@@ -8,6 +8,8 @@ import {
 import { DataState, LinePlot, PublicShell } from "./PublicShell";
 import { fmt, utc } from "./format";
 import { PublicPortCases } from "./PublicPortCases";
+import { ModelStatus } from "./ModelStatus";
+import { PaperFindings } from "./PaperFindings";
 
 const pct = (n?: number | null) =>
   n == null ? "Unavailable" : `${fmt(n * 100)}%`;
@@ -382,7 +384,10 @@ export function PublicResearch() {
           <Link to="/explore">Explore the shipping scenarios ↗</Link>
         </aside>
       </section>
-      <section className="public-research-intro" aria-labelledby="decision-policy-benchmark">
+      <section
+        className="public-research-intro"
+        aria-labelledby="decision-policy-benchmark"
+      >
         <span className="public-badge">Synthetic vessel benchmark</span>
         <h2 id="decision-policy-benchmark">Decision policy benchmark</h2>
         <p>
@@ -391,8 +396,12 @@ export function PublicResearch() {
           comparison.
         </p>
         <div className="public-facts">
-          <span>Mean regret<strong>12.14 → 1.05 h</strong></span>
-          <span>90th percentile regret<strong>42.1 → 0.0 h</strong></span>
+          <span>
+            Mean regret<strong>12.14 → 1.05 h</strong>
+          </span>
+          <span>
+            90th percentile regret<strong>42.1 → 0.0 h</strong>
+          </span>
         </div>
         <p className="public-note">
           The current-plan baseline also scored 1.05 h mean regret. The
@@ -405,6 +414,8 @@ export function PublicResearch() {
           Source · docs/DECISION_BENCHMARK.md
         </a>
       </section>
+      <PaperFindings />
+      <ModelStatus />
       <PublicPortCases />
       {query.isPending || query.isError ? (
         <DataState

@@ -77,7 +77,7 @@ test.describe("spatial copilot", () => {
     await expect(page.getByTestId("command-bar-open")).toBeVisible();
     await expect(page.getByTestId("command-bar")).toHaveCount(0);
 
-    await page.keyboard.press("ControlOrMeta+k");
+    await page.keyboard.press("ControlOrMeta+Shift+k");
     await expect(page.getByTestId("command-bar")).toBeVisible();
     await expect(page.getByTestId("command-input")).toBeFocused();
 

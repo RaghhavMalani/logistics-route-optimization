@@ -12,13 +12,21 @@ import { destination, type Position } from "@/lib/maritime/geo";
 
 const DEG = Math.PI / 180;
 
-export function circleRing(centre: Position, radiusKm: number, steps = 72): Position[] {
+export function circleRing(
+  centre: Position,
+  radiusKm: number,
+  steps = 72,
+): Position[] {
   const ring: Position[] = [];
   const latScale = radiusKm / 110.574;
-  const lonScale = radiusKm / (111.32 * Math.max(0.15, Math.cos(centre[1] * DEG)));
+  const lonScale =
+    radiusKm / (111.32 * Math.max(0.15, Math.cos(centre[1] * DEG)));
   for (let i = 0; i <= steps; i += 1) {
     const θ = (i / steps) * Math.PI * 2;
-    ring.push([centre[0] + lonScale * Math.cos(θ), centre[1] + latScale * Math.sin(θ)]);
+    ring.push([
+      centre[0] + lonScale * Math.cos(θ),
+      centre[1] + latScale * Math.sin(θ),
+    ]);
   }
   return ring;
 }
@@ -33,7 +41,7 @@ export function sectorRing(
 ): Position[] {
   const ring: Position[] = [centre];
   for (let i = 0; i <= steps; i += 1) {
-    const angle = bearing - halfAngle + ((halfAngle * 2) * i) / steps;
+    const angle = bearing - halfAngle + (halfAngle * 2 * i) / steps;
     ring.push(destination(centre, angle, radiusKm));
   }
   ring.push(centre);
@@ -41,7 +49,12 @@ export function sectorRing(
 }
 
 /** A straight run out from a point on a bearing, for a fairway centreline. */
-export function bearingLine(from: Position, bearing: number, km: number, steps = 8): Position[] {
+export function bearingLine(
+  from: Position,
+  bearing: number,
+  km: number,
+  steps = 8,
+): Position[] {
   const out: Position[] = [];
   for (let i = 0; i <= steps; i += 1) {
     out.push(destination(from, bearing, (km * i) / steps));

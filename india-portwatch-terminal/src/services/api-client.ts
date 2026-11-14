@@ -7,16 +7,20 @@ type PathFor<M extends Method> = {
   [P in keyof paths]: P extends `/api/${string}`
     ? P extends `${string}{${string}`
       ? never
-      : paths[P] extends Record<M, unknown> ? P : never
+      : paths[P] extends Record<M, unknown>
+        ? P
+        : never
     : never;
 }[keyof paths];
 
-export type ApiResponse<P extends keyof paths, M extends keyof paths[P]> =
-  paths[P][M] extends {
-    responses: { 200: { content: { "application/json": infer Payload } } };
-  }
-    ? Payload
-    : unknown;
+export type ApiResponse<
+  P extends keyof paths,
+  M extends keyof paths[P],
+> = paths[P][M] extends {
+  responses: { 200: { content: { "application/json": infer Payload } } };
+}
+  ? Payload
+  : unknown;
 
 type ApiBody<P extends PathFor<"post">> = paths[P]["post"] extends {
   requestBody: { content: { "application/json": infer Payload } };
@@ -38,5 +42,10 @@ export function postApi<P extends PathFor<"post">>(
   headers?: Record<string, string>,
   options?: RequestOptions,
 ) {
-  return postJson<ApiResponse<P, "post">>(path.slice(4), body, headers, options);
+  return postJson<ApiResponse<P, "post">>(
+    path.slice(4),
+    body,
+    headers,
+    options,
+  );
 }

@@ -10,10 +10,13 @@ test("historical Indian source is inspectable with audit parity and an explicit 
   await page.goto("/login");
   await page.getByRole("button", { name: "Company demo", exact: true }).click();
   await expect(page).toHaveURL(/\/company\/overview$/);
-  const retainedRead = page.waitForResponse((response) =>
-    new URL(response.url()).pathname.endsWith(
-      "/api/demo/terminal/intelligence/navigation-restrictions",
-    ) && response.request().method() === "GET" && response.ok(),
+  const retainedRead = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith(
+        "/api/demo/terminal/intelligence/navigation-restrictions",
+      ) &&
+      response.request().method() === "GET" &&
+      response.ok(),
   );
   await page.goto(
     "/company/global-eye#intelligence-review?noticeId=NHO_NAVAREA_VIII%3A609%2F25&vesselId=PWD-001",
@@ -110,10 +113,9 @@ test("historical Indian source is inspectable with audit parity and an explicit 
   const state = await page.evaluate(() =>
     JSON.parse(sessionStorage.getItem("portwatch.session.v1")!),
   );
-  const response = await page.request.get(
-    (await retainedRead).url(),
-    { headers: { Authorization: `Bearer ${state.accessToken}` } },
-  );
+  const response = await page.request.get((await retainedRead).url(), {
+    headers: { Authorization: `Bearer ${state.accessToken}` },
+  });
   expect(response.ok()).toBeTruthy();
   const vessel = (await response.json()).voyages.find(
     (v: { id: string }) => v.id === "PWD-001",

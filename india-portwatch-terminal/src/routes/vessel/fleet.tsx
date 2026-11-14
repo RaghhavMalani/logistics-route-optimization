@@ -1,8 +1,20 @@
+import { CongestionScore } from "@/components/kit/CongestionScore";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { statusTone, useFleetIntel, type VesselIntel } from "@/components/app/fleet-context";
-import { Page, PageBody, PageHeader, Panel, SegmentedControl, Toolbar } from "@/components/kit/layout";
+import {
+  statusTone,
+  useFleetIntel,
+  type VesselIntel,
+} from "@/components/app/fleet-context";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  SegmentedControl,
+  Toolbar,
+} from "@/components/kit/layout";
 import {
   Delta,
   Dot,
@@ -16,7 +28,9 @@ import {
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 
-export const Route = createFileRoute("/vessel/fleet")({ component: FleetBoard });
+export const Route = createFileRoute("/vessel/fleet")({
+  component: FleetBoard,
+});
 
 type Filter = "all" | "reroute" | "risk" | "weather";
 
@@ -29,7 +43,20 @@ const FILTERS: Array<{ value: Filter; label: string }> = [
 
 function formatEta(date: Date | null): string {
   if (!date) return "—";
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return `${String(date.getUTCDate()).padStart(2, "0")} ${months[date.getUTCMonth()]}`;
 }
 
@@ -43,8 +70,13 @@ function FleetBoard() {
     const term = search.trim().toLowerCase();
     return intel.filter((row) => {
       if (filter === "reroute" && !row.vessel.reroute) return false;
-      if (filter === "risk" && (row.vessel.intendedCongestionProbability ?? 0) < 0.5) return false;
-      if (filter === "weather" && (row.weather?.impactScore ?? 0) < 0.15) return false;
+      if (
+        filter === "risk" &&
+        (row.vessel.intendedCongestionProbability ?? 0) < 0.5
+      )
+        return false;
+      if (filter === "weather" && (row.weather?.impactScore ?? 0) < 0.15)
+        return false;
       if (!term) return true;
       return (
         row.vessel.name.toLowerCase().includes(term) ||
@@ -59,7 +91,9 @@ function FleetBoard() {
     return (
       <ScreenFallback
         title="Fleet"
-        context={<span>Every declared call scored against the live forecast</span>}
+        context={
+          <span>Every declared call scored against the live forecast</span>
+        }
         isLoading={isLoading}
         error={error}
         retry={refetch}
@@ -90,7 +124,9 @@ function FleetBoard() {
       header: "Vessel ID",
       width: 138,
       hint: "Optimizer identifier — the routing artefact carries no IMO number",
-      render: (row) => <span className="num text-[var(--text-3)]">{row.vessel.id}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.vessel.id}</span>
+      ),
       sort: (row) => row.vessel.id,
     },
     {
@@ -98,7 +134,9 @@ function FleetBoard() {
       header: "Position",
       width: 120,
       hint: "No AIS track in this artefact: routing is anchored at the declared call",
-      render: () => <span className="num text-[var(--text-3)]">not tracked</span>,
+      render: () => (
+        <span className="num text-[var(--text-3)]">not tracked</span>
+      ),
     },
     {
       key: "destination",
@@ -167,8 +205,10 @@ function FleetBoard() {
       render: (row) =>
         row.destination ? (
           <span className="flex items-center justify-end gap-2">
-            <Num value={row.destination.congestionIndex} />
-            <Pill tone={riskTone(row.destination.risk)}>{riskLabel(row.destination.risk)}</Pill>
+            <CongestionScore value={row.destination.congestionIndex} />
+            <Pill tone={riskTone(row.destination.risk)}>
+              {riskLabel(row.destination.risk)}
+            </Pill>
           </span>
         ) : (
           <span className="num text-[var(--text-3)]">n/a</span>
@@ -186,7 +226,11 @@ function FleetBoard() {
           <span className="w-9">
             <MiniBar
               value={row.vessel.intendedCongestionProbability}
-              tone={(row.vessel.intendedCongestionProbability ?? 0) >= 0.5 ? "crit" : "info"}
+              tone={
+                (row.vessel.intendedCongestionProbability ?? 0) >= 0.5
+                  ? "crit"
+                  : "info"
+              }
             />
           </span>
           <Num value={row.vessel.intendedCongestionProbability} digits={2} />
@@ -213,14 +257,23 @@ function FleetBoard() {
       header: "Confidence",
       align: "right",
       width: 106,
-      render: (row) => <Num value={row.destination?.confidence} digits={0} scale={100} unit="%" />,
+      render: (row) => (
+        <Num
+          value={row.destination?.confidence}
+          digits={0}
+          scale={100}
+          unit="%"
+        />
+      ),
       sort: (row) => row.destination?.confidence ?? null,
     },
     {
       key: "action",
       header: "Recommended action",
       width: 250,
-      render: (row) => <span className="text-[var(--text-2)]">{row.action}</span>,
+      render: (row) => (
+        <span className="text-[var(--text-2)]">{row.action}</span>
+      ),
       sort: (row) => row.action,
     },
   ];
@@ -229,7 +282,9 @@ function FleetBoard() {
     <Page>
       <PageHeader
         title="Fleet"
-        context={<span>Every declared call scored against the live forecast</span>}
+        context={
+          <span>Every declared call scored against the live forecast</span>
+        }
         meta={
           <span className="num">
             origin {formatUtc(intel[0]?.vessel.originDate ?? null)}
@@ -268,7 +323,10 @@ function FleetBoard() {
               columns={columns}
               rowKey={(row) => row.vessel.id}
               onRowClick={(row) =>
-                void navigate({ to: "/vessel/$vesselId", params: { vesselId: row.vessel.id } })
+                void navigate({
+                  to: "/vessel/$vesselId",
+                  params: { vesselId: row.vessel.id },
+                })
               }
               initialSort="eta"
               initialDirection="asc"

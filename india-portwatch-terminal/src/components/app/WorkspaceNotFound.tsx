@@ -16,7 +16,10 @@ export function WorkspaceNotFound() {
 
   return (
     <Page>
-      <PageHeader title="Screen not found" context={<span>{profile.label} workspace</span>} />
+      <PageHeader
+        title="Screen not found"
+        context={<span>{profile.label} workspace</span>}
+      />
       <PageBody>
         <EmptyState
           tone="warn"

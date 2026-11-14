@@ -62,7 +62,8 @@ export function DataTable<T>({
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * factor;
+      if (typeof av === "number" && typeof bv === "number")
+        return (av - bv) * factor;
       return String(av).localeCompare(String(bv)) * factor;
     });
   }, [columns, direction, rows, sortKey]);
@@ -83,7 +84,10 @@ export function DataTable<T>({
         <colgroup>
           {rows.length > 0 && rowTone ? <col style={{ width: 3 }} /> : null}
           {columns.map((column) => (
-            <col key={column.key} style={column.width ? { width: column.width } : undefined} />
+            <col
+              key={column.key}
+              style={column.width ? { width: column.width } : undefined}
+            />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10">
@@ -98,13 +102,20 @@ export function DataTable<T>({
                   key={column.key}
                   title={column.hint}
                   scope="col"
-                  aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : undefined}
+                  aria-sort={
+                    active
+                      ? direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : undefined
+                  }
                   className={cn(
                     "whitespace-nowrap border-b border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-[6px]",
                     "text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]",
                     column.align === "right" && "text-right",
                     column.align === "center" && "text-center",
-                    column.sort && "cursor-pointer select-none hover:text-[var(--text-2)]",
+                    column.sort &&
+                      "cursor-pointer select-none hover:text-[var(--text-2)]",
                   )}
                   onClick={() => toggle(column)}
                 >
@@ -114,7 +125,9 @@ export function DataTable<T>({
                       <span
                         className={cn(
                           "text-[10px] leading-none transition-opacity",
-                          active ? "text-[var(--info)] opacity-100" : "opacity-25",
+                          active
+                            ? "text-[var(--info)] opacity-100"
+                            : "opacity-25",
                         )}
                         aria-hidden
                       >
@@ -158,7 +171,10 @@ export function DataTable<T>({
                     <td className="p-0">
                       <span
                         className="block h-full w-[3px]"
-                        style={{ background: tone ?? "transparent", minHeight: 24 }}
+                        style={{
+                          background: tone ?? "transparent",
+                          minHeight: 24,
+                        }}
                       />
                     </td>
                   ) : null}
@@ -230,7 +246,14 @@ export function SearchInput({
           onClick={() => onChange("")}
           className="shrink-0 text-[var(--text-3)] hover:text-[var(--text)]"
         >
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+          >
             <path d="M4 4l8 8M12 4l-8 8" />
           </svg>
         </button>

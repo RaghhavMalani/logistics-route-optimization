@@ -47,7 +47,9 @@ function tickPlan(count: number, plotW: number, minGap = 58) {
   return { step, showLast: remainder === 0 || remainder >= step * 0.6 };
 }
 
-function useChartWidth(fallback: number): [(node: HTMLDivElement | null) => void, number] {
+function useChartWidth(
+  fallback: number,
+): [(node: HTMLDivElement | null) => void, number] {
   const [width, setWidth] = useState(fallback);
   const observer = useRef<ResizeObserver | null>(null);
 
@@ -74,10 +76,13 @@ function niceTicks(min: number, max: number, count = 4): number[] {
   const span = max - min;
   const raw = span / count;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? magnitude * 10;
+  const step =
+    [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ??
+    magnitude * 10;
   const start = Math.ceil(min / step) * step;
   const out: number[] = [];
-  for (let value = start; value <= max + 1e-9; value += step) out.push(Number(value.toFixed(6)));
+  for (let value = start; value <= max + 1e-9; value += step)
+    out.push(Number(value.toFixed(6)));
   return out;
 }
 
@@ -96,7 +101,9 @@ export function Sparkline({
   fill?: boolean;
   className?: string;
 }) {
-  const points = data.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+  const points = data.filter(
+    (v): v is number => typeof v === "number" && Number.isFinite(v),
+  );
   if (points.length < 2) {
     return (
       <div
@@ -194,7 +201,10 @@ export function QuantileChart({
   if (!model || points.length < 2) {
     return (
       <div
-        className={cn("grid w-full place-items-center text-[11px] text-[var(--text-3)]", className)}
+        className={cn(
+          "grid w-full place-items-center text-[11px] text-[var(--text-3)]",
+          className,
+        )}
         style={{ height }}
       >
         No forecast in this artefact
@@ -213,7 +223,9 @@ export function QuantileChart({
   const y = (value: number) =>
     padT + plotH - ((value - model.min) / (model.max - model.min)) * plotH;
 
-  const upper = points.map((p, i) => `${x(i)},${y(p.q90 ?? p.q50 ?? model.min)}`);
+  const upper = points.map(
+    (p, i) => `${x(i)},${y(p.q90 ?? p.q50 ?? model.min)}`,
+  );
   const lower = points
     .map((p, i) => `${x(i)},${y(p.q10 ?? p.q50 ?? model.min)}`)
     .reverse();
@@ -237,7 +249,9 @@ export function QuantileChart({
           const rect = event.currentTarget.getBoundingClientRect();
           const ratio = (event.clientX - rect.left) / rect.width;
           const svgX = ratio * width;
-          const index = Math.round(((svgX - padL) / plotW) * (points.length - 1));
+          const index = Math.round(
+            ((svgX - padL) / plotW) * (points.length - 1),
+          );
           setHover(Math.min(points.length - 1, Math.max(0, index)));
         }}
       >
@@ -272,7 +286,10 @@ export function QuantileChart({
           </g>
         ))}
 
-        <polygon points={[...upper, ...lower].join(" ")} fill={`url(#${gradientId})`} />
+        <polygon
+          points={[...upper, ...lower].join(" ")}
+          fill={`url(#${gradientId})`}
+        />
         <polyline
           points={upper.join(" ")}
           fill="none"
@@ -282,7 +299,9 @@ export function QuantileChart({
           vectorEffect="non-scaling-stroke"
         />
         <polyline
-          points={points.map((p, i) => `${x(i)},${y(p.q10 ?? p.q50 ?? model.min)}`).join(" ")}
+          points={points
+            .map((p, i) => `${x(i)},${y(p.q10 ?? p.q50 ?? model.min)}`)
+            .join(" ")}
           fill="none"
           stroke="var(--info)"
           strokeOpacity={0.4}
@@ -355,7 +374,13 @@ export function QuantileChart({
               key={`x-${point.label}-${index}`}
               x={x(index)}
               y={height - 6}
-              textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"}
+              textAnchor={
+                index === 0
+                  ? "start"
+                  : index === points.length - 1
+                    ? "end"
+                    : "middle"
+              }
               className="num"
               fill="var(--text-3)"
               fontSize={9}
@@ -367,7 +392,9 @@ export function QuantileChart({
       </svg>
 
       {yLabel ? (
-        <span className="eyebrow absolute left-0 top-0 text-[10px]">{yLabel}</span>
+        <span className="eyebrow absolute left-0 top-0 text-[10px]">
+          {yLabel}
+        </span>
       ) : null}
 
       {active ? (
@@ -375,13 +402,22 @@ export function QuantileChart({
           <div className="mb-0.5 text-[var(--text-2)]">{active.label}</div>
           <div className="num flex gap-2.5 text-[var(--text-3)]">
             <span>
-              q10 <span className="text-[var(--text)]">{active.q10?.toFixed(1) ?? "n/a"}</span>
+              q10{" "}
+              <span className="text-[var(--text)]">
+                {active.q10?.toFixed(1) ?? "n/a"}
+              </span>
             </span>
             <span>
-              q50 <span className="text-[var(--info)]">{active.q50?.toFixed(1) ?? "n/a"}</span>
+              q50{" "}
+              <span className="text-[var(--info)]">
+                {active.q50?.toFixed(1) ?? "n/a"}
+              </span>
             </span>
             <span>
-              q90 <span className="text-[var(--text)]">{active.q90?.toFixed(1) ?? "n/a"}</span>
+              q90{" "}
+              <span className="text-[var(--text)]">
+                {active.q90?.toFixed(1) ?? "n/a"}
+              </span>
             </span>
           </div>
         </div>
@@ -404,7 +440,13 @@ export function SeriesChart({
   className,
   yUnit,
 }: {
-  series: Array<{ name: string; tone: Tone; points: SeriesPoint[]; area?: boolean; dashed?: boolean }>;
+  series: Array<{
+    name: string;
+    tone: Tone;
+    points: SeriesPoint[];
+    area?: boolean;
+    dashed?: boolean;
+  }>;
   height?: number;
   /** Optional shaded x-range, e.g. the forecast half of a timeline. */
   bands?: Array<{ fromIndex: number; toIndex: number; label?: string }>;
@@ -415,13 +457,18 @@ export function SeriesChart({
   const [frameRef, width] = useChartWidth(640);
   const length = series[0]?.points.length ?? 0;
   const values = series.flatMap((s) =>
-    s.points.map((p) => p.value).filter((v): v is number => typeof v === "number" && Number.isFinite(v)),
+    s.points
+      .map((p) => p.value)
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v)),
   );
 
   if (!values.length || length < 2) {
     return (
       <div
-        className={cn("grid w-full place-items-center text-[11px] text-[var(--text-3)]", className)}
+        className={cn(
+          "grid w-full place-items-center text-[11px] text-[var(--text-3)]",
+          className,
+        )}
         style={{ height }}
       >
         No series in this artefact
@@ -449,7 +496,12 @@ export function SeriesChart({
 
   return (
     <div ref={frameRef} className={cn("relative w-full", className)}>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full" style={{ height }}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="w-full"
+        style={{ height }}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
@@ -479,8 +531,17 @@ export function SeriesChart({
               stroke="var(--line)"
               vectorEffect="non-scaling-stroke"
             />
-            <text x={padL - 5} y={y(tick) + 3} textAnchor="end" className="num" fill="var(--text-3)" fontSize={9}>
-              {Math.abs(tick) >= 1000 ? `${(tick / 1000).toFixed(0)}k` : tick.toFixed(Math.abs(tick) < 10 ? 1 : 0)}
+            <text
+              x={padL - 5}
+              y={y(tick) + 3}
+              textAnchor="end"
+              className="num"
+              fill="var(--text-3)"
+              fontSize={9}
+            >
+              {Math.abs(tick) >= 1000
+                ? `${(tick / 1000).toFixed(0)}k`
+                : tick.toFixed(Math.abs(tick) < 10 ? 1 : 0)}
             </text>
           </g>
         ))}
@@ -512,13 +573,16 @@ export function SeriesChart({
 
         {series[0]?.points.map((point, index) => {
           const isLast = index === length - 1;
-          if (isLast ? !xTicks.showLast : index % xTicks.step !== 0) return null;
+          if (isLast ? !xTicks.showLast : index % xTicks.step !== 0)
+            return null;
           return (
             <text
               key={`${point.label}-${index}`}
               x={x(index)}
               y={height - 5}
-              textAnchor={index === 0 ? "start" : index === length - 1 ? "end" : "middle"}
+              textAnchor={
+                index === 0 ? "start" : index === length - 1 ? "end" : "middle"
+              }
               className="num"
               fill="var(--text-3)"
               fontSize={9}
@@ -531,12 +595,22 @@ export function SeriesChart({
 
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         {series.map((s) => (
-          <span key={s.name} className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-3)]">
-            <span className="h-[2px] w-4" style={{ background: TONE_VAR[s.tone] }} />
+          <span
+            key={s.name}
+            className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-3)]"
+          >
+            <span
+              className="h-[2px] w-4"
+              style={{ background: TONE_VAR[s.tone] }}
+            />
             {s.name}
           </span>
         ))}
-        {yUnit ? <span className="ml-auto text-[10px] text-[var(--text-3)]">{yUnit}</span> : null}
+        {yUnit ? (
+          <span className="ml-auto text-[10px] text-[var(--text-3)]">
+            {yUnit}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -549,7 +623,12 @@ export function BarRanking({
   className,
   valueFormatter = (v) => v.toFixed(3),
 }: {
-  items: Array<{ label: string; value: number | null; tone?: Tone; note?: ReactNode }>;
+  items: Array<{
+    label: string;
+    value: number | null;
+    tone?: Tone;
+    note?: ReactNode;
+  }>;
   className?: string;
   valueFormatter?: (value: number) => string;
 }) {
@@ -565,7 +644,9 @@ export function BarRanking({
           className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 border-b border-[var(--line)]/50 py-1.5 last:border-0"
         >
           <div className="min-w-0">
-            <div className="truncate text-[11.5px] text-[var(--text-2)]">{item.label}</div>
+            <div className="truncate text-[11.5px] text-[var(--text-2)]">
+              {item.label}
+            </div>
             <div className="mt-1 h-[3px] w-full overflow-hidden rounded-[1px] bg-[var(--panel-3)]">
               <div
                 className="h-full"
@@ -583,7 +664,9 @@ export function BarRanking({
               valueFormatter(item.value)
             )}
             {item.note ? (
-              <div className="text-[10px] font-normal text-[var(--text-3)]">{item.note}</div>
+              <div className="text-[10px] font-normal text-[var(--text-3)]">
+                {item.note}
+              </div>
             ) : null}
           </div>
         </div>
@@ -613,7 +696,10 @@ export function ColumnChart({
   if (!values.length) {
     return (
       <div
-        className={cn("grid w-full place-items-center text-[11px] text-[var(--text-3)]", className)}
+        className={cn(
+          "grid w-full place-items-center text-[11px] text-[var(--text-3)]",
+          className,
+        )}
         style={{ height }}
       >
         No measurements
@@ -623,7 +709,10 @@ export function ColumnChart({
   const max = Math.max(...values, threshold ?? 0) * 1.12 || 1;
   return (
     <div className={cn("w-full", className)}>
-      <div className="relative flex items-end justify-between gap-[3px]" style={{ height }}>
+      <div
+        className="relative flex items-end justify-between gap-[3px]"
+        style={{ height }}
+      >
         {threshold != null ? (
           <div
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[var(--warn)]/70"
@@ -640,8 +729,14 @@ export function ColumnChart({
             <div
               className="w-full rounded-[1px] transition-opacity group-hover:opacity-100"
               style={{
-                height: point.value == null ? 2 : `${Math.max(2, (point.value / max) * height)}px`,
-                background: point.value == null ? "var(--panel-3)" : TONE_VAR[point.tone ?? tone],
+                height:
+                  point.value == null
+                    ? 2
+                    : `${Math.max(2, (point.value / max) * height)}px`,
+                background:
+                  point.value == null
+                    ? "var(--panel-3)"
+                    : TONE_VAR[point.tone ?? tone],
                 opacity: 0.86,
               }}
             />

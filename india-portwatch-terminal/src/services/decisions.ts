@@ -281,17 +281,27 @@ export function useDecisionWorkflow(headers: Record<string, string>) {
     void client.invalidateQueries({ queryKey: ["workspace-handoffs"] });
   };
   const transition = useMutation({
-    mutationFn: (args: {
+    mutationFn: async (args: {
       decisionId: string;
       target: string;
       optionId?: string | null;
       note?: string;
-    }) =>
-      transitionDecision(
+      reviewBefore?: boolean;
+    }) => {
+      if (args.reviewBefore) {
+        const reviewed = await transitionDecision(
+          args.decisionId,
+          { target: "REVIEWED", note: "reviewed in the terminal" },
+          headers,
+        );
+        settle(reviewed);
+      }
+      return transitionDecision(
         args.decisionId,
         { target: args.target, optionId: args.optionId, note: args.note },
         headers,
-      ),
+      );
+    },
     onSuccess: settle,
   });
   const handoff = useMutation({

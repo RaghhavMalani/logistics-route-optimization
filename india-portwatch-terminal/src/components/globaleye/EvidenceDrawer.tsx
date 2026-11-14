@@ -175,12 +175,25 @@ export function EvidenceDrawer({
                 )}
 
                 {step.outgoing.map((quantity, index) => {
-                  const { detour_nm, detour_speed_kn, exposure_factor } = quantity.attrs ?? {};
-                  if (![detour_nm, detour_speed_kn, exposure_factor].every((value) => typeof value === "number") || quantity.unit !== "hours") return null;
+                  const { detour_nm, detour_speed_kn, exposure_factor } =
+                    quantity.attrs ?? {};
+                  if (
+                    ![detour_nm, detour_speed_kn, exposure_factor].every(
+                      (value) => typeof value === "number",
+                    ) ||
+                    quantity.unit !== "hours"
+                  )
+                    return null;
                   return (
-                    <p key={index} className="mt-0.5 text-[10px] text-[var(--text-2)]">
-                      {Number(detour_nm).toLocaleString()} nm ÷ {Number(detour_speed_kn).toFixed(1)} kn
-                      {" × "}{Number(exposure_factor).toFixed(3)} exposure = {quantity.value.toFixed(1)} h modelled arrival shift
+                    <p
+                      key={index}
+                      className="mt-0.5 text-[10px] text-[var(--text-2)]"
+                    >
+                      {Number(detour_nm).toLocaleString()} nm ÷{" "}
+                      {Number(detour_speed_kn).toFixed(1)} kn
+                      {" × "}
+                      {Number(exposure_factor).toFixed(3)} exposure ={" "}
+                      {quantity.value.toFixed(1)} h modelled arrival shift
                     </p>
                   );
                 })}

@@ -16,8 +16,7 @@
  * The schematic banner is not dismissible and does not scroll away.
  */
 
-import { Suspense, lazy, useMemo, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Page,
@@ -54,6 +53,8 @@ import {
   type TwinSelection,
 } from "./twin-presentation";
 
+import { usePortWeather } from "@/components/miniature/use-port-weather";
+import { usePortRegistry } from "@/services/hooks";
 import { createTwinPlayback } from "./twin-playback";
 import { twinCallPickId, twinSelection } from "./twin-selection";
 import { useTwinClock } from "./use-twin-clock";
@@ -86,6 +87,14 @@ function SceneFallback({ label }: { label: string }) {
 
 export function PortTwinScreen({ portCode }: { portCode: string }) {
   const twin = usePortTwin(portCode);
+  const location = usePortRegistry().data?.find(
+    (port) => port.code === portCode,
+  )?.location;
+  const { weather, label: weatherLabel } = usePortWeather(
+    portCode,
+    location?.lat,
+    location?.lon,
+  );
   const [overlay, setOverlay] = useState<TwinOverlay>("utilisation");
   const [showModel, setShowModel] = useState(false);
   const [comparing, setComparing] = useState(false);
@@ -131,6 +140,33 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   );
   const transport = useTwinClock(duration, modelAvailable);
   const horizon = transport.position;
+  const stage = useRef<HTMLDivElement>(null);
+  const autoplayed = useRef(false);
+  const { play } = transport;
+  useEffect(() => {
+    if (!comparing || !modelAvailable || autoplayed.current || !stage.current)
+      return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let visible = false;
+    const start = () => {
+      if (!visible || document.hidden || autoplayed.current) return;
+      autoplayed.current = true;
+      play();
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting;
+        start();
+      },
+      { threshold: 0.15 },
+    );
+    observer.observe(stage.current);
+    document.addEventListener("visibilitychange", start);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", start);
+    };
+  }, [comparing, modelAvailable, play]);
   const seekModel = (hour: number) => {
     transport.pause();
     setShowModel(true);
@@ -225,13 +261,33 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
   const approaching = state.calls.filter((c) => c.state === "approaching");
 
   return (
-    <Page>
+    <Page className={comparing ? "overflow-y-auto" : undefined}>
       <PageHeader
         title={`${twin.data.portName} — Digital Twin`}
         context={
           <span className="flex items-center gap-2">
             <span className="num">{twin.data.portCode}</span>
-            <Pill tone="unc">Schematic</Pill>
+            <span
+              className="group relative"
+              data-testid="twin-schematic-banner"
+            >
+              <button type="button" aria-describedby="twin-geometry-basis">
+                <Pill tone="unc">SCHEMATIC</Pill>
+              </button>
+              <span
+                id="twin-geometry-basis"
+                role="tooltip"
+                className="pointer-events-none invisible absolute left-0 top-full z-30 w-64 border border-[var(--line)] bg-[var(--panel)] p-2 text-xs shadow-[var(--shadow-floating)] group-hover:visible group-focus-within:visible"
+              >
+                Schematic digital twin — not a surveyed port plan.{" "}
+                {twin.data.geometryDisclaimer} Vessel and crane motion use
+                modelled simulation steps. Yard stacks and trucks illustrate
+                modelled throughput.
+              </span>
+            </span>
+            <span data-testid="twin-weather-status" className="text-xs">
+              {weatherLabel}
+            </span>
           </span>
         }
         meta={
@@ -288,29 +344,19 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
         }
       />
 
-      {/* The honesty banner. Fixed under the header, never scrolled away. */}
       <div
-        className="flex shrink-0 items-start gap-2 border-b border-[var(--line)] bg-[var(--unc-dim)]/25 px-4 py-1.5"
-        data-testid="twin-schematic-banner"
+        className={cn(
+          "grid gap-0 xl:grid-cols-[minmax(0,1fr)_330px]",
+          comparing
+            ? "grid-cols-1 grid-rows-[auto_auto] xl:grid-rows-1"
+            : "min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(280px,1fr)_auto] xl:grid-rows-1",
+        )}
       >
-        <AlertTriangle
-          size={12}
-          className="mt-[1px] shrink-0 text-[var(--unc)]"
-        />
-        <p className="text-[10.5px] leading-snug text-[var(--text-2)]">
-          <span className="font-semibold uppercase tracking-[0.06em] text-[var(--unc)]">
-            Schematic digital twin — not a surveyed port plan.
-          </span>{" "}
-          {twin.data.geometryDisclaimer} Vessel and crane motion use modelled
-          simulation steps. Yard stacks and trucks illustrate modelled
-          throughput.
-        </p>
-      </div>
-
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(280px,1fr)_auto] gap-0 xl:grid-cols-[minmax(0,1fr)_330px] xl:grid-rows-1">
-        {/* ------------------------------------------------------- scene -- */}
         <div className="flex min-h-0 flex-col">
-          <div className="relative min-h-0 flex-1">
+          <div
+            ref={stage}
+            className={cn("relative min-h-0", !comparing && "flex-1")}
+          >
             <Suspense
               fallback={<SceneFallback label="Loading the 3D renderer" />}
             >
@@ -320,11 +366,22 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                     {...comparisonRuns}
                     winner={comparison.data.winner}
                     hour={horizon}
+                    transport={
+                      <TwinTransport
+                        compact
+                        transport={transport}
+                        duration={duration}
+                        enabled={modelAvailable}
+                        onSeek={seekModel}
+                        onPlay={transport.toggle}
+                      />
+                    }
                     renderScene={(lane, run, laneState) => (
                       <PortTwinScene
                         framing="comparison"
                         state={laneState}
                         overlay={overlay}
+                        weather={weather}
                         playback={run}
                         clock={transport.clock}
                         selectedId={
@@ -356,6 +413,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
                   state={state}
                   overlay={overlay}
                   metrics={metrics}
+                  weather={weather}
                   playback={showModel && !decisionOption ? playback : null}
                   clock={transport.clock}
                   selectedId={selection?.id ?? null}
@@ -473,20 +531,27 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               )}
             </div>
           </div>
-          <TwinTransport
-            transport={transport}
-            duration={duration}
-            enabled={modelAvailable}
-            onSeek={seekModel}
-            onPlay={() => {
-              setShowModel(true);
-              transport.toggle();
-            }}
-          />
+          {!comparing ? (
+            <TwinTransport
+              transport={transport}
+              duration={duration}
+              enabled={modelAvailable}
+              onSeek={seekModel}
+              onPlay={() => {
+                setShowModel(true);
+                transport.toggle();
+              }}
+            />
+          ) : null}
         </div>
 
         {/* ------------------------------------------------------ panels -- */}
-        <div className="min-h-0 space-y-0 overflow-auto border-l border-[var(--line)] bg-[var(--panel)]">
+        <div
+          className={cn(
+            "min-h-0 space-y-0 overflow-auto border-l border-[var(--line)] bg-[var(--panel)]",
+            comparing && "xl:max-h-[calc(100svh-9rem)]",
+          )}
+        >
           {optimize.data ? (
             <PolicyBeforeAfter rows={optimize.data.policies} />
           ) : null}

@@ -1,10 +1,18 @@
+import { CongestionScore } from "@/components/kit/CongestionScore";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
-import { QuantileChart, Sparkline } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip, Toolbar } from "@/components/kit/layout";
+import { QuantileChart } from "@/components/kit/charts";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+  Toolbar,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   MiniBar,
@@ -17,7 +25,12 @@ import {
 } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, SearchInput, type Column } from "@/components/kit/table";
-import { useDecision, useForecast, usePorts, useWeather } from "@/services/hooks";
+import {
+  useDecision,
+  useForecast,
+  usePorts,
+  useWeather,
+} from "@/services/hooks";
 import type { PortSnapshot } from "@/types/portwatch";
 
 export const Route = createFileRoute("/admin/ports")({ component: AdminPorts });
@@ -42,7 +55,8 @@ function AdminPorts() {
   }, [ports.data, search]);
 
   const activeCode = selected ?? rows[0]?.code ?? null;
-  const active = (ports.data ?? []).find((port) => port.code === activeCode) ?? null;
+  const active =
+    (ports.data ?? []).find((port) => port.code === activeCode) ?? null;
   const forecast = useForecast(activeCode);
   const decision = useDecision(activeCode);
 
@@ -50,7 +64,9 @@ function AdminPorts() {
     return (
       <ScreenFallback
         title="Ports"
-        context={<span>Every port in the network, ranked by decision priority</span>}
+        context={
+          <span>Every port in the network, ranked by decision priority</span>
+        }
         isLoading={ports.isLoading}
         error={ports.error}
         retry={() => void ports.refetch()}
@@ -60,7 +76,9 @@ function AdminPorts() {
   }
 
   const all = ports.data ?? [];
-  const weatherByCode = new Map((weather.data ?? []).map((signal) => [signal.portCode, signal]));
+  const weatherByCode = new Map(
+    (weather.data ?? []).map((signal) => [signal.portCode, signal]),
+  );
 
   const columns: Array<Column<PortSnapshot>> = [
     {
@@ -78,7 +96,9 @@ function AdminPorts() {
       render: (port) => (
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[var(--text)]">{port.name}</span>
-          <span className="num shrink-0 text-[10px] text-[var(--text-3)]">{port.code}</span>
+          <span className="num shrink-0 text-[10px] text-[var(--text-3)]">
+            {port.code}
+          </span>
         </span>
       ),
       sort: (port) => port.name,
@@ -87,22 +107,88 @@ function AdminPorts() {
       key: "risk",
       header: "Risk",
       width: 118,
-      render: (port) => <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>,
+      render: (port) => (
+        <Pill tone={riskTone(port.risk)}>{riskLabel(port.risk)}</Pill>
+      ),
       sort: (port) => port.congestionIndex,
     },
-    { key: "regime", header: "Regime", width: 118, render: (port) => <span className="num text-[var(--text-2)]">{port.regime}</span>, sort: (port) => port.regime },
-    { key: "observed", header: "Observed", align: "right", width: 96, render: (port) => <Num value={port.observedCongestionIndex} />, sort: (port) => port.observedCongestionIndex },
-    { key: "day1", header: "Day-1", align: "right", width: 88, render: (port) => <Num value={port.congestionIndex} />, sort: (port) => port.congestionIndex },
-    { key: "peak", header: "Peak", align: "right", width: 100, render: (port) => (<span className="num">{port.peakCongestionIndex.toFixed(1)}<span className="ml-1 text-[10px] text-[var(--text-3)]">d{port.peakDay}</span></span>), sort: (port) => port.peakCongestionIndex },
-    { key: "wait", header: "Wait", align: "right", width: 88, render: (port) => <Num value={port.delayHours} unit="h" />, sort: (port) => port.delayHours },
-    { key: "calls", header: "Calls/day", align: "right", width: 100, render: (port) => <Num value={port.vesselCalls} />, sort: (port) => port.vesselCalls },
-    { key: "queue", header: "Queue", align: "right", width: 92, render: (port) => <Num value={port.queuePressure} digits={2} />, sort: (port) => port.queuePressure },
+    {
+      key: "regime",
+      header: "Regime",
+      width: 118,
+      render: (port) => (
+        <span className="num text-[var(--text-2)]">{port.regime}</span>
+      ),
+      sort: (port) => port.regime,
+    },
+    {
+      key: "observed",
+      header: "Observed",
+      align: "right",
+      width: 96,
+      render: (port) => (
+        <CongestionScore
+          value={port.observedCongestionIndex}
+          history={port.congestionHistory}
+        />
+      ),
+      sort: (port) => port.observedCongestionIndex,
+    },
+    {
+      key: "day1",
+      header: "Day-1",
+      align: "right",
+      width: 88,
+      render: (port) => <CongestionScore value={port.congestionIndex} />,
+      sort: (port) => port.congestionIndex,
+    },
+    {
+      key: "peak",
+      header: "Peak",
+      align: "right",
+      width: 100,
+      render: (port) => (
+        <span className="num">
+          {port.peakCongestionIndex.toFixed(1)}
+          <span className="ml-1 text-[10px] text-[var(--text-3)]">
+            d{port.peakDay}
+          </span>
+        </span>
+      ),
+      sort: (port) => port.peakCongestionIndex,
+    },
+    {
+      key: "wait",
+      header: "Wait",
+      align: "right",
+      width: 88,
+      render: (port) => <Num value={port.delayHours} unit="h" />,
+      sort: (port) => port.delayHours,
+    },
+    {
+      key: "calls",
+      header: "Calls/day",
+      align: "right",
+      width: 100,
+      render: (port) => <Num value={port.vesselCalls} />,
+      sort: (port) => port.vesselCalls,
+    },
+    {
+      key: "queue",
+      header: "Queue",
+      align: "right",
+      width: 92,
+      render: (port) => <Num value={port.queuePressure} digits={2} />,
+      sort: (port) => port.queuePressure,
+    },
     {
       key: "wx",
       header: "Weather",
       align: "right",
       width: 96,
-      render: (port) => <Num value={weatherByCode.get(port.code)?.impactScore} digits={3} />,
+      render: (port) => (
+        <Num value={weatherByCode.get(port.code)?.impactScore} digits={3} />
+      ),
       sort: (port) => weatherByCode.get(port.code)?.impactScore ?? null,
     },
     {
@@ -113,7 +199,10 @@ function AdminPorts() {
       render: (port) => (
         <span className="flex items-center justify-end gap-2">
           <span className="w-9">
-            <MiniBar value={port.confidence} tone={port.confidence >= 0.6 ? "ok" : "warn"} />
+            <MiniBar
+              value={port.confidence}
+              tone={port.confidence >= 0.6 ? "ok" : "warn"}
+            />
           </span>
           <Num value={port.confidence} digits={0} scale={100} unit="%" />
         </span>
@@ -124,7 +213,9 @@ function AdminPorts() {
       key: "action",
       header: "Action",
       width: 168,
-      render: (port) => <span className="text-[var(--text-2)]">{port.actionTitle ?? "—"}</span>,
+      render: (port) => (
+        <span className="text-[var(--text-2)]">{port.actionTitle ?? "—"}</span>
+      ),
       sort: (port) => port.actionTitle,
     },
     {
@@ -132,21 +223,10 @@ function AdminPorts() {
       header: "Data",
       align: "right",
       width: 108,
-      render: (port) => <ProvenanceTag status={port.dataStatus} ageHours={port.dataAgeHours} />,
-      sort: (port) => port.dataAgeHours,
-    },
-    {
-      key: "trend",
-      header: "14 days",
-      width: 92,
       render: (port) => (
-        <Sparkline
-          data={port.congestionHistory.map((point) => point.value)}
-          tone={riskTone(port.risk)}
-          height={16}
-          fill={false}
-        />
+        <ProvenanceTag status={port.dataStatus} ageHours={port.dataAgeHours} />
       ),
+      sort: (port) => port.dataAgeHours,
     },
   ];
 
@@ -154,19 +234,29 @@ function AdminPorts() {
     <Page>
       <PageHeader
         title="Ports"
-        context={<span>Every port in the network, ranked by decision priority</span>}
+        context={
+          <span>Every port in the network, ranked by decision priority</span>
+        }
         meta={<span className="num">{all.length} ports</span>}
       />
 
       <StatStrip
         size="sm"
         items={[
-          { label: "Ports", value: all.length, note: "in the registry and the panel" },
+          {
+            label: "Ports",
+            value: all.length,
+            note: "in the registry and the panel",
+          },
           {
             label: "Severe",
             value: all.filter((port) => port.risk === "severe").length,
             tone: "crit",
-            note: all.filter((port) => port.risk === "severe").map((port) => port.short).join(" · ") || "none",
+            note:
+              all
+                .filter((port) => port.risk === "severe")
+                .map((port) => port.short)
+                .join(" · ") || "none",
           },
           {
             label: "Congested",
@@ -177,7 +267,10 @@ function AdminPorts() {
           {
             label: "Mean berth wait",
             value: all.length
-              ? (all.reduce((sum, port) => sum + port.delayHours, 0) / all.length).toFixed(1)
+              ? (
+                  all.reduce((sum, port) => sum + port.delayHours, 0) /
+                  all.length
+                ).toFixed(1)
               : "n/a",
             unit: "h",
             note: "predicted, across the network",
@@ -185,14 +278,21 @@ function AdminPorts() {
           {
             label: "Stale feeds",
             value: all.filter((port) => port.dataStatus === "STALE").length,
-            tone: all.some((port) => port.dataStatus === "STALE") ? "warn" : "ok",
+            tone: all.some((port) => port.dataStatus === "STALE")
+              ? "warn"
+              : "ok",
             note: "port activity older than its freshness budget",
           },
         ]}
       />
 
       <Toolbar>
-        <SearchInput value={search} onChange={setSearch} placeholder="Filter ports" className="w-[280px]" />
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filter ports"
+          className="w-[280px]"
+        />
         <span className="num ml-auto text-[11px] text-[var(--text-3)]">
           {rows.length} of {all.length}
         </span>
@@ -230,7 +330,9 @@ function AdminPorts() {
                     <Pill tone={riskTone(active.risk)} solid>
                       {riskLabel(active.risk)}
                     </Pill>
-                    <span className="text-[11.5px] text-[var(--text-2)]">{active.regime}</span>
+                    <span className="text-[11.5px] text-[var(--text-2)]">
+                      {active.regime}
+                    </span>
                     <ProvenanceTag
                       status={active.dataStatus}
                       ageHours={active.dataAgeHours}
@@ -239,10 +341,14 @@ function AdminPorts() {
                     />
                   </div>
                   <KeyValue label="Authority" dense>
-                    <span className="text-[11.5px]">{active.authority ?? "n/a"}</span>
+                    <span className="text-[11.5px]">
+                      {active.authority ?? "n/a"}
+                    </span>
                   </KeyValue>
                   <KeyValue label="Coast" dense>
-                    <span className="text-[11.5px]">{active.coast ?? "n/a"}</span>
+                    <span className="text-[11.5px]">
+                      {active.coast ?? "n/a"}
+                    </span>
                   </KeyValue>
                   <KeyValue label="Regime confidence" dense>
                     <Num value={active.regimeConfidence} digits={2} />
@@ -254,7 +360,11 @@ function AdminPorts() {
                     <Num value={active.transitionRisk24h} digits={3} />
                   </KeyValue>
                   <KeyValue label="Model disagreement" dense>
-                    <Num value={active.modelDisagreement} digits={2} tone="unc" />
+                    <Num
+                      value={active.modelDisagreement}
+                      digits={2}
+                      tone="unc"
+                    />
                   </KeyValue>
                   <div className="mt-2 flex flex-wrap gap-2 border-t border-[var(--line)] pt-2">
                     <Link
@@ -313,13 +423,21 @@ function AdminPorts() {
                     </p>
                     <div className="mt-2 border-t border-[var(--line)] pt-2">
                       <KeyValue label="Expected delay saved" dense>
-                        <Num value={decision.data.expectedDelaySavedHours} unit="h" tone="ok" />
+                        <Num
+                          value={decision.data.expectedDelaySavedHours}
+                          unit="h"
+                          tone="ok"
+                        />
                       </KeyValue>
                       <KeyValue label="Confidence" dense>
                         <Num value={decision.data.confidence} digits={2} />
                       </KeyValue>
                       <KeyValue label="Uncertainty" dense>
-                        <Num value={decision.data.uncertainty} digits={2} tone="unc" />
+                        <Num
+                          value={decision.data.uncertainty}
+                          digits={2}
+                          tone="unc"
+                        />
                       </KeyValue>
                     </div>
                   </div>

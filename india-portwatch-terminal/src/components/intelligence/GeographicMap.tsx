@@ -251,7 +251,13 @@ export function GeographicMap({
             .map(([lat, lon]) => `${lon + 180},${90 - lat}`)
             .join(" ")}
           fill="none"
-          stroke={r.rejected ? COLORS.crit : r.selected ? COLORS.action : COLORS.chart1}
+          stroke={
+            r.rejected
+              ? COLORS.crit
+              : r.selected
+                ? COLORS.action
+                : COLORS.chart1
+          }
           strokeWidth={r.selected ? 2 : 1.2}
           strokeDasharray={r.rejected ? "6 4" : undefined}
           vectorEffect="non-scaling-stroke"

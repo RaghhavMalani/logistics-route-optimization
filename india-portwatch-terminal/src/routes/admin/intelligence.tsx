@@ -2,7 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { BarRanking } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip, Toolbar } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+  Toolbar,
+} from "@/components/kit/layout";
 import {
   MiniBar,
   Num,
@@ -19,7 +26,9 @@ import { buildExposureLayers } from "@/lib/maritime/exposure";
 import { useNews, usePorts, useWeather } from "@/services/hooks";
 import type { NewsEvent } from "@/types/portwatch";
 
-export const Route = createFileRoute("/admin/intelligence")({ component: EventIntelligence });
+export const Route = createFileRoute("/admin/intelligence")({
+  component: EventIntelligence,
+});
 
 function EventIntelligence() {
   const news = useNews();
@@ -28,7 +37,12 @@ function EventIntelligence() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const workspace = useWorkspaceMap({
-    layerOverrides: { events: true, weather: false, traffic: false, corridors: false },
+    layerOverrides: {
+      events: true,
+      weather: false,
+      traffic: false,
+      corridors: false,
+    },
   });
   const exposure = useMemo(
     () => buildExposureLayers(news.data?.events ?? [], ports.data ?? []),
@@ -52,7 +66,9 @@ function EventIntelligence() {
     return (
       <ScreenFallback
         title="Event Intelligence"
-        context={<span>Typed maritime shocks and the ports they measurably reach</span>}
+        context={
+          <span>Typed maritime shocks and the ports they measurably reach</span>
+        }
         isLoading={news.isLoading}
         error={news.error}
         retry={() => void news.refetch()}
@@ -61,13 +77,17 @@ function EventIntelligence() {
     );
   }
 
-  const active = events.find((event) => event.id === selectedId) ?? rows[0] ?? null;
+  const active =
+    events.find((event) => event.id === selectedId) ?? rows[0] ?? null;
   const summary = news.data?.summary;
   const sentiment = news.data?.sentiment ?? [];
   const chokepointCounts = new Map<string, number>();
   for (const event of events) {
     if (!event.chokepoint) continue;
-    chokepointCounts.set(event.chokepoint, (chokepointCounts.get(event.chokepoint) ?? 0) + 1);
+    chokepointCounts.set(
+      event.chokepoint,
+      (chokepointCounts.get(event.chokepoint) ?? 0) + 1,
+    );
   }
 
   const columns: Array<Column<NewsEvent>> = [
@@ -75,7 +95,9 @@ function EventIntelligence() {
       key: "severity",
       header: "Severity",
       width: 92,
-      render: (event) => <Pill tone={severityTone(event.severity)}>{event.severity}</Pill>,
+      render: (event) => (
+        <Pill tone={severityTone(event.severity)}>{event.severity}</Pill>
+      ),
       sort: (event) => event.severityScore,
     },
     {
@@ -92,7 +114,9 @@ function EventIntelligence() {
       key: "tag",
       header: "Type",
       width: 152,
-      render: (event) => <span className="num text-[var(--text-3)]">{event.tag}</span>,
+      render: (event) => (
+        <span className="num text-[var(--text-3)]">{event.tag}</span>
+      ),
       sort: (event) => event.tag,
     },
     {
@@ -119,7 +143,9 @@ function EventIntelligence() {
       key: "source",
       header: "Source",
       width: 132,
-      render: (event) => <span className="num text-[var(--text-3)]">{event.source}</span>,
+      render: (event) => (
+        <span className="num text-[var(--text-3)]">{event.source}</span>
+      ),
       sort: (event) => event.source,
     },
     {
@@ -127,7 +153,11 @@ function EventIntelligence() {
       header: "Observed",
       align: "right",
       width: 122,
-      render: (event) => <span className="num text-[var(--text-3)]">{formatUtc(event.timestamp)}</span>,
+      render: (event) => (
+        <span className="num text-[var(--text-3)]">
+          {formatUtc(event.timestamp)}
+        </span>
+      ),
       sort: (event) => event.timestamp,
     },
   ];
@@ -136,8 +166,14 @@ function EventIntelligence() {
     <Page>
       <PageHeader
         title="Event Intelligence"
-        context={<span>Typed maritime shocks and the ports they measurably reach</span>}
-        meta={<span className="num">{summary?.dataSource ?? "no event source"}</span>}
+        context={
+          <span>Typed maritime shocks and the ports they measurably reach</span>
+        }
+        meta={
+          <span className="num">
+            {summary?.dataSource ?? "no event source"}
+          </span>
+        }
       />
 
       <StatStrip
@@ -146,7 +182,9 @@ function EventIntelligence() {
           {
             label: "Events in feed",
             value: summary?.totalEvents ?? events.length,
-            note: summary?.eventsAvailable ? "feed available" : "feed unavailable",
+            note: summary?.eventsAvailable
+              ? "feed available"
+              : "feed unavailable",
             tone: summary?.eventsAvailable ? "info" : "crit",
           },
           {
@@ -193,8 +231,8 @@ function EventIntelligence() {
               showTraffic={false}
               note={
                 <>
-                  Exposure corridors follow the water-only routing graph, so their length is the
-                  passage a diversion would actually run.
+                  Exposure corridors follow the water-only routing graph, so
+                  their length is the passage a diversion would actually run.
                   {exposure.note ? ` ${exposure.note}` : ""}
                 </>
               }
@@ -217,7 +255,9 @@ function EventIntelligence() {
             {rows.length === 0 ? (
               <EmptyState
                 title="No events"
-                detail={summary?.dataSource ?? "The event feed is empty for this run."}
+                detail={
+                  summary?.dataSource ?? "The event feed is empty for this run."
+                }
               />
             ) : (
               <DataTable
@@ -281,14 +321,17 @@ function EventIntelligence() {
                         .map((entry) => ({
                           label: entry.name,
                           value: entry.exposure,
-                          tone: entry.exposure >= 0.4 ? ("warn" as const) : ("info" as const),
+                          tone:
+                            entry.exposure >= 0.4
+                              ? ("warn" as const)
+                              : ("info" as const),
                         }))}
                       valueFormatter={(value) => value.toFixed(2)}
                     />
                   ) : (
                     <p className="text-[11.5px] leading-snug text-[var(--text-3)]">
-                      The lane-exposure graph carries no path from this event to an Indian
-                      port, so no exposure is claimed.
+                      The lane-exposure graph carries no path from this event to
+                      an Indian port, so no exposure is claimed.
                     </p>
                   )}
                 </div>
@@ -299,7 +342,10 @@ function EventIntelligence() {
             </Panel>
           ) : null}
 
-          <Panel title="Chokepoint pressure" className="shrink-0 rounded-none border-x-0 border-t-0">
+          <Panel
+            title="Chokepoint pressure"
+            className="shrink-0 rounded-none border-x-0 border-t-0"
+          >
             <div className="px-3 py-2">
               {[...CHOKEPOINT_BY_CODE.values()].map((choke) => {
                 const count = chokepointCounts.get(choke.code) ?? 0;
@@ -353,7 +399,9 @@ function EventIntelligence() {
                     </div>
                     <div className="num mt-1 flex gap-3 text-[10px] text-[var(--text-3)]">
                       <span>risk {entry.riskScore?.toFixed(2) ?? "n/a"}</span>
-                      <span>sentiment {entry.sentiment?.toFixed(2) ?? "n/a"}</span>
+                      <span>
+                        sentiment {entry.sentiment?.toFixed(2) ?? "n/a"}
+                      </span>
                       <span>conf {entry.confidence?.toFixed(2) ?? "n/a"}</span>
                     </div>
                   </div>

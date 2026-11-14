@@ -31,11 +31,19 @@ function fixtureFor(pathname) {
 }
 
 const server = http.createServer((request, response) => {
-  const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+  const url = new URL(
+    request.url ?? "/",
+    `http://${request.headers.host ?? "localhost"}`,
+  );
 
   if (url.pathname.startsWith("/api/")) {
-    if (request.method === "POST" && url.pathname.endsWith("/scenarios/simulate")) {
-      const body = fs.readFileSync(path.join(FIXTURES, "scenarios_simulate.json"));
+    if (
+      request.method === "POST" &&
+      url.pathname.endsWith("/scenarios/simulate")
+    ) {
+      const body = fs.readFileSync(
+        path.join(FIXTURES, "scenarios_simulate.json"),
+      );
       response.writeHead(200, { "content-type": "application/json" });
       response.end(body);
       return;
@@ -43,7 +51,9 @@ const server = http.createServer((request, response) => {
     const file = fixtureFor(url.pathname);
     if (!file) {
       response.writeHead(404, { "content-type": "application/json" });
-      response.end(JSON.stringify({ detail: `No fixture recorded for ${url.pathname}` }));
+      response.end(
+        JSON.stringify({ detail: `No fixture recorded for ${url.pathname}` }),
+      );
       return;
     }
     response.writeHead(200, { "content-type": "application/json" });
@@ -57,7 +67,10 @@ const server = http.createServer((request, response) => {
       port: UPSTREAM_PORT,
       method: request.method,
       path: request.url,
-      headers: { ...request.headers, host: `${UPSTREAM_HOST}:${UPSTREAM_PORT}` },
+      headers: {
+        ...request.headers,
+        host: `${UPSTREAM_HOST}:${UPSTREAM_PORT}`,
+      },
     },
     (upstream) => {
       response.writeHead(upstream.statusCode ?? 502, upstream.headers);
@@ -66,11 +79,15 @@ const server = http.createServer((request, response) => {
   );
   proxied.on("error", (error) => {
     response.writeHead(502, { "content-type": "text/plain" });
-    response.end(`upstream ${UPSTREAM_HOST}:${UPSTREAM_PORT} unreachable: ${error.message}`);
+    response.end(
+      `upstream ${UPSTREAM_HOST}:${UPSTREAM_PORT} unreachable: ${error.message}`,
+    );
   });
   request.pipe(proxied);
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`mock API + build proxy on http://127.0.0.1:${PORT} (upstream ${UPSTREAM_PORT})`);
+  console.log(
+    `mock API + build proxy on http://127.0.0.1:${PORT} (upstream ${UPSTREAM_PORT})`,
+  );
 });

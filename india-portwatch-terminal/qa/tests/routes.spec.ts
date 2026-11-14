@@ -57,7 +57,7 @@ const SCREENS: Record<Role, Screen[]> = {
     { path: "/admin/companies", heading: "Companies" },
     { path: "/admin/model", heading: "Model Intelligence" },
     { path: "/admin/learning", heading: "Learning" },
-    { path: "/admin/agents", heading: "Agents" },
+    { path: "/admin/agents", heading: "Specialists" },
     { path: "/admin/scenarios", heading: "Scenario Room" },
     { path: "/admin/intelligence", heading: "Event Intelligence" },
     { path: "/admin/data", heading: "Data Sources" },
@@ -65,21 +65,32 @@ const SCREENS: Record<Role, Screen[]> = {
   ],
 };
 
-for (const [role, screens] of Object.entries(SCREENS) as Array<[Role, Screen[]]>) {
+for (const [role, screens] of Object.entries(SCREENS) as Array<
+  [Role, Screen[]]
+>) {
   test.describe(`${role} workspace`, () => {
     for (const screen of screens) {
-      test(`${screen.path} renders cleanly`, async ({ context, page, recorder }) => {
+      test(`${screen.path} renders cleanly`, async ({
+        context,
+        page,
+        recorder,
+      }) => {
         await seedSession(context, role);
         await page.goto(screen.path);
         await settle(page);
 
-        await expect(page.getByRole("heading", { level: 1 })).toHaveText(screen.heading);
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+          screen.heading,
+        );
         expect(page.url()).toContain(screen.path);
 
         expect(recorder.pageErrors, "uncaught page errors").toEqual([]);
         expect(recorder.consoleErrors, "console errors").toEqual([]);
         expect(recorder.failedRequests, "failed requests").toEqual([]);
-        expect(await horizontalOverflow(page), "horizontal page overflow").toBeLessThanOrEqual(0);
+        expect(
+          await horizontalOverflow(page),
+          "horizontal page overflow",
+        ).toBeLessThanOrEqual(0);
       });
     }
   });
@@ -98,23 +109,33 @@ test.describe("3D digital twin", () => {
     ["PORT_AUTHORITY", "/port/twin"],
     ["NATIONAL_ADMIN", "/admin/twins"],
   ] as Array<[Role, string]>) {
-    test(`${path} renders with its schematic banner`, async ({ context, page, recorder }) => {
+    test(`${path} renders with its schematic disclosure`, async ({
+      context,
+      page,
+      recorder,
+    }) => {
       await seedSession(context, role);
       await page.goto(path);
       await settle(page);
 
-      // The banner is the point. A schematic twin that does not say so is the
-      // one thing this screen must never be.
-      await expect(page.getByTestId("twin-schematic-banner")).toBeVisible();
-      await expect(
-        page.getByText(/not a surveyed port plan/i).first(),
-      ).toBeVisible();
+      const schematic = page.getByRole("button", {
+        name: "SCHEMATIC",
+        exact: true,
+      });
+      await expect(schematic).toBeVisible();
+      await schematic.focus();
+      await expect(page.getByRole("tooltip")).toContainText(
+        /not a surveyed port plan/i,
+      );
 
       await expect(page.getByTestId("twin-inspector")).toBeVisible();
       await expect(page.getByTestId("twin-optimizer")).toBeVisible();
 
       expect(recorder.pageErrors, "uncaught page errors").toEqual([]);
-      expect(await horizontalOverflow(page), "horizontal page overflow").toBeLessThanOrEqual(0);
+      expect(
+        await horizontalOverflow(page),
+        "horizontal page overflow",
+      ).toBeLessThanOrEqual(0);
     });
   }
 });
@@ -129,7 +150,9 @@ test.describe("cargo", () => {
     await page.goto("/port/cargo");
     await settle(page);
 
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cargo assignment");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Cargo assignment",
+    );
     await expect(page.getByText(/Demo cargo flow/i)).toBeVisible();
     await expect(page.getByTestId("cargo-assignments")).toBeVisible();
     await expect(page.getByTestId("cargo-unplaced")).toBeVisible();
@@ -145,7 +168,9 @@ test.describe("cargo", () => {
     await seedSession(context, "SHIPPING_COMPANY");
     await page.goto("/company/cargo");
     await settle(page);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cargo connections");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Cargo connections",
+    );
   });
 });
 
@@ -173,17 +198,26 @@ test.describe("legacy addresses", () => {
   }
 });
 
-test("an unknown workspace address is reported, not blank", async ({ context, page }) => {
+test("an unknown workspace address is reported, not blank", async ({
+  context,
+  page,
+}) => {
   await seedSession(context, "NATIONAL_ADMIN");
   await page.goto("/admin/does-not-exist");
   await settle(page);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Screen not found");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Screen not found",
+  );
   await expect(page.getByText("No screen at this address")).toBeVisible();
   // The shell stays: the operator can navigate on without using the back button.
-  await expect(page.getByRole("navigation", { name: "Workspace" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Workspace" }),
+  ).toBeVisible();
 });
 
-test("an unknown address outside any workspace is reported", async ({ page }) => {
+test("an unknown address outside any workspace is reported", async ({
+  page,
+}) => {
   await page.goto("/nowhere-at-all");
   await expect(page.getByText("Route not found")).toBeVisible();
 });

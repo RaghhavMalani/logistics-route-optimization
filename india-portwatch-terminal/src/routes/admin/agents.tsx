@@ -16,14 +16,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { AgentConsole } from "@/components/agent/AgentConsole";
-import { Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Pill, type Tone } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
 import { useAgentArchitecture, useToolCatalogue } from "@/services/os-hooks";
 import type { ToolAccess } from "@/types/portwatch-os";
 
-export const Route = createFileRoute("/admin/agents")({ component: AgentsScreen });
+export const Route = createFileRoute("/admin/agents")({
+  component: AgentsScreen,
+});
 
 const ACCESS_TONE: Record<ToolAccess, Tone> = {
   READ: "info",
@@ -43,12 +51,14 @@ function AgentsScreen() {
   if (architecture.isLoading || architecture.isError) {
     return (
       <ScreenFallback
-        title="Agents"
-        context={<span>Orchestration, tools and the approval boundary</span>}
+        title="Specialists"
+        context={
+          <span>Rule-routed tools, provenance and the approval boundary</span>
+        }
         isLoading={architecture.isLoading}
         error={architecture.error}
         retry={() => void architecture.refetch()}
-        label="Reading the agent registry"
+        label="Reading the specialist registry"
       />
     );
   }
@@ -59,8 +69,10 @@ function AgentsScreen() {
   return (
     <Page>
       <PageHeader
-        title="Agents"
-        context={<span>Orchestration, tools and the approval boundary</span>}
+        title="Specialists"
+        context={
+          <span>Rule-routed tools, provenance and the approval boundary</span>
+        }
         meta={
           <>
             <span className="num">{data.agents.length} specialists</span>
@@ -98,7 +110,8 @@ function AgentsScreen() {
                           </span>
                         </div>
                         <p className="mt-1 text-[10px] leading-snug text-[var(--text-3)]">
-                          {catalogue.data?.boundary?.[level.toLowerCase()] ?? ""}
+                          {catalogue.data?.boundary?.[level.toLowerCase()] ??
+                            ""}
                         </p>
                       </div>
                     );
@@ -107,7 +120,7 @@ function AgentsScreen() {
               </Section>
             </Panel>
 
-            <Panel title="Command agent">
+            <Panel title="Rule routing">
               <Section title={data.command.name}>
                 <p className="text-[10.5px] leading-relaxed text-[var(--text-2)]">
                   {data.command.purpose}
@@ -124,7 +137,9 @@ function AgentsScreen() {
                         <span className="text-[11px] text-[var(--text)]">
                           {intent.label}
                         </span>
-                        {intent.highImpact ? <Pill tone="warn">critic</Pill> : null}
+                        {intent.highImpact ? (
+                          <Pill tone="warn">critic</Pill>
+                        ) : null}
                       </div>
                       <div className="num mt-[2px] text-[10.5px] text-[var(--text-3)]">
                         {intent.agents.join(" → ")}
@@ -158,7 +173,10 @@ function AgentsScreen() {
                 </div>
                 <ul className="mt-1.5 space-y-0.5">
                   {data.critic.checks.map((check) => (
-                    <li key={check} className="num text-[10px] text-[var(--text-3)]">
+                    <li
+                      key={check}
+                      className="num text-[10px] text-[var(--text-3)]"
+                    >
                       {check.replace(/_/g, " ")}
                     </li>
                   ))}
@@ -171,9 +189,16 @@ function AgentsScreen() {
           </div>
 
           <div className="space-y-3">
-            <Panel title="Specialists" note={`${data.agents.length}`} testId="agent-list">
+            <Panel
+              title="Specialists"
+              note={`${data.agents.length}`}
+              testId="agent-list"
+            >
               {data.agents.map((agent) => (
-                <div key={agent.name} className="border-b border-[var(--line)]/60 last:border-0">
+                <div
+                  key={agent.name}
+                  className="border-b border-[var(--line)]/60 last:border-0"
+                >
                   <button
                     type="button"
                     onClick={() =>
@@ -185,7 +210,12 @@ function AgentsScreen() {
                       <span className="text-[11.5px] font-medium uppercase tracking-[0.05em] text-[var(--text)]">
                         {agent.name.replace(/_/g, " ")}
                       </span>
-                      <Pill tone={ACCESS_TONE[agent.maxAccess as ToolAccess] ?? "neutral"}>
+                      <Pill
+                        tone={
+                          ACCESS_TONE[agent.maxAccess as ToolAccess] ??
+                          "neutral"
+                        }
+                      >
                         {agent.maxAccess}
                       </Pill>
                       <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
@@ -202,7 +232,10 @@ function AgentsScreen() {
                         <h4 className="eyebrow text-[10px]">Allowed tools</h4>
                         <ul className="mt-1 space-y-0.5">
                           {agent.allowedTools.map((tool) => (
-                            <li key={tool} className="num text-[10.5px] text-[var(--text-2)]">
+                            <li
+                              key={tool}
+                              className="num text-[10.5px] text-[var(--text-2)]"
+                            >
                               {tool}
                             </li>
                           ))}
@@ -241,14 +274,21 @@ function AgentsScreen() {
                   <Section
                     key={level}
                     title={level}
-                    right={<Pill tone={ACCESS_TONE[level]}>{group.length}</Pill>}
+                    right={
+                      <Pill tone={ACCESS_TONE[level]}>{group.length}</Pill>
+                    }
                   >
                     {group.map((tool) => (
-                      <div key={tool.name} className="border-b border-[var(--line)]/40 py-1 last:border-0">
+                      <div
+                        key={tool.name}
+                        className="border-b border-[var(--line)]/40 py-1 last:border-0"
+                      >
                         <button
                           type="button"
                           onClick={() =>
-                            setOpenTool(openTool === tool.name ? null : tool.name)
+                            setOpenTool(
+                              openTool === tool.name ? null : tool.name,
+                            )
                           }
                           className="w-full text-left"
                         >
@@ -262,44 +302,54 @@ function AgentsScreen() {
                         {openTool === tool.name ? (
                           <div className="mt-1 space-y-1 rounded-[2px] bg-[var(--panel-2)]/50 p-1.5">
                             <div>
-                              <span className="eyebrow text-[10px]">Computed by</span>
+                              <span className="eyebrow text-[10px]">
+                                Computed by
+                              </span>
                               <div className="num text-[10.5px] text-[var(--text-2)]">
                                 {tool.computedBy || "unstated"}
                               </div>
                             </div>
                             <div>
-                              <span className="eyebrow text-[10px]">Returns</span>
+                              <span className="eyebrow text-[10px]">
+                                Returns
+                              </span>
                               <div className="text-[10.5px] text-[var(--text-3)]">
                                 {tool.returns}
                               </div>
                             </div>
                             {Object.keys(tool.inputSchema.properties).length ? (
                               <div>
-                                <span className="eyebrow text-[10px]">Arguments</span>
+                                <span className="eyebrow text-[10px]">
+                                  Arguments
+                                </span>
                                 <ul className="space-y-0.5">
-                                  {Object.entries(tool.inputSchema.properties).map(
-                                    ([key, value]) => (
-                                      <li key={key} className="text-[10.5px]">
-                                        <span className="num text-[var(--text-2)]">
-                                          {key}
+                                  {Object.entries(
+                                    tool.inputSchema.properties,
+                                  ).map(([key, value]) => (
+                                    <li key={key} className="text-[10.5px]">
+                                      <span className="num text-[var(--text-2)]">
+                                        {key}
+                                      </span>
+                                      {tool.inputSchema.required.includes(
+                                        key,
+                                      ) ? (
+                                        <span className="ml-1 text-[10px] text-[var(--warn)]">
+                                          required
                                         </span>
-                                        {tool.inputSchema.required.includes(key) ? (
-                                          <span className="ml-1 text-[10px] text-[var(--warn)]">
-                                            required
-                                          </span>
-                                        ) : null}
-                                        <span className="ml-1 text-[var(--text-3)]">
-                                          {value.description}
-                                        </span>
-                                      </li>
-                                    ),
-                                  )}
+                                      ) : null}
+                                      <span className="ml-1 text-[var(--text-3)]">
+                                        {value.description}
+                                      </span>
+                                    </li>
+                                  ))}
                                 </ul>
                               </div>
                             ) : null}
                             {tool.failureModes.length ? (
                               <div>
-                                <span className="eyebrow text-[10px]">Fails when</span>
+                                <span className="eyebrow text-[10px]">
+                                  Fails when
+                                </span>
                                 <ul className="space-y-0.5">
                                   {tool.failureModes.map((mode) => (
                                     <li

@@ -1,3 +1,5 @@
+export const CARGO_STUDY_SEED = 20261112;
+
 export type Rule = "R1" | "R2" | "R3" | "R4" | "R5";
 export type Sourced<T> = { value: T; basis: string; source: string };
 export type Interval = {

@@ -258,7 +258,7 @@ export const NAVIGATION: Record<Role, NavItem[]> = {
     },
     {
       to: "/admin/agents",
-      label: "Agents",
+      label: "Specialists",
       icon: GitBranch,
       hint: "Orchestration, tools and the Critic",
     },

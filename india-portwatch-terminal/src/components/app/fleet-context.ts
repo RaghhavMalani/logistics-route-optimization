@@ -42,7 +42,10 @@ export interface VesselIntel {
   attention: number;
 }
 
-function addDays(iso: string | null | undefined, days: number | null | undefined): Date | null {
+function addDays(
+  iso: string | null | undefined,
+  days: number | null | undefined,
+): Date | null {
   if (!iso || days == null) return null;
   const base = new Date(iso);
   if (Number.isNaN(base.getTime())) return null;
@@ -60,7 +63,10 @@ function resolveAction(
   vessel: FleetRow,
   destination: PortSnapshot | null,
 ): { status: VesselStatus; action: string; why: string } {
-  if (vessel.reroute && vessel.recommendedPortCode !== vessel.intendedPortCode) {
+  if (
+    vessel.reroute &&
+    vessel.recommendedPortCode !== vessel.intendedPortCode
+  ) {
     const saved = vessel.portWaitDeltaHours;
     return {
       status: "reroute advised",
@@ -96,8 +102,12 @@ export function useFleetIntel() {
   const news = useNews();
 
   const intel = useMemo<VesselIntel[]>(() => {
-    const portByCode = new Map((ports.data ?? []).map((port) => [port.code, port]));
-    const weatherByCode = new Map((weather.data ?? []).map((signal) => [signal.portCode, signal]));
+    const portByCode = new Map(
+      (ports.data ?? []).map((port) => [port.code, port]),
+    );
+    const weatherByCode = new Map(
+      (weather.data ?? []).map((signal) => [signal.portCode, signal]),
+    );
     const events = news.data?.events ?? [];
 
     return (fleet.data ?? []).map((vessel) => {
@@ -119,7 +129,10 @@ export function useFleetIntel() {
           if (!match && !affected) return null;
           return { event, exposure: match?.exposure ?? null };
         })
-        .filter((row): row is { event: NewsEvent; exposure: number | null } => row !== null)
+        .filter(
+          (row): row is { event: NewsEvent; exposure: number | null } =>
+            row !== null,
+        )
         .sort((a, b) => (b.exposure ?? 0) - (a.exposure ?? 0));
 
       const { status, action, why } = resolveAction(vessel, destination);
@@ -127,7 +140,11 @@ export function useFleetIntel() {
       const attention =
         (vessel.reroute ? 0.45 : 0) +
         (vessel.intendedCongestionProbability ?? 0) * 0.35 +
-        (destination?.risk === "severe" ? 0.2 : destination?.risk === "congested" ? 0.1 : 0);
+        (destination?.risk === "severe"
+          ? 0.2
+          : destination?.risk === "congested"
+            ? 0.1
+            : 0);
 
       return {
         vessel,
@@ -137,7 +154,10 @@ export function useFleetIntel() {
           ? (weatherByCode.get(vessel.intendedPortCode) ?? null)
           : null,
         exposure,
-        etaDate: addDays(vessel.originDate, vessel.intendedArrivalDay ?? vessel.bestArrivalDay),
+        etaDate: addDays(
+          vessel.originDate,
+          vessel.intendedArrivalDay ?? vessel.bestArrivalDay,
+        ),
         recommendedEtaDate: addDays(vessel.originDate, vessel.bestArrivalDay),
         arrivalWindow:
           vessel.earliestDay != null && vessel.latestDay != null
@@ -153,7 +173,10 @@ export function useFleetIntel() {
 
   return {
     intel,
-    ranked: useMemo(() => [...intel].sort((a, b) => b.attention - a.attention), [intel]),
+    ranked: useMemo(
+      () => [...intel].sort((a, b) => b.attention - a.attention),
+      [intel],
+    ),
     isLoading: fleet.isLoading || ports.isLoading,
     error: fleet.error ?? ports.error,
     refetch: () => {

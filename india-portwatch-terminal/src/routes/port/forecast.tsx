@@ -1,8 +1,18 @@
+import {
+  CongestionScore,
+  CongestionForecastBand,
+} from "@/components/kit/CongestionScore";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { QuantileChart, SeriesChart } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   MiniBar,
@@ -17,7 +27,9 @@ import { DataTable, type Column } from "@/components/kit/table";
 import { useForecast, useRegime } from "@/services/hooks";
 import type { ForecastPoint } from "@/types/portwatch";
 
-export const Route = createFileRoute("/port/forecast")({ component: PortForecast });
+export const Route = createFileRoute("/port/forecast")({
+  component: PortForecast,
+});
 
 function PortForecast() {
   const { port, query } = usePortContext();
@@ -39,11 +51,13 @@ function PortForecast() {
   const rows = forecast.data ?? [];
   const first = rows[0] ?? null;
   const peak = rows.reduce<ForecastPoint | null>(
-    (best, row) => (!best || row.congestionIndex > best.congestionIndex ? row : best),
+    (best, row) =>
+      !best || row.congestionIndex > best.congestionIndex ? row : best,
     null,
   );
   const widest = rows.reduce<ForecastPoint | null>(
-    (best, row) => (!best || row.intervalWidth > best.intervalWidth ? row : best),
+    (best, row) =>
+      !best || row.intervalWidth > best.intervalWidth ? row : best,
     null,
   );
   const meanConfidence = rows.length
@@ -55,7 +69,9 @@ function PortForecast() {
       key: "day",
       header: "Day",
       width: 62,
-      render: (row) => <span className="num text-[var(--text-2)]">+{row.day}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-2)]">+{row.day}</span>
+      ),
       sort: (row) => row.day,
     },
     {
@@ -70,7 +86,7 @@ function PortForecast() {
       header: "q10",
       align: "right",
       width: 70,
-      render: (row) => <Num value={row.q10} />,
+      render: (row) => <CongestionScore value={row.q10} />,
       sort: (row) => row.q10,
     },
     {
@@ -78,7 +94,7 @@ function PortForecast() {
       header: "q50",
       align: "right",
       width: 70,
-      render: (row) => <Num value={row.q50} className="text-[var(--text)]" />,
+      render: (row) => <CongestionScore value={row.q50} />,
       sort: (row) => row.q50,
     },
     {
@@ -86,7 +102,7 @@ function PortForecast() {
       header: "q90",
       align: "right",
       width: 70,
-      render: (row) => <Num value={row.q90} />,
+      render: (row) => <CongestionScore value={row.q90} />,
       sort: (row) => row.q90,
     },
     {
@@ -95,7 +111,7 @@ function PortForecast() {
       align: "right",
       width: 100,
       hint: "q90 − q10 after conformal calibration",
-      render: (row) => <Num value={row.intervalWidth} />,
+      render: (row) => <Num value={row.intervalWidth} unit="pts" />,
       sort: (row) => row.intervalWidth,
     },
     {
@@ -122,7 +138,10 @@ function PortForecast() {
       render: (row) => (
         <span className="flex items-center justify-end gap-2">
           <span className="w-10">
-            <MiniBar value={row.confidence} tone={row.confidence >= 0.6 ? "ok" : "warn"} />
+            <MiniBar
+              value={row.confidence}
+              tone={row.confidence >= 0.6 ? "ok" : "warn"}
+            />
           </span>
           <Num value={row.confidence} digits={0} scale={100} unit="%" />
         </span>
@@ -135,7 +154,9 @@ function PortForecast() {
       align: "right",
       width: 116,
       hint: "Spread between ensemble members on this horizon",
-      render: (row) => <Num value={row.modelDisagreement} digits={2} tone="unc" />,
+      render: (row) => (
+        <Num value={row.modelDisagreement} digits={2} tone="unc" />
+      ),
       sort: (row) => row.modelDisagreement,
     },
     {
@@ -143,7 +164,9 @@ function PortForecast() {
       header: "Severity",
       align: "right",
       width: 90,
-      render: (row) => <Pill tone={riskTone(row.severity)}>{row.severity}</Pill>,
+      render: (row) => (
+        <Pill tone={riskTone(row.severity)}>{row.severity}</Pill>
+      ),
       sort: (row) => row.congestionIndex,
     },
   ];
@@ -158,13 +181,20 @@ function PortForecast() {
           <>
             <span>{port.name}</span>
             <span className="num">{port.code}</span>
-            <span className="num">{first?.source ?? port.model ?? "no model"}</span>
+            <span className="num">
+              {first?.source ?? port.model ?? "no model"}
+            </span>
           </>
         }
         meta={
           <>
-            <span className="num">origin {formatUtc(first?.originDate ?? port.forecastOrigin)}</span>
-            <ProvenanceTag status={first?.dataStatus ?? port.dataStatus} ageHours={first?.dataAgeHours} />
+            <span className="num">
+              origin {formatUtc(first?.originDate ?? port.forecastOrigin)}
+            </span>
+            <ProvenanceTag
+              status={first?.dataStatus ?? port.dataStatus}
+              ageHours={first?.dataAgeHours}
+            />
           </>
         }
         actions={<PortSwitcher />}
@@ -175,30 +205,40 @@ function PortForecast() {
         items={[
           {
             label: "Day-1 median",
-            value: first?.q50.toFixed(1) ?? "n/a",
-            tone: (first?.q50 ?? 0) >= 50 ? "warn" : "ok",
-            note: first ? `band ${first.q10.toFixed(0)}–${first.q90.toFixed(0)}` : "no rows",
+            value: <CongestionScore value={first?.q50} compact />,
+            note: first ? (
+              <CongestionForecastBand low={first.q10} high={first.q90} />
+            ) : (
+              "no rows"
+            ),
           },
           {
             label: "Horizon peak",
-            value: peak?.congestionIndex.toFixed(1) ?? "n/a",
-            tone: (peak?.congestionIndex ?? 0) >= 65 ? "crit" : "warn",
+            value: <CongestionScore value={peak?.congestionIndex} compact />,
             note: peak ? `day ${peak.day} · ${peak.dateLabel}` : "no rows",
           },
           {
             label: "Widest band",
-            value: widest?.intervalWidth.toFixed(1) ?? "n/a",
+            value: widest ? `${widest.intervalWidth.toFixed(1)} pts` : "n/a",
             tone: "unc",
-            note: widest ? `day ${widest.day} — least certain horizon` : "no rows",
+            note: widest
+              ? `day ${widest.day} — least certain horizon`
+              : "no rows",
           },
           {
             label: "Mean confidence",
-            value: meanConfidence != null ? `${(meanConfidence * 100).toFixed(0)}%` : "n/a",
+            value:
+              meanConfidence != null
+                ? `${(meanConfidence * 100).toFixed(0)}%`
+                : "n/a",
             note: "decays with horizon by construction",
           },
           {
             label: "Conformal offset",
-            value: first?.conformalOffset?.toFixed(2) ?? "n/a",
+            value:
+              first?.conformalOffset == null
+                ? "n/a"
+                : `${first.conformalOffset.toFixed(2)} pts`,
             note: "per-horizon calibration applied to the band",
           },
           {
@@ -234,9 +274,9 @@ function PortForecast() {
                 }))}
               />
               <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                The shaded ribbon is the 80% interval after per-horizon conformal
-                calibration; the line inside it is the median. A day is only actionable
-                where the band sits clear of the threshold.
+                The shaded ribbon is the 80% interval after per-horizon
+                conformal calibration; the line inside it is the median. A day
+                is only actionable where the band sits clear of the threshold.
               </p>
             </div>
           </Panel>
@@ -261,12 +301,22 @@ function PortForecast() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
-          <Panel title="Regime" note={state ? `conf ${(state.confidence * 100).toFixed(0)}%` : undefined}>
+          <Panel
+            title="Regime"
+            note={
+              state ? `conf ${(state.confidence * 100).toFixed(0)}%` : undefined
+            }
+          >
             {state ? (
               <div className="p-3">
                 <div className="mb-2.5 flex items-center justify-between">
-                  <span className="text-[15px] font-medium text-[var(--text)]">{state.state}</span>
-                  <ProvenanceTag status={state.dataStatus} ageHours={state.dataAgeHours} />
+                  <span className="text-[15px] font-medium text-[var(--text)]">
+                    {state.state}
+                  </span>
+                  <ProvenanceTag
+                    status={state.dataStatus}
+                    ageHours={state.dataAgeHours}
+                  />
                 </div>
                 {(
                   [
@@ -326,15 +376,18 @@ function PortForecast() {
                     dashed: true,
                     points: rows.map((row) => ({
                       label: row.dateLabel,
-                      value: row.modelDisagreement == null ? null : row.modelDisagreement * 100,
+                      value:
+                        row.modelDisagreement == null
+                          ? null
+                          : row.modelDisagreement * 100,
                     })),
                   },
                 ]}
               />
               <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                Where the two rise together the members disagree and the interval widens
-                to admit it. Where the band widens alone, the model is uncertain but the
-                members still agree.
+                Where the two rise together the members disagree and the
+                interval widens to admit it. Where the band widens alone, the
+                model is uncertain but the members still agree.
               </p>
             </div>
           </Panel>
@@ -348,7 +401,9 @@ function PortForecast() {
                 <Num value={first?.gbmWeight} digits={2} />
               </KeyValue>
               <KeyValue label="Source" dense>
-                <span className="num text-[11px]">{first?.source ?? "n/a"}</span>
+                <span className="num text-[11px]">
+                  {first?.source ?? "n/a"}
+                </span>
               </KeyValue>
             </div>
           </Panel>

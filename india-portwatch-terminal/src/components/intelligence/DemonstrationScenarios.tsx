@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  consumeS10Command,
+  useWorkspaceTarget,
+} from "@/components/app/use-workspace-target";
 import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -28,6 +32,20 @@ function formatScenarioTimes(text: string) {
   );
 }
 
+export function useDemonstrationCatalogue(enabled = true) {
+  const { session, identityHeaders } = useAuth();
+  return useQuery({
+    queryKey: ["demonstration-catalogue", identityHeaders],
+    queryFn: ({ signal }) =>
+      getJson<{ scenarios: Scenario[] }>(
+        "/demonstrations/scenarios",
+        identityHeaders,
+        { signal },
+      ),
+    enabled: enabled && session?.mode === "demo",
+  });
+}
+
 export function DemonstrationScenarios({
   onDecision,
   onShowRoute,
@@ -41,21 +59,22 @@ export function DemonstrationScenarios({
   const [ack, setAck] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
-  const q = useQuery({
-    queryKey: ["demonstration-catalogue", identityHeaders],
-    queryFn: ({ signal }) =>
-      getJson<{ scenarios: Scenario[] }>(
-        "/demonstrations/scenarios",
-        identityHeaders,
-        { signal },
-      ),
-    enabled: session?.mode === "demo",
-  });
+  const q = useDemonstrationCatalogue();
+  const scenarioTarget = useWorkspaceTarget("scenario");
+  useEffect(() => {
+    if (
+      scenarioTarget &&
+      q.data?.scenarios.some((row) => row.id === scenarioTarget)
+    ) {
+      setId(scenarioTarget);
+      setAck(false);
+    }
+  }, [scenarioTarget, q.data]);
   const select = useMutation({
-    mutationFn: () =>
+    mutationFn: (input: { scenarioId: string; acknowledged: boolean }) =>
       postJson<Result>(
         "/demonstrations/select",
-        { scenarioId: id, requestId, acknowledged: ack },
+        { ...input, requestId },
         identityHeaders,
       ),
     onSuccess: () => {
@@ -65,6 +84,21 @@ export function DemonstrationScenarios({
       setRequestId(crypto.randomUUID());
     },
   });
+  const command = useWorkspaceTarget("command");
+  const submit = select.mutate;
+  useEffect(() => {
+    if (
+      session?.mode !== "demo" ||
+      session.user.role !== "SHIPPING_COMPANY" ||
+      scenarioTarget !== "S10" ||
+      !command ||
+      !q.data?.scenarios.some((row) => row.id === scenarioTarget) ||
+      !consumeS10Command(command)
+    )
+      return;
+    setAck(true);
+    submit({ scenarioId: scenarioTarget, acknowledged: true });
+  }, [session, scenarioTarget, command, q.data, submit]);
   const advance = useMutation({
     mutationFn: () =>
       postJson(
@@ -266,7 +300,7 @@ export function DemonstrationScenarios({
       <Button
         size="sm"
         disabled={!id || !ack || select.isPending}
-        onClick={() => select.mutate()}
+        onClick={() => select.mutate({ scenarioId: id, acknowledged: ack })}
       >
         {select.isPending ? "Calculating…" : "Calculate selected demonstration"}
       </Button>

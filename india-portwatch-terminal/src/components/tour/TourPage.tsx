@@ -56,9 +56,13 @@ export default function TourPage() {
   const go = (index: number) => {
     const element = scroll.current;
     if (!element) return;
-    const instant = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const instant = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     element.scrollTo({
-      top: (index / (CHAPTERS.length - 1)) * (element.scrollHeight - element.clientHeight),
+      top:
+        (index / (CHAPTERS.length - 1)) *
+        (element.scrollHeight - element.clientHeight),
       behavior: instant ? "instant" : "smooth",
     });
     if (instant) readScroll();

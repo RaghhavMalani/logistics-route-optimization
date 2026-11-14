@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, feat/backend-maintainability, feat/cargo-monte-carlo, main]
+    branches: [feat/portwatch-agentic-maritime-os, feat/portwatch-digital-twin, feat/backend-maintainability, feat/cargo-monte-carlo, feat/ui-overhaul, main]
   workflow_dispatch:
 
 concurrency:
@@ -143,6 +143,8 @@ jobs:
         run: npm run api:check
       - name: Typecheck
         run: npm run typecheck
+      - name: Lint terminal
+        run: npm run lint
       - name: Build
         run: npm run build
 

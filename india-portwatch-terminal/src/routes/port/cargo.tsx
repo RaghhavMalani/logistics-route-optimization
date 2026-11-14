@@ -13,5 +13,7 @@ export const Route = createFileRoute("/port/cargo")({ component: PortCargo });
  */
 function PortCargo() {
   const { portCode } = usePortContext();
-  return <CargoScreen portCode={portCode} title="Cargo assignment" mode="plan" />;
+  return (
+    <CargoScreen portCode={portCode} title="Cargo assignment" mode="plan" />
+  );
 }

@@ -1455,6 +1455,21 @@ html {
 .pw-float-panel {
   box-shadow: 0 12px 36px var(--shadow-color);
 }
+.pw-workspace-rail {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: 0 12px 36px var(--shadow-color);
+}
+.pw-workspace-rail .pw-float-panel,
+.pw-workspace-rail .pw-handoff-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.pw-workspace-rail .pw-float-panel + .pw-float-panel {
+  border-top: 1px solid var(--line);
+}
 .pw-page-header h1,
 .pw-float-header > span:first-child,
 .pw-handoff-card > h2,

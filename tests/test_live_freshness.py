@@ -123,6 +123,7 @@ def test_worker_sees_weather_transport_error_and_retains_snapshot(tmp_path, monk
     monkeypatch.setattr(weather, 'ROOT', tmp_path)
     monkeypatch.setattr(weather, 'read', lambda *a, **kw: {'status': 'STALE', 'availableAt': NOW.isoformat(), 'rows': []})
     def offline(*args, **kwargs):
+        assert kwargs['timeout'] == (8, 18)
         raise requests.Timeout('provider egress timed out')
     monkeypatch.setattr(weather.requests, 'get', offline)
     with pytest.raises(requests.Timeout, match='egress timed out'):

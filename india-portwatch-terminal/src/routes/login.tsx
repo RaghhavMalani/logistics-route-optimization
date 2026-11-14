@@ -12,6 +12,7 @@ import { Pill } from "@/components/kit/primitives";
 import { useHealth } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 import { ageLabel } from "@/services/source-health";
+import { writeStory } from "@/services/story-session";
 
 /** `next` is optional: a direct visit to /login carries no return address. */
 interface LoginSearch {
@@ -32,6 +33,13 @@ export const Route = createFileRoute("/login")({
 const LoginMiniature = lazy(
   () => import("@/components/miniature/LoginMiniature"),
 );
+
+const demoRoles = {
+  SHIPPING_COMPANY: ["Company", "Choose how the fleet responds."],
+  VESSEL_OPERATOR: ["Vessel", "Review the passage from the bridge."],
+  PORT_AUTHORITY: ["Port", "Review arrivals and issue advice."],
+  NATIONAL_ADMIN: ["Admin", "See conditions across the network."],
+} as const;
 
 function LoginScreen() {
   const { signIn, startDemo, mode, adapterDescription } = useAuth();
@@ -64,11 +72,21 @@ function LoginScreen() {
     }
   };
 
-  const openDemo = async (role: Role) => {
+  const openDemo = async (role: Role, story = false) => {
     setBusy(true);
     setError(null);
     try {
       const session = await startDemo(role);
+      writeStory(
+        story && session.demoId
+          ? {
+              step: 0,
+              reached: 0,
+              demoId: session.demoId,
+              requestId: crypto.randomUUID(),
+            }
+          : null,
+      );
       await navigate({ to: ROLE_PROFILE[session.user.role].home });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Demo could not open.");
@@ -78,26 +96,37 @@ function LoginScreen() {
   };
 
   const serviceStatus = health.data?.service?.status;
-  const serviceTone = health.isError || serviceStatus === "degraded"
-    ? "crit"
-    : serviceStatus === "ok" ? "ok" : "neutral";
+  const serviceTone =
+    health.isError || serviceStatus === "degraded"
+      ? "crit"
+      : serviceStatus === "ok"
+        ? "ok"
+        : "neutral";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
       ? "Checking"
       : serviceStatus === "degraded"
         ? "Degraded"
-        : serviceStatus === "ok" ? "Reachable" : "Unverified";
+        : serviceStatus === "ok"
+          ? "Reachable"
+          : "Unverified";
 
+  const sourceStatus = health.data?.data?.status;
   const forecast = health.isError ? undefined : health.data;
   const originAt = Date.parse(forecast?.forecastOrigin ?? "");
   const originStatus = {
-    LIVE: "Current", CACHED_LIVE: "Cached", STALE: "Stale",
-    SYNTHETIC: "Synthetic", UNAVAILABLE: "Unavailable",
+    LIVE: "Current",
+    CACHED_LIVE: "Cached",
+    STALE: "Stale",
+    SYNTHETIC: "Synthetic",
+    UNAVAILABLE: "Unavailable",
   }[forecast?.forecastOriginStatus ?? "UNAVAILABLE"];
   const targets = {
-    CURRENT_HORIZON: "Current horizon", PARTIAL_HORIZON: "Partial horizon",
-    EXPIRED: "Expired", UNAVAILABLE: "Unavailable",
+    CURRENT_HORIZON: "Current horizon",
+    PARTIAL_HORIZON: "Partial horizon",
+    EXPIRED: "Expired",
+    UNAVAILABLE: "Unavailable",
   }[forecast?.targetStatus ?? "UNAVAILABLE"];
 
   return (
@@ -108,7 +137,9 @@ function LoginScreen() {
           <LoginMiniature />
         </Suspense>
         <div className="relative flex h-full flex-col justify-between p-10">
-          <div><BrandMark /></div>
+          <div>
+            <BrandMark />
+          </div>
 
           <div className="max-w-[410px] self-start border border-[var(--line)] bg-[var(--map-overlay)] p-5 shadow-[var(--shadow-floating)]">
             <p className="text-[17px] leading-snug text-[var(--text)]">
@@ -126,135 +157,150 @@ function LoginScreen() {
       </section>
 
       {/* ----------------------------------------------------------- right -- */}
-      <section className="flex min-h-0 flex-col overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-8 py-10 lg:px-14">
+      <section className="flex min-h-0 flex-col overflow-auto border-l border-[var(--line)] bg-[var(--panel)] px-6 py-8 lg:px-12">
         <div className="m-auto w-full max-w-[380px]">
-          <div className="mb-6 lg:hidden"><BrandMark /></div>
+          <div className="mb-6 lg:hidden">
+            <BrandMark />
+          </div>
 
-          <h1 className="text-[15px] font-semibold text-[var(--text)]">
-            Secure sign-in
+          <h1 className="text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-[var(--text)]">
+            Follow a voyage through PortWatch
           </h1>
-          <p className="mt-1 text-[12px] text-[var(--text-3)]">
-            Operations terminal · access is scoped to your role.
+          <p className="mt-3 text-sm leading-relaxed text-[var(--text-3)]">
+            See how a fictional shipping company, port and vessel agree on a
+            passage plan.
           </p>
+          <Button
+            variant="primary"
+            className="mt-5 w-full justify-center py-3.5 text-base"
+            disabled={busy}
+            onClick={() => void openDemo("SHIPPING_COMPANY", true)}
+          >
+            Start the 3-minute demo
+          </Button>
+          {error ? (
+            <p role="alert" className="mt-3 text-sm text-[var(--crit)]">
+              {error}
+            </p>
+          ) : null}
 
-          <div className="mt-4 border-y border-[var(--line)] py-3">
-            <div className="eyebrow mb-2">Explore a fictional demo</div>
+          <div className="mt-5 border-y border-[var(--line)] py-4">
+            <div className="eyebrow mb-2">Explore a role in the demo</div>
             <div className="grid grid-cols-2 gap-2">
               {ROLES.map((role) => (
-                <Button
+                <button
                   key={role}
+                  type="button"
+                  aria-label={`${demoRoles[role][0]} demo`}
                   disabled={busy}
                   onClick={() => void openDemo(role)}
+                  className="border border-[var(--line)] bg-[var(--bg)] px-3 py-2.5 text-left transition-colors hover:border-[var(--signal)] focus-visible:outline-[var(--signal)] disabled:opacity-60"
                 >
-                  {
-                    {
-                      SHIPPING_COMPANY: "Company",
-                      VESSEL_OPERATOR: "Vessel",
-                      PORT_AUTHORITY: "Port",
-                      NATIONAL_ADMIN: "Admin",
-                    }[role]
-                  }{" "}
-                  demo
-                </Button>
+                  <span className="block text-sm font-semibold">
+                    {demoRoles[role][0]}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-snug text-[var(--text-3)]">
+                    {demoRoles[role][1]}
+                  </span>
+                </button>
               ))}
             </div>
             <p className="mt-2 text-[10.5px] text-[var(--text-3)]">
               Your own sandbox, with the original maps and workflows.
             </p>
           </div>
-          <form className="mt-4 flex flex-col gap-3.5" onSubmit={submit}>
-            <label className="flex flex-col gap-1.5">
-              <span className="eyebrow">Email</span>
-              <input
-                type="email"
-                required
-                autoComplete="username"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className={cn(
-                  "rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] px-2.5 py-2",
-                  "text-[13px] text-[var(--text)] outline-none placeholder:text-[var(--text-3)]",
-                  "focus:border-[var(--info)]",
-                )}
-                placeholder="name@authority.gov.in"
-              />
-            </label>
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              Operator access
+            </summary>
+            <form className="mt-4 flex flex-col gap-3.5" onSubmit={submit}>
+              <label className="flex flex-col gap-1.5">
+                <span className="eyebrow">Email</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="username"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className={cn(
+                    "rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] px-2.5 py-2",
+                    "text-[13px] text-[var(--text)] outline-none placeholder:text-[var(--text-3)]",
+                    "focus:border-[var(--info)]",
+                  )}
+                  placeholder="name@authority.gov.in"
+                />
+              </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="eyebrow">Password</span>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className={cn(
-                  "rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] px-2.5 py-2",
-                  "text-[13px] text-[var(--text)] outline-none focus:border-[var(--info)]",
-                )}
-                placeholder="••••••••"
-              />
-            </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="eyebrow">Password</span>
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className={cn(
+                    "rounded-[2px] border border-[var(--line-strong)] bg-[var(--panel-2)] px-2.5 py-2",
+                    "text-[13px] text-[var(--text)] outline-none focus:border-[var(--info)]",
+                  )}
+                  placeholder="••••••••"
+                />
+              </label>
 
-            {error ? (
-              <div className="rounded-[2px] border border-[var(--crit)]/40 bg-[var(--crit-dim)] px-2.5 py-2 text-[11.5px] leading-snug text-[var(--crit)]">
-                {error}
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={busy}
+                className="mt-1 py-2"
+              >
+                {busy ? "Signing in…" : "Sign in"}
+              </Button>
+            </form>
+
+            {mode === "demo" ? (
+              <div className="mt-6 border-t border-[var(--line)] pt-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Pill tone="unc">Demo environment</Pill>
+                  <span className="text-[10.5px] text-[var(--text-3)]">
+                    password: portwatch
+                  </span>
+                </div>
+                <div className="flex flex-col divide-y divide-[var(--line)]/70 overflow-hidden rounded-[2px] border border-[var(--line)]">
+                  {DEMO_ROSTER.map((account) => (
+                    <button
+                      key={account.email}
+                      type="button"
+                      onClick={() => {
+                        setEmail(account.email);
+                        setPassword("portwatch");
+                        setError(null);
+                      }}
+                      className="flex items-center justify-between gap-3 px-2.5 py-2 text-left transition-colors hover:bg-[var(--panel-2)]"
+                    >
+                      <span className="min-w-0">
+                        <span className="num block truncate text-[11.5px] text-[var(--text-2)]">
+                          {account.email}
+                        </span>
+                        <span className="block truncate text-[10.5px] text-[var(--text-3)]">
+                          {account.label}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[10px] uppercase tracking-[0.08em] text-[var(--text-3)]">
+                        {ROLE_PROFILE[account.role].label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10.5px] leading-snug text-[var(--text-3)]">
+                  {adapterDescription} Set{" "}
+                  <code className="font-mono text-[10px] text-[var(--text-2)]">
+                    VITE_PORTWATCH_AUTH_MODE=production
+                  </code>{" "}
+                  to require a real identity provider.
+                </p>
               </div>
             ) : null}
-
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={busy}
-              className="mt-1 py-2"
-            >
-              {busy ? "Signing in…" : "Sign in"}
-            </Button>
-          </form>
-
-          {mode === "demo" ? (
-            <div className="mt-6 border-t border-[var(--line)] pt-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Pill tone="unc">Demo environment</Pill>
-                <span className="text-[10.5px] text-[var(--text-3)]">
-                  password: portwatch
-                </span>
-              </div>
-              <div className="flex flex-col divide-y divide-[var(--line)]/70 overflow-hidden rounded-[2px] border border-[var(--line)]">
-                {DEMO_ROSTER.map((account) => (
-                  <button
-                    key={account.email}
-                    type="button"
-                    onClick={() => {
-                      setEmail(account.email);
-                      setPassword("portwatch");
-                      setError(null);
-                    }}
-                    className="flex items-center justify-between gap-3 px-2.5 py-2 text-left transition-colors hover:bg-[var(--panel-2)]"
-                  >
-                    <span className="min-w-0">
-                      <span className="num block truncate text-[11.5px] text-[var(--text-2)]">
-                        {account.email}
-                      </span>
-                      <span className="block truncate text-[10.5px] text-[var(--text-3)]">
-                        {account.label}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-[10px] uppercase tracking-[0.08em] text-[var(--text-3)]">
-                      {ROLE_PROFILE[account.role].label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-[10.5px] leading-snug text-[var(--text-3)]">
-                {adapterDescription} Set{" "}
-                <code className="font-mono text-[10px] text-[var(--text-2)]">
-                  VITE_PORTWATCH_AUTH_MODE=production
-                </code>{" "}
-                to require a real identity provider.
-              </p>
-            </div>
-          ) : null}
+          </details>
 
           {/* ----------------------------------------------- system footer -- */}
           <Link
@@ -263,18 +309,52 @@ function LoginScreen() {
           >
             Take the tour →
           </Link>
-          <div className="mt-7 border-t border-[var(--line)] pt-3.5">
-            <div className="eyebrow mb-2">Environment</div>
+          <details className="mt-5 border-t border-[var(--line)] pt-3.5">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <strong>Live status</strong>
+              <span className="inline-flex items-center gap-1">
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    serviceTone === "ok"
+                      ? "bg-emerald-700"
+                      : serviceTone === "crit"
+                        ? "bg-red-700"
+                        : "bg-neutral-400",
+                  )}
+                />
+                <span className="sr-only">Data service</span>
+                <span>{serviceLabel}</span>
+              </span>
+              <span
+                className="inline-flex items-center gap-1"
+                data-testid="login-source-freshness"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    sourceStatus && sourceStatus !== "unavailable"
+                      ? sourceStatus === "degraded"
+                        ? "bg-amber-600"
+                        : "bg-emerald-700"
+                      : "bg-neutral-400",
+                  )}
+                />
+                <span>
+                  {sourceStatus && sourceStatus !== "unavailable"
+                    ? sourceStatus === "degraded"
+                      ? "Degraded · latest available data"
+                      : "Core sources within policy"
+                    : "Unmeasured"}
+                </span>
+              </span>
+              <span aria-hidden className="text-[var(--text-3)]">
+                ▾
+              </span>
+            </summary>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[11px]">
-              <dt className="text-[var(--text-3)]">Data service</dt>
-              <dd className="flex justify-end">
-                <Pill tone={serviceTone}>{serviceLabel}</Pill>
-              </dd>
-              <dt className="text-[var(--text-3)]">Source freshness</dt>
-              <dd className="text-right text-[var(--text-3)]" data-testid="login-source-freshness">
-                {health.data?.data?.status === "ok" ? "Core sources within policy" :
-                  health.data?.data?.status === "degraded" ? "Degraded · latest available data" : "Unmeasured"}
-              </dd>
               <dt className="text-[var(--text-3)]">Forecast origin</dt>
               <dd className="num text-right text-[var(--text-2)]">
                 {Number.isFinite(originAt)
@@ -283,12 +363,17 @@ function LoginScreen() {
               </dd>
               <dt className="text-[var(--text-3)]">Forecast targets</dt>
               <dd className="num text-right text-[var(--text-2)]">
-                {targets}{forecast?.targetThrough && targets !== "Unavailable" ? ` · through ${forecast.targetThrough}` : ""}
+                {targets}
+                {forecast?.targetThrough && targets !== "Unavailable"
+                  ? ` · through ${forecast.targetThrough}`
+                  : ""}
               </dd>
               <dt className="text-[var(--text-3)]">Port coverage</dt>
               <dd className="num text-right text-[var(--text-2)]">
                 {ports.length} registered
-                {forecast?.ports != null ? ` · ${forecast.ports} in forecast export` : ""}
+                {forecast?.ports != null
+                  ? ` · ${forecast.ports} in forecast export`
+                  : ""}
               </dd>
               <dt className="text-[var(--text-3)]">Model</dt>
               <dd className="num text-right text-[var(--text-2)]">
@@ -299,7 +384,7 @@ function LoginScreen() {
                 {AUTH_MODE}
               </dd>
             </dl>
-          </div>
+          </details>
         </div>
       </section>
     </div>

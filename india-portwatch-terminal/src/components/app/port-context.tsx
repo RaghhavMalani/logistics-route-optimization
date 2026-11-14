@@ -35,7 +35,8 @@ export function PortSwitcher({ className }: { className?: string }) {
   if (locked) {
     return (
       <span className="text-[11px] text-[var(--text-3)]">
-        Facility scope · <span className="num text-[var(--text-2)]">{portCode}</span>
+        Facility scope ·{" "}
+        <span className="num text-[var(--text-2)]">{portCode}</span>
       </span>
     );
   }

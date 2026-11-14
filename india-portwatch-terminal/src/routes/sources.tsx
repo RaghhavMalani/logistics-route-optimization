@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { formatUtc } from "@/components/kit/primitives";
+import { ModelStatus } from "@/components/public/ModelStatus";
 import { getJson } from "@/services/api";
 import type { ApiResponse } from "@/services/api-client";
 import {
@@ -96,6 +97,7 @@ function SourcesPage() {
           within their expected publication lag. Private trials appear as
           unavailable in the workspace.
         </p>
+        <ModelStatus />
         {isPending ? (
           <p role="status">Checking retained source health…</p>
         ) : null}
@@ -114,9 +116,12 @@ function SourcesPage() {
                   <span className={expectedLagTone}>
                     {sourceStatusLabel[source.status]}
                   </span>
-                ) : source.status === "live" && source.id === "imf-portwatch-data"
-                  ? "Current daily snapshot"
-                  : sourceStatusLabel[source.status]}
+                ) : source.status === "live" &&
+                  source.id === "imf-portwatch-data" ? (
+                  "Current daily snapshot"
+                ) : (
+                  sourceStatusLabel[source.status]
+                )}
               </p>
               <h2 className="mt-1 text-lg font-semibold">{source.name}</h2>
               <p className="mt-1 text-sm text-[var(--text-2)]">
@@ -162,7 +167,9 @@ function SourcesPage() {
                     <dd>
                       {ageLabel(source.publicationLag.medianSeconds)} ·{" "}
                       {source.publicationLag.samples} distinct daily{" "}
-                      {source.publicationLag.samples === 1 ? "collection" : "collections"}
+                      {source.publicationLag.samples === 1
+                        ? "collection"
+                        : "collections"}
                     </dd>
                   </>
                 ) : null}

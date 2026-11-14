@@ -16,17 +16,31 @@
  * port ring resizes to that option's yard pressure, the timeline re-reads.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { Chip, PanelTabs } from "@/components/command/panels";
-import { Pill, type Tone } from "@/components/kit/primitives";
+import { formatUtc, Pill, type Tone } from "@/components/kit/primitives";
 import { optionStyles } from "@/lib/maritime/decision-layers";
 import { cn } from "@/lib/utils";
 import {
   type ScenarioAssumptions,
   useDecisionWorkflow,
 } from "@/services/decisions";
+import {
+  confirmDecisionOption,
+  confirmPortIssue,
+} from "@/services/decision-confirmation";
+import { invalidateHomePackets } from "@/services/home-screen";
 import type {
   CriticVerdict,
   DecisionOption,
@@ -41,6 +55,7 @@ import {
 } from "@/components/miniature/WorkflowRail";
 import { CommercialReview } from "./CommercialReview";
 import { RiskTab } from "@/components/cargo-risk/RiskTab";
+import { DecisionTradeoff } from "@/components/cargo-risk/DecisionTradeoff";
 import { FinancialEvidence } from "./FinancialEvidence";
 import { ParetoChart } from "./ParetoChart";
 import { RobustHeadline, RobustView, kindLabel } from "./RobustView";
@@ -157,6 +172,57 @@ export function useCountdown(deadline: string | null): string | null {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
+function decisionLead(problem: DecisionProblem, closed?: string) {
+  const subject = problem.subject.label;
+  if (problem.workflow === "OBSERVED")
+    return `The outcome for ${subject} is recorded.`;
+  if (problem.workflow === "DECLINED")
+    return `The proposed change for ${subject} was declined.`;
+  if (closed) return `${subject} · ${closed}`;
+
+  const risk = problem.evidence.closureModel as
+    { hoursToRisk?: number | null; alreadyEntered?: boolean } | undefined;
+  const event = (problem.evidence.event as { label?: string } | undefined)
+    ?.label;
+  const hours = risk?.hoursToRisk;
+  const context =
+    event && risk?.alreadyEntered
+      ? `${subject} is already in the modelled area affected by ${event}`
+      : event && hours != null && Number.isFinite(hours) && hours >= 0
+        ? `${subject} reaches the modelled area affected by ${event} in ${Math.ceil(hours)} h`
+        : `${subject} has a plan to review`;
+  const deadline = problem.decisionDeadline
+    ? ` by ${formatUtc(problem.decisionDeadline)}`
+    : "";
+  const recommendation = problem.recommendation;
+  if (recommendation?.kind === "WAIT_FOR_MORE_INFORMATION") {
+    return `${context}. Review the missing evidence${deadline} before changing the plan.`;
+  }
+  const choice = problem.options.find(
+    (option) => option.optionId === recommendation?.optionId,
+  );
+  const current = problem.options.find((option) => option.isBaseline);
+  if (!choice || choice.status !== "FEASIBLE") {
+    return `${context}. Review the available options${deadline}.`;
+  }
+  if (choice.isBaseline || recommendation?.kind === "KEEP_CURRENT_PLAN") {
+    return `${context}. Review whether to keep the current plan${deadline}.`;
+  }
+  const eta = choice.evaluation?.objectives.eta;
+  const currentEta = current?.evaluation?.objectives.eta;
+  const change =
+    eta?.available &&
+    currentEta?.available &&
+    eta.unit === "h" &&
+    currentEta.unit === "h" &&
+    eta.value != null &&
+    currentEta.value != null
+      ? Math.round(eta.value - currentEta.value)
+      : null;
+  const timing = change ? ` (${change > 0 ? "+" : ""}${change} h)` : "";
+  return `${context}. Decide${deadline} between ${choice.label}${timing} and the current plan.`;
+}
+
 export function DecisionPanel({
   problem,
   selectedOptionId,
@@ -167,6 +233,8 @@ export function DecisionPanel({
   onEditCurrentInputs,
   onNewComparison,
   canHandoff = false,
+  issueOnApprove = false,
+  issueComplete = false,
   onRecompute,
   recomputing = false,
   compact = false,
@@ -183,6 +251,8 @@ export function DecisionPanel({
   onNewComparison?: (problem: DecisionProblem) => void;
   /** Whether the signed-in actor may hand an approved option into the advisory boundary. */
   canHandoff?: boolean;
+  issueOnApprove?: boolean;
+  issueComplete?: boolean;
   /** Re-run the decision priced with scenario assumptions; absent, the Money tab offers no form. */
   onRecompute?: (assumptions: ScenarioAssumptions) => void;
   recomputing?: boolean;
@@ -192,7 +262,42 @@ export function DecisionPanel({
 }) {
   const { identityHeaders, session } = useAuth();
   const workflow = useDecisionWorkflow(identityHeaders);
-  const [tab, setTab] = useState<Tab>("options");
+  const client = useQueryClient();
+  const confirm = useMutation({
+    mutationFn: async ({
+      optionId,
+      issue,
+    }: {
+      optionId: string;
+      issue: boolean;
+    }) => {
+      if (issue) {
+        await confirmPortIssue(problem.decisionId, optionId, identityHeaders);
+      } else {
+        const approved = await confirmDecisionOption(
+          problem.decisionId,
+          optionId,
+          identityHeaders,
+        );
+        client.setQueryData(["decision", approved.decisionId], approved);
+      }
+    },
+    onSettled: () => {
+      invalidateHomePackets();
+      return Promise.all(
+        [
+          ["decision", problem.decisionId],
+          ["decisions"],
+          ["advisories"],
+          ["current-proposals"],
+          ["workspace-handoffs"],
+        ].map((queryKey) => client.invalidateQueries({ queryKey })),
+      );
+    },
+  });
+  const singleApproval =
+    issueOnApprove || session?.user.role === "SHIPPING_COMPANY";
+  const [tab, setTab] = useState<Tab>(issueOnApprove ? "workflow" : "options");
   const [workflowTarget, setWorkflowTarget] = useState<{
     key: string;
     showControls: boolean;
@@ -250,9 +355,13 @@ export function DecisionPanel({
   useLayoutEffect(() => {
     if (!passageResult || tab !== "options") return;
     const scroller = comparisonScroll.current;
-    const firstMeasure = scroller?.querySelector("table[data-testid='passage-core-comparison'] tbody tr");
+    const firstMeasure = scroller?.querySelector(
+      "table[data-testid='passage-core-comparison'] tbody tr",
+    );
     if (!scroller || !firstMeasure) return;
-    const clipped = firstMeasure.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom;
+    const clipped =
+      firstMeasure.getBoundingClientRect().bottom -
+      scroller.getBoundingClientRect().bottom;
     if (clipped > 0) scroller.scrollTop += Math.ceil(clipped) + 4;
   }, [passageResult, problem.decisionId, tab]);
   const intelligence = problem.evidence?.intelligenceBasis as
@@ -295,6 +404,12 @@ export function DecisionPanel({
     >
       {/* ------------------------------------------------------- header -- */}
       <div className="pw-decision-header border-b border-[var(--line)] px-2 py-1.5">
+        <p
+          data-testid="decision-lead"
+          className="mb-1 text-xs font-semibold leading-snug [overflow-wrap:anywhere]"
+        >
+          {decisionLead(problem, closedWindowStatus)}
+        </p>
         <div className="flex items-center gap-1.5">
           <Pill
             tone={
@@ -309,31 +424,22 @@ export function DecisionPanel({
           >
             {closedWindowStatus ?? "Action required"}
           </Pill>
-          <span
-            className={cn(
-              "min-w-0 flex-1 text-[11px] font-medium text-[var(--text)]",
-              currentWeather?.passageComparison ? "break-words" : "truncate",
-            )}
-          >
-            {problem.subject.label}
-          </span>
           {onClose ? (
             <button
               type="button"
               onClick={onClose}
               aria-label="Close decision"
-              className="text-[10px] text-[var(--text-3)] hover:text-[var(--text)]"
+              className="ml-auto text-[10px] text-[var(--text-3)] hover:text-[var(--text)]"
             >
               ✕
             </button>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate text-[10px] text-[var(--text-2)]">
-          {currentWeather?.passageComparison
-            ? "Declared passage · conditional port approach"
-            : problem.headline.split(" · ").slice(1).join(" · ") ||
-              problem.headline}
-        </p>
+        {currentWeather?.passageComparison ? (
+          <p className="mt-0.5 text-[10px] text-[var(--text-2)]">
+            Declared passage · conditional port approach
+          </p>
+        ) : null}
         <div className="mt-1 flex items-center gap-3 text-[10.5px] text-[var(--text-3)]">
           {!closedWindowStatus ? (
             <span>
@@ -494,7 +600,11 @@ export function DecisionPanel({
         />
       </div>
 
-      <div ref={comparisonScroll} key={tab} className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={comparisonScroll}
+        key={tab}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
         {tab === "cargo-risk" &&
         session?.mode === "demo" &&
         session.user.role === "SHIPPING_COMPANY" ? (
@@ -808,6 +918,7 @@ export function DecisionPanel({
 
         {tab === "why" ? (
           <>
+            <p className="px-2 pt-2 text-xs">{problem.headline}</p>
             {currentWeather?.passageComparison ? (
               <div className="space-y-2 p-2 text-xs [overflow-wrap:anywhere]">
                 <p>
@@ -850,58 +961,76 @@ export function DecisionPanel({
         ) : null}
 
         {tab === "workflow" ? (
-          <WorkflowView
-            problem={problem}
-            target={workflowTarget}
-            selected={selected}
-            canHandoff={canHandoff && session?.user.canApprove !== false}
-            canApprove={session?.user.canApprove !== false}
-            onReview={() =>
-              workflow.transition.mutate({
-                decisionId: problem.decisionId,
-                target: "REVIEWED",
-                note: "reviewed in the terminal",
-              })
-            }
-            onApprove={() =>
-              selected &&
-              workflow.transition.mutate({
-                decisionId: problem.decisionId,
-                target: "APPROVED",
-                optionId: selected.optionId,
-                note: "chosen in the terminal",
-              })
-            }
-            onDecline={() =>
-              workflow.transition.mutate({
-                decisionId: problem.decisionId,
-                target: "DECLINED",
-                note: "declined in the terminal",
-              })
-            }
-            onHandoff={() =>
-              workflow.handoff.mutate({ decisionId: problem.decisionId })
-            }
-            onOutcome={(actualAction, observed) =>
-              workflow.outcome.mutate({
-                decisionId: problem.decisionId,
-                actualAction,
-                observed,
-              })
-            }
-            busy={
-              workflow.transition.isPending ||
-              workflow.handoff.isPending ||
-              workflow.outcome.isPending
-            }
-            error={
-              (workflow.transition.error as Error | null)?.message ??
-              (workflow.handoff.error as Error | null)?.message ??
-              (workflow.outcome.error as Error | null)?.message ??
-              null
-            }
-            handoffResult={workflow.handoff.data ?? null}
-          />
+          <>
+            {session?.user.role === "SHIPPING_COMPANY" ? (
+              <DecisionTradeoff
+                key={problem.decisionId}
+                problemId={problem.decisionId}
+              />
+            ) : null}
+            <WorkflowView
+              problem={problem}
+              target={workflowTarget}
+              selected={selected}
+              canHandoff={canHandoff && session?.user.canApprove !== false}
+              canApprove={session?.user.canApprove !== false}
+              singleApproval={singleApproval}
+              issueOnApprove={issueOnApprove}
+              issueComplete={issueComplete}
+              onConfirm={(optionId, issue) =>
+                confirm.mutate({ optionId, issue })
+              }
+              onReview={() =>
+                workflow.transition.mutate({
+                  decisionId: problem.decisionId,
+                  target: "REVIEWED",
+                  note: "reviewed in the terminal",
+                })
+              }
+              onApprove={() =>
+                selected &&
+                workflow.transition.mutate({
+                  decisionId: problem.decisionId,
+                  target: "APPROVED",
+                  optionId: selected.optionId,
+                  note: "chosen in the terminal",
+                })
+              }
+              onDecline={() =>
+                workflow.transition.mutate({
+                  decisionId: problem.decisionId,
+                  target: "DECLINED",
+                  reviewBefore:
+                    singleApproval && problem.workflow === "COMPUTED",
+                  note: "declined in the terminal",
+                })
+              }
+              onHandoff={() =>
+                workflow.handoff.mutate({ decisionId: problem.decisionId })
+              }
+              onOutcome={(actualAction, observed) =>
+                workflow.outcome.mutate({
+                  decisionId: problem.decisionId,
+                  actualAction,
+                  observed,
+                })
+              }
+              busy={
+                confirm.isPending ||
+                workflow.transition.isPending ||
+                workflow.handoff.isPending ||
+                workflow.outcome.isPending
+              }
+              error={
+                confirm.error?.message ??
+                (workflow.transition.error as Error | null)?.message ??
+                (workflow.handoff.error as Error | null)?.message ??
+                (workflow.outcome.error as Error | null)?.message ??
+                null
+              }
+              handoffResult={workflow.handoff.data ?? null}
+            />
+          </>
         ) : null}
       </div>
       {tab === "options" &&
@@ -1215,6 +1344,10 @@ function WorkflowView({
   selected,
   canHandoff,
   canApprove,
+  singleApproval,
+  issueOnApprove,
+  issueComplete,
+  onConfirm,
   onReview,
   onApprove,
   onDecline,
@@ -1229,6 +1362,10 @@ function WorkflowView({
   selected: DecisionOption | null;
   canHandoff: boolean;
   canApprove: boolean;
+  singleApproval: boolean;
+  issueOnApprove: boolean;
+  issueComplete: boolean;
+  onConfirm: (optionId: string, issue: boolean) => void;
   onReview: () => void;
   onApprove: () => void;
   onDecline: () => void;
@@ -1260,9 +1397,21 @@ function WorkflowView({
     { by?: string; mechanism?: string } | undefined;
   const actorMayHandoff =
     canHandoff &&
+    !issueOnApprove &&
     problem.workflow === "APPROVED" &&
     chosen &&
     !chosen.isBaseline;
+
+  const ready =
+    problem.workflow === "COMPUTED" || problem.workflow === "REVIEWED";
+  const resumeIssue =
+    issueOnApprove &&
+    !issueComplete &&
+    chosen &&
+    !chosen.isBaseline &&
+    (problem.workflow === "APPROVED" || problem.workflow === "PROPOSED");
+  const option = resumeIssue ? chosen : selected;
+  const issue = issueOnApprove && Boolean(option && !option.isBaseline);
 
   return (
     <div
@@ -1279,7 +1428,7 @@ function WorkflowView({
           : "the approved option is carried out by its actor and the outcome is recorded here."}
       </p>
 
-      {problem.workflow === "COMPUTED" ? (
+      {problem.workflow === "COMPUTED" && (!singleApproval || !canApprove) ? (
         <button
           type="button"
           disabled={busy}
@@ -1290,33 +1439,37 @@ function WorkflowView({
           Mark reviewed
         </button>
       ) : null}
-      {problem.workflow === "REVIEWED" ? (
+      {(singleApproval && canApprove && (ready || resumeIssue)) ||
+      (!singleApproval && problem.workflow === "REVIEWED") ? (
         <div className="flex gap-1">
           <button
             type="button"
             disabled={
-              busy || !canApprove || !selected || selected.status !== "FEASIBLE"
+              busy || !canApprove || !option || option.status !== "FEASIBLE"
             }
-            onClick={onApprove}
+            onClick={() =>
+              singleApproval && option
+                ? onConfirm(option.optionId, issue)
+                : onApprove()
+            }
             data-testid="decision-approve"
             className="flex-1 rounded bg-[var(--action)] px-2 py-1 text-[10px] font-medium text-[var(--on-signal)] hover:bg-[var(--signal-ink)] disabled:opacity-50"
           >
-            Approve{" "}
-            {selected
-              ? selected.isBaseline
-                ? "current plan"
-                : selected.label
-              : "— select an option"}
+            {issue
+              ? "Approve and issue to vessel"
+              : `Approve ${option ? (option.isBaseline ? "current plan" : option.label) : "— select an option"}`}
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onDecline}
-            data-testid="decision-decline"
-            className="rounded border border-[var(--line)] px-2 py-1 text-[10px] text-[var(--text-2)] hover:bg-[var(--surface-2)]"
-          >
-            Decline
-          </button>
+          {ready ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onDecline}
+              data-testid="decision-decline"
+              className="rounded border border-[var(--line)] px-2 py-1 text-[10px] text-[var(--text-2)] hover:bg-[var(--surface-2)]"
+            >
+              Decline
+            </button>
+          ) : null}
         </div>
       ) : null}
       {problem.workflow === "APPROVED" ? (

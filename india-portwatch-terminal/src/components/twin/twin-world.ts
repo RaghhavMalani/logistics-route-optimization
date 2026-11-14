@@ -1,5 +1,7 @@
 import * as T from "three";
 import { createMiniatureBuilders } from "@/components/miniature/builders";
+import { createPortSceneWeather } from "@/components/miniature/port-scene-weather";
+import type { MiniatureWeather } from "@/components/miniature/use-port-weather";
 import { createMiniatureLighting } from "@/components/miniature/lighting";
 import { BOXCOLS, COLORS } from "@/components/miniature/palette";
 import { seededRandom } from "@/components/miniature/rng";
@@ -37,6 +39,8 @@ export function createTwinWorld(base: PortTwinState) {
       Math.max(1, capacity),
     );
     mesh.name = name;
+    mesh.castShadow = name !== "Quay and landside";
+    mesh.receiveShadow = true;
     mesh.count = 0;
     mesh.frustumCulled = false;
     mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
@@ -154,7 +158,21 @@ export function createTwinWorld(base: PortTwinState) {
   const lighting = createMiniatureLighting(scene, true);
   lighting.sun.castShadow = false;
   lighting.sun.intensity = 2.6;
-  lighting.follow(new T.Vector3(mid, 0, inland / 3), span);
+  const center = new T.Vector3(mid, 0, inland / 3);
+  const cranePennantY = 3 + 30.5 * 4;
+  const cranePennantZ = 6 + 6 * 4;
+  const cranePositions = base.cranes
+    .slice(0, 2)
+    .map((crane) => new T.Vector3(crane.x, cranePennantY, cranePennantZ));
+  const effects = createPortSceneWeather(
+    scene,
+    center,
+    span,
+    inland,
+    base.seawardBearing + 180,
+    cranePositions,
+  );
+  lighting.follow(center, span);
 
   const ground = batch("Quay and landside", 20 + base.berths.length * 4);
   box(
@@ -489,6 +507,7 @@ export function createTwinWorld(base: PortTwinState) {
         ? berths.get(item.assigned_berth)
         : undefined;
       const x = berth ? berth.x + (index % 2 === 0 ? -39 : 39) : item.x;
+      effects.moveCraneFlag(index, x, cranePennantY, cranePennantZ);
       if (item.crane_id === selectedId) drawOutline(x, 5, 43, 56, 65);
       const at = pose(x, 3, 6, 4, 4, 4, -Math.PI / 2);
       model(cranes, craneFixed, at, item.crane_id);
@@ -697,7 +716,21 @@ export function createTwinWorld(base: PortTwinState) {
     mid,
     span,
     inland,
+    updateWeather(weather: MiniatureWeather | null, motion: boolean) {
+      const { direction, night, animate } = effects.draw(
+        weather,
+        Date.now(),
+        motion,
+      );
+      lighting.follow(center, span, direction);
+      lighting.sun.castShadow = Boolean(direction && !night);
+      lighting.sun.intensity = night ? 0.12 : 2.6;
+      lighting.hemi.intensity = night ? 0.72 : 3.3;
+      (scene.background as T.Color).set(night ? 0x20313d : COLORS.modelSea);
+      return { animate, shadows: lighting.sun.castShadow };
+    },
     dispose() {
+      effects.dispose();
       for (const mesh of [...batches, ...templateInstances]) mesh.dispose();
       for (const material of new Set([
         ...Object.values(M),

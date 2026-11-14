@@ -87,8 +87,10 @@ test.describe("weather composite", () => {
     await expect(play).toHaveAccessibleName("Play the forecast forward");
     const stopped = await offset.textContent();
     await page.waitForTimeout(900);
-    expect(await offset.textContent(), "the forecast cursor kept moving after pause")
-      .toBe(stopped);
+    expect(
+      await offset.textContent(),
+      "the forecast cursor kept moving after pause",
+    ).toBe(stopped);
   });
 });
 
@@ -214,13 +216,17 @@ test.describe("agent console", () => {
     const console_ = page.getByTestId("agent-console");
     await expect(console_).toBeVisible();
 
-    await page.getByTestId("agent-question").fill("Which vessels require action?");
+    await page
+      .getByTestId("agent-question")
+      .fill("Which vessels require action?");
     await page.getByTestId("agent-question").press("Enter");
 
     // The replayed run carries a chain, so the trace must render.
-    await expect(console_.getByText(/tool calls/)).toBeVisible({ timeout: 15_000 });
+    await expect(console_.getByText(/tool calls/)).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(
-      console_.getByText(/Agents orchestrate and explain/),
+      console_.getByText(/Rule-routed specialists run the checks/),
     ).toBeVisible();
   });
 
@@ -254,7 +260,9 @@ test.describe("the approval boundary", () => {
     await expect(catalogue).toBeVisible();
 
     for (const level of ["READ", "SIMULATE", "PROPOSE", "EXECUTE"]) {
-      await expect(catalogue.getByText(level, { exact: true }).first()).toBeVisible();
+      await expect(
+        catalogue.getByText(level, { exact: true }).first(),
+      ).toBeVisible();
     }
 
     await expect(
@@ -278,7 +286,9 @@ test.describe("learning dashboard", () => {
     await page.goto("/admin/learning");
     await settle(page);
 
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Learning");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Learning",
+    );
 
     // With no resolved claims the screen must say so in words, not draw a chart
     // of zeros. With claims resolved, the accuracy panel carries real numbers.

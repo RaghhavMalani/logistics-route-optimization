@@ -7,7 +7,9 @@ export function CurrentWeatherStatus() {
   const rows = weather.data ?? [];
   const receipt = rows[0]?.availableAt;
   const health = useSourceHealth();
-  const source = health.data?.sources.find((item) => item.id === "open-meteo-surface");
+  const source = health.data?.sources.find(
+    (item) => item.id === "open-meteo-surface",
+  );
   const current = source?.status === "live" && rows.length > 0;
   return (
     <span
@@ -21,7 +23,9 @@ export function CurrentWeatherStatus() {
           ? `current ${source?.portsCurrent ?? rows.length} ports`
           : weather.isPending
             ? "checking"
-            : source?.availableAt ? `Latest available · ${formatUtc(source.availableAt)} (${ageLabel(source.dataAgeSeconds)} old)` : "unavailable"}
+            : source?.availableAt
+              ? `Latest available · ${formatUtc(source.availableAt)} (${ageLabel(source.dataAgeSeconds)} old)`
+              : "unavailable"}
       </Pill>
     </span>
   );

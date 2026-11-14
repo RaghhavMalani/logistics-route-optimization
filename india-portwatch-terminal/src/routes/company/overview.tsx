@@ -1,4 +1,9 @@
-import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
+import {
+  DataNowSources,
+  WeatherDataNow,
+  DatedSource,
+} from "@/components/app/SourceHealth";
 /**
  * Fleet Command.
  *
@@ -105,78 +110,103 @@ function fleetRoutes(
 
 function ActionRow({
   row,
-  index,
   onSelect,
   selected,
 }: {
   row: CompanyRiskRow;
-  index: number;
   onSelect: () => void;
   selected: boolean;
 }) {
+  const location = row.chokepoint.replace(/_/g, " ");
+  const hours = row.hoursToRiskArea;
+  const arrival =
+    hours != null && Number.isFinite(hours) && hours >= 0
+      ? `${row.vesselName} is modelled to reach ${location} in ${Math.ceil(hours)} h`
+      : `${row.vesselName} could be affected by ${row.eventTitle}`;
+  const deadline = row.diversionDeadline
+    ? ` by ${formatUtc(row.diversionDeadline)}`
+    : "";
+  const extra = row.delayHoursIfDiverted;
+  const diversionTime =
+    extra != null && Number.isFinite(extra)
+      ? ` (${extra > 0 ? "+" : ""}${Math.round(extra)} h)`
+      : "";
+  const decision =
+    row.recommendedAction === "evaluate_diversion"
+      ? `Decide${deadline} whether to reroute${diversionTime} or keep the current route.`
+      : `Review the exposure${deadline}.`;
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      data-testid="action-required-row"
-      data-owned-vessel={row.vesselId}
+    <div
       className={cn(
-        "block w-full border-b border-[var(--line)]/60 px-2 py-1.5 text-left transition-colors last:border-0",
-        selected ? "bg-[var(--panel-3)]" : "hover:bg-[var(--panel-2)]",
+        "border-b border-[var(--line)]/60 last:border-0",
+        selected && "bg-[var(--panel-3)]",
       )}
     >
-      <div className="flex items-baseline gap-2">
-        <span className="num shrink-0 text-[10px] text-[var(--text-3)]">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[var(--text)]">
-          {row.vesselName}
-        </span>
-        <span
-          className={cn(
-            "num shrink-0 text-[11px]",
-            `text-[var(--${exposureTone(row.exposure)})]`,
-          )}
-        >
-          <ExposureScore value={row.exposure} />
-        </span>
-      </div>
-
-      <div className="mt-[3px] text-[10.5px] leading-snug text-[var(--text-2)]">
-        {row.eventCategoryLabel} · {row.chokepoint.replace(/_/g, "-")}
-      </div>
-
-      <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
-        {row.hoursToRiskArea != null ? (
-          <span className="num">
-            {row.hoursToRiskArea.toFixed(0)}h to the risk area
+      <button
+        type="button"
+        onClick={onSelect}
+        data-testid="action-required-row"
+        data-owned-vessel={row.vesselId}
+        className={cn(
+          "block w-full px-2 py-1.5 text-left transition-colors",
+          !selected && "hover:bg-[var(--panel-2)]",
+        )}
+      >
+        <p className="text-xs font-semibold leading-snug">
+          {arrival}. {decision}
+        </p>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 text-[10.5px] text-[var(--text-2)]">
+            {row.eventCategoryLabel}
           </span>
-        ) : null}
-        {row.delayHoursIfDiverted != null ? (
-          <span className="num">
-            diversion costs {row.delayHoursIfDiverted.toFixed(0)}h
+          <span
+            className={cn(
+              "num shrink-0 text-[11px]",
+              `text-[var(--${exposureTone(row.exposure)})]`,
+            )}
+          >
+            <ExposureScore value={row.exposure} />
           </span>
-        ) : null}
-        {row.destinationPort ? (
-          <span className="num">→ {row.destinationPort}</span>
-        ) : null}
-      </div>
+        </div>
 
-      <div className="mt-1 flex items-center gap-1.5">
-        <Pill
-          tone={
-            row.recommendedAction === "evaluate_diversion" ? "warn" : "info"
-          }
-        >
-          {row.recommendedAction.replace(/_/g, " ")}
-        </Pill>
-        {row.diversionDeadline ? (
-          <span className="num text-[10.5px] text-[var(--warn)]">
-            by {formatUtc(row.diversionDeadline)}
-          </span>
-        ) : null}
-      </div>
-    </button>
+        <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
+          {row.hoursToRiskArea != null ? (
+            <span className="num">
+              {row.hoursToRiskArea.toFixed(0)}h to the risk area
+            </span>
+          ) : null}
+          {row.delayHoursIfDiverted != null ? (
+            <span className="num">
+              diversion costs {row.delayHoursIfDiverted.toFixed(0)}h
+            </span>
+          ) : null}
+          {row.destinationPort ? (
+            <span className="num">→ {row.destinationPort}</span>
+          ) : null}
+        </div>
+
+        <div className="mt-1 flex items-center gap-1.5">
+          <Pill
+            tone={
+              row.recommendedAction === "evaluate_diversion" ? "warn" : "info"
+            }
+          >
+            {row.recommendedAction.replace(/_/g, " ")}
+          </Pill>
+          {row.diversionDeadline ? (
+            <span className="num text-[10.5px] text-[var(--warn)]">
+              by {formatUtc(row.diversionDeadline)}
+            </span>
+          ) : null}
+        </div>
+      </button>
+      {row.actionBasis ? (
+        <details className="px-2 pb-1.5 text-[10.5px] text-[var(--text-2)]">
+          <summary className="cursor-pointer">Why</summary>
+          <p className="mt-1">{row.actionBasis}</p>
+        </details>
+      ) : null}
+    </div>
   );
 }
 
@@ -187,13 +217,20 @@ function FleetCommand() {
   const fleet = useCompanyFleet(companyId);
   const [horizon, setHorizon] = useState(72);
   const risk = useCompanyRisk(companyId, horizon);
-  const [planningTab, setPlanningTab] = useState<"fleet" | "scenarios">(
-    "fleet",
+  const [planningTab, setPlanningTab] = useState<"now" | "fleet" | "scenarios">(
+    "now",
   );
   const [scenarioRoute, setScenarioRoute] = useState<DecisionOption | null>(
     null,
   );
-  const [selectedVessel, setSelectedVessel] = useState<string | null>(null);
+  const {
+    selectedVesselId: selectedVessel,
+    setSelectedVesselId: setSelectedVessel,
+  } = workspace;
+  const scenarioTarget = useWorkspaceTarget("scenario");
+  useEffect(() => {
+    if (scenarioTarget) setPlanningTab("scenarios");
+  }, [scenarioTarget]);
   const previousSelection = useRef<string | null>(null);
   useEffect(() => {
     if (selectedVessel) {
@@ -217,8 +254,10 @@ function FleetCommand() {
   const fixes = useFixes(1);
 
   const vessels = useMemo(() => fleet.data?.vessels ?? [], [fleet.data]);
-  const actionRequired = risk.data?.actionRequired ?? [];
-  const monitorOnly = risk.data?.monitorOnly ?? [];
+  const actionRequired =
+    risk.data?.actionRequired.filter((row) => row.exposure > 0) ?? [];
+  const monitorOnly =
+    risk.data?.monitorOnly.filter((row) => row.exposure > 0) ?? [];
 
   const exposureByVessel = useMemo(() => {
     const map = new Map<string, number>();
@@ -235,7 +274,9 @@ function FleetCommand() {
 
   const portRisk = useMemo(
     () =>
-      Object.values(risk.data?.portRisk ?? {}).sort((a, b) => b.risk - a.risk),
+      Object.values(risk.data?.portRisk ?? {})
+        .filter((port) => port.risk > 0)
+        .sort((a, b) => b.risk - a.risk),
     [risk.data?.portRisk],
   );
 
@@ -336,19 +377,28 @@ function FleetCommand() {
         focus={workspace.focus}
         overlay={
           <>
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2"
+            >
               <MaritimeSearch ports={workspace.ports} onPick={onPick} />
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]"
+            >
               <EnvironmentLegend
                 workspace={workspace}
                 frame={workspace.frame}
               />
             </div>
 
-            <div className="pointer-events-none absolute right-[372px] top-2.5 z-30">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute right-[372px] top-2.5 z-30"
+            >
               <AgentConsole />
             </div>
 
@@ -363,47 +413,38 @@ function FleetCommand() {
             </div>
 
             {/* --------------------------------------------------- right -- */}
-            <div
+            <aside
+              aria-label="Fleet Command tools"
+              data-testid="workspace-right-panel"
               data-map-camera-inset="right"
-              className="pw-company-rail pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col gap-2"
+              className="pw-company-rail pw-workspace-rail pointer-events-auto absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[358px] flex-col overflow-hidden"
             >
-              <WorkspaceHandoffCard view="company" />
-              <div className="pointer-events-auto rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2">
-                <div
-                  className="flex flex-wrap items-center gap-2"
-                  aria-label="Fleet planning tools"
-                >
-                  <button
-                    type="button"
-                    aria-pressed={planningTab === "fleet"}
-                    onClick={() => setPlanningTab("fleet")}
-                    className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs aria-pressed:font-semibold"
-                  >
-                    Fleet intelligence
-                  </button>
-                  {session?.mode === "demo" ? (
-                    <button
-                      type="button"
-                      aria-pressed={planningTab === "scenarios"}
-                      onClick={() => setPlanningTab("scenarios")}
-                      className="rounded border border-[var(--line-strong)] px-2 py-1 text-xs aria-pressed:font-semibold"
-                    >
-                      Scenarios
-                    </button>
-                  ) : null}
-                  <Link to="/company/global-eye" className="text-xs underline">
-                    Global Eye
+              <PanelTabs
+                value={planningTab}
+                onChange={(next) => {
+                  setPlanningTab(next);
+                  if (next !== "scenarios")
+                    setTab(next === "now" ? "action" : "fleet");
+                }}
+                tabs={[
+                  { value: "now", label: "Now" },
+                  { value: "fleet", label: "Fleet" },
+                  { value: "scenarios", label: "Scenarios" },
+                ]}
+              />
+              {planningTab === "now" ? (
+                <div className="shrink-0 border-b border-[var(--line)]">
+                  <WorkspaceHandoffCard view="company" />
+                  <CompanyIntelligenceQueue />
+                </div>
+              ) : null}
+              {planningTab === "scenarios" && session?.mode !== "demo" ? (
+                <div className="p-3 text-xs">
+                  <Link className="underline" to="/company/global-eye">
+                    Open passage comparisons in Global Eye
                   </Link>
                 </div>
-                <div className="mt-1 text-[11px] leading-snug text-[var(--text-2)]">
-                  <strong>Data now</strong> · Weather{" "}
-                  <WeatherDataNow />{" "}
-                  · Port activity <DatedSource id="imf-portwatch-data" /> ·
-                  Traffic {trafficSource.info.label} · Congestion{" "}
-                  <DatedSource id="congestion-forecast" />
-                  <DataNowSources />
-                </div>
-              </div>
+              ) : null}
               {session?.mode === "demo" ? (
                 <div
                   hidden={planningTab !== "scenarios"}
@@ -427,7 +468,6 @@ function FleetCommand() {
               <div
                 className={planningTab === "scenarios" ? "hidden" : "contents"}
               >
-                <CompanyIntelligenceQueue />
                 <ObservedSelection
                   workspace={workspace}
                   className="min-h-0 flex-1"
@@ -485,23 +525,24 @@ function FleetCommand() {
                     </Link>
                   </div>
 
-                  <PanelTabs
-                    value={tab}
-                    onChange={setTab}
-                    tabs={[
-                      {
-                        value: "action",
-                        label: "Action required",
-                        count: actionRequired.length,
-                      },
-                      { value: "fleet", label: "Fleet", count: vessels.length },
-                      {
-                        value: "ports",
-                        label: "Ports",
-                        count: portRisk.length,
-                      },
-                    ]}
-                  />
+                  {planningTab === "fleet" ? (
+                    <div className="flex gap-3 border-b border-[var(--line)] px-2 py-1.5 text-xs">
+                      <button
+                        type="button"
+                        aria-pressed={tab === "fleet"}
+                        onClick={() => setTab("fleet")}
+                      >
+                        Ships
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={tab === "ports"}
+                        onClick={() => setTab("ports")}
+                      >
+                        Port exposure
+                      </button>
+                    </div>
+                  ) : null}
 
                   {tab === "action" ? (
                     <>
@@ -530,11 +571,10 @@ function FleetCommand() {
                               {actionRequired.length === 1 ? "" : "s"}
                             </span>
                           </div>
-                          {actionRequired.map((row, index) => (
+                          {actionRequired.map((row) => (
                             <ActionRow
                               key={`${row.vesselId}-${row.eventId}`}
                               row={row}
-                              index={index}
                               selected={selectedVessel === row.vesselId}
                               onSelect={() => setSelectedVessel(row.vesselId)}
                             />
@@ -748,7 +788,16 @@ function FleetCommand() {
                   </FloatPanel>
                 ) : null}
               </div>
-            </div>
+              {planningTab === "now" ? (
+                <div className="p-2 border-t border-[var(--line)] text-xs leading-snug">
+                  <strong>Data now</strong> · Weather <WeatherDataNow /> · Port
+                  activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
+                  {trafficSource.info.label} · Congestion{" "}
+                  <DatedSource id="congestion-forecast" />
+                  <DataNowSources opensAbove />
+                </div>
+              ) : null}
+            </aside>
           </>
         }
       />

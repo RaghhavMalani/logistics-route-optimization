@@ -26,7 +26,8 @@ function operatedLocally(): boolean {
 /** The host the terminal is trying to reach, for the status line. */
 function apiHost(): string | null {
   try {
-    const origin = typeof window === "undefined" ? "http://localhost" : window.location.href;
+    const origin =
+      typeof window === "undefined" ? "http://localhost" : window.location.href;
     return new URL(API_BASE, origin).host;
   } catch {
     return null;
@@ -50,7 +51,10 @@ export function LoadingPanel({
   className?: string;
 }) {
   return (
-    <div className={cn("flex h-full min-h-0 flex-col gap-2 p-3", className)} aria-busy>
+    <div
+      className={cn("flex h-full min-h-0 flex-col gap-2 p-3", className)}
+      aria-busy
+    >
       <div className="flex items-center gap-2">
         <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
         <span className="eyebrow">{label}</span>
@@ -86,9 +90,13 @@ export function EmptyState({
           <Pill tone={tone}>{title}</Pill>
         </div>
         {detail ? (
-          <p className="text-[12px] leading-relaxed text-[var(--text-3)]">{detail}</p>
+          <p className="text-[12px] leading-relaxed text-[var(--text-3)]">
+            {detail}
+          </p>
         ) : null}
-        {action ? <div className="mt-3 flex justify-center">{action}</div> : null}
+        {action ? (
+          <div className="mt-3 flex justify-center">{action}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -108,7 +116,10 @@ function describe(error: unknown): { headline: string; detail: string } {
         detail: error.detail,
       };
     }
-    return { headline: `Service returned ${error.status}`, detail: error.detail };
+    return {
+      headline: `Service returned ${error.status}`,
+      detail: error.detail,
+    };
   }
   if (error instanceof Error) {
     return {
@@ -116,7 +127,10 @@ function describe(error: unknown): { headline: string; detail: string } {
       detail: error.message,
     };
   }
-  return { headline: "Operational data service unavailable", detail: "Unknown fault." };
+  return {
+    headline: "Operational data service unavailable",
+    detail: "Unknown fault.",
+  };
 }
 
 /**
@@ -144,14 +158,20 @@ export function FailureState({
       <div className="w-full max-w-[520px]">
         <div className="mb-2 flex items-center gap-2">
           <Pill tone="crit">Feed down</Pill>
-          <span className="text-[13px] font-medium text-[var(--text)]">{headline}</span>
+          <span className="text-[13px] font-medium text-[var(--text)]">
+            {headline}
+          </span>
         </div>
-        <p className="text-[12px] leading-relaxed text-[var(--text-3)]">{detail}</p>
+        <p className="text-[12px] leading-relaxed text-[var(--text-3)]">
+          {detail}
+        </p>
         {lastGood ? (
           <div className="mt-2.5 flex items-center gap-2 border-t border-[var(--line)] pt-2.5 text-[11.5px] text-[var(--text-3)]">
             <span className="eyebrow">Last known good</span>
             <span className="text-[var(--text-2)]">{lastGood.label}</span>
-            {lastGood.age ? <span className="num text-[var(--warn)]">{lastGood.age}</span> : null}
+            {lastGood.age ? (
+              <span className="num text-[var(--warn)]">{lastGood.age}</span>
+            ) : null}
           </div>
         ) : null}
         <div className="mt-3 flex items-center gap-2">

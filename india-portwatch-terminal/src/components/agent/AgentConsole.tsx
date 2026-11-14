@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
-  Sparkles,
+  ListChecks,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -31,7 +31,11 @@ import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { Pill, type Tone } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { runAgent } from "@/services/portwatch-os";
-import type { AgentResultView, AgentRun, ToolCallTrace } from "@/types/portwatch-os";
+import type {
+  AgentResultView,
+  AgentRun,
+  ToolCallTrace,
+} from "@/types/portwatch-os";
 
 /** Prompts that match a real intent, by role. Not decoration: these are the
  *  questions the orchestrator actually has a plan for. */
@@ -108,16 +112,24 @@ function AgentBlock({ result }: { result: AgentResultView }) {
         className="flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-[var(--panel-2)]"
       >
         {open ? (
-          <ChevronDown size={11} className="mt-[3px] shrink-0 text-[var(--text-3)]" />
+          <ChevronDown
+            size={11}
+            className="mt-[3px] shrink-0 text-[var(--text-3)]"
+          />
         ) : (
-          <ChevronRight size={11} className="mt-[3px] shrink-0 text-[var(--text-3)]" />
+          <ChevronRight
+            size={11}
+            className="mt-[3px] shrink-0 text-[var(--text-3)]"
+          />
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <span className="text-[11px] font-medium uppercase tracking-[0.05em] text-[var(--text)]">
               {result.agent.replace(/_/g, " ")}
             </span>
-            <Pill tone={OUTCOME_TONE[result.outcome] ?? "neutral"}>{result.outcome}</Pill>
+            <Pill tone={OUTCOME_TONE[result.outcome] ?? "neutral"}>
+              {result.outcome}
+            </Pill>
             {result.confidence != null ? (
               <span className="num text-[10.5px] text-[var(--text-3)]">
                 conf {result.confidence.toFixed(2)}
@@ -175,7 +187,10 @@ function AgentBlock({ result }: { result: AgentResultView }) {
               <h4 className="eyebrow text-[10px]">Evidence gaps</h4>
               <ul className="mt-1 space-y-0.5">
                 {result.gaps.map((gap) => (
-                  <li key={gap} className="text-[10.5px] leading-snug text-[var(--unc)]">
+                  <li
+                    key={gap}
+                    className="text-[10.5px] leading-snug text-[var(--unc)]"
+                  >
                     {gap}
                   </li>
                 ))}
@@ -254,8 +269,8 @@ export function AgentConsole({ className }: { className?: string }) {
           className,
         )}
       >
-        <Sparkles size={11} className="text-[var(--info)]" />
-        Ask PortWatch
+        <ListChecks size={11} className="text-[var(--info)]" />
+        Run specialist checks
       </button>
     );
   }
@@ -271,13 +286,13 @@ export function AgentConsole({ className }: { className?: string }) {
       )}
     >
       <header className="flex h-[26px] shrink-0 items-center gap-2 border-b border-[var(--line)] bg-[var(--panel-2)]/85 px-2">
-        <Sparkles size={11} className="text-[var(--info)]" />
+        <ListChecks size={11} className="text-[var(--info)]" />
         <span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-2)]">
-          Ask PortWatch
+          Specialist checks
         </span>
         <button
           type="button"
-          aria-label="Close the agent console"
+          aria-label="Close specialist checks"
           onClick={() => setOpen(false)}
           className="text-[var(--text-3)] hover:text-[var(--text)]"
         >
@@ -317,20 +332,22 @@ export function AgentConsole({ className }: { className?: string }) {
         {mutation.isPending ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[11px] text-[var(--text-3)]">
             <span className="pw-breathe h-1.5 w-1.5 rounded-full bg-[var(--info)]" />
-            Running the chain…
+            Running specialist checks…
           </div>
         ) : mutation.isError ? (
           <p className="px-3 py-4 text-[11px] leading-relaxed text-[var(--crit)]">
             {mutation.error instanceof Error
               ? mutation.error.message
-              : "The agent run failed."}
+              : "The specialist checks failed."}
           </p>
         ) : run ? (
           <>
             <div className="border-b border-[var(--line)] px-2 py-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Pill tone="info">{run.intentLabel}</Pill>
-                <Pill tone={OUTCOME_TONE[run.outcome] ?? "neutral"}>{run.outcome}</Pill>
+                <Pill tone={OUTCOME_TONE[run.outcome] ?? "neutral"}>
+                  {run.outcome}
+                </Pill>
                 {run.confidence != null ? (
                   <span className="num text-[10.5px] text-[var(--text-3)]">
                     confidence {run.confidence.toFixed(2)}
@@ -352,7 +369,8 @@ export function AgentConsole({ className }: { className?: string }) {
               <div
                 className={cn(
                   "border-b border-[var(--line)] px-2 py-2",
-                  run.critic.verdict === "REJECTED" && "bg-[var(--crit-dim)]/20",
+                  run.critic.verdict === "REJECTED" &&
+                    "bg-[var(--crit-dim)]/20",
                   run.critic.verdict === "MODIFIED" && "bg-[var(--unc-dim)]/20",
                 )}
                 data-testid="agent-critic"
@@ -383,7 +401,10 @@ export function AgentConsole({ className }: { className?: string }) {
                       className="flex items-start gap-1.5 text-[10.5px] leading-snug"
                     >
                       {check.passed ? (
-                        <Check size={9} className="mt-[2px] shrink-0 text-[var(--ok)]" />
+                        <Check
+                          size={9}
+                          className="mt-[2px] shrink-0 text-[var(--ok)]"
+                        />
                       ) : (
                         <CircleAlert
                           size={9}
@@ -397,7 +418,9 @@ export function AgentConsole({ className }: { className?: string }) {
                       )}
                       <span
                         className={
-                          check.passed ? "text-[var(--text-3)]" : "text-[var(--text-2)]"
+                          check.passed
+                            ? "text-[var(--text-3)]"
+                            : "text-[var(--text-2)]"
                         }
                       >
                         {check.detail}
@@ -415,15 +438,24 @@ export function AgentConsole({ className }: { className?: string }) {
             </ul>
 
             <footer className="border-t border-[var(--line)] px-2 py-1.5">
-              <p className="text-[10px] leading-snug text-[var(--text-3)]">{run.note}</p>
+              <p className="text-[10px] leading-snug text-[var(--text-3)]">
+                {run.note
+                  ?.replace(
+                    "Agents orchestrate and explain.",
+                    "Rule-routed specialists run the checks.",
+                  )
+                  .replace(
+                    "No agent may execute an action.",
+                    "Execution requires an authenticated approver.",
+                  )}
+              </p>
             </footer>
           </>
         ) : (
           <p className="px-3 py-4 text-[11px] leading-relaxed text-[var(--text-3)]">
-            Ask a question and the orchestrator routes it to the specialists that can
-            answer it. Every number in the answer comes from a tool in the trace, and
-            every tool names the model that computed it. Agents cannot execute
-            anything — a drafted advisory still has to be issued by a controller.
+            Keyword rules select the specialist tools for a check. The trace
+            shows each tool, its source and the model that produced its numbers.
+            A controller must issue any drafted advisory.
           </p>
         )}
       </div>

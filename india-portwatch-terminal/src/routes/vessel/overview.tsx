@@ -1,4 +1,9 @@
-import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
+import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
+import {
+  DataNowSources,
+  WeatherDataNow,
+  DatedSource,
+} from "@/components/app/SourceHealth";
 /**
  * The vessel operator's bridge view.
  *
@@ -39,14 +44,17 @@ import {
   EmptyNote,
   FloatPanel,
   PanelSection,
+  PanelTabs,
 } from "@/components/command/panels";
 import { selectionGeometry } from "@/components/command/selection-geometry";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
-import { formatUtc, Num, Pill } from "@/components/kit/primitives";
+import { Num, Pill } from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { MaritimeMap } from "@/components/map/MaritimeMap";
 import { formatBearing } from "@/lib/maritime/geo";
-import { worstExposure } from "@/lib/maritime/weather-field";
+import { BridgePassage } from "@/components/command/BridgePassage";
+import { useAuth } from "@/auth/AuthProvider";
+import { useAdvisories } from "@/services/os-hooks";
 import { WorkspaceHandoffCard } from "@/components/advisory/WorkspaceHandoffCard";
 import { waypoint } from "@/lib/maritime/searoutes";
 import { NAV_STATUS_LABEL, VESSEL_CLASSES } from "@/lib/maritime/traffic-types";
@@ -63,9 +71,19 @@ function VesselBridge() {
   const workspace = useWorkspaceMap();
   const { source: trafficSource } = useTraffic();
   const fleet = useFleet();
+  const { identityHeaders } = useAuth();
+  const accepted = useAdvisories(identityHeaders, { state: "accepted" });
   const fixes = useFixes(1);
   const at = useTrafficTick(1);
+  const [railTab, setRailTab] = useState<"now" | "traffic" | "scenarios">(
+    "now",
+  );
   const [following, setFollowing] = useState(true);
+  const targetPort = useWorkspaceTarget("port");
+  const targetHull = useWorkspaceTarget("hull");
+  useEffect(() => {
+    if (targetPort || targetHull) setFollowing(false);
+  }, [targetPort, targetHull]);
   // The follow camera pulls back on a narrower frame for the same reason the
   // port view does: the point is the traffic around the ship, not the ship.
   const followZoom =
@@ -74,10 +92,18 @@ function VesselBridge() {
   const owned = useMemo(() => fixes.filter((fix) => fix.owned), [fixes]);
 
   // The operator lands on their own bridge, not on an empty selection.
-  const { selectedVesselId, setSelectedVesselId } = workspace;
+  const { selectedPortCode, selectedVesselId, setSelectedVesselId } = workspace;
   useEffect(() => {
-    if (!selectedVesselId && owned.length) setSelectedVesselId(owned[0].id);
-  }, [owned, selectedVesselId, setSelectedVesselId]);
+    if (!targetPort && !selectedPortCode && !selectedVesselId && owned.length) {
+      setSelectedVesselId(owned[0].id);
+    }
+  }, [
+    owned,
+    selectedPortCode,
+    selectedVesselId,
+    setSelectedVesselId,
+    targetPort,
+  ]);
 
   const selectedFix = useMemo(
     () =>
@@ -133,7 +159,13 @@ function VesselBridge() {
     );
   }
 
-  const worst = worstExposure(exposure);
+  const recommendation = accepted.data?.advisories
+    .filter(
+      (row) => row.state === "accepted" && row.recipientVesselId === ownRow?.id,
+    )
+    .sort((a, b) => (b.respondedAt ?? "").localeCompare(a.respondedAt ?? ""))
+    .find((row) => typeof row.recommendation.recommendedSpeedKn === "number");
+  const recommendedSpeed = recommendation?.recommendation.recommendedSpeedKn;
   const onPick = (hit: SearchHit) => {
     if (hit.kind === "vessel") {
       workspace.setSelectedVesselId(hit.id);
@@ -183,7 +215,10 @@ function VesselBridge() {
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
         overlay={
           <>
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-110px)] w-[216px] flex-col gap-2">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-110px)] w-[216px] flex-col gap-2"
+            >
               <MaritimeSearch
                 ports={workspace.ports}
                 onPick={onPick}
@@ -192,11 +227,17 @@ function VesselBridge() {
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div className="pointer-events-none absolute right-[346px] top-2.5 z-30 max-[900px]:hidden">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute right-[346px] top-2.5 z-30 max-[900px]:hidden"
+            >
               <AgentConsole />
             </div>
 
-            <div className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5"
+            >
               <VesselClassLegend />
               <EnvironmentLegend
                 workspace={workspace}
@@ -215,48 +256,43 @@ function VesselBridge() {
               />
             </div>
 
-            <div
+            <aside
+              aria-label="Vessel Bridge tools"
+              data-testid="workspace-right-panel"
               data-map-camera-inset="right"
-              className="pointer-events-none absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col gap-2"
+              className="pw-workspace-rail pointer-events-auto absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[322px] flex-col overflow-hidden"
             >
-              <div className="pointer-events-auto shrink-0 rounded border border-[var(--line)] bg-[var(--panel)] p-2 text-xs leading-snug">
-                <strong>Data now</strong> · Weather{" "}
-                <WeatherDataNow />{" "}
-                · Port activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
-                {trafficSource.info.label}
-                <DataNowSources />
-              </div>
-              <WorkspaceHandoffCard view="vessel" />
-              {selectedFix?.owned ? (
-                <section
-                  aria-label="Passage at a glance"
-                  className="pointer-events-auto shrink-0 rounded border border-[var(--line-strong)] bg-[var(--panel)] p-2.5"
-                >
-                  <h2 className="text-sm font-semibold">
-                    Passage · {selectedFix.name}
-                  </h2>
-                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                    <dt>Route</dt>
-                    <dd>
-                      {ownRow?.originPortCode ?? "Unavailable"} →{" "}
-                      {ownRow?.intendedPortCode ?? "Unavailable"}
-                    </dd>
-                    <dt>ETA</dt>
-                    <dd>
-                      {selectedFix.etaMs == null
-                        ? "Unavailable"
-                        : formatUtc(new Date(selectedFix.etaMs).toISOString())}
-                    </dd>
-                    <dt>Passage weather</dt>
-                    <dd>
-                      {worst
-                        ? `${worst.label} at +${Math.round(worst.leadHours)} h · ${exposure.length} route ${exposure.length === 1 ? "sample" : "samples"}`
-                        : "No forecast coverage for this passage"}
-                    </dd>
-                  </dl>
-                </section>
+              <PanelTabs
+                value={railTab}
+                onChange={setRailTab}
+                tabs={[
+                  { value: "now", label: "Now" },
+                  { value: "traffic", label: "Traffic" },
+                  { value: "scenarios", label: "Scenarios" },
+                ]}
+              />
+              {railTab === "now" ? (
+                <WorkspaceHandoffCard view="vessel" />
               ) : null}
-              {owned.length > 1 ? (
+              {railTab === "now" && selectedFix?.owned ? (
+                <BridgePassage
+                  name={selectedFix.name}
+                  origin={ownRow?.originPortCode}
+                  destination={ownRow?.intendedPortCode}
+                  eta={selectedFix.etaMs}
+                  at={at}
+                  recommendedSpeed={
+                    typeof recommendedSpeed === "number" &&
+                    Number.isFinite(recommendedSpeed) &&
+                    recommendedSpeed > 0
+                      ? recommendedSpeed
+                      : undefined
+                  }
+                  exposure={exposure}
+                  timeline={workspace.timeline}
+                />
+              ) : null}
+              {railTab === "traffic" && owned.length > 0 ? (
                 <FloatPanel
                   title="Own fleet"
                   note={`${owned.length} vessels`}
@@ -270,6 +306,7 @@ function VesselBridge() {
                           onClick={() => {
                             workspace.setSelectedVesselId(fix.id);
                             setFollowing(true);
+                            setRailTab("now");
                           }}
                           className={cn(
                             "grid w-full grid-cols-[1fr_50px_44px] items-center gap-2 rounded-[2px] px-1.5 py-[3px] text-left",
@@ -296,118 +333,141 @@ function VesselBridge() {
                 </FloatPanel>
               ) : null}
 
-              <ObservedSelection
-                workspace={workspace}
-                className="min-h-0 flex-1"
-              />
-              {selectedFix ? (
-                <VesselInspector
-                  fix={selectedFix}
-                  ports={workspace.ports}
-                  timeline={workspace.timeline}
-                  ownRow={ownRow}
-                  onClose={() =>
-                    workspace.setSelectedVesselId(owned[0]?.id ?? null)
-                  }
-                  onFollow={() => setFollowing((v) => !v)}
-                  following={following}
-                  onIsolate={() =>
-                    workspace.setIsolate(
-                      workspace.filters.isolate ? null : selectedFix.id,
-                    )
-                  }
-                  isolated={workspace.filters.isolate === selectedFix.id}
-                  onSelectVessel={(id) => {
-                    workspace.setSelectedVesselId(id);
-                    setFollowing(false);
-                  }}
-                  className="min-h-0 flex-1"
-                />
-              ) : (
-                <FloatPanel title="Own fleet" className="min-h-0 flex-1">
-                  <EmptyNote>
-                    The routing artefact carried no vessel for this operator in
-                    this run.
-                  </EmptyNote>
-                </FloatPanel>
-              )}
-            </div>
-
-            {/* --------------------------------------------- traffic around -- */}
-            {selectedFix ? (
-              <div className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] w-[252px]">
+              {railTab === "traffic" && selectedFix && contacts.length === 0 ? (
+                <div className="pw-handoff-card pointer-events-auto px-3 py-2 text-xs text-[var(--text-3)]">
+                  No contacts inside 60 nm.
+                </div>
+              ) : null}
+              {railTab === "traffic" && selectedFix && contacts.length > 0 ? (
                 <FloatPanel
                   title="Traffic around own ship"
                   note={`${contacts.length} within 60 nm`}
-                  collapsible
-                  className="max-h-[300px]"
+                  className="min-h-0 flex-1"
                 >
-                  {contacts.length === 0 ? (
-                    <EmptyNote>No contact inside 60 nautical miles.</EmptyNote>
-                  ) : (
-                    <PanelSection title="Contacts">
-                      <ul className="space-y-[2px]">
-                        {contacts.slice(0, 6).map((contact) => (
-                          <li key={contact.fix.id}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                workspace.setSelectedVesselId(contact.fix.id);
-                                setFollowing(false);
-                              }}
-                              className="grid w-full grid-cols-[1fr_40px_38px] items-baseline gap-1.5 rounded-[2px] px-1 py-[2px] text-left hover:bg-[var(--panel-3)]"
-                            >
-                              <span className="min-w-0 truncate text-[10.5px] text-[var(--text-2)]">
-                                <span
-                                  aria-hidden
-                                  className="mr-1 inline-block h-[6px] w-[6px] rounded-[1px] align-middle"
-                                  style={{
-                                    background:
-                                      VESSEL_CLASSES[contact.fix.vesselClass]
-                                        .color,
-                                  }}
-                                />
-                                {contact.fix.name}
-                              </span>
-                              <span className="num text-right text-[10px] text-[var(--text-3)]">
-                                {contact.rangeNm.toFixed(1)}nm
-                              </span>
-                              <span className="num text-right text-[10px] text-[var(--text-3)]">
-                                {formatBearing(contact.bearing)}
-                              </span>
-                            </button>
-                            <div className="px-1 pb-[2px] text-[10px] text-[var(--text-3)]">
-                              {waypoint(contact.fix.destinationId)?.name.split(
-                                " (",
-                              )[0] ?? "—"}{" "}
-                              ·{" "}
-                              <Num
-                                value={contact.fix.sogKn}
-                                digits={1}
-                                unit="kn"
+                  <PanelSection title="Contacts">
+                    <ul className="space-y-[2px]">
+                      {contacts.slice(0, 6).map((contact) => (
+                        <li key={contact.fix.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              workspace.setSelectedVesselId(contact.fix.id);
+                              setFollowing(false);
+                              setRailTab("now");
+                            }}
+                            className="grid w-full grid-cols-[1fr_40px_38px] items-baseline gap-1.5 rounded-[2px] px-1 py-[2px] text-left hover:bg-[var(--panel-3)]"
+                          >
+                            <span className="min-w-0 truncate text-[10.5px] text-[var(--text-2)]">
+                              <span
+                                aria-hidden
+                                className="mr-1 inline-block h-[6px] w-[6px] rounded-[1px] align-middle"
+                                style={{
+                                  background:
+                                    VESSEL_CLASSES[contact.fix.vesselClass]
+                                      .color,
+                                }}
                               />
-                              {contact.computable ? (
-                                <span
-                                  className={cn(
-                                    "ml-1",
-                                    contact.cpa.cpaNm < 1 &&
-                                      contact.cpa.tcpaMinutes > 0
-                                      ? "text-[var(--warn)]"
-                                      : "",
-                                  )}
-                                >
-                                  CPA {contact.cpa.cpaNm.toFixed(1)}nm
-                                </span>
-                              ) : null}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </PanelSection>
-                  )}
+                              {contact.fix.name}
+                            </span>
+                            <span className="num text-right text-[10px] text-[var(--text-3)]">
+                              {contact.rangeNm.toFixed(1)}nm
+                            </span>
+                            <span className="num text-right text-[10px] text-[var(--text-3)]">
+                              {formatBearing(contact.bearing)}
+                            </span>
+                          </button>
+                          <div className="px-1 pb-[2px] text-[10px] text-[var(--text-3)]">
+                            {waypoint(contact.fix.destinationId)?.name.split(
+                              " (",
+                            )[0] ?? "—"}{" "}
+                            ·{" "}
+                            <Num
+                              value={contact.fix.sogKn}
+                              digits={1}
+                              unit="kn"
+                            />
+                            {contact.computable ? (
+                              <span
+                                className={cn(
+                                  "ml-1",
+                                  contact.cpa.cpaNm < 1 &&
+                                    contact.cpa.tcpaMinutes > 0
+                                    ? "text-[var(--warn)]"
+                                    : "",
+                                )}
+                              >
+                                CPA {contact.cpa.cpaNm.toFixed(1)}nm
+                              </span>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </PanelSection>
                 </FloatPanel>
-              </div>
-            ) : null}
+              ) : null}
+
+              {railTab === "now" ? (
+                <>
+                  <ObservedSelection
+                    workspace={workspace}
+                    className="min-h-0 flex-1"
+                  />
+                  {selectedFix ? (
+                    <VesselInspector
+                      fix={selectedFix}
+                      ports={workspace.ports}
+                      timeline={workspace.timeline}
+                      ownRow={ownRow}
+                      onClose={() =>
+                        workspace.setSelectedVesselId(owned[0]?.id ?? null)
+                      }
+                      onFollow={() => setFollowing((v) => !v)}
+                      following={following}
+                      onIsolate={() =>
+                        workspace.setIsolate(
+                          workspace.filters.isolate ? null : selectedFix.id,
+                        )
+                      }
+                      isolated={workspace.filters.isolate === selectedFix.id}
+                      onSelectVessel={(id) => {
+                        workspace.setSelectedVesselId(id);
+                        setFollowing(false);
+                      }}
+                      className="min-h-0 flex-1"
+                    />
+                  ) : (
+                    <FloatPanel title="Own fleet" className="min-h-0 flex-1">
+                      <EmptyNote>
+                        The routing artefact carried no vessel for this operator
+                        in this run.
+                      </EmptyNote>
+                    </FloatPanel>
+                  )}
+                </>
+              ) : null}
+              {railTab === "scenarios" ? (
+                <div className="p-3 text-xs">
+                  <p className="mb-2">
+                    Review recommendations and their modelled passage outcomes.
+                  </p>
+                  <a
+                    href="/vessel/advisories"
+                    className="font-medium underline"
+                  >
+                    Open the advisory register
+                  </a>
+                </div>
+              ) : null}
+              {railTab === "now" ? (
+                <div className="shrink-0 p-2 border-t border-[var(--line)] text-xs leading-snug">
+                  <strong>Data now</strong> · Weather <WeatherDataNow /> · Port
+                  activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
+                  {trafficSource.info.label}
+                  <DataNowSources opensAbove />
+                </div>
+              ) : null}
+            </aside>
           </>
         }
       />

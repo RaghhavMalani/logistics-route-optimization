@@ -703,7 +703,10 @@ export function CompanyIntelligenceQueue() {
                         "Source leads have independent coverage; they do not establish route crossings or calculated delay."}
                     </p>
                     {!q.data.sourceLeads?.length ? (
-                      <p>No current regional warnings qualify in the retained sources.</p>
+                      <p>
+                        No current regional warnings qualify in the retained
+                        sources.
+                      </p>
                     ) : null}
                     {(q.data.sourceLeads ?? []).map((lead) => (
                       <p key={`${lead.noticeId}-${lead.vesselId}`}>

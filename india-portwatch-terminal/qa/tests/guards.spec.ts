@@ -20,14 +20,24 @@ const HOME: Record<Role, string> = {
 };
 
 test.describe("anonymous", () => {
-  const GUARDED = ["/admin/radar", "/port/overview", "/vessel/fleet", "/company/overview", "/"];
+  const GUARDED = [
+    "/admin/radar",
+    "/port/overview",
+    "/vessel/fleet",
+    "/company/overview",
+    "/",
+  ];
 
   for (const path of GUARDED) {
     test(`${path} sends an anonymous visitor to sign in`, async ({ page }) => {
       await page.goto(path);
       await settle(page);
       await expect(page).toHaveURL(/\/login/);
-      await expect(page.getByRole("heading", { name: "Secure sign-in" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Follow a voyage through PortWatch",
+        }),
+      ).toBeVisible();
     });
   }
 
@@ -59,7 +69,9 @@ test.describe("role scope", () => {
       await seedSession(context, role);
       await page.goto(path);
       await settle(page);
-      await expect(page).toHaveURL(new RegExp(`${HOME[role].replace(/\//g, "\\/")}$`));
+      await expect(page).toHaveURL(
+        new RegExp(`${HOME[role].replace(/\//g, "\\/")}$`),
+      );
     });
   }
 
@@ -107,19 +119,29 @@ test.describe("role scope", () => {
     await expect(page.getByText("View as")).toHaveCount(0);
   });
 
-  test("a port authority is locked to their own facility", async ({ context, page }) => {
+  test("a port authority is locked to their own facility", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "PORT_AUTHORITY");
     await page.goto("/port/overview");
     await settle(page);
     await expect(page.getByText("Facility scope")).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Select port" })).toHaveCount(0);
+    await expect(
+      page.getByRole("combobox", { name: "Select port" }),
+    ).toHaveCount(0);
   });
 
-  test("an admin inspecting a port may switch facility", async ({ context, page }) => {
+  test("an admin inspecting a port may switch facility", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/port/overview");
     await settle(page);
-    await expect(page.getByRole("combobox", { name: "Select port" })).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Select port" }),
+    ).toBeVisible();
   });
 });
 
@@ -130,7 +152,9 @@ test.describe("advisory workflow", () => {
     await settle(page);
     await expect(page.getByTestId("advisory-register")).toBeVisible();
     await expect(
-      page.getByText(/A draft is not visible to the recipient until a named controller issues it/i),
+      page.getByText(
+        /A draft is not visible to the recipient until a named controller issues it/i,
+      ),
     ).toBeVisible();
   });
 
@@ -195,6 +219,7 @@ test.describe("sign-in", () => {
   test("a bad password is refused, and says so", async ({ page }) => {
     await page.goto("/login");
     await settle(page);
+    await page.getByText("Operator access", { exact: true }).click();
     await page.getByLabel("Email").fill("admin@portwatch.demo");
     await page.getByLabel("Password").fill("not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();

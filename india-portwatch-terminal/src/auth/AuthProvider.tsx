@@ -22,7 +22,11 @@ import {
 } from "react";
 
 import { AUTH_MODE, resolveAdapter } from "./adapters";
-import { setAccessToken, postJson, prepareHomeNavigation } from "@/services/api";
+import {
+  setAccessToken,
+  postJson,
+  prepareHomeNavigation,
+} from "@/services/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {

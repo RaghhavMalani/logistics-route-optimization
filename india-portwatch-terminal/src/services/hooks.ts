@@ -158,8 +158,15 @@ export const useChain = (
     ...ARTEFACT,
   });
 
-export const useScenarios = (): UseQueryResult<ScenarioDefinition[]> =>
-  useQuery({ queryKey: ["scenarios"], queryFn: fetchScenarios, ...ARTEFACT });
+export const useScenarios = (
+  enabled = true,
+): UseQueryResult<ScenarioDefinition[]> =>
+  useQuery({
+    queryKey: ["scenarios"],
+    queryFn: fetchScenarios,
+    ...ARTEFACT,
+    enabled,
+  });
 
 /**
  * Port snapshots with the registry's physical particulars merged in.

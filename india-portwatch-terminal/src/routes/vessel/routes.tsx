@@ -1,8 +1,18 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { statusTone, useFleetIntel, type VesselIntel } from "@/components/app/fleet-context";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  statusTone,
+  useFleetIntel,
+  type VesselIntel,
+} from "@/components/app/fleet-context";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   Delta,
   KeyValue,
@@ -18,7 +28,9 @@ import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { seaRoute } from "@/lib/maritime/searoutes";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/vessel/routes")({ component: RouteIntelligence });
+export const Route = createFileRoute("/vessel/routes")({
+  component: RouteIntelligence,
+});
 
 /**
  * Route intelligence compares the call a vessel declared with the best
@@ -27,7 +39,8 @@ export const Route = createFileRoute("/vessel/routes")({ component: RouteIntelli
  * richer.
  */
 function RouteIntelligence() {
-  const { intel, isLoading, error, refetch, ports, weather, events } = useFleetIntel();
+  const { intel, isLoading, error, refetch, ports, weather, events } =
+    useFleetIntel();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const active: VesselIntel | null =
@@ -45,7 +58,8 @@ function RouteIntelligence() {
     if (!intended) return { type: "FeatureCollection", features: [] };
 
     const origin =
-      active?.vessel.candidatePortCodes?.find((code) => code !== intended) ?? "LKCMB";
+      active?.vessel.candidatePortCodes?.find((code) => code !== intended) ??
+      "LKCMB";
     const features: GeoJSON.Feature[] = [];
 
     const declared = seaRoute(origin, intended);
@@ -61,7 +75,11 @@ function RouteIntelligence() {
       if (other) {
         features.push({
           type: "Feature",
-          properties: { part: "alternative", color: "#8a7fc4", id: "alternative" },
+          properties: {
+            part: "alternative",
+            color: "#8a7fc4",
+            id: "alternative",
+          },
           geometry: { type: "LineString", coordinates: other.path.coords },
         });
       }
@@ -100,7 +118,10 @@ function RouteIntelligence() {
       <Page>
         <PageHeader title="Route Intelligence" />
         <PageBody>
-          <EmptyState title="No routes scored" detail="The routing artefact is empty for this run." />
+          <EmptyState
+            title="No routes scored"
+            detail="The routing artefact is empty for this run."
+          />
         </PageBody>
       </Page>
     );
@@ -166,9 +187,12 @@ function RouteIntelligence() {
     },
     {
       metric: "Weather impact",
-      declared: weather.find((s) => s.portCode === vessel.intendedPortCode)?.impactScore ?? null,
+      declared:
+        weather.find((s) => s.portCode === vessel.intendedPortCode)
+          ?.impactScore ?? null,
       alternative:
-        weather.find((s) => s.portCode === vessel.recommendedPortCode)?.impactScore ?? null,
+        weather.find((s) => s.portCode === vessel.recommendedPortCode)
+          ?.impactScore ?? null,
       digits: 3,
       lowerIsBetter: true,
     },
@@ -192,7 +216,9 @@ function RouteIntelligence() {
             <Pill tone={statusTone(active.status)}>{active.status}</Pill>
           </>
         }
-        meta={<span className="num">origin {formatUtc(vessel.originDate)}</span>}
+        meta={
+          <span className="num">origin {formatUtc(vessel.originDate)}</span>
+        }
       />
 
       <StatStrip
@@ -201,13 +227,18 @@ function RouteIntelligence() {
           {
             label: "Declared call",
             value: vessel.intendedPortName ?? vessel.intendedPortCode ?? "n/a",
-            note: destination ? `${destination.regime} · ${riskLabel(destination.risk)}` : "no snapshot",
+            note: destination
+              ? `${destination.regime} · ${riskLabel(destination.risk)}`
+              : "no snapshot",
           },
           {
             label: "Best alternative",
-            value: vessel.recommendedPortName ?? vessel.recommendedPortCode ?? "n/a",
+            value:
+              vessel.recommendedPortName ?? vessel.recommendedPortCode ?? "n/a",
             tone: vessel.reroute ? "warn" : "neutral",
-            note: sameCall ? "the declared call is already cheapest" : "from the vessel's candidate set",
+            note: sameCall
+              ? "the declared call is already cheapest"
+              : "from the vessel's candidate set",
           },
           {
             label: "Net ETA change",
@@ -260,7 +291,8 @@ function RouteIntelligence() {
                     </Pill>
                   </div>
                   <div className="num mt-0.5 truncate text-[10.5px] text-[var(--text-3)]">
-                    {row.vessel.intendedPortCode} → {row.vessel.recommendedPortCode}
+                    {row.vessel.intendedPortCode} →{" "}
+                    {row.vessel.recommendedPortCode}
                   </div>
                 </button>
               </li>
@@ -290,18 +322,20 @@ function RouteIntelligence() {
             <table className="data-grid">
               <thead>
                 <tr>
-                  {["Metric", "Declared", "Alternative", "Δ"].map((header, index) => (
-                    <th
-                      key={header}
-                      className={cn(
-                        "border-b border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-[6px]",
-                        "text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]",
-                        index === 0 ? "text-left" : "text-right",
-                      )}
-                    >
-                      {header}
-                    </th>
-                  ))}
+                  {["Metric", "Declared", "Alternative", "Δ"].map(
+                    (header, index) => (
+                      <th
+                        key={header}
+                        className={cn(
+                          "border-b border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-[6px]",
+                          "text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]",
+                          index === 0 ? "text-left" : "text-right",
+                        )}
+                      >
+                        {header}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -320,10 +354,18 @@ function RouteIntelligence() {
                         {row.metric}
                       </td>
                       <td className="px-2.5 py-[6px] text-right">
-                        <Num value={row.declared} digits={row.digits ?? 1} unit={row.unit} />
+                        <Num
+                          value={row.declared}
+                          digits={row.digits ?? 1}
+                          unit={row.unit}
+                        />
                       </td>
                       <td className="px-2.5 py-[6px] text-right">
-                        <Num value={row.alternative} digits={row.digits ?? 1} unit={row.unit} />
+                        <Num
+                          value={row.alternative}
+                          digits={row.digits ?? 1}
+                          unit={row.unit}
+                        />
                       </td>
                       <td className="px-2.5 py-[6px] text-right">
                         {delta == null ? (
@@ -342,16 +384,21 @@ function RouteIntelligence() {
               </tbody>
             </table>
             <p className="border-t border-[var(--line)] px-3 py-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-              Green is the better side. The optimizer only advises a reroute when the cost
-              advantage clears 15% of the declared call's cost, which is why a small
-              improvement still reads as “keep”.
+              Green is the better side. The optimizer only advises a reroute
+              when the cost advantage clears 15% of the declared call's cost,
+              which is why a small improvement still reads as “keep”.
             </p>
           </Panel>
 
-          <Panel title="Candidate set" className="shrink-0 rounded-none border-x-0 border-t-0">
+          <Panel
+            title="Candidate set"
+            className="shrink-0 rounded-none border-x-0 border-t-0"
+          >
             <div className="px-3 py-2">
               <KeyValue label="Declared call" dense>
-                <span className="num text-[11.5px]">{vessel.intendedPortCode ?? "n/a"}</span>
+                <span className="num text-[11.5px]">
+                  {vessel.intendedPortCode ?? "n/a"}
+                </span>
               </KeyValue>
               <KeyValue label="Alternatives considered" dense>
                 <span className="num text-[11.5px]">
@@ -371,8 +418,9 @@ function RouteIntelligence() {
                 <Num value={vessel.bufferHours} digits={0} unit="h" />
               </KeyValue>
               <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11px] leading-snug text-[var(--text-3)]">
-                The optimizer scores only the ports the operator declared as acceptable for
-                this vessel. It does not search the whole network.
+                The optimizer scores only the ports the operator declared as
+                acceptable for this vessel. It does not search the whole
+                network.
               </p>
             </div>
           </Panel>
@@ -384,17 +432,18 @@ function RouteIntelligence() {
             <div className="p-3">
               {(
                 [
-                  ["Port entry risk", vessel.intendedCongestionProbability, "crit"],
+                  [
+                    "Port entry risk",
+                    vessel.intendedCongestionProbability,
+                    "crit",
+                  ],
                   [
                     "Destination weather",
-                    weather.find((s) => s.portCode === vessel.intendedPortCode)?.impactScore,
+                    weather.find((s) => s.portCode === vessel.intendedPortCode)
+                      ?.impactScore,
                     "warn",
                   ],
-                  [
-                    "Model disagreement",
-                    destination?.modelDisagreement,
-                    "unc",
-                  ],
+                  ["Model disagreement", destination?.modelDisagreement, "unc"],
                   [
                     "Transition risk 24h",
                     destination?.transitionRisk24h,
@@ -404,7 +453,9 @@ function RouteIntelligence() {
               ).map(([label, value, tone]) => (
                 <div key={label} className="mb-2.5">
                   <div className="mb-1 flex items-baseline justify-between">
-                    <span className="text-[11.5px] text-[var(--text-3)]">{label}</span>
+                    <span className="text-[11.5px] text-[var(--text-3)]">
+                      {label}
+                    </span>
                     <Num value={value ?? null} digits={3} />
                   </div>
                   <MiniBar value={value ?? null} tone={tone} />

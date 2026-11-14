@@ -6,10 +6,11 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { cesiumAssets } from "./cesium-assets";
+import { paperDownload } from "./paper-download";
 
 export default defineConfig({
   vite: {
-    plugins: [cesiumAssets()],
+    plugins: [cesiumAssets(), paperDownload()],
     define: { CESIUM_BASE_URL: JSON.stringify("/cesium/") },
   },
   tanstackStart: {

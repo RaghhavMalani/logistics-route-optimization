@@ -241,7 +241,9 @@ function IntelligenceContents({
         onKeyDown={(event) => {
           if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
           const tabs = Array.from(
-            event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+            event.currentTarget.querySelectorAll<HTMLButtonElement>(
+              '[role="tab"]',
+            ),
           );
           const index = tabs.findIndex((tab) => tab === event.target);
           if (index < 0) return;

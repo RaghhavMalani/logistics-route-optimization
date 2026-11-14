@@ -3,19 +3,38 @@ import { useMemo, useState } from "react";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { BarRanking, SeriesChart } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
-import { KeyValue, Num, Pill, formatDate, formatUtc } from "@/components/kit/primitives";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
+import {
+  KeyValue,
+  Num,
+  Pill,
+  formatDate,
+  formatUtc,
+} from "@/components/kit/primitives";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { ContextMap } from "@/components/command/ContextMap";
 import { TimeTransport } from "@/components/command/TimeTransport";
 import { TrafficFilters } from "@/components/command/TrafficFilters";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
-import { useNews, useVessels, useWeather, useWeatherIntelligence } from "@/services/hooks";
+import {
+  useNews,
+  useVessels,
+  useWeather,
+  useWeatherIntelligence,
+} from "@/services/hooks";
 import type { WeatherSignal } from "@/types/portwatch";
 import { WeatherLearningPanel } from "@/components/intelligence/CapabilityPanels";
 
-export const Route = createFileRoute("/port/weather")({ component: PortWeather });
+export const Route = createFileRoute("/port/weather")({
+  component: PortWeather,
+});
 
 function PortWeather() {
   const { port, ports, query } = usePortContext();
@@ -30,7 +49,8 @@ function PortWeather() {
   });
 
   const centre = useMemo<[number, number]>(
-    () => (port?.location ? [port.location.lon, port.location.lat] : [79.5, 15.5]),
+    () =>
+      port?.location ? [port.location.lon, port.location.lat] : [79.5, 15.5],
     [port?.location],
   );
 
@@ -55,7 +75,11 @@ function PortWeather() {
       key: "name",
       header: "Port",
       render: (row) => (
-        <span className={row.portCode === port.code ? "font-medium text-[var(--text)]" : ""}>
+        <span
+          className={
+            row.portCode === port.code ? "font-medium text-[var(--text)]" : ""
+          }
+        >
           {row.name}
         </span>
       ),
@@ -140,7 +164,11 @@ function PortWeather() {
       header: "Observed",
       align: "right",
       width: 122,
-      render: (row) => <span className="num text-[var(--text-3)]">{formatUtc(row.observedAt)}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">
+          {formatUtc(row.observedAt)}
+        </span>
+      ),
       sort: (row) => row.observedAt,
     },
   ];
@@ -160,7 +188,11 @@ function PortWeather() {
             ) : null}
           </>
         }
-        meta={<span className="num">observed {formatUtc(signal?.observedAt ?? null)}</span>}
+        meta={
+          <span className="num">
+            observed {formatUtc(signal?.observedAt ?? null)}
+          </span>
+        }
         actions={<PortSwitcher />}
       />
 
@@ -184,7 +216,10 @@ function PortWeather() {
             value: signal?.waveHeightM?.toFixed(2) ?? "n/a",
             unit: "m",
             tone: signal?.waveHeightM == null ? "neutral" : "info",
-            note: signal?.waveHeightM == null ? "not carried by this feed" : "significant height",
+            note:
+              signal?.waveHeightM == null
+                ? "not carried by this feed"
+                : "significant height",
           },
           {
             label: "Visibility",
@@ -231,21 +266,44 @@ function PortWeather() {
         </div>
 
         <aside className="flex w-[400px] shrink-0 flex-col overflow-y-auto 2xl:w-[460px]">
-          <Panel title="Risk decomposition" className="shrink-0 rounded-none border-x-0 border-t-0">
+          <Panel
+            title="Risk decomposition"
+            className="shrink-0 rounded-none border-x-0 border-t-0"
+          >
             {signal ? (
               <div className="p-3">
                 <BarRanking
                   items={[
-                    { label: "Wind risk", value: signal.windRisk, tone: "info" },
-                    { label: "Rain risk", value: signal.rainRisk, tone: "info" },
-                    { label: "Wave risk", value: signal.waveRisk, tone: "info" },
-                    { label: "Storm risk", value: signal.stormRisk, tone: "crit" },
-                    { label: "Composite impact", value: signal.impactScore, tone: "warn" },
+                    {
+                      label: "Wind risk",
+                      value: signal.windRisk,
+                      tone: "info",
+                    },
+                    {
+                      label: "Rain risk",
+                      value: signal.rainRisk,
+                      tone: "info",
+                    },
+                    {
+                      label: "Wave risk",
+                      value: signal.waveRisk,
+                      tone: "info",
+                    },
+                    {
+                      label: "Storm risk",
+                      value: signal.stormRisk,
+                      tone: "crit",
+                    },
+                    {
+                      label: "Composite impact",
+                      value: signal.impactScore,
+                      tone: "warn",
+                    },
                   ]}
                 />
                 <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                  These are the exact bounded 0–1 features the forecasting model consumed
-                  for {port.short}. {signal.dataSource}.
+                  These are the exact bounded 0–1 features the forecasting model
+                  consumed for {port.short}. {signal.dataSource}.
                 </p>
               </div>
             ) : (
@@ -300,7 +358,10 @@ function PortWeather() {
             ) : null}
           </Panel>
 
-          <Panel title="National marine picture" className="min-h-0 flex-1 rounded-none border-x-0 border-b-0">
+          <Panel
+            title="National marine picture"
+            className="min-h-0 flex-1 rounded-none border-x-0 border-b-0"
+          >
             <div className="px-3 py-2">
               <KeyValue label="Mean weather impact" dense>
                 <Num value={summary?.meanImpact} digits={3} />
@@ -315,7 +376,9 @@ function PortWeather() {
                 <Num value={summary?.meanStormRisk} digits={3} />
               </KeyValue>
               <KeyValue label="Highest impact port" dense>
-                <span className="num text-[11.5px]">{summary?.highestImpactPort ?? "n/a"}</span>
+                <span className="num text-[11.5px]">
+                  {summary?.highestImpactPort ?? "n/a"}
+                </span>
               </KeyValue>
               <KeyValue label="Ports covered" dense>
                 <Num value={summary?.portsCovered} digits={0} />
@@ -345,7 +408,9 @@ function PortWeather() {
             rowKey={(row) => row.portCode}
             selectedKey={port.code}
             initialSort="impact"
-            rowTone={(row) => (row.portCode === port.code ? "var(--info)" : null)}
+            rowTone={(row) =>
+              row.portCode === port.code ? "var(--info)" : null
+            }
           />
         </Panel>
       </div>

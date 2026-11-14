@@ -20,12 +20,18 @@ function stopPortOwners(port) {
   if (process.platform !== "win32") return;
   // PowerShell rather than parsing netstat: the table's columns and the word
   // "LISTENING" are locale-dependent, and this has to work on any install.
-  const script = `Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | ` +
+  const script =
+    `Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue | ` +
     `Select-Object -ExpandProperty OwningProcess -Unique | ` +
     `ForEach-Object { Write-Output $_; Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }`;
-  const result = spawnSync("powershell", ["-NoProfile", "-Command", script], { encoding: "utf8" });
+  const result = spawnSync("powershell", ["-NoProfile", "-Command", script], {
+    encoding: "utf8",
+  });
   const stopped = (result.stdout ?? "").trim();
-  if (stopped) console.log(`stopped pid(s) ${stopped.split(/\s+/).join(", ")} on port ${port}`);
+  if (stopped)
+    console.log(
+      `stopped pid(s) ${stopped.split(/\s+/).join(", ")} on port ${port}`,
+    );
 }
 
 stopPortOwners(PORT);
@@ -71,4 +77,8 @@ const waitFor = async () => {
   return false;
 };
 
-console.log((await waitFor()) ? `server up on ${PORT}` : `server never came up on ${PORT}`);
+console.log(
+  (await waitFor())
+    ? `server up on ${PORT}`
+    : `server never came up on ${PORT}`,
+);

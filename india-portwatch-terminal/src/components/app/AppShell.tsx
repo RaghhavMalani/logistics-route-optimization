@@ -26,13 +26,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth, useWorkspace } from "@/auth/AuthProvider";
 import { ROLE_PROFILE, ROLES, type Role } from "@/auth/types";
 import { TRAFFIC_LABEL, TRAFFIC_TONE } from "@/components/fabric/signal-format";
-import {
-  Pill,
-  formatAge,
-} from "@/components/kit/primitives";
+import { Pill, formatAge } from "@/components/kit/primitives";
 import { cn } from "@/lib/utils";
 import { useHealth, usePorts } from "@/services/hooks";
 import { API_BASE } from "@/services/api";
+import { WorkspaceCommandPalette } from "./WorkspaceCommandPalette";
 import { LivePulse } from "./LivePulse";
 import { DatedSource } from "./SourceHealth";
 import { prefetchHome } from "@/services/home-screen";
@@ -614,6 +612,7 @@ function Chrome({ children }: { children: ReactNode }) {
         <ContextCrumb />
         <RoleSwitcher />
         <div className="ml-auto flex items-center gap-2">
+          <WorkspaceCommandPalette />
           <ProfileMenu />
         </div>
       </header>

@@ -51,6 +51,8 @@ REFRESH_WORKERS = ThreadPoolExecutor(max_workers=3, thread_name_prefix="public-e
 PENDING = set()
 ATTEMPTED = {}
 TTL = {"surface": 3600, "marine": 3600, "hazards": 1800}
+# HTTPS/TLS setup can be reported by urllib3 as a read timeout using the connect budget.
+OPEN_METEO_TIMEOUT = (8, 18)
 URLS = {"surface": "https://api.open-meteo.com/v1/forecast",
         "marine": "https://marine-api.open-meteo.com/v1/marine",
         "hazards": "https://www.gdacs.org/xml/rss.xml"}
@@ -126,7 +128,8 @@ def refresh(kind, port, *, force=False, strict=False):
         params = {"latitude": port.lat-.15, "longitude": port.lon+(.15 if port.coast == "east" else -.15),
                   "timezone": "GMT", "hourly": "wave_height", "forecast_days": 8}
     try:
-        response = requests.get(URLS[kind], params=params, headers={"User-Agent": "PortWatch-Capstone/1.0"}, timeout=(4, 18))
+        timeout = (4, 18) if kind == "hazards" else OPEN_METEO_TIMEOUT
+        response = requests.get(URLS[kind], params=params, headers={"User-Agent": "PortWatch-Capstone/1.0"}, timeout=timeout)
         response.raise_for_status()
         # wall-clock: this is when the actual provider response first arrived, not its issue or valid time.
         at = wall_now()

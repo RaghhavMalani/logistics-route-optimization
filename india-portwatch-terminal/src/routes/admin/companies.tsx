@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { exposureTone } from "@/components/globaleye/EventPanels";
-import { Page, PageBody, PageHeader, Panel, Section } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  Section,
+} from "@/components/kit/layout";
 import { Pill, formatUtc } from "@/components/kit/primitives";
 import { DataTable, type Column } from "@/components/kit/table";
 import { ScreenFallback } from "@/components/kit/states";
@@ -10,7 +16,9 @@ import { useCompanyFleet, useCompanyRisk } from "@/services/os-hooks";
 import type { FleetVessel } from "@/types/portwatch-os";
 import { useMemo } from "react";
 
-export const Route = createFileRoute("/admin/companies")({ component: AdminCompanies });
+export const Route = createFileRoute("/admin/companies")({
+  component: AdminCompanies,
+});
 
 /**
  * Carrier accounts, from national command.
@@ -51,7 +59,9 @@ function AdminCompanies() {
       header: "Vessel",
       sort: (row) => row.name,
       render: (row) => (
-        <span className="truncate text-[11.5px] text-[var(--text)]">{row.name}</span>
+        <span className="truncate text-[11.5px] text-[var(--text)]">
+          {row.name}
+        </span>
       ),
     },
     {
@@ -96,7 +106,9 @@ function AdminCompanies() {
       header: "ETA",
       width: 96,
       sort: (row) => row.eta ?? "",
-      render: (row) => <span className="num text-[10.5px]">{formatUtc(row.eta)}</span>,
+      render: (row) => (
+        <span className="num text-[10.5px]">{formatUtc(row.eta)}</span>
+      ),
     },
     {
       key: "exposure",
@@ -144,7 +156,9 @@ function AdminCompanies() {
               <Section title={fleet.data?.companyId ?? ""}>
                 <dl className="space-y-[3px]">
                   <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-[10.5px] text-[var(--text-3)]">Verified</dt>
+                    <dt className="text-[10.5px] text-[var(--text-3)]">
+                      Verified
+                    </dt>
                     <dd>
                       <Pill tone={fleet.data?.verified ? "ok" : "unc"}>
                         {fleet.data?.verified ? "yes" : "no — demo carrier"}
@@ -152,13 +166,17 @@ function AdminCompanies() {
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-[10.5px] text-[var(--text-3)]">Position source</dt>
+                    <dt className="text-[10.5px] text-[var(--text-3)]">
+                      Position source
+                    </dt>
                     <dd className="num text-[11px] text-[var(--text)]">
                       {fleet.data?.positionSource}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-[10.5px] text-[var(--text-3)]">Vessels exposed</dt>
+                    <dt className="text-[10.5px] text-[var(--text-3)]">
+                      Vessels exposed
+                    </dt>
                     <dd className="num text-[11px] text-[var(--text)]">
                       {risk.data?.vesselsExposed ?? 0}
                     </dd>
@@ -175,10 +193,11 @@ function AdminCompanies() {
             <Panel title="Adding a real carrier">
               <Section title="Integration">
                 <p className="text-[10px] leading-relaxed text-[var(--text-3)]">
-                  Set <span className="num">PORTWATCH_FLEET_PROVIDER</span> to a provider
-                  payload and the account interface is populated from it instead. Every
-                  downstream surface — exposure, cargo, advisories — reads the same
-                  interface, so a real integration changes no screen in this workspace.
+                  Set <span className="num">PORTWATCH_FLEET_PROVIDER</span> to a
+                  provider payload and the account interface is populated from
+                  it instead. Every downstream surface — exposure, cargo,
+                  advisories — reads the same interface, so a real integration
+                  changes no screen in this workspace.
                 </p>
               </Section>
             </Panel>
