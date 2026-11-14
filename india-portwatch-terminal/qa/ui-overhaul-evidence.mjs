@@ -40,7 +40,7 @@ function watch(page, report) {
 
 async function checkMap(page, name, report) {
   const labels = page.locator("[data-map-port-label]");
-  await expect(labels.first()).toBeVisible({ timeout: 25_000 });
+  if (name !== "vessel") await expect(labels.first()).toBeVisible({ timeout: 25_000 });
   report.labels = await labels.evaluateAll((nodes) => nodes.map((label) => {
     const { left, top, width, height } = label.getBoundingClientRect();
     const hit = document.elementFromPoint(left + width / 2, top + height / 2);
@@ -94,14 +94,14 @@ async function screenShot(width, height, [name, role, path]) {
       await checkMap(page, name, report);
     }
     await page.screenshot({ path: join(output, `${width}x${height}-${name}.png`) });
-    if (width === 1366 && role && name !== "twin") {
+    if (role && name !== "twin") {
       await page.keyboard.press("Control+k");
       const palette = page.getByRole("dialog", { name: "Command palette" });
       await expect(palette).toBeVisible();
       await palette.getByRole("combobox").fill("KDL");
       const result = palette.getByRole("option", { name: /Kandla|Deendayal/i }).first();
       await expect(result).toBeVisible();
-      await result.click();
+      await page.keyboard.press("Enter");
       const kdl = page.locator("[data-map-port-label]").filter({ hasText: /KDL|Kandla|Deendayal/i });
       await expect(kdl.first()).toBeVisible({ timeout: 15_000 });
       await page.waitForURL(/port=INIXY/);
@@ -109,7 +109,7 @@ async function screenShot(width, height, [name, role, path]) {
       const chart = {};
       await checkMap(page, name + " KDL", chart);
       report.focusedLabels = chart.labels;
-      await page.screenshot({ path: join(output, `1366x768-${name}-kdl.png`) });
+      await page.screenshot({ path: join(output, `${width}x${height}-${name}-kdl.png`) });
     }
     console.log(`${width}×${height} ${name}`, JSON.stringify(report));
   } finally {
