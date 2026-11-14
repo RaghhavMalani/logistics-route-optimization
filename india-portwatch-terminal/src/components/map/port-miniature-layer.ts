@@ -108,8 +108,17 @@ export function createPortMiniature(
     ((90 - port.shore.bearing) * Math.PI) / 180,
   );
   const center = new THREE.Vector3(9, 0.7, 0);
-  const cranePositions = [-18, 18].map((z) => new THREE.Vector3(-16 + 6 * 0.56, 0.78 + 30.5 * 0.56, z));
-  const effects = createPortSceneWeather(scene, center, 52, 58, 90 + port.shore.bearing, cranePositions);
+  const cranePositions = [-18, 18].map(
+    (z) => new THREE.Vector3(-16 + 6 * 0.56, 0.78 + 30.5 * 0.56, z),
+  );
+  const effects = createPortSceneWeather(
+    scene,
+    center,
+    52,
+    58,
+    90 + port.shore.bearing,
+    cranePositions,
+  );
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let previousZoom = -1;
   let anchor = port.center;
@@ -129,7 +138,11 @@ export function createPortMiniature(
     },
     [unitBox, ...Object.values(M)],
     (_map, light) => {
-      const { direction, night, animate } = effects.draw(weather(), Date.now(), !motion.matches);
+      const { direction, night, animate } = effects.draw(
+        weather(),
+        Date.now(),
+        !motion.matches,
+      );
       light.follow(center, 45, direction);
       light.sun.castShadow = Boolean(direction && !night);
       light.sun.intensity = night ? 0.12 : 3.6;

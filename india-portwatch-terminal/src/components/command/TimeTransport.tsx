@@ -119,7 +119,12 @@ export function TimeTransport({
 
       <div className="shrink-0 leading-none">
         <div className="eyebrow text-[10px]">Traffic</div>
-        <div className={cn("num mt-[3px] text-[11.5px]", current ? "text-[var(--text)]" : "text-[var(--text-3)]")}>
+        <div
+          className={cn(
+            "num mt-[3px] text-[11.5px]",
+            current ? "text-[var(--text)]" : "text-[var(--text-3)]",
+          )}
+        >
           {clockLabel(state.at)}
         </div>
       </div>
@@ -242,13 +247,17 @@ export function TimeTransport({
                   : "text-[var(--text-3)] hover:text-[var(--text-2)]",
               )}
             >
-              {step === 0 ? current ? "NOW" : "Start" : `+${step}h`}
+              {step === 0 ? (current ? "NOW" : "Start") : `+${step}h`}
             </button>
           ))}
         </div>
       </div>
 
-      {expired ? <span className="text-[10px] text-[var(--text-3)]">Historical · expired forecast</span> : null}
+      {expired ? (
+        <span className="text-[10px] text-[var(--text-3)]">
+          Historical · expired forecast
+        </span>
+      ) : null}
       {!timeline.available ? (
         <span className="shrink-0 text-[10.5px] text-[var(--crit)]">
           Forecast unavailable

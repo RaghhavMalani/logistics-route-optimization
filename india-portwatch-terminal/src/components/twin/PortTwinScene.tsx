@@ -22,7 +22,11 @@ export interface PortTwinSceneProps {
   framing?: "comparison";
 }
 
-export function PortTwinScene({ className, framing, ...props }: PortTwinSceneProps) {
+export function PortTwinScene({
+  className,
+  framing,
+  ...props
+}: PortTwinSceneProps) {
   const mount = useRef<HTMLDivElement>(null);
   const current = useRef(props);
   current.current = props;
@@ -99,7 +103,10 @@ export function PortTwinScene({ className, framing, ...props }: PortTwinScenePro
         container.dataset.modelHour = model?.hour.toFixed(3) ?? "";
         dirty = false;
       }
-      const { animate, shadows } = world.updateWeather(current.current.weather ?? null, !motion.matches);
+      const { animate, shadows } = world.updateWeather(
+        current.current.weather ?? null,
+        !motion.matches,
+      );
       renderer.shadowMap.enabled = shadows;
       renderer.render(world.scene, camera);
       if (animate) schedule();
@@ -133,10 +140,17 @@ export function PortTwinScene({ className, framing, ...props }: PortTwinScenePro
         camera.updateMatrixWorld();
         const corner = new T.Vector3();
         let extent = 0;
-        for (const x of [world.mid - world.span / 2, world.mid + world.span / 2]) {
+        for (const x of [
+          world.mid - world.span / 2,
+          world.mid + world.span / 2,
+        ]) {
           for (const z of [-48, world.inland]) {
             corner.set(x, 0, z).applyMatrix4(camera.matrixWorldInverse);
-            extent = Math.max(extent, Math.abs(corner.x) / aspect, Math.abs(corner.y));
+            extent = Math.max(
+              extent,
+              Math.abs(corner.x) / aspect,
+              Math.abs(corner.y),
+            );
           }
         }
         halfHeight = extent / 0.8;

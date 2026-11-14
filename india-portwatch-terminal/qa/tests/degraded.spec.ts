@@ -17,7 +17,10 @@ const WORKSPACES: Array<[Parameters<typeof seedSession>[1], string]> = [
 ];
 
 for (const [role, path] of WORKSPACES) {
-  test(`${path} reports the outage instead of hanging`, async ({ context, page }) => {
+  test(`${path} reports the outage instead of hanging`, async ({
+    context,
+    page,
+  }) => {
     await killApi(context);
     await seedSession(context, role);
 
@@ -34,7 +37,9 @@ for (const [role, path] of WORKSPACES) {
       page.getByText(/Operational data service unavailable|Service returned/),
     ).toBeVisible();
     // The one command that fixes it is on screen.
-    await expect(page.getByText(/uvicorn backend\.app\.main:app/)).toBeVisible();
+    await expect(
+      page.getByText(/uvicorn backend\.app\.main:app/),
+    ).toBeVisible();
     expect(pageErrors).toEqual([]);
   });
 }
@@ -47,22 +52,34 @@ test("the top bar marks the service as down", async ({ context, page }) => {
   await expect(page.getByText("API down")).toBeVisible({ timeout: 15_000 });
 });
 
-test("the sign-in screen reports an unreachable service", async ({ context, page }) => {
+test("the sign-in screen reports an unreachable service", async ({
+  context,
+  page,
+}) => {
   await killApi(context);
   await page.goto("/login");
   await settle(page);
-  await expect(page.getByRole("heading", { name: "Follow a voyage through PortWatch" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Follow a voyage through PortWatch" }),
+  ).toBeVisible();
   await expect(page.getByText("Unreachable")).toBeVisible({ timeout: 15_000 });
 });
 
-test("a missing artefact is reported as missing, not as zero", async ({ context, page }) => {
+test("a missing artefact is reported as missing, not as zero", async ({
+  context,
+  page,
+}) => {
   // The recorded fixtures carry no artefacts for this port, so the API answers
   // 404 exactly as the real one does for a port outside the run.
   await seedSession(context, "NATIONAL_ADMIN");
   await page.goto("/port/overview");
   await settle(page);
-  await page.getByRole("combobox", { name: "Select port" }).selectOption("INVTZ");
-  await expect(page.getByText(/Artefact not in this run|No forecast rows/)).toBeVisible({
+  await page
+    .getByRole("combobox", { name: "Select port" })
+    .selectOption("INVTZ");
+  await expect(
+    page.getByText(/Artefact not in this run|No forecast rows/),
+  ).toBeVisible({
     timeout: 15_000,
   });
 });

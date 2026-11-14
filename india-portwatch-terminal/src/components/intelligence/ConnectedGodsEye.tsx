@@ -156,9 +156,11 @@ export default function ConnectedGodsEye({
         const v = viewer.current!;
         const source = createUsgsEarthquakeSource({
           fetchImpl: async (_input, init) => {
-            const payload = await getJson<GeoJSON.FeatureCollection & {
-              portwatch?: { status?: string; fetchedAt?: string };
-            }>("/intelligence/earthquakes", undefined, {
+            const payload = await getJson<
+              GeoJSON.FeatureCollection & {
+                portwatch?: { status?: string; fetchedAt?: string };
+              }
+            >("/intelligence/earthquakes", undefined, {
               signal: init?.signal as AbortSignal | undefined,
             });
             const receipt = payload.portwatch;
@@ -372,7 +374,9 @@ export default function ConnectedGodsEye({
       <p className="absolute top-2 left-2 bg-[var(--panel)]/90 p-1 text-[10px]">
         God’s Eye View · MIT · original traffic provider · {fixes.length}{" "}
         vessels · {trafficLabel}
-        {quake && quakeReceipt ? <span className="block">{quakeReceipt}</span> : null}
+        {quake && quakeReceipt ? (
+          <span className="block">{quakeReceipt}</span>
+        ) : null}
       </p>
     </div>
   );

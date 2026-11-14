@@ -14,10 +14,17 @@ export async function confirmDecisionOption(
   headers: Headers,
 ) {
   let decision = await fetchDecision(id);
-  if (decision.options.find((option) => option.optionId === optionId)?.status !== "FEASIBLE")
+  if (
+    decision.options.find((option) => option.optionId === optionId)?.status !==
+    "FEASIBLE"
+  )
     throw new Error("Select a feasible option to approve.");
   if (decision.workflow === "COMPUTED") {
-    decision = await transitionDecision(id, { target: "REVIEWED", note: "reviewed in the terminal" }, headers);
+    decision = await transitionDecision(
+      id,
+      { target: "REVIEWED", note: "reviewed in the terminal" },
+      headers,
+    );
   }
   if (decision.workflow === "REVIEWED") {
     decision = await transitionDecision(

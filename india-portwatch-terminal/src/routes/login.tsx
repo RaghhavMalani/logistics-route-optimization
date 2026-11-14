@@ -96,16 +96,21 @@ function LoginScreen() {
   };
 
   const serviceStatus = health.data?.service?.status;
-  const serviceTone = health.isError || serviceStatus === "degraded"
-    ? "crit"
-    : serviceStatus === "ok" ? "ok" : "neutral";
+  const serviceTone =
+    health.isError || serviceStatus === "degraded"
+      ? "crit"
+      : serviceStatus === "ok"
+        ? "ok"
+        : "neutral";
   const serviceLabel = health.isError
     ? "Unreachable"
     : health.isLoading
       ? "Checking"
       : serviceStatus === "degraded"
         ? "Degraded"
-        : serviceStatus === "ok" ? "Reachable" : "Unverified";
+        : serviceStatus === "ok"
+          ? "Reachable"
+          : "Unverified";
 
   const sourceStatus = health.data?.data?.status;
   const forecast = health.isError ? undefined : health.data;

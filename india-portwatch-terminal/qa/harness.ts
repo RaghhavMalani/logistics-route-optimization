@@ -162,7 +162,10 @@ export async function mockApi(context: BrowserContext): Promise<void> {
     if (method === "GET" && /\/handoffs(?:\/stream)?$/.test(url.pathname)) {
       await route.fulfill(
         url.pathname.endsWith("/stream")
-          ? { contentType: "text/event-stream", body: 'event: handoffs\ndata: {"items":[]}\n\n' }
+          ? {
+              contentType: "text/event-stream",
+              body: 'event: handoffs\ndata: {"items":[]}\n\n',
+            }
           : { json: { items: [] } },
       );
       return;
@@ -280,7 +283,8 @@ export async function seedSession(
   await context.route("**/api/screens/*", async (route) => {
     const request = route.request();
     const verified =
-      active && request.method() === "GET" &&
+      active &&
+      request.method() === "GET" &&
       request.headers().authorization === authorization;
     const { accessToken: _token, ...identity } = session;
     // Individual fixtures remain independently replaceable in replay tests.
@@ -329,7 +333,9 @@ export function record(page: Page): Recorder {
   page.on("console", (message) => {
     if (message.type() === "error") {
       const location = message.location().url;
-      recorder.consoleErrors.push(`${message.text()}${location ? ` (${location})` : ""}`.slice(0, 500));
+      recorder.consoleErrors.push(
+        `${message.text()}${location ? ` (${location})` : ""}`.slice(0, 500),
+      );
     }
   });
   page.on("pageerror", (error) =>

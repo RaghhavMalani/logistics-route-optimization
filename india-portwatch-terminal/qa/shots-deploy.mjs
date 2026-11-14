@@ -15,7 +15,10 @@
 import { chromium } from "@playwright/test";
 import fs from "node:fs";
 
-const BASE = (process.argv[2] ?? "https://india-portwatch.vercel.app").replace(/\/$/, "");
+const BASE = (process.argv[2] ?? "https://india-portwatch.vercel.app").replace(
+  /\/$/,
+  "",
+);
 const OUT = process.argv[3] ?? "../docs/qa/deploy";
 const SIZES = (process.argv[4] ?? "1920x1080,1440x900,1366x768")
   .split(",")
@@ -29,10 +32,15 @@ const settle = (page, ms = 2500) => page.waitForTimeout(ms);
 
 async function stripText(page) {
   const text = await page.evaluate(() => document.body.innerText);
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   const pick = (re) => lines.find((l) => re.test(l)) ?? null;
   return {
-    apiState: pick(/API down|API (un)?reachable|Data service|UNREACHABLE|DEGRADED|READY/i),
+    apiState: pick(
+      /API down|API (un)?reachable|Data service|UNREACHABLE|DEGRADED|READY/i,
+    ),
     mode: pick(/^(DEMO|RESEARCH|COMMERCIAL|GOVERNMENT)\b/),
     traffic: pick(/SIMULATED|LIVE AIS|AIS STALE/i),
   };
@@ -40,16 +48,22 @@ async function stripText(page) {
 
 for (const [width, height] of SIZES) {
   const tag = `${width}x${height}`;
-  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+  const context = await browser.newContext({
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+  });
   const page = await context.newPage();
   const failed = [];
   const mixed = [];
   const consoleErrors = [];
   const pageErrors = [];
   const apiHosts = new Set();
-  page.on("requestfailed", (r) => failed.push({ url: r.url(), error: r.failure()?.errorText ?? "?" }));
+  page.on("requestfailed", (r) =>
+    failed.push({ url: r.url(), error: r.failure()?.errorText ?? "?" }),
+  );
   page.on("response", (r) => {
-    if (r.status() >= 400) failed.push({ url: r.url(), error: `HTTP ${r.status()}` });
+    if (r.status() >= 400)
+      failed.push({ url: r.url(), error: `HTTP ${r.status()}` });
   });
   page.on("request", (r) => {
     const url = r.url();
@@ -69,7 +83,9 @@ for (const [width, height] of SIZES) {
   };
 
   // 1. the landing page -----------------------------------------------------
-  const landing = await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+  const landing = await page.goto(`${BASE}/`, {
+    waitUntil: "domcontentloaded",
+  });
   await settle(page);
   const landingType = landing?.headers()["content-type"] ?? "";
   await shot("01-landing");
@@ -91,7 +107,9 @@ for (const [width, height] of SIZES) {
   const radarStrip = await stripText(page);
 
   // 4. the Global Eye ----------------------------------------------------------
-  await page.goto(`${BASE}/admin/global-eye`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/admin/global-eye`, {
+    waitUntil: "domcontentloaded",
+  });
   await settle(page, 6000);
   await shot("04-global-eye");
 
@@ -102,7 +120,9 @@ for (const [width, height] of SIZES) {
   const systemStrip = await stripText(page);
 
   // 6. a direct load of a deep route, as a refresh does -----------------------
-  const deep = await page.goto(`${BASE}/admin/missions`, { waitUntil: "domcontentloaded" });
+  const deep = await page.goto(`${BASE}/admin/missions`, {
+    waitUntil: "domcontentloaded",
+  });
   await settle(page, 3000);
   await shot("06-direct-route");
 
@@ -122,7 +142,9 @@ for (const [width, height] of SIZES) {
   console.log(`  landing ${landing?.status()} ${landingType}`);
   console.log(`  after sign-in: ${afterLogin}`);
   console.log(`  API calls went to: ${[...apiHosts].join(", ") || "(none)"}`);
-  console.log(`  failed requests: ${failed.length}; mixed content: ${mixed.length}; console errors: ${consoleErrors.length}; page errors: ${pageErrors.length}`);
+  console.log(
+    `  failed requests: ${failed.length}; mixed content: ${mixed.length}; console errors: ${consoleErrors.length}; page errors: ${pageErrors.length}`,
+  );
   await context.close();
 }
 

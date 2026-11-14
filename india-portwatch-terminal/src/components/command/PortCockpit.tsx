@@ -1,4 +1,7 @@
-import { CongestionScore, CongestionForecastBand } from "@/components/kit/CongestionScore";
+import {
+  CongestionScore,
+  CongestionForecastBand,
+} from "@/components/kit/CongestionScore";
 /**
  * The port controller's cockpit.
  *
@@ -600,13 +603,19 @@ export function PortSummary({
 
       <PanelSection title="Port state" right={port.regime}>
         <Field label="Observed congestion">
-          <CongestionScore value={port.observedCongestionIndex} history={port.congestionHistory} />
+          <CongestionScore
+            value={port.observedCongestionIndex}
+            history={port.congestionHistory}
+          />
         </Field>
         <Field label="Day-1 forecast">
           <CongestionScore value={port.congestionIndex} />
         </Field>
         <Field label="80% band">
-          <CongestionForecastBand low={port.forecastQ10} high={port.forecastQ90} />
+          <CongestionForecastBand
+            low={port.forecastQ10}
+            high={port.forecastQ90}
+          />
         </Field>
         <Field label="Predicted berth wait">
           <Num value={port.delayHours} digits={1} unit="h" />

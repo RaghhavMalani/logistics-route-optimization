@@ -2,7 +2,15 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { useFleetIntel } from "@/components/app/fleet-context";
-import { Page, PageBody, PageHeader, Panel, SegmentedControl, StatStrip, Toolbar } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  SegmentedControl,
+  StatStrip,
+  Toolbar,
+} from "@/components/kit/layout";
 import {
   MiniBar,
   Num,
@@ -15,7 +23,9 @@ import { DataTable, SearchInput, type Column } from "@/components/kit/table";
 import { CHOKEPOINT_BY_CODE } from "@/lib/maritime/chokepoints";
 import type { NewsEvent } from "@/types/portwatch";
 
-export const Route = createFileRoute("/vessel/alerts")({ component: FleetAlerts });
+export const Route = createFileRoute("/vessel/alerts")({
+  component: FleetAlerts,
+});
 
 type Scope = "lanes" | "all";
 
@@ -34,7 +44,10 @@ function FleetAlerts() {
   const rows = useMemo<AlertRow[]>(() => {
     const byPort = new Map<string, string[]>();
     for (const row of intel) {
-      for (const code of [row.vessel.intendedPortCode, row.vessel.recommendedPortCode]) {
+      for (const code of [
+        row.vessel.intendedPortCode,
+        row.vessel.recommendedPortCode,
+      ]) {
         if (!code) continue;
         const list = byPort.get(code) ?? [];
         list.push(row.vessel.name);
@@ -49,7 +62,10 @@ function FleetAlerts() {
         for (const entry of event.exposure ?? []) {
           const names = byPort.get(entry.portCode);
           if (!names) continue;
-          exposure = exposure == null ? entry.exposure : Math.max(exposure, entry.exposure);
+          exposure =
+            exposure == null
+              ? entry.exposure
+              : Math.max(exposure, entry.exposure);
           for (const name of names) vessels.add(name);
         }
         for (const code of event.affectedPorts ?? []) {
@@ -74,7 +90,9 @@ function FleetAlerts() {
     return (
       <ScreenFallback
         title="Alerts"
-        context={<span>Events with a measured exposure to the declared calls</span>}
+        context={
+          <span>Events with a measured exposure to the declared calls</span>
+        }
         isLoading={isLoading}
         error={error}
         retry={refetch}
@@ -84,12 +102,16 @@ function FleetAlerts() {
   }
 
   const fleetPorts = new Set(
-    intel.map((row) => row.vessel.intendedPortCode).filter((code): code is string => Boolean(code)),
+    intel
+      .map((row) => row.vessel.intendedPortCode)
+      .filter((code): code is string => Boolean(code)),
   );
   const fleetAlerts = alerts.filter((alert) => fleetPorts.has(alert.portCode));
   const onLane = rows.filter((row) => row.vessels.length > 0);
   const chokepoints = new Set(
-    onLane.map((row) => row.event.chokepoint).filter((code): code is string => Boolean(code)),
+    onLane
+      .map((row) => row.event.chokepoint)
+      .filter((code): code is string => Boolean(code)),
   );
 
   const columns: Array<Column<AlertRow>> = [
@@ -97,7 +119,11 @@ function FleetAlerts() {
       key: "severity",
       header: "Severity",
       width: 92,
-      render: (row) => <Pill tone={severityTone(row.event.severity)}>{row.event.severity}</Pill>,
+      render: (row) => (
+        <Pill tone={severityTone(row.event.severity)}>
+          {row.event.severity}
+        </Pill>
+      ),
       sort: (row) => row.event.severityScore,
     },
     {
@@ -120,7 +146,9 @@ function FleetAlerts() {
       key: "tag",
       header: "Type",
       width: 150,
-      render: (row) => <span className="num text-[var(--text-3)]">{row.event.tag}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.event.tag}</span>
+      ),
       sort: (row) => row.event.tag,
     },
     {
@@ -129,7 +157,9 @@ function FleetAlerts() {
       width: 150,
       render: (row) =>
         row.event.chokepointName ? (
-          <span className="text-[var(--text-2)]">{row.event.chokepointName}</span>
+          <span className="text-[var(--text-2)]">
+            {row.event.chokepointName}
+          </span>
         ) : (
           <span className="text-[var(--text-3)]">—</span>
         ),
@@ -155,7 +185,10 @@ function FleetAlerts() {
       render: (row) => (
         <span className="flex items-center justify-end gap-2">
           <span className="w-9">
-            <MiniBar value={row.exposure} tone={(row.exposure ?? 0) >= 0.4 ? "warn" : "info"} />
+            <MiniBar
+              value={row.exposure}
+              tone={(row.exposure ?? 0) >= 0.4 ? "warn" : "info"}
+            />
           </span>
           <Num value={row.exposure} digits={2} />
         </span>
@@ -168,7 +201,9 @@ function FleetAlerts() {
       align: "right",
       width: 122,
       render: (row) => (
-        <span className="num text-[var(--text-3)]">{formatUtc(row.event.timestamp)}</span>
+        <span className="num text-[var(--text-3)]">
+          {formatUtc(row.event.timestamp)}
+        </span>
       ),
       sort: (row) => row.event.timestamp,
     },
@@ -178,8 +213,16 @@ function FleetAlerts() {
     <Page>
       <PageHeader
         title="Alerts"
-        context={<span>Events with a measured exposure to the fleet's declared calls</span>}
-        meta={<span className="num">{events.length} events in the national feed</span>}
+        context={
+          <span>
+            Events with a measured exposure to the fleet's declared calls
+          </span>
+        }
+        meta={
+          <span className="num">
+            {events.length} events in the national feed
+          </span>
+        }
       />
 
       <StatStrip
@@ -193,7 +236,8 @@ function FleetAlerts() {
           },
           {
             label: "Severe",
-            value: onLane.filter((row) => row.event.severity === "severe").length,
+            value: onLane.filter((row) => row.event.severity === "severe")
+              .length,
             tone: "crit",
             note: "as classified by the event expert",
           },
@@ -223,8 +267,15 @@ function FleetAlerts() {
             { value: "all", label: "Whole feed" },
           ]}
         />
-        <SearchInput value={search} onChange={setSearch} placeholder="Filter events" className="w-[260px]" />
-        <span className="num ml-auto text-[11px] text-[var(--text-3)]">{rows.length} shown</span>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filter events"
+          className="w-[260px]"
+        />
+        <span className="num ml-auto text-[11px] text-[var(--text-3)]">
+          {rows.length} shown
+        </span>
       </Toolbar>
 
       <PageBody padded={false} className="flex min-h-0 overflow-hidden">
@@ -257,7 +308,8 @@ function FleetAlerts() {
           >
             {fleetAlerts.length === 0 ? (
               <p className="px-3 py-3 text-[11.5px] leading-snug text-[var(--text-3)]">
-                The decision layer raised no alert at a port this fleet calls at.
+                The decision layer raised no alert at a port this fleet calls
+                at.
               </p>
             ) : (
               <ul>
@@ -267,7 +319,9 @@ function FleetAlerts() {
                     className="border-b border-[var(--line)]/50 px-3 py-2 last:border-0"
                   >
                     <div className="flex items-center gap-2">
-                      <Pill tone={severityTone(alert.severity)}>{alert.severity}</Pill>
+                      <Pill tone={severityTone(alert.severity)}>
+                        {alert.severity}
+                      </Pill>
                       <span className="num ml-auto text-[10px] text-[var(--text-3)]">
                         {alert.portCode}
                       </span>
@@ -292,20 +346,26 @@ function FleetAlerts() {
           >
             <ul>
               {intel.map((row) => (
-                <li key={row.vessel.id} className="border-b border-[var(--line)]/50 last:border-0">
+                <li
+                  key={row.vessel.id}
+                  className="border-b border-[var(--line)]/50 last:border-0"
+                >
                   <Link
                     to="/vessel/$vesselId"
                     params={{ vesselId: row.vessel.id }}
                     className="block px-3 py-2 transition-colors hover:bg-[var(--panel-2)]"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[12px] text-[var(--text)]">{row.vessel.name}</span>
+                      <span className="text-[12px] text-[var(--text)]">
+                        {row.vessel.name}
+                      </span>
                       <Pill tone={row.exposure.length ? "warn" : "ok"}>
                         {row.exposure.length} exposed
                       </Pill>
                     </div>
                     <div className="num mt-0.5 text-[10.5px] text-[var(--text-3)]">
-                      {row.vessel.intendedPortName ?? row.vessel.intendedPortCode}
+                      {row.vessel.intendedPortName ??
+                        row.vessel.intendedPortCode}
                     </div>
                   </Link>
                 </li>

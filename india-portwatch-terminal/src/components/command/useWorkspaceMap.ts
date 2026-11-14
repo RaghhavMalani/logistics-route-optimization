@@ -495,7 +495,9 @@ export function useWorkspaceMap(
   }, []);
   const targetPort = useWorkspaceTarget("port");
   const targetHull = useWorkspaceTarget("hull");
-  const commandSearch = useRouterState({ select: (state) => state.location.searchStr });
+  const commandSearch = useRouterState({
+    select: (state) => state.location.searchStr,
+  });
   const appliedCommand = useRef("");
   useEffect(() => {
     if (appliedCommand.current === commandSearch) return;
@@ -519,7 +521,15 @@ export function useWorkspaceMap(
   const storyPort = portByCode.get("INPRT")?.location;
   useEffect(() => {
     const step = readStory()?.step;
-    if (targetPort || targetHull || storyGlided.current || !storyPort || step == null || ![1, 2, 4, 7].includes(step)) return;
+    if (
+      targetPort ||
+      targetHull ||
+      storyGlided.current ||
+      !storyPort ||
+      step == null ||
+      ![1, 2, 4, 7].includes(step)
+    )
+      return;
     const timer = window.setTimeout(() => {
       storyGlided.current = true;
       flyTo([storyPort.lon, storyPort.lat], step === 2 || step === 4 ? 8.5 : 6);

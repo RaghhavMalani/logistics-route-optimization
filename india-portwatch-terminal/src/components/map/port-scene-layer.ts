@@ -17,7 +17,10 @@ export function portSceneLayer(
   scene: THREE.Scene,
   drawAt: (map: MapLibreMap, model: THREE.Matrix4) => boolean,
   resources: Iterable<THREE.BufferGeometry | THREE.Material>,
-  weather?: (map: MapLibreMap, lighting: ReturnType<typeof createMiniatureLighting>) => boolean,
+  weather?: (
+    map: MapLibreMap,
+    lighting: ReturnType<typeof createMiniatureLighting>,
+  ) => boolean,
   disposeWeather?: () => void,
 ): CustomLayerInterface {
   const camera = new THREE.Camera();

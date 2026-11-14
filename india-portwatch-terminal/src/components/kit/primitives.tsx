@@ -44,8 +44,18 @@ export const TONE_TEXT: Record<Tone, string> = {
 /* ------------------------------------------------------------ formatting -- */
 
 const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 export function formatUtc(iso: string | null | undefined): string {
@@ -116,7 +126,9 @@ export function Num({
     <span className={cn("num", tone && TONE_TEXT[tone], className)}>
       {signed && scaled > 0 ? "+" : ""}
       {scaled.toFixed(digits)}
-      {unit ? <span className="ml-0.5 text-[var(--text-3)]">{unit}</span> : null}
+      {unit ? (
+        <span className="ml-0.5 text-[var(--text-3)]">{unit}</span>
+      ) : null}
     </span>
   );
 }
@@ -136,7 +148,9 @@ export function Delta({
   className?: string;
 }) {
   if (value == null || Number.isNaN(value)) {
-    return <span className={cn("num text-[var(--text-3)]", className)}>n/a</span>;
+    return (
+      <span className={cn("num text-[var(--text-3)]", className)}>n/a</span>
+    );
   }
   const neutral = Math.abs(value) < 1e-9;
   const worse = invert ? value < 0 : value > 0;
@@ -189,7 +203,13 @@ export function Pill({
 }
 
 /** A small square that carries state without taking a whole pill's width. */
-export function Dot({ tone = "neutral", title }: { tone?: Tone; title?: string }) {
+export function Dot({
+  tone = "neutral",
+  title,
+}: {
+  tone?: Tone;
+  title?: string;
+}) {
   return (
     <span
       title={title}
@@ -263,14 +283,20 @@ export function MiniBar({
   height?: number;
   title?: string;
 }) {
-  const pct = value == null || Number.isNaN(value) ? 0 : Math.min(100, Math.max(0, value * 100));
+  const pct =
+    value == null || Number.isNaN(value)
+      ? 0
+      : Math.min(100, Math.max(0, value * 100));
   return (
     <div
       title={title}
       className="w-full overflow-hidden rounded-[1px] bg-[var(--panel-3)]"
       style={{ height }}
     >
-      <div className="h-full" style={{ width: `${pct}%`, background: TONE_VAR[tone] }} />
+      <div
+        className="h-full"
+        style={{ width: `${pct}%`, background: TONE_VAR[tone] }}
+      />
     </div>
   );
 }
@@ -296,8 +322,12 @@ export function KeyValue({
         dense ? "py-[3px]" : "py-1.5",
       )}
     >
-      <span className="min-w-0 truncate text-[11.5px] text-[var(--text-3)]">{label}</span>
-      <span className="shrink-0 text-right text-[12px] text-[var(--text)]">{children}</span>
+      <span className="min-w-0 truncate text-[11.5px] text-[var(--text-3)]">
+        {label}
+      </span>
+      <span className="shrink-0 text-right text-[12px] text-[var(--text)]">
+        {children}
+      </span>
     </div>
   );
 }
@@ -334,7 +364,9 @@ export function riskLabel(risk: string | null | undefined): string {
     case "normal":
       return "Normal";
     default:
-      return risk ? risk.charAt(0).toUpperCase() + risk.slice(1).toLowerCase() : "Normal";
+      return risk
+        ? risk.charAt(0).toUpperCase() + risk.slice(1).toLowerCase()
+        : "Normal";
   }
 }
 

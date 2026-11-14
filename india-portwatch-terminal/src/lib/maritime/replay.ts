@@ -536,7 +536,10 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
   const cyclePosition =
     (((voyage.phase + elapsedHours / voyage.cycleHours) % 1) + 1) % 1;
   const s = voyage.oneWay
-    ? Math.min(voyage.legHours + voyage.stayAtToHours * .5, Math.max(0, voyage.phase * voyage.cycleHours + elapsedHours))
+    ? Math.min(
+        voyage.legHours + voyage.stayAtToHours * 0.5,
+        Math.max(0, voyage.phase * voyage.cycleHours + elapsedHours),
+      )
     : cyclePosition * voyage.cycleHours;
 
   const outboundEnd = voyage.legHours;
@@ -597,7 +600,9 @@ function resolve(voyage: Voyage, at: number, epoch: number): VesselFix {
       progress: fraction,
       travelledKm,
       remainingKm,
-      etaMs: voyage.oneWay ? voyage.declaredEtaMs ?? at + hoursOut * HOUR_MS : at + hoursOut * HOUR_MS,
+      etaMs: voyage.oneWay
+        ? (voyage.declaredEtaMs ?? at + hoursOut * HOUR_MS)
+        : at + hoursOut * HOUR_MS,
       etaMinutes: hoursOut * 60,
       etaKind: "arrival",
       routeKey: outbound
@@ -832,7 +837,8 @@ export function createReplaySource(options: ReplayOptions): TrafficSource {
         voyage.oneWay = true;
         voyage.declaredEtaMs = own.etaMs;
         voyage.legHours = Math.max(voyage.legHours, hoursToEta);
-        voyage.cycleHours = 2 * voyage.legHours + voyage.stayAtToHours + voyage.stayAtFromHours;
+        voyage.cycleHours =
+          2 * voyage.legHours + voyage.stayAtToHours + voyage.stayAtFromHours;
       }
       const arrivalPhase = voyage.legHours / voyage.cycleHours;
       const phase = arrivalPhase - hoursToEta / voyage.cycleHours;

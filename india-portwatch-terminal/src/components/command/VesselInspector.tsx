@@ -389,7 +389,10 @@ export function VesselInspector({
         {destination ? (
           <>
             <Field label="Observed congestion">
-              <CongestionScore value={destination.observedCongestionIndex} history={destination.congestionHistory} />
+              <CongestionScore
+                value={destination.observedCongestionIndex}
+                history={destination.congestionHistory}
+              />
             </Field>
             <Field label="Congestion forecast at arrival">
               <CongestionScore value={congestionOnArrival} />

@@ -161,8 +161,17 @@ export function createTwinWorld(base: PortTwinState) {
   const center = new T.Vector3(mid, 0, inland / 3);
   const cranePennantY = 3 + 30.5 * 4;
   const cranePennantZ = 6 + 6 * 4;
-  const cranePositions = base.cranes.slice(0, 2).map((crane) => new T.Vector3(crane.x, cranePennantY, cranePennantZ));
-  const effects = createPortSceneWeather(scene, center, span, inland, base.seawardBearing + 180, cranePositions);
+  const cranePositions = base.cranes
+    .slice(0, 2)
+    .map((crane) => new T.Vector3(crane.x, cranePennantY, cranePennantZ));
+  const effects = createPortSceneWeather(
+    scene,
+    center,
+    span,
+    inland,
+    base.seawardBearing + 180,
+    cranePositions,
+  );
   lighting.follow(center, span);
 
   const ground = batch("Quay and landside", 20 + base.berths.length * 4);
@@ -708,7 +717,11 @@ export function createTwinWorld(base: PortTwinState) {
     span,
     inland,
     updateWeather(weather: MiniatureWeather | null, motion: boolean) {
-      const { direction, night, animate } = effects.draw(weather, Date.now(), motion);
+      const { direction, night, animate } = effects.draw(
+        weather,
+        Date.now(),
+        motion,
+      );
       lighting.follow(center, span, direction);
       lighting.sun.castShadow = Boolean(direction && !night);
       lighting.sun.intensity = night ? 0.12 : 2.6;

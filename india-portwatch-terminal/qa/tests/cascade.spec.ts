@@ -24,9 +24,11 @@ import {
 /** The GeoJSON the chart last handed the GL context. */
 async function cascadeSource(page: import("@playwright/test").Page) {
   return page.evaluate(() => {
-    const registry = (window as unknown as {
-      __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-    }).__portwatchSources;
+    const registry = (
+      window as unknown as {
+        __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+      }
+    ).__portwatchSources;
     const collection = registry?.cascade;
     if (!collection) return null;
     return {
@@ -48,7 +50,10 @@ async function cascadeSource(page: import("@playwright/test").Page) {
 }
 
 test.describe("the world reacts", () => {
-  test("a live event draws its consequence on the chart", async ({ context, page }) => {
+  test("a live event draws its consequence on the chart", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/global-eye");
     await settle(page);
@@ -58,9 +63,11 @@ test.describe("the world reacts", () => {
     // The reveal is staged, so wait for it to settle rather than racing it.
     await page.waitForFunction(
       () => {
-        const registry = (window as unknown as {
-          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-        }).__portwatchSources;
+        const registry = (
+          window as unknown as {
+            __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+          }
+        ).__portwatchSources;
         return (registry?.cascade?.features.length ?? 0) > 0;
       },
       undefined,
@@ -99,9 +106,11 @@ test.describe("the world reacts", () => {
     await settle(page);
     await page.waitForFunction(
       () => {
-        const registry = (window as unknown as {
-          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-        }).__portwatchSources;
+        const registry = (
+          window as unknown as {
+            __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+          }
+        ).__portwatchSources;
         return (registry?.cascade?.features.length ?? 0) > 0;
       },
       undefined,
@@ -121,8 +130,9 @@ test.describe("the world reacts", () => {
     // Every ring the chart drew names a chokepoint or a port the cascade reached.
     const apiSubjects = new Set([
       ...cascade.affected.ports.map((p) => p.id),
-      ...(cascade.affected as unknown as { chokepoints: Array<{ id: string }> })
-        .chokepoints.map((c) => c.id),
+      ...(
+        cascade.affected as unknown as { chokepoints: Array<{ id: string }> }
+      ).chokepoints.map((c) => c.id),
     ]);
     for (const id of new Set(drawn!.portCodes)) {
       expect(apiSubjects).toContain(id);
@@ -196,9 +206,11 @@ test.describe("project 72h", () => {
     await settle(page);
     await page.waitForFunction(
       () => {
-        const registry = (window as unknown as {
-          __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
-        }).__portwatchSources;
+        const registry = (
+          window as unknown as {
+            __portwatchSources?: Record<string, GeoJSON.FeatureCollection>;
+          }
+        ).__portwatchSources;
         return (registry?.cascade?.features.length ?? 0) > 0;
       },
       undefined,
@@ -207,9 +219,13 @@ test.describe("project 72h", () => {
 
     const before = await cascadeSource(page);
     expect(before!.total).toBeGreaterThan(0);
-    await expect(page.getByTestId("projection-state")).toContainText("propagating");
+    await expect(page.getByTestId("projection-state")).toContainText(
+      "propagating",
+    );
 
-    await page.locator('[data-testid="projection-offset"][data-offset="72"]').click();
+    await page
+      .locator('[data-testid="projection-offset"][data-offset="72"]')
+      .click();
     await settle(page);
 
     await expect(
@@ -227,7 +243,9 @@ test.describe("project 72h", () => {
 
     for (const offset of ["0", "3", "6", "12", "24", "48", "72"]) {
       await expect(
-        page.locator(`[data-testid="projection-offset"][data-offset="${offset}"]`),
+        page.locator(
+          `[data-testid="projection-offset"][data-offset="${offset}"]`,
+        ),
       ).toBeVisible();
     }
   });
@@ -264,7 +282,10 @@ test.describe("evidence mode", () => {
     await expect(steps.first()).toContainText(/reaches|becomes|shift/);
   });
 
-  test("the drawer states what it could not compute", async ({ context, page }) => {
+  test("the drawer states what it could not compute", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "PORT_AUTHORITY");
     await page.goto("/port/global-eye");
     await settle(page);

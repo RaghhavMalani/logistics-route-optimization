@@ -3,14 +3,28 @@ import { PortCameraPanel } from "@/components/intelligence/CapabilityPanels";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { BarRanking, ColumnChart, SeriesChart } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
-import { KeyValue, Num, ProvenanceTag, formatDate, formatUtc } from "@/components/kit/primitives";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
+import {
+  KeyValue,
+  Num,
+  ProvenanceTag,
+  formatDate,
+  formatUtc,
+} from "@/components/kit/primitives";
 import { ScreenFallback } from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { useChain, useForecast } from "@/services/hooks";
 import type { PortSnapshot } from "@/types/portwatch";
 
-export const Route = createFileRoute("/port/operations")({ component: PortOperations });
+export const Route = createFileRoute("/port/operations")({
+  component: PortOperations,
+});
 
 /** Peer comparison row: this port against the rest of the network. */
 interface PeerRow {
@@ -44,7 +58,9 @@ function PortOperations() {
         error={
           query.error ??
           chain.error ??
-          (port && chain.data ? null : new Error("No observed state for this port."))
+          (port && chain.data
+            ? null
+            : new Error("No observed state for this port."))
         }
         retry={() => void chain.refetch()}
         label="Loading operational state"
@@ -72,7 +88,9 @@ function PortOperations() {
       key: "name",
       header: "Port",
       render: (row) => (
-        <span className={row.isSelf ? "font-medium text-[var(--text)]" : ""}>{row.name}</span>
+        <span className={row.isSelf ? "font-medium text-[var(--text)]" : ""}>
+          {row.name}
+        </span>
       ),
       sort: (row) => row.name,
     },
@@ -105,7 +123,9 @@ function PortOperations() {
       header: "Utilisation",
       align: "right",
       width: 104,
-      render: (row) => <Num value={row.utilisation} digits={0} scale={100} unit="%" />,
+      render: (row) => (
+        <Num value={row.utilisation} digits={0} scale={100} unit="%" />
+      ),
       sort: (row) => row.utilisation,
     },
     {
@@ -154,7 +174,10 @@ function PortOperations() {
         meta={
           <>
             <span className="num">observed {formatUtc(state.observedAt)}</span>
-            <ProvenanceTag status={state.dataStatus} ageHours={state.dataAgeHours} />
+            <ProvenanceTag
+              status={state.dataStatus}
+              ageHours={state.dataAgeHours}
+            />
           </>
         }
         actions={<PortSwitcher />}
@@ -176,7 +199,10 @@ function PortOperations() {
           },
           {
             label: "Berth utilisation",
-            value: state.utilization != null ? `${(state.utilization * 100).toFixed(0)}%` : "n/a",
+            value:
+              state.utilization != null
+                ? `${(state.utilization * 100).toFixed(0)}%`
+                : "n/a",
             note: `capacity pressure ${state.capacityPressure?.toFixed(2) ?? "n/a"}`,
           },
           {
@@ -224,8 +250,8 @@ function PortOperations() {
                 ]}
               />
               <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                Observed pressure at the berth line, not a forecast. The forecast band
-                for the same port is on the Forecast screen.
+                Observed pressure at the berth line, not a forecast. The
+                forecast band for the same port is on the Forecast screen.
               </p>
             </div>
           </Panel>
@@ -297,8 +323,8 @@ function PortOperations() {
                 valueFormatter={(value) => value.toFixed(2)}
               />
               <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                Bounded 0–1 specialist features, exactly as the forecast model consumed
-                them for this port on {formatDate(state.observedAt)}.
+                Bounded 0–1 specialist features, exactly as the forecast model
+                consumed them for this port on {formatDate(state.observedAt)}.
               </p>
             </div>
           </Panel>

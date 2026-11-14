@@ -591,7 +591,10 @@ export function MaritimeMap({
       Math.abs(center.lng - view.center[0]) < 0.000001 &&
       Math.abs(center.lat - view.center[1]) < 0.000001 &&
       instance.getZoom() === view.zoom &&
-      !padding.top && !padding.right && !padding.bottom && !padding.left
+      !padding.top &&
+      !padding.right &&
+      !padding.bottom &&
+      !padding.left
     )
       return;
     instance.easeTo({
@@ -863,12 +866,19 @@ export function MaritimeMap({
       for (const overlay of container.parentElement?.querySelectorAll<HTMLElement>(
         "[data-map-camera-inset], [data-map-label-occluder]",
       ) ?? []) {
-        const obstacles = overlay.dataset.mapLabelOccluder === "children" ? [...overlay.children] : [overlay];
+        const obstacles =
+          overlay.dataset.mapLabelOccluder === "children"
+            ? [...overlay.children]
+            : [overlay];
         for (const obstacle of obstacles) {
           const rect = obstacle.getBoundingClientRect();
           if (rect.width && rect.height) {
-            boxes.push([rect.left - frame.left - 3, rect.top - frame.top - 3,
-              rect.right - frame.left + 3, rect.bottom - frame.top + 3]);
+            boxes.push([
+              rect.left - frame.left - 3,
+              rect.top - frame.top - 3,
+              rect.right - frame.left + 3,
+              rect.bottom - frame.top + 3,
+            ]);
           }
         }
       }
@@ -879,7 +889,13 @@ export function MaritimeMap({
           x + width,
           y + height / 2,
         ];
-        if (box[0] < 6 || box[1] < 6 || box[2] > frameW - 6 || box[3] > frameH - 6) return false;
+        if (
+          box[0] < 6 ||
+          box[1] < 6 ||
+          box[2] > frameW - 6 ||
+          box[3] > frameH - 6
+        )
+          return false;
         for (const other of boxes) {
           if (
             box[0] < other[2] &&
@@ -902,7 +918,8 @@ export function MaritimeMap({
         )
         .map((label) => project(label.lon, label.lat))
         .filter(inFrame);
-      for (const { x, y } of markerPoints) boxes.push([x - 6, y - 6, x + 6, y + 6]);
+      for (const { x, y } of markerPoints)
+        boxes.push([x - 6, y - 6, x + 6, y + 6]);
       for (const label of [...settings.current.labels].sort(
         (a, b) =>
           Number(b.id === active?.code) - Number(a.id === active?.code) ||
@@ -914,7 +931,10 @@ export function MaritimeMap({
         if (portLabel && !settings.current.portsOn) continue;
         const isSchematic = active?.code === label.id;
         const width = Math.max(
-          14 + label.text.length * 6.2 + (label.sub?.length ?? 0) * 5.2 + (isSchematic ? 65 : 0),
+          14 +
+            label.text.length * 6.2 +
+            (label.sub?.length ?? 0) * 5.2 +
+            (isSchematic ? 65 : 0),
           isSchematic ? 10 + active.weatherLabel.length * 5.6 : 0,
         );
         const height = isSchematic ? 28 : 14;
@@ -922,41 +942,56 @@ export function MaritimeMap({
         const right = point.x + 12;
         const above = point.y - 10 - height / 2;
         const below = point.y + 10 + height / 2;
-        const centered = Math.max(6, Math.min(frameW - width - 6, point.x - width / 2));
+        const centered = Math.max(
+          6,
+          Math.min(frameW - width - 6, point.x - width / 2),
+        );
         const candidates = [
-          [right, point.y - 11], [left, point.y - 11],
-          [centered, above], [centered, below],
-          [right, below + 8], [left, below + 8],
-          [centered, below + 23], [centered, above - 23],
+          [right, point.y - 11],
+          [left, point.y - 11],
+          [centered, above],
+          [centered, below],
+          [right, below + 8],
+          [left, below + 8],
+          [centered, below + 23],
+          [centered, above - 23],
         ];
         if (isSchematic) {
           const inland = instance.project(schematicAnchor(active, currentZoom));
           const dx = inland.x - point.x;
           const dy = inland.y - point.y;
-          const seaward = Math.abs(dx) >= 0.6 * Math.abs(dy)
-            ? [dx >= 0 ? left : right, point.y - 10]
-            : [centered, dy >= 0 ? above : below];
+          const seaward =
+            Math.abs(dx) >= 0.6 * Math.abs(dy)
+              ? [dx >= 0 ? left : right, point.y - 10]
+              : [centered, dy >= 0 ? above : below];
           candidates.unshift(seaward);
         }
         const position = candidates.find(([x, y]) => fits(x, y, width, height));
-        if (position) placedLabels.push({ label, x: position[0], y: position[1] });
+        if (position)
+          placedLabels.push({ label, x: position[0], y: position[1] });
       }
 
       // No traffic, no traffic names: a chart whose hulls are hidden must not
       // keep naming them.
       const placedVessels: Overlay["vessels"] = [];
       for (const label of settings.current.trafficOn
-        ? [...(latest?.labels ?? [])].sort((a, b) => Number(b.emphasis ?? false) - Number(a.emphasis ?? false))
+        ? [...(latest?.labels ?? [])].sort(
+            (a, b) => Number(b.emphasis ?? false) - Number(a.emphasis ?? false),
+          )
         : []) {
         const point = project(label.lon, label.lat);
         if (!inFrame(point)) continue;
-        const width = 12 + label.text.length * 6 + (label.sub?.length ?? 0) * 5.6;
+        const width =
+          12 + label.text.length * 6 + (label.sub?.length ?? 0) * 5.6;
         const positions = [
-          [point.x + 9, point.y - 9], [point.x - width - 9, point.y - 9],
-          [point.x + 9, point.y + 12], [point.x - width - 9, point.y + 12],
+          [point.x + 9, point.y - 9],
+          [point.x - width - 9, point.y - 9],
+          [point.x + 9, point.y + 12],
+          [point.x - width - 9, point.y + 12],
         ];
         const position = positions.find(([x, y]) => fits(x, y, width, 12));
-        if (position) placedVessels.push({ label, x: position[0], y: position[1] });
+        if (position)
+          placedVessels.push({ label, x: position[0], y: position[1] });
       }
 
       const placedClusters: Overlay["clusters"] = [];
@@ -969,7 +1004,9 @@ export function MaritimeMap({
         const y = [point.y, point.y - 13, point.y + 13].find(
           (top) =>
             inFrame({ x: point.x, y: top }) &&
-            !markerPoints.some((port) => Math.hypot(port.x - point.x, port.y - top) < 18) &&
+            !markerPoints.some(
+              (port) => Math.hypot(port.x - point.x, port.y - top) < 18,
+            ) &&
             fits(point.x - width / 2, top, width),
         );
         if (y !== undefined) placedClusters.push({ mark, x: point.x, y });
@@ -979,7 +1016,9 @@ export function MaritimeMap({
         .map((sea) => ({ sea, point: project(sea.lon, sea.lat) }))
         .filter(({ sea, point }) => {
           const width = sea.name.length * 8.5;
-          return inFrame(point) && fits(point.x - width / 2, point.y, width, 15);
+          return (
+            inFrame(point) && fits(point.x - width / 2, point.y, width, 15)
+          );
         })
         .map(({ sea, point }) => ({
           id: sea.id,
@@ -1040,10 +1079,14 @@ export function MaritimeMap({
     const stopMotion = () => {
       if (motion.matches) instance.stop();
     };
-    const occlusion = new ResizeObserver(() => { overlayDirty = true; });
-    const occluders = instance.getContainer().parentElement?.querySelectorAll(
-      "[data-map-camera-inset], [data-map-label-occluder]",
-    );
+    const occlusion = new ResizeObserver(() => {
+      overlayDirty = true;
+    });
+    const occluders = instance
+      .getContainer()
+      .parentElement?.querySelectorAll(
+        "[data-map-camera-inset], [data-map-label-occluder]",
+      );
     for (const element of occluders ?? []) occlusion.observe(element);
     instance.on("move", invalidate);
     instance.on("resize", invalidate);

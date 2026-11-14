@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   MiniBar,
@@ -9,15 +15,27 @@ import {
   ProvenanceTag,
   formatUtc,
 } from "@/components/kit/primitives";
-import { EmptyState, LoadingPanel, ScreenFallback } from "@/components/kit/states";
+import {
+  EmptyState,
+  LoadingPanel,
+  ScreenFallback,
+} from "@/components/kit/states";
 import { DataTable, type Column } from "@/components/kit/table";
 import { ContextMap } from "@/components/command/ContextMap";
 import { TrafficFilters } from "@/components/command/TrafficFilters";
 import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
-import { useFeedAdapters, useNews, usePorts, useVessels, useWeather } from "@/services/hooks";
+import {
+  useFeedAdapters,
+  useNews,
+  usePorts,
+  useVessels,
+  useWeather,
+} from "@/services/hooks";
 import type { FeedAdapter, VesselActivity } from "@/types/portwatch";
 
-export const Route = createFileRoute("/admin/vessels")({ component: AdminVessels });
+export const Route = createFileRoute("/admin/vessels")({
+  component: AdminVessels,
+});
 
 function AdminVessels() {
   const vessels = useVessels();
@@ -25,13 +43,19 @@ function AdminVessels() {
   const ports = usePorts();
   const weather = useWeather();
   const news = useNews();
-  const workspace = useWorkspaceMap({ layerOverrides: { events: false, corridors: true } });
+  const workspace = useWorkspaceMap({
+    layerOverrides: { events: false, corridors: true },
+  });
 
   if (vessels.isLoading || vessels.isError) {
     return (
       <ScreenFallback
         title="Vessels"
-        context={<span>Satellite-AIS activity at the berth line, and the feeds behind it</span>}
+        context={
+          <span>
+            Satellite-AIS activity at the berth line, and the feeds behind it
+          </span>
+        }
         isLoading={vessels.isLoading}
         error={vessels.error}
         retry={() => void vessels.refetch()}
@@ -41,10 +65,17 @@ function AdminVessels() {
   }
 
   const rows = vessels.data?.vessels ?? [];
-  const totalCalls = rows.reduce((sum, row) => sum + (row.dailyPortCalls ?? 0), 0);
-  const totalQueue = rows.reduce((sum, row) => sum + (row.queueBuildup ?? 0), 0);
+  const totalCalls = rows.reduce(
+    (sum, row) => sum + (row.dailyPortCalls ?? 0),
+    0,
+  );
+  const totalQueue = rows.reduce(
+    (sum, row) => sum + (row.queueBuildup ?? 0),
+    0,
+  );
   const worst = rows.reduce<VesselActivity | null>(
-    (peak, row) => (!peak || row.queuePressure > peak.queuePressure ? row : peak),
+    (peak, row) =>
+      !peak || row.queuePressure > peak.queuePressure ? row : peak,
     null,
   );
 
@@ -59,7 +90,9 @@ function AdminVessels() {
       key: "code",
       header: "LOCODE",
       width: 100,
-      render: (row) => <span className="num text-[var(--text-3)]">{row.portCode}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.portCode}</span>
+      ),
       sort: (row) => row.portCode,
     },
     {
@@ -96,7 +129,13 @@ function AdminVessels() {
           <span className="w-10">
             <MiniBar
               value={row.queuePressure}
-              tone={row.queuePressure >= 0.65 ? "crit" : row.queuePressure >= 0.4 ? "warn" : "info"}
+              tone={
+                row.queuePressure >= 0.65
+                  ? "crit"
+                  : row.queuePressure >= 0.4
+                    ? "warn"
+                    : "info"
+              }
             />
           </span>
           <Num value={row.queuePressure} digits={2} />
@@ -117,7 +156,11 @@ function AdminVessels() {
       header: "Observed",
       align: "right",
       width: 124,
-      render: (row) => <span className="num text-[var(--text-3)]">{formatUtc(row.observedAt)}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">
+          {formatUtc(row.observedAt)}
+        </span>
+      ),
       sort: (row) => row.observedAt,
     },
   ];
@@ -133,21 +176,27 @@ function AdminVessels() {
       key: "provider",
       header: "Provider",
       width: 200,
-      render: (row) => <span className="text-[var(--text-3)]">{row.provider}</span>,
+      render: (row) => (
+        <span className="text-[var(--text-3)]">{row.provider}</span>
+      ),
       sort: (row) => row.provider,
     },
     {
       key: "granularity",
       header: "Granularity",
       width: 168,
-      render: (row) => <span className="num text-[var(--text-3)]">{row.granularity}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.granularity}</span>
+      ),
       sort: (row) => row.granularity,
     },
     {
       key: "status",
       header: "Status",
       width: 124,
-      render: (row) => <ProvenanceTag status={row.status} ageHours={row.ageHours} />,
+      render: (row) => (
+        <ProvenanceTag status={row.status} ageHours={row.ageHours} />
+      ),
       sort: (row) => row.status,
     },
     {
@@ -163,7 +212,11 @@ function AdminVessels() {
       header: "Observed",
       align: "right",
       width: 124,
-      render: (row) => <span className="num text-[var(--text-3)]">{formatUtc(row.observedAt)}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">
+          {formatUtc(row.observedAt)}
+        </span>
+      ),
       sort: (row) => row.observedAt,
     },
   ];
@@ -172,14 +225,26 @@ function AdminVessels() {
     <Page>
       <PageHeader
         title="Vessels"
-        context={<span>Satellite-AIS activity at the berth line, and the feeds behind it</span>}
-        meta={<span className="num">observed {formatUtc(vessels.data?.observedAt ?? null)}</span>}
+        context={
+          <span>
+            Satellite-AIS activity at the berth line, and the feeds behind it
+          </span>
+        }
+        meta={
+          <span className="num">
+            observed {formatUtc(vessels.data?.observedAt ?? null)}
+          </span>
+        }
       />
 
       <StatStrip
         size="sm"
         items={[
-          { label: "Ports reporting", value: rows.length, note: "with an AIS activity row" },
+          {
+            label: "Ports reporting",
+            value: rows.length,
+            note: "with an AIS activity row",
+          },
           {
             label: "Daily port calls",
             value: totalCalls.toFixed(0),
@@ -211,9 +276,11 @@ function AdminVessels() {
             workspace={workspace}
             note={
               <>
-                Vessel positions are <span className="text-[var(--unc)]">SIMULATED</span> by the
-                replay engine. The table below is measured satellite-AIS activity at the berth
-                line, which is a different thing and is the only AIS this deployment has.
+                Vessel positions are{" "}
+                <span className="text-[var(--unc)]">SIMULATED</span> by the
+                replay engine. The table below is measured satellite-AIS
+                activity at the berth line, which is a different thing and is
+                the only AIS this deployment has.
               </>
             }
             overlay={
@@ -238,7 +305,8 @@ function AdminVessels() {
               onRowClick={(row) => {
                 workspace.setSelectedPortCode(row.portCode);
                 const port = workspace.portByCode.get(row.portCode);
-                if (port?.location) workspace.flyTo([port.location.lon, port.location.lat], 7);
+                if (port?.location)
+                  workspace.flyTo([port.location.lon, port.location.lat], 7);
               }}
               initialSort="pressure"
             />

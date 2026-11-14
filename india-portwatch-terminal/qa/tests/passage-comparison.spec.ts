@@ -1103,7 +1103,8 @@ test("supported passage is result-first, selection stays connected and each tab/
   );
 
   await panel.getByRole("tab", { name: "Options", exact: false }).click();
-  await panel.getByRole("button", { name: "Continue to Decide", exact: true })
+  await panel
+    .getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
   await expect(panel.getByTestId("decision-review")).toHaveCount(0);
   const approve = panel.getByTestId("decision-approve");
@@ -1111,7 +1112,10 @@ test("supported passage is result-first, selection stays connected and each tab/
   await notCovered(approve);
   const writesBeforeConfirmation = store.writes.length;
   await approve.click();
-  await expect.poll(() => store.writes.slice(writesBeforeConfirmation).map((write) => write.target))
+  await expect
+    .poll(() =>
+      store.writes.slice(writesBeforeConfirmation).map((write) => write.target),
+    )
     .toEqual(["REVIEWED", "APPROVED"]);
   expect(
     store.writes.find((write) => write.target === "APPROVED")?.optionId,
@@ -1158,7 +1162,8 @@ test("lower modeled fuel cannot hide a declared deadline rejection", async ({
   });
   await expect(current).toBeEnabled();
   await current.click();
-  await panel.getByRole("button", { name: "Continue to Decide", exact: true })
+  await panel
+    .getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
   await expect(panel.getByTestId("decision-approve")).toHaveText(
     "Approve current plan",
@@ -1214,7 +1219,8 @@ test("insufficient approach coverage cannot invent a recommendation or enable ap
       exact: true,
     }),
   ).toBeDisabled();
-  await panel.getByRole("button", { name: "Continue to Decide", exact: true })
+  await panel
+    .getByRole("button", { name: "Continue to Decide", exact: true })
     .click();
   await expect(panel.getByTestId("decision-approve")).toBeDisabled();
 });
@@ -1464,12 +1470,16 @@ for (const version of ["v1", "v2"] as const) {
         exact: true,
       })
       .click();
-    await expect(editor.getByRole("alert").filter({ hasText: "Retained evidence expired" })).toContainText(
-      "Retained evidence expired",
-    );
-    await expect(editor.getByRole("alert").filter({ hasText: "Retained evidence expired" })).toContainText(
-      "archived forecasts are never re-dated",
-    );
+    await expect(
+      editor
+        .getByRole("alert")
+        .filter({ hasText: "Retained evidence expired" }),
+    ).toContainText("Retained evidence expired");
+    await expect(
+      editor
+        .getByRole("alert")
+        .filter({ hasText: "Retained evidence expired" }),
+    ).toContainText("archived forecasts are never re-dated");
     expect(JSON.stringify(store.current.evidence)).toBe(evidenceBefore);
     await page.keyboard.press("Escape");
     await expect(editor).toBeHidden();

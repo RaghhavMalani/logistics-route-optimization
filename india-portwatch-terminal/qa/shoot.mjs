@@ -103,7 +103,12 @@ for (const { w, h } of SIZES) {
         window.localStorage.setItem(key, value);
         window.localStorage.setItem(viewKey, JSON.stringify(role));
       },
-      ["portwatch.session.v1", JSON.stringify(session(ROLE)), "portwatch.viewAs.v1", ROLE],
+      [
+        "portwatch.session.v1",
+        JSON.stringify(session(ROLE)),
+        "portwatch.viewAs.v1",
+        ROLE,
+      ],
     );
   }
 
@@ -112,7 +117,9 @@ for (const { w, h } of SIZES) {
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(m.text().slice(0, 260));
   });
-  page.on("pageerror", (e) => errors.push(`pageerror: ${String(e).slice(0, 260)}`));
+  page.on("pageerror", (e) =>
+    errors.push(`pageerror: ${String(e).slice(0, 260)}`),
+  );
   page.on("requestfailed", (r) => {
     const text = r.failure()?.errorText ?? "";
     if (text.includes("ERR_ABORTED")) return;
@@ -128,7 +135,8 @@ for (const { w, h } of SIZES) {
     // gate renders server-side and only resolves once effects run.
     await page
       .waitForFunction(
-        () => !/Restoring session|Checking session/i.test(document.body.innerText),
+        () =>
+          !/Restoring session|Checking session/i.test(document.body.innerText),
         undefined,
         { timeout: 20000 },
       )
@@ -136,7 +144,9 @@ for (const { w, h } of SIZES) {
     await page.waitForTimeout(SETTLE);
     await page.screenshot({ path: `${OUT}/${name}-${w}x${h}.png` });
     const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
     );
     report.push({
       route: path,

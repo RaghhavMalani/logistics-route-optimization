@@ -2,7 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getApi, type ApiResponse } from "@/services/api-client";
 
-type SourceStatus = ApiResponse<"/api/public/sources", "get">["sources"][number]["status"];
+type SourceStatus = ApiResponse<
+  "/api/public/sources",
+  "get"
+>["sources"][number]["status"];
 
 export const sourceStatusLabel: Record<SourceStatus, string> = {
   live: "Current",

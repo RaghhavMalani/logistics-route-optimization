@@ -143,6 +143,8 @@ jobs:
         run: npm run api:check
       - name: Typecheck
         run: npm run typecheck
+      - name: Lint terminal
+        run: npm run lint
       - name: Build
         run: npm run build
 

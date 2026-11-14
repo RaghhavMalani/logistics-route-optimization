@@ -16,7 +16,9 @@ function recentObservations(history: HistoryPoint[]) {
 }
 
 export function CongestionScore({
-  value, history = [], compact = false,
+  value,
+  history = [],
+  compact = false,
 }: {
   value: number | null | undefined;
   history?: HistoryPoint[];
@@ -29,14 +31,34 @@ export function CongestionScore({
     ? `Observed congestion, available observations from the seven days through ${new Date(latest[0]).toISOString().slice(0, 10)}`
     : undefined;
   return (
-    <span title={portPressureBasis} className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
-      <span className="num whitespace-nowrap">{value.toFixed(1)} / 100 pts</span>
-      <span className={compact ? "text-xs text-[var(--text-3)]" : "whitespace-nowrap text-[var(--text-3)]"}>
+    <span
+      title={portPressureBasis}
+      className="inline-flex flex-wrap items-center justify-end gap-x-1.5"
+    >
+      <span className="num whitespace-nowrap">
+        {value.toFixed(1)} / 100 pts
+      </span>
+      <span
+        className={
+          compact
+            ? "text-xs text-[var(--text-3)]"
+            : "whitespace-nowrap text-[var(--text-3)]"
+        }
+      >
         {portPressureBand(value)}
       </span>
       {observations.length > 1 && (
-        <span title={description} aria-label={description} role="img" className="inline-block w-12">
-          <Sparkline data={observations.map(([, score]) => score)} height={14} fill={false} />
+        <span
+          title={description}
+          aria-label={description}
+          role="img"
+          className="inline-block w-12"
+        >
+          <Sparkline
+            data={observations.map(([, score]) => score)}
+            height={14}
+            fill={false}
+          />
         </span>
       )}
     </span>
@@ -44,17 +66,29 @@ export function CongestionScore({
 }
 
 export function CongestionForecastBand({
-  low, high,
+  low,
+  high,
 }: {
   low: number | null | undefined;
   high: number | null | undefined;
 }) {
-  if (low == null || high == null || !Number.isFinite(low) || !Number.isFinite(high)) return <span>—</span>;
+  if (
+    low == null ||
+    high == null ||
+    !Number.isFinite(low) ||
+    !Number.isFinite(high)
+  )
+    return <span>—</span>;
   const start = portPressureBand(low);
   const end = portPressureBand(high);
   return (
-    <span title={portPressureBasis} className="inline-flex flex-wrap justify-end gap-x-1.5">
-      <span className="num whitespace-nowrap">{low.toFixed(0)}–{high.toFixed(0)} / 100 pts</span>
+    <span
+      title={portPressureBasis}
+      className="inline-flex flex-wrap justify-end gap-x-1.5"
+    >
+      <span className="num whitespace-nowrap">
+        {low.toFixed(0)}–{high.toFixed(0)} / 100 pts
+      </span>
       <span className="whitespace-nowrap text-[var(--text-3)]">
         {start === end ? start : `${start}–${end}`}
       </span>

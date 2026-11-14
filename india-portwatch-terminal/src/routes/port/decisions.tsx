@@ -3,7 +3,13 @@ import { useState } from "react";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { BarRanking } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   MiniBar,
@@ -18,7 +24,9 @@ import { useDecision, useFleet, useForecast, useNews } from "@/services/hooks";
 import { cn } from "@/lib/utils";
 import type { Decision, FleetRow } from "@/types/portwatch";
 
-export const Route = createFileRoute("/port/decisions")({ component: PortDecisions });
+export const Route = createFileRoute("/port/decisions")({
+  component: PortDecisions,
+});
 
 /** One row of the action queue, whatever produced it. */
 interface QueueItem {
@@ -52,14 +60,23 @@ function humaniseAction(code: string): string {
     .map((word, index) => {
       if (ACRONYMS.has(word)) return word;
       const lower = word.toLowerCase();
-      return index === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+      return index === 0
+        ? lower.charAt(0).toUpperCase() + lower.slice(1)
+        : lower;
     })
     .join(" ");
 }
 
 function buildQueue(
   decision: Decision | undefined,
-  alerts: Array<{ id: string; severity: string; text: string; action: string; priority: number | null; confidence: number | null }>,
+  alerts: Array<{
+    id: string;
+    severity: string;
+    text: string;
+    action: string;
+    priority: number | null;
+    confidence: number | null;
+  }>,
 ): QueueItem[] {
   const items: QueueItem[] = [];
 
@@ -84,8 +101,18 @@ function buildQueue(
       items.push({
         id: `${decision.id}-d${step.horizonDay}`,
         rank: 0,
-        severity: step.priority >= 0.6 ? "high" : step.priority >= 0.35 ? "medium" : "watch",
-        tone: step.priority >= 0.6 ? "warn" : step.priority >= 0.35 ? "info" : "neutral",
+        severity:
+          step.priority >= 0.6
+            ? "high"
+            : step.priority >= 0.35
+              ? "medium"
+              : "watch",
+        tone:
+          step.priority >= 0.6
+            ? "warn"
+            : step.priority >= 0.35
+              ? "info"
+              : "neutral",
         title: humaniseAction(step.action),
         action: step.action,
         horizon: `day ${step.horizonDay}${step.targetDate ? ` · ${step.targetDate.slice(0, 10)}` : ""}`,
@@ -140,14 +167,18 @@ function PortDecisions() {
     );
   }
 
-  const alerts = (news.data?.alerts ?? []).filter((alert) => alert.portCode === port.code);
+  const alerts = (news.data?.alerts ?? []).filter(
+    (alert) => alert.portCode === port.code,
+  );
   const queue = buildQueue(decision.data, alerts);
-  const active = queue.find((item) => item.id === selectedId) ?? queue[0] ?? null;
+  const active =
+    queue.find((item) => item.id === selectedId) ?? queue[0] ?? null;
   const primary = decision.data;
 
   const affected: FleetRow[] = (fleet.data ?? []).filter(
     (vessel) =>
-      vessel.intendedPortCode === port.code || vessel.recommendedPortCode === port.code,
+      vessel.intendedPortCode === port.code ||
+      vessel.recommendedPortCode === port.code,
   );
 
   const horizonRow =
@@ -168,8 +199,12 @@ function PortDecisions() {
         }
         meta={
           <>
-            <span className="num">origin {formatUtc(primary?.originDate ?? null)}</span>
-            <span className="num">{primary?.source ?? "no decision artefact"}</span>
+            <span className="num">
+              origin {formatUtc(primary?.originDate ?? null)}
+            </span>
+            <span className="num">
+              {primary?.source ?? "no decision artefact"}
+            </span>
           </>
         }
         actions={<PortSwitcher />}
@@ -199,13 +234,16 @@ function PortDecisions() {
           },
           {
             label: "Decision confidence",
-            value: primary ? `${(primary.confidence * 100).toFixed(0)}%` : "n/a",
+            value: primary
+              ? `${(primary.confidence * 100).toFixed(0)}%`
+              : "n/a",
             note: `uncertainty ${primary?.uncertainty?.toFixed(2) ?? "n/a"}`,
           },
           {
             label: "P(congestion)",
             value: primary?.congestionProbability?.toFixed(3) ?? "n/a",
-            tone: (primary?.congestionProbability ?? 0) >= 0.5 ? "warn" : "info",
+            tone:
+              (primary?.congestionProbability ?? 0) >= 0.5 ? "warn" : "info",
             note: `entry risk ${primary?.portEntryRisk ?? "n/a"}`,
           },
         ]}
@@ -229,7 +267,9 @@ function PortDecisions() {
                       onClick={() => setSelectedId(item.id)}
                       className={cn(
                         "flex w-full items-start gap-3 border-b border-[var(--line)] px-4 py-3 text-left transition-colors",
-                        selected ? "bg-[var(--panel-2)]" : "hover:bg-[var(--panel)]",
+                        selected
+                          ? "bg-[var(--panel-2)]"
+                          : "hover:bg-[var(--panel)]",
                       )}
                     >
                       <span
@@ -253,7 +293,9 @@ function PortDecisions() {
                         <span className="num mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10.5px] text-[var(--text-3)]">
                           <span>{item.action}</span>
                           <span>{item.horizon}</span>
-                          <span>priority {item.priority?.toFixed(2) ?? "n/a"}</span>
+                          <span>
+                            priority {item.priority?.toFixed(2) ?? "n/a"}
+                          </span>
                           {item.confidence != null ? (
                             <span>confidence {item.confidence.toFixed(2)}</span>
                           ) : null}
@@ -286,7 +328,9 @@ function PortDecisions() {
                     <Pill tone={active.tone} solid>
                       {active.severity}
                     </Pill>
-                    <span className="num text-[11px] text-[var(--text-3)]">{active.horizon}</span>
+                    <span className="num text-[11px] text-[var(--text-3)]">
+                      {active.horizon}
+                    </span>
                   </div>
                   <h2 className="text-[15px] font-medium leading-snug text-[var(--text)]">
                     {active.title}
@@ -297,13 +341,26 @@ function PortDecisions() {
                 </div>
               </Panel>
 
-              <Panel title="Expected impact" className="shrink-0 rounded-none border-x-0 border-t-0">
+              <Panel
+                title="Expected impact"
+                className="shrink-0 rounded-none border-x-0 border-t-0"
+              >
                 <div className="px-3 py-2">
                   <KeyValue label="Expected delay saved" dense>
-                    <Num value={primary.expectedDelaySavedHours} unit="h" tone="ok" />
+                    <Num
+                      value={primary.expectedDelaySavedHours}
+                      unit="h"
+                      tone="ok"
+                    />
                   </KeyValue>
                   <KeyValue label="Congestion probability" dense>
-                    <Num value={active.congestionProbability ?? primary.congestionProbability} digits={3} />
+                    <Num
+                      value={
+                        active.congestionProbability ??
+                        primary.congestionProbability
+                      }
+                      digits={3}
+                    />
                   </KeyValue>
                   <KeyValue label="Decision confidence" dense>
                     <Num value={primary.confidence} digits={2} />
@@ -319,7 +376,8 @@ function PortDecisions() {
                       <span className="num">
                         {horizonRow.q50.toFixed(1)}
                         <span className="ml-1 text-[10px] text-[var(--text-3)]">
-                          {horizonRow.q10.toFixed(0)}–{horizonRow.q90.toFixed(0)}
+                          {horizonRow.q10.toFixed(0)}–
+                          {horizonRow.q90.toFixed(0)}
                         </span>
                       </span>
                     </KeyValue>
@@ -330,7 +388,10 @@ function PortDecisions() {
                 </div>
               </Panel>
 
-              <Panel title="Why" className="shrink-0 rounded-none border-x-0 border-t-0">
+              <Panel
+                title="Why"
+                className="shrink-0 rounded-none border-x-0 border-t-0"
+              >
                 <div className="p-3">
                   <BarRanking
                     items={primary.topDrivers.map((driver) => ({
@@ -340,12 +401,16 @@ function PortDecisions() {
                     }))}
                   />
                   <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                    Ranked driver contributions from the decision cascade, largest first.
+                    Ranked driver contributions from the decision cascade,
+                    largest first.
                   </p>
                 </div>
               </Panel>
 
-              <Panel title="Fallback" className="shrink-0 rounded-none border-x-0 border-t-0">
+              <Panel
+                title="Fallback"
+                className="shrink-0 rounded-none border-x-0 border-t-0"
+              >
                 <p className="px-3 py-2.5 text-[12px] leading-relaxed text-[var(--text-2)]">
                   {primary.alternativeAction}
                 </p>
@@ -359,9 +424,10 @@ function PortDecisions() {
               >
                 {affected.length === 0 ? (
                   <p className="px-3 py-3 text-[11.5px] leading-snug text-[var(--text-3)]">
-                    No vessel in the routing roster declares {port.short} as an intended or
-                    alternative call, so this action has no named vessel to serve. It still
-                    applies to aggregate arrivals measured at the port.
+                    No vessel in the routing roster declares {port.short} as an
+                    intended or alternative call, so this action has no named
+                    vessel to serve. It still applies to aggregate arrivals
+                    measured at the port.
                   </p>
                 ) : (
                   <ul>
@@ -393,7 +459,10 @@ function PortDecisions() {
               </Panel>
             </>
           ) : (
-            <Panel title="Selected action" className="min-h-0 flex-1 rounded-none border-x-0 border-t-0 border-b-0">
+            <Panel
+              title="Selected action"
+              className="min-h-0 flex-1 rounded-none border-x-0 border-t-0 border-b-0"
+            >
               <EmptyState
                 title="Nothing queued"
                 detail="Select an action from the queue to see its expected impact, drivers and fallback."

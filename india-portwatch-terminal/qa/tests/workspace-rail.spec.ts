@@ -8,7 +8,10 @@ const homes: Array<[Role, string, string, string]> = [
 ];
 
 for (const [role, path, list, workbench] of homes) {
-  test(`${role} groups its tools in one right panel`, async ({ context, page }) => {
+  test(`${role} groups its tools in one right panel`, async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, role);
     await page.goto(path);
     await settle(page);

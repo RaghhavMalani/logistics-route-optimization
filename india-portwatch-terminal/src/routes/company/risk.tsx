@@ -51,8 +51,10 @@ function CompanyRisk() {
     );
   }
 
-  const actionRequired = query.data?.actionRequired.filter((row) => row.exposure > 0) ?? [];
-  const monitorOnly = query.data?.monitorOnly.filter((row) => row.exposure > 0) ?? [];
+  const actionRequired =
+    query.data?.actionRequired.filter((row) => row.exposure > 0) ?? [];
+  const monitorOnly =
+    query.data?.monitorOnly.filter((row) => row.exposure > 0) ?? [];
   const ports = Object.values(query.data?.portRisk ?? {})
     .filter((port) => port.risk > 0)
     .sort((a, b) => b.risk - a.risk);

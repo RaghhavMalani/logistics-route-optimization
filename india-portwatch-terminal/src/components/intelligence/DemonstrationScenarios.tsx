@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { consumeS10Command, useWorkspaceTarget } from "@/components/app/use-workspace-target";
+import {
+  consumeS10Command,
+  useWorkspaceTarget,
+} from "@/components/app/use-workspace-target";
 import { useAuth } from "@/auth/AuthProvider";
 import { getJson, postJson } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -59,7 +62,10 @@ export function DemonstrationScenarios({
   const q = useDemonstrationCatalogue();
   const scenarioTarget = useWorkspaceTarget("scenario");
   useEffect(() => {
-    if (scenarioTarget && q.data?.scenarios.some((row) => row.id === scenarioTarget)) {
+    if (
+      scenarioTarget &&
+      q.data?.scenarios.some((row) => row.id === scenarioTarget)
+    ) {
       setId(scenarioTarget);
       setAck(false);
     }
@@ -81,9 +87,15 @@ export function DemonstrationScenarios({
   const command = useWorkspaceTarget("command");
   const submit = select.mutate;
   useEffect(() => {
-    if (session?.mode !== "demo" || session.user.role !== "SHIPPING_COMPANY" ||
-        scenarioTarget !== "S10" || !command || !q.data?.scenarios.some((row) => row.id === scenarioTarget) ||
-        !consumeS10Command(command)) return;
+    if (
+      session?.mode !== "demo" ||
+      session.user.role !== "SHIPPING_COMPANY" ||
+      scenarioTarget !== "S10" ||
+      !command ||
+      !q.data?.scenarios.some((row) => row.id === scenarioTarget) ||
+      !consumeS10Command(command)
+    )
+      return;
     setAck(true);
     submit({ scenarioId: scenarioTarget, acknowledged: true });
   }, [session, scenarioTarget, command, q.data, submit]);

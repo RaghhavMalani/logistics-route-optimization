@@ -54,7 +54,8 @@ export interface Health {
   forecastOriginStatus: DataStatus | null;
   forecastOriginAgeHours: number | null;
   targetThrough?: string | null;
-  targetStatus?: "EXPIRED" | "PARTIAL_HORIZON" | "CURRENT_HORIZON" | "UNAVAILABLE" | null;
+  targetStatus?:
+    "EXPIRED" | "PARTIAL_HORIZON" | "CURRENT_HORIZON" | "UNAVAILABLE" | null;
   horizonDays: number | null;
   ports: number | null;
   availablePorts: string[];
@@ -739,4 +740,7 @@ export interface ScenarioResult {
   summary?: string;
 }
 
-export type PortRegistryEntry = ApiResponse<"/api/ports/registry", "get">[number];
+export type PortRegistryEntry = ApiResponse<
+  "/api/ports/registry",
+  "get"
+>[number];

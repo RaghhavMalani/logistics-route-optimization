@@ -1,5 +1,9 @@
 import { CongestionScore } from "@/components/kit/CongestionScore";
-import { DataNowSources, DatedSource, WeatherDataNow } from "@/components/app/SourceHealth";
+import {
+  DataNowSources,
+  DatedSource,
+  WeatherDataNow,
+} from "@/components/app/SourceHealth";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
 /**
  * National command.
@@ -169,19 +173,28 @@ function NationalRadar() {
         overlay={
           <>
             {/* -------------------------------------------------- top left -- */}
-            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2"
+            >
               <MaritimeSearch ports={workspace.ports} onPick={onPick} />
               <TrafficFilters workspace={workspace} />
             </div>
 
             {/* The command surface. Collapsed to a strip so the chart stays the
                 product; it expands over the map and closes again. */}
-            <div data-map-label-occluder="children" className="pointer-events-none absolute right-[352px] top-2.5 z-30">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute right-[352px] top-2.5 z-30"
+            >
               <AgentConsole />
             </div>
 
             {/* ------------------------------------------------- bottom left -- */}
-            <div data-map-label-occluder="children" className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 flex w-[248px] flex-col gap-1.5"
+            >
               <VesselClassLegend />
               <EnvironmentLegend
                 workspace={workspace}
@@ -207,14 +220,20 @@ function NationalRadar() {
               data-map-camera-inset="right"
               className="pw-workspace-rail pointer-events-auto absolute bottom-2.5 right-2.5 top-2.5 z-20 flex w-[338px] flex-col overflow-hidden"
             >
-              <PanelTabs value={railTab} onChange={setRailTab} tabs={[
-                { value: "now", label: "Now" },
-                { value: "ports", label: "Ports" },
-                { value: "scenarios", label: "Scenarios" },
-              ]} />
+              <PanelTabs
+                value={railTab}
+                onChange={setRailTab}
+                tabs={[
+                  { value: "now", label: "Now" },
+                  { value: "ports", label: "Ports" },
+                  { value: "scenarios", label: "Scenarios" },
+                ]}
+              />
               {railTab === "scenarios" ? (
                 <div className="p-3 text-xs">
-                  <Link className="font-medium underline" to="/admin/scenarios">Open the network scenario workbench</Link>
+                  <Link className="font-medium underline" to="/admin/scenarios">
+                    Open the network scenario workbench
+                  </Link>
                 </div>
               ) : selectedFix ? (
                 <VesselInspector
@@ -300,99 +319,113 @@ function NationalRadar() {
                   </PanelSection>
 
                   {railTab === "ports" ? (
-                  <PanelSection
-                    title="Ports by priority"
-                    right={`${ranked.length} ranked`}
-                  >
-                    <ul>
-                      {ranked.map((port, index) => (
-                        <li key={port.code}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              workspace.setSelectedPortCode(port.code);
-                              setFollowing(false);
-                              if (port.location)
-                                workspace.flyTo(
-                                  [port.location.lon, port.location.lat],
-                                  11.5,
-                                );
-                            }}
-                            className="grid w-full grid-cols-[16px_minmax(0,1fr)_85px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
-                          >
-                            <span className="num text-[10.5px] text-[var(--text-3)]">
-                              {String(index + 1).padStart(2, "0")}
-                            </span>
-                            <span className="truncate text-[11px] text-[var(--text)]">
-                              {port.name}
-                            </span>
-                            <span className="text-right text-[10px]" title="Day-1 congestion forecast">
-                              <CongestionScore value={port.congestionIndex} />
-                            </span>
-                            <span className="flex justify-end">
-                              <Pill tone={riskTone(port.risk)}>
-                                {riskLabel(port.risk)}
-                              </Pill>
-                            </span>
-                            <span className="num text-right text-[10px] text-[var(--text-3)]">
-                              {(port.delayHours ?? 0).toFixed(1)}h
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </PanelSection>
-
-                  ) : null}
-                  {railTab === "now" ? <>
-                  <PanelSection
-                    title="Action queue"
-                    right={`${alerts.length} open`}
-                  >
-                    {alerts.length === 0 ? (
-                      <EmptyNote>
-                        The decision layer issued no action for the current
-                        forecast.
-                      </EmptyNote>
-                    ) : (
-                      <ul className="space-y-1.5">
-                        {alerts.slice(0, 6).map((alert) => (
-                          <li key={alert.id}>
-                            <div className="flex items-baseline gap-1.5">
-                              <Pill
-                                tone={
-                                  alert.severity === "high" ? "warn" : "info"
-                                }
-                              >
-                                {alert.severity}
-                              </Pill>
-                              <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
-                                conf {alert.confidence?.toFixed(2) ?? "n/a"}
+                    <PanelSection
+                      title="Ports by priority"
+                      right={`${ranked.length} ranked`}
+                    >
+                      <ul>
+                        {ranked.map((port, index) => (
+                          <li key={port.code}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                workspace.setSelectedPortCode(port.code);
+                                setFollowing(false);
+                                if (port.location)
+                                  workspace.flyTo(
+                                    [port.location.lon, port.location.lat],
+                                    11.5,
+                                  );
+                              }}
+                              className="grid w-full grid-cols-[16px_minmax(0,1fr)_85px_54px_44px] items-center gap-1.5 rounded-[2px] px-1 py-[3px] text-left hover:bg-[var(--panel-2)]"
+                            >
+                              <span className="num text-[10.5px] text-[var(--text-3)]">
+                                {String(index + 1).padStart(2, "0")}
                               </span>
-                            </div>
-                            <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-2)]">
-                              {alert.text}
-                            </p>
+                              <span className="truncate text-[11px] text-[var(--text)]">
+                                {port.name}
+                              </span>
+                              <span
+                                className="text-right text-[10px]"
+                                title="Day-1 congestion forecast"
+                              >
+                                <CongestionScore value={port.congestionIndex} />
+                              </span>
+                              <span className="flex justify-end">
+                                <Pill tone={riskTone(port.risk)}>
+                                  {riskLabel(port.risk)}
+                                </Pill>
+                              </span>
+                              <span className="num text-right text-[10px] text-[var(--text-3)]">
+                                {(port.delayHours ?? 0).toFixed(1)}h
+                              </span>
+                            </button>
                           </li>
-                        ))}
-                      </ul>
-                    )}
-                  </PanelSection>
-                  {handoffs.data?.length ? (
-                    <PanelSection title="Handoffs">
-                      <ul className="space-y-1 text-xs">
-                        {handoffs.data.slice(0, 4).map(item => (
-                          <li key={item.id}>{item.vesselName} · {item.portCode} · {item.state.toLowerCase().replaceAll("_", " ")}</li>
                         ))}
                       </ul>
                     </PanelSection>
                   ) : null}
-                  <PanelSection title="Data now">
-                    <p className="text-xs">Weather <WeatherDataNow /> · Activity <DatedSource id="imf-portwatch-data" /> · Congestion <DatedSource id="congestion-forecast" /></p>
-                    <div className="text-xs"><DataNowSources opensAbove /></div>
-                  </PanelSection>
-                  </> : null}
-
+                  {railTab === "now" ? (
+                    <>
+                      <PanelSection
+                        title="Action queue"
+                        right={`${alerts.length} open`}
+                      >
+                        {alerts.length === 0 ? (
+                          <EmptyNote>
+                            The decision layer issued no action for the current
+                            forecast.
+                          </EmptyNote>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {alerts.slice(0, 6).map((alert) => (
+                              <li key={alert.id}>
+                                <div className="flex items-baseline gap-1.5">
+                                  <Pill
+                                    tone={
+                                      alert.severity === "high"
+                                        ? "warn"
+                                        : "info"
+                                    }
+                                  >
+                                    {alert.severity}
+                                  </Pill>
+                                  <span className="num ml-auto text-[10.5px] text-[var(--text-3)]">
+                                    conf {alert.confidence?.toFixed(2) ?? "n/a"}
+                                  </span>
+                                </div>
+                                <p className="mt-[2px] text-[10.5px] leading-snug text-[var(--text-2)]">
+                                  {alert.text}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </PanelSection>
+                      {handoffs.data?.length ? (
+                        <PanelSection title="Handoffs">
+                          <ul className="space-y-1 text-xs">
+                            {handoffs.data.slice(0, 4).map((item) => (
+                              <li key={item.id}>
+                                {item.vesselName} · {item.portCode} ·{" "}
+                                {item.state.toLowerCase().replaceAll("_", " ")}
+                              </li>
+                            ))}
+                          </ul>
+                        </PanelSection>
+                      ) : null}
+                      <PanelSection title="Data now">
+                        <p className="text-xs">
+                          Weather <WeatherDataNow /> · Activity{" "}
+                          <DatedSource id="imf-portwatch-data" /> · Congestion{" "}
+                          <DatedSource id="congestion-forecast" />
+                        </p>
+                        <div className="text-xs">
+                          <DataNowSources opensAbove />
+                        </div>
+                      </PanelSection>
+                    </>
+                  ) : null}
                 </FloatPanel>
               )}
             </aside>

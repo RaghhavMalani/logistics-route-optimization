@@ -19,9 +19,9 @@ async function mapReady(page: Page): Promise<void> {
   // every assertion below actually depends on.
   await page.waitForFunction(
     () => {
-      const sources = (window as any).__portwatchSources;
+      const sources = window.__portwatchSources;
       return Boolean(
-        (window as any).__portwatchMap && (sources?.vessels?.features?.length ?? 0) > 0,
+        window.__portwatchMap && (sources?.vessels?.features?.length ?? 0) > 0,
       );
     },
     undefined,
@@ -33,23 +33,25 @@ async function mapReady(page: Page): Promise<void> {
 async function drawnCount(page: Page, source: string): Promise<number> {
   return page.evaluate(
     (key) =>
-      ((window as unknown as { __portwatchSources?: Record<string, any> }).__portwatchSources?.[
-        key
-      ]?.features?.length ?? 0) as number,
+      (window.__portwatchSources?.[key]?.features?.length ?? 0) as number,
     source,
   );
 }
 
 async function drawn(page: Page, source: string) {
   return page.evaluate((key) => {
-    const registry = (window as unknown as { __portwatchSources?: Record<string, any> })
-      .__portwatchSources;
+    const registry = window.__portwatchSources;
     const data = registry?.[key];
-    return (data?.features ?? []).map((feature: any) => feature.properties ?? {});
+    return (data?.features ?? []).map((feature) => feature.properties ?? {});
   }, source);
 }
 
-async function open(page: Page, context: Parameters<typeof seedSession>[0], role: Role, path: string) {
+async function open(
+  page: Page,
+  context: Parameters<typeof seedSession>[0],
+  role: Role,
+  path: string,
+) {
   await seedSession(context, role);
   await page.goto(path);
   await settle(page);
@@ -59,29 +61,43 @@ async function open(page: Page, context: Parameters<typeof seedSession>[0], role
 /* ------------------------------------------------------------- population -- */
 
 test.describe("traffic population", () => {
-  test("national command draws a fleet, not a handful", async ({ context, page }) => {
+  test("national command draws a fleet, not a handful", async ({
+    context,
+    page,
+  }) => {
     await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
     const vessels = await drawn(page, "vessels");
-    expect(vessels.length, "too few vessels for a traffic picture").toBeGreaterThan(120);
+    expect(
+      vessels.length,
+      "too few vessels for a traffic picture",
+    ).toBeGreaterThan(120);
 
     // Colour carries class, and the mix has to be a mix.
-    const classes = new Set(vessels.map((v: any) => v.class));
+    const classes = new Set(vessels.map((v) => v.class));
     expect(classes.size, "every vessel is the same class").toBeGreaterThan(3);
 
     // Heading-oriented glyphs: a fleet where nothing has a course is a scatter
     // plot, not traffic.
-    const heading = vessels.filter((v: any) => typeof v.cog === "number" && v.cog !== 0);
+    const heading = vessels.filter(
+      (v) => typeof v.cog === "number" && v.cog !== 0,
+    );
     expect(heading.length).toBeGreaterThan(50);
   });
 
-  test("the source is declared as simulated, not as observed AIS", async ({ context, page }) => {
+  test("the source is declared as simulated, not as observed AIS", async ({
+    context,
+    page,
+  }) => {
     await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
     await expect(page.getByText("Simulated replay").first()).toBeVisible();
     await expect(page.getByText(/\d+ vessels/).first()).toBeVisible();
   });
 
-  test("the port cockpit shows the traffic around its own facility", async ({ context, page }) => {
+  test("the port cockpit shows the traffic around its own facility", async ({
+    context,
+    page,
+  }) => {
     await open(page, context, "PORT_AUTHORITY", "/port/overview");
 
     const board = page.getByTestId("traffic-board");
@@ -92,7 +108,9 @@ test.describe("traffic population", () => {
     // it a harbour picture rather than a list of arrivals.
     // The pills are upper-cased in CSS; the text in the DOM is not.
     for (const status of ["Inbound", "Anchored", "Moored"]) {
-      await expect(board.getByText(status, { exact: true }).first()).toBeVisible();
+      await expect(
+        board.getByText(status, { exact: true }).first(),
+      ).toBeVisible();
     }
   });
 
@@ -103,34 +121,58 @@ test.describe("traffic population", () => {
     await open(page, context, "VESSEL_OPERATOR", "/vessel/overview");
 
     const vessels = await drawn(page, "vessels");
-    expect(vessels.length, "the bridge view drew almost no surrounding traffic").toBeGreaterThan(40);
+    expect(
+      vessels.length,
+      "the bridge view drew almost no surrounding traffic",
+    ).toBeGreaterThan(40);
 
     await page.getByRole("tab", { name: "Traffic", exact: true }).click();
-    await expect(page.getByText(/within 60 nm|No contact inside 60 nm/)).toBeVisible();
+    await expect(
+      page.getByText(/within 60 nm|No contacts inside 60 nm/),
+    ).toBeVisible();
   });
 });
 
-test("the bridge command palette keeps a requested port in view", async ({ context, page }) => {
+test("the bridge command palette keeps a requested port in view", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "VESSEL_OPERATOR", "/vessel/overview");
-  await context.route("**/api/**/intelligence/current?**", (route) => route.fulfill({
-    json: { portCode: "INIXY", status: "HISTORICAL_UNAVAILABLE", sources: {}, hourly: [], daily: [], regionalHazards: [] },
-  }));
+  await context.route("**/api/**/intelligence/current?**", (route) =>
+    route.fulfill({
+      json: {
+        portCode: "INIXY",
+        status: "HISTORICAL_UNAVAILABLE",
+        sources: {},
+        hourly: [],
+        daily: [],
+        regionalHazards: [],
+      },
+    }),
+  );
   await page.keyboard.press("ControlOrMeta+k");
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await palette.getByRole("combobox").fill("KDL");
   await palette.getByRole("option", { name: /Deendayal/ }).click();
   await page.waitForURL(/port=INIXY/);
-  const label = page.locator("[data-map-port-label]").filter({ hasText: /KDL/ });
-  await expect(label.getByTestId("port-miniature-label")).toBeVisible({ timeout: 20_000 });
+  const label = page
+    .locator("[data-map-port-label]")
+    .filter({ hasText: /KDL/ });
+  await expect(label.getByTestId("port-miniature-label")).toBeVisible({
+    timeout: 20_000,
+  });
 });
 
 /* ---------------------------------------------------------------- filters -- */
 
-test("a type legend isolates its vessel class and All types restores the chart", async ({ context, page }) => {
+test("a type legend isolates its vessel class and All types restores the chart", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   const before = await drawn(page, "vessels");
-  const containersBefore = before.filter((v: any) => v.class === "container").length;
+  const containersBefore = before.filter((v) => v.class === "container").length;
   expect(containersBefore, "no containers to filter").toBeGreaterThan(5);
 
   await page.getByRole("button", { name: /Layers and filters/i }).click();
@@ -138,21 +180,35 @@ test("a type legend isolates its vessel class and All types restores the chart",
   await legend.getByRole("button", { name: "Container", exact: true }).click();
 
   await expect
-    .poll(async () => [...new Set((await drawn(page, "vessels")).map((v: any) => v.class))], {
-      timeout: 10_000,
-    })
+    .poll(
+      async () => [
+        ...new Set((await drawn(page, "vessels")).map((v) => v.class)),
+      ],
+      {
+        timeout: 10_000,
+      },
+    )
     .toEqual(["container"]);
   expect((await drawn(page, "vessels")).length).toBeLessThan(before.length);
   await legend.getByRole("button", { name: "All types", exact: true }).click();
-  await expect.poll(async () => (await drawn(page, "vessels")).some((v: any) => v.class !== "container")).toBe(true);
+  await expect
+    .poll(async () =>
+      (await drawn(page, "vessels")).some((v) => v.class !== "container"),
+    )
+    .toBe(true);
 });
 
 /* -------------------------------------------------- search and inspection -- */
 
-test("search finds a vessel, and selecting it opens the inspector", async ({ context, page }) => {
+test("search finds a vessel, and selecting it opens the inspector", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
-  const search = page.getByRole("searchbox", { name: /Search vessels, ports and chokepoints/i });
+  const search = page.getByRole("searchbox", {
+    name: /Search vessels, ports and chokepoints/i,
+  });
   await search.fill("Coromandel");
   const option = page.getByRole("option").first();
   await expect(option).toBeVisible({ timeout: 10_000 });
@@ -170,7 +226,7 @@ test("search finds a vessel, and selecting it opens the inspector", async ({ con
 
 test("search finds a port and flies to it", async ({ context, page }) => {
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
-  const before = await page.evaluate(() => (window as any).__portwatchMap.getZoom());
+  const before = await page.evaluate(() => window.__portwatchMap!.getZoom());
 
   await page
     .getByRole("searchbox", { name: /Search vessels, ports and chokepoints/i })
@@ -180,11 +236,16 @@ test("search finds a port and flies to it", async ({ context, page }) => {
   await option.click();
   await page.waitForTimeout(1600);
 
-  const after = await page.evaluate(() => (window as any).__portwatchMap.getZoom());
-  expect(after, "selecting a port did not move the camera in").toBeGreaterThan(before);
+  const after = await page.evaluate(() => window.__portwatchMap!.getZoom());
+  expect(after, "selecting a port did not move the camera in").toBeGreaterThan(
+    before,
+  );
 });
 
-test("isolating the selection hides the rest of the traffic", async ({ context, page }) => {
+test("isolating the selection hides the rest of the traffic", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "VESSEL_OPERATOR", "/vessel/overview");
 
   const before = await drawn(page, "vessels");
@@ -229,10 +290,15 @@ test("scrubbing the forecast moves the weather and the predicted fleet", async (
 
   await page.getByRole("button", { name: "NOW", exact: true }).first().click();
   await expect(page.getByTestId("weather-offset")).toHaveText("NOW");
-  await expect.poll(() => drawnCount(page, "ghosts"), { timeout: 10_000 }).toBe(0);
+  await expect
+    .poll(() => drawnCount(page, "ghosts"), { timeout: 10_000 })
+    .toBe(0);
 });
 
-test("the replay clock can be paused and restarted", async ({ context, page }) => {
+test("the replay clock can be paused and restarted", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
   await page.getByRole("button", { name: "Pause replay" }).click();
@@ -240,18 +306,25 @@ test("the replay clock can be paused and restarted", async ({ context, page }) =
   expect(await drawnCount(page, "vessels")).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: "Play replay" }).click();
-  await expect(page.getByRole("button", { name: "Pause replay" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Pause replay" }),
+  ).toBeVisible();
 });
 
 /* ----------------------------------------------------------- environment -- */
 
-test("weather is on by default and states what it is", async ({ context, page }) => {
+test("weather is on by default and states what it is", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "NATIONAL_ADMIN", "/admin/radar");
 
-  const visible = await page.evaluate(
-    () => (window as any).__portwatchMap.getLayoutProperty("wx-field", "visibility"),
+  const visible = await page.evaluate(() =>
+    window.__portwatchMap!.getLayoutProperty("wx-field", "visibility"),
   );
-  expect(visible, "the weather composite was not on by default").not.toBe("none");
+  expect(visible, "the weather composite was not on by default").not.toBe(
+    "none",
+  );
 
   // The layer is a composite, not a field the operator picks. The legend names
   // what it carries, so a regression that silently drops back to one field --
@@ -260,7 +333,9 @@ test("weather is on by default and states what it is", async ({ context, page })
   await expect(legend.getByText("Environment")).toBeVisible();
   await expect(legend.getByText("rain · wind · severe")).toBeVisible();
   // The retained grid fixture does not qualify as a direct observation.
-  await expect(legend.getByText("origin unknown", { exact: true })).toBeVisible();
+  await expect(
+    legend.getByText("origin unknown", { exact: true }),
+  ).toBeVisible();
   await expect(legend.getByText(/modelled/).first()).toBeVisible();
 });
 
@@ -271,12 +346,17 @@ test("wave height is reported as unavailable rather than substituted", async ({
   await open(page, context, "PORT_AUTHORITY", "/port/overview");
   const weather = page.locator("summary").filter({ hasText: /^Port weather$/ });
   await weather.click();
-  await expect(weather.locator("..").getByText("UNAVAILABLE", { exact: true })).toBeVisible();
+  await expect(
+    weather.locator("..").getByText("UNAVAILABLE", { exact: true }),
+  ).toBeVisible();
 });
 
 /* ------------------------------------------------------ arrival sequence -- */
 
-test("the arrival sequence ranks by ETA and shows the berth wait", async ({ context, page }) => {
+test("the arrival sequence ranks by ETA and shows the berth wait", async ({
+  context,
+  page,
+}) => {
   await open(page, context, "PORT_AUTHORITY", "/port/overview");
 
   await page.getByRole("tab", { name: /Arrivals/ }).click();

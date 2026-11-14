@@ -15,35 +15,44 @@ const intelligence = JSON.parse(
   ),
 ) as { ports: { code: string }[] };
 
-liveTest("a real local demo token cannot register a private camera", async ({ page }) => {
-  await page.goto("/login");
-  const opened = page.waitForResponse((response) =>
-    new URL(response.url()).pathname.endsWith("/api/demo/session") &&
-    response.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "Admin demo", exact: true }).click();
-  const response = await opened;
-  const url = new URL(response.url());
-  expect(url.hostname).toBe("127.0.0.1");
-  expect(response.ok()).toBe(true);
-  const session = await response.json();
-  url.pathname = url.pathname.replace(/\/demo\/session$/, "/intelligence/cameras");
-  const denied = await page.request.post(url.href, {
-    headers: { Authorization: `Bearer ${session.accessToken}` },
-    data: {
-      id: "qa-denied-private-camera",
-      portCode: "INNSA",
-      name: "QA denied camera",
-      lat: 18.95,
-      lon: 72.95,
-      coverage: "Synthetic test record",
-      source: "QA",
-      rightsBasis: "Synthetic fixture with no media",
-    },
-  });
-  expect([401, 403]).toContain(denied.status());
-  await expect(page.getByRole("button", { name: "Register camera viewpoint" })).toHaveCount(0);
-});
+liveTest(
+  "a real local demo token cannot register a private camera",
+  async ({ page }) => {
+    await page.goto("/login");
+    const opened = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.endsWith("/api/demo/session") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Admin demo", exact: true }).click();
+    const response = await opened;
+    const url = new URL(response.url());
+    expect(url.hostname).toBe("127.0.0.1");
+    expect(response.ok()).toBe(true);
+    const session = await response.json();
+    url.pathname = url.pathname.replace(
+      /\/demo\/session$/,
+      "/intelligence/cameras",
+    );
+    const denied = await page.request.post(url.href, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      data: {
+        id: "qa-denied-private-camera",
+        portCode: "INNSA",
+        name: "QA denied camera",
+        lat: 18.95,
+        lon: 72.95,
+        coverage: "Synthetic test record",
+        source: "QA",
+        rightsBasis: "Synthetic fixture with no media",
+      },
+    });
+    expect([401, 403]).toContain(denied.status());
+    await expect(
+      page.getByRole("button", { name: "Register camera viewpoint" }),
+    ).toHaveCount(0);
+  },
+);
 
 async function openGlobeTab(page: Page) {
   await page.goto("/admin/global-eye#intelligence-review");

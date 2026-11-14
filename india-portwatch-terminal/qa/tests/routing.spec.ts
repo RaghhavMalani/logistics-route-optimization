@@ -10,7 +10,13 @@
  */
 
 import { expect, seedSession, settle, test } from "../harness";
-import { firstLandfall, haversineKm, leg, passesNear, routesDoc } from "../water";
+import {
+  firstLandfall,
+  haversineKm,
+  leg,
+  passesNear,
+  routesDoc,
+} from "../water";
 
 test.describe("route catalogue", () => {
   test("every leg stays on water", () => {
@@ -18,7 +24,9 @@ test.describe("route catalogue", () => {
     for (const [key, entry] of Object.entries(routesDoc.legs)) {
       const landfall = firstLandfall(entry.coords);
       if (landfall) {
-        failures.push(`${key} crosses land at ${landfall[0].toFixed(2)},${landfall[1].toFixed(2)}`);
+        failures.push(
+          `${key} crosses land at ${landfall[0].toFixed(2)},${landfall[1].toFixed(2)}`,
+        );
       }
     }
     expect(failures, "legs whose geometry crosses land").toEqual([]);
@@ -115,15 +123,28 @@ test.describe("route catalogue", () => {
   for (const testCase of CASES) {
     test(testCase.name, () => {
       const entry = leg(testCase.from, testCase.to);
-      expect(entry, `no catalogue leg ${testCase.from} to ${testCase.to}`).not.toBeNull();
+      expect(
+        entry,
+        `no catalogue leg ${testCase.from} to ${testCase.to}`,
+      ).not.toBeNull();
       const coords = entry!.coords;
 
-      expect(firstLandfall(coords), `${testCase.name}: crosses land`).toBeNull();
+      expect(
+        firstLandfall(coords),
+        `${testCase.name}: crosses land`,
+      ).toBeNull();
 
       let km = 0;
-      for (let i = 0; i < coords.length - 1; i += 1) km += haversineKm(coords[i], coords[i + 1]);
-      if (testCase.minKm) expect(km, "passage too short to be plausible").toBeGreaterThan(testCase.minKm);
-      if (testCase.maxKm) expect(km, "passage far longer than the sea distance").toBeLessThan(testCase.maxKm);
+      for (let i = 0; i < coords.length - 1; i += 1)
+        km += haversineKm(coords[i], coords[i + 1]);
+      if (testCase.minKm)
+        expect(km, "passage too short to be plausible").toBeGreaterThan(
+          testCase.minKm,
+        );
+      if (testCase.maxKm)
+        expect(km, "passage far longer than the sea distance").toBeLessThan(
+          testCase.maxKm,
+        );
 
       for (const gate of testCase.via ?? []) {
         expect(
@@ -153,34 +174,44 @@ async function drawnLines(
   source: string,
 ): Promise<DrawnLine[] | null> {
   return page.evaluate((key) => {
-    const registry = (window as unknown as { __portwatchSources?: Record<string, any> })
-      .__portwatchSources;
+    const registry = window.__portwatchSources;
     const data = registry?.[key];
     if (!data) return null;
     if (!data.features) return [];
-    return data.features
-      .filter((feature: any) => feature.geometry?.type === "LineString")
-      .map((feature: any) => ({
-        properties: feature.properties ?? {},
-        coordinates: feature.geometry.coordinates as Array<[number, number]>,
-      }));
+    return data.features.flatMap(({ geometry, properties }) =>
+      geometry.type === "LineString"
+        ? [
+            {
+              properties: properties ?? {},
+              coordinates: geometry.coordinates.map(
+                ([lon, lat]) => [lon, lat] as [number, number],
+              ),
+            },
+          ]
+        : [],
+    );
   }, source);
 }
 
 test.describe("rendered routes", () => {
-  test("the corridors the chart draws are water-only", async ({ context, page }) => {
+  test("the corridors the chart draws are water-only", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "NATIONAL_ADMIN");
     await page.goto("/admin/radar");
     await settle(page);
     await page.waitForFunction(
-      () => Boolean((window as any).__portwatchSources?.vessels),
+      () => Boolean(window.__portwatchSources?.vessels),
       undefined,
       { timeout: 30_000 },
     );
 
     const lines = await drawnLines(page, "corridors");
     expect(lines, "the map exposed no corridor source").not.toBeNull();
-    expect(lines!.length, "no shipping corridors were drawn").toBeGreaterThan(8);
+    expect(lines!.length, "no shipping corridors were drawn").toBeGreaterThan(
+      8,
+    );
 
     for (const line of lines!) {
       expect(
@@ -190,12 +221,15 @@ test.describe("rendered routes", () => {
     }
   });
 
-  test("a selected vessel's passage is drawn, and on water", async ({ context, page }) => {
+  test("a selected vessel's passage is drawn, and on water", async ({
+    context,
+    page,
+  }) => {
     await seedSession(context, "VESSEL_OPERATOR");
     await page.goto("/vessel/overview");
     await settle(page);
     await page.waitForFunction(
-      () => Boolean((window as any).__portwatchSources?.vessels),
+      () => Boolean(window.__portwatchSources?.vessels),
       undefined,
       { timeout: 30_000 },
     );
@@ -205,15 +239,23 @@ test.describe("rendered routes", () => {
 
     const lines = await drawnLines(page, "routes");
     expect(lines, "the map exposed no route source").not.toBeNull();
-    expect(lines!.length, "no passage was drawn for the selected vessel").toBeGreaterThan(0);
+    expect(
+      lines!.length,
+      "no passage was drawn for the selected vessel",
+    ).toBeGreaterThan(0);
 
     const ahead = lines!.filter((line) => line.properties.part === "ahead");
-    expect(ahead.length, "the remaining passage was not drawn").toBeGreaterThan(0);
+    expect(ahead.length, "the remaining passage was not drawn").toBeGreaterThan(
+      0,
+    );
 
     for (const line of lines!) {
       // The behind/ahead split cuts at the vessel, so a fragment can start or
       // end mid-ocean; the entry allowance only needs to cover the quay ends.
-      expect(firstLandfall(line.coordinates, 30), "a drawn passage crosses land").toBeNull();
+      expect(
+        firstLandfall(line.coordinates, 30),
+        "a drawn passage crosses land",
+      ).toBeNull();
     }
   });
 });

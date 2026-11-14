@@ -35,7 +35,10 @@ import { Num, Pill } from "@/components/kit/primitives";
 import { DataTable, type Column } from "@/components/kit/table";
 import { EmptyState, ScreenFallback } from "@/components/kit/states";
 import { cn } from "@/lib/utils";
-import { WeatherLearningPanel, ModelExperimentsPanel } from "@/components/intelligence/CapabilityPanels";
+import {
+  WeatherLearningPanel,
+  ModelExperimentsPanel,
+} from "@/components/intelligence/CapabilityPanels";
 import { runOutcomePass } from "@/services/portwatch-os";
 import {
   useLearningSummary,
@@ -120,7 +123,10 @@ function LearningDashboard() {
       />
 
       <PageBody>
-        <div className="mb-3 grid gap-3 xl:grid-cols-2"><WeatherLearningPanel /><ModelExperimentsPanel /></div>
+        <div className="mb-3 grid gap-3 xl:grid-cols-2">
+          <WeatherLearningPanel />
+          <ModelExperimentsPanel />
+        </div>
         {resolved === 0 ? (
           <div className="mb-3">
             <EmptyState
@@ -388,8 +394,8 @@ function LearningDashboard() {
               {!policies.data || policies.data.policies.length === 0 ? (
                 <Section title="No candidate">
                   <p className="text-[10.5px] leading-relaxed text-[var(--text-3)]">
-                    No learned policy is submitted in this demo's ledger. Experimental
-                    runs and rejected candidates are shown above.
+                    No learned policy is submitted in this demo's ledger.
+                    Experimental runs and rejected candidates are shown above.
                     Operational recommendations use the hand-written optimiser.
                   </p>
                 </Section>
@@ -493,9 +499,7 @@ function MissRow({
         <div className="space-y-2 border-t border-[var(--line)]/60 bg-[var(--panel-2)]/40 px-3 py-2">
           {attribution.available ? (
             <section>
-              <h4 className="eyebrow text-[10px]">
-                Contribution to the error
-              </h4>
+              <h4 className="eyebrow text-[10px]">Contribution to the error</h4>
               <div className="mt-1 space-y-1">
                 {attribution.shares.map((share) => (
                   <div key={share.contributor}>
@@ -681,7 +685,10 @@ function PolicyCard({ policy }: { policy: PolicyRecordView }) {
       {checks.length ? (
         <ul className="mt-1.5 space-y-0.5">
           {checks.map(([name, ok]) => (
-            <li key={name} className="flex items-baseline gap-1.5 text-[10.5px]">
+            <li
+              key={name}
+              className="flex items-baseline gap-1.5 text-[10.5px]"
+            >
               <span
                 className={cn(
                   "num shrink-0",

@@ -1,4 +1,8 @@
-import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
+import {
+  DataNowSources,
+  WeatherDataNow,
+  DatedSource,
+} from "@/components/app/SourceHealth";
 /**
  * The port controller's cockpit.
  *
@@ -180,7 +184,10 @@ function PortCockpitScreen() {
         renderHoverCard={(fix) => <VesselHoverCard fix={fix} />}
         overlay={
           <>
-            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2"
+            >
               <MaritimeSearch
                 ports={workspace.ports}
                 onPick={onPick}
@@ -189,7 +196,10 @@ function PortCockpitScreen() {
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] flex items-center gap-2">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute left-2.5 top-2.5 z-20 ml-[224px] flex items-center gap-2"
+            >
               <div className="pointer-events-auto flex items-center gap-2 rounded-[3px] border border-[var(--line-strong)] bg-[var(--panel)]/95 px-2 py-[4px] backdrop-blur-[3px]">
                 <PortSwitcher className="w-[168px]" />
               </div>
@@ -215,11 +225,15 @@ function PortCockpitScreen() {
               className="pw-workspace-rail pointer-events-auto absolute right-2.5 top-2.5 z-20 flex w-[320px] flex-col overflow-hidden"
               style={{ bottom: bottomStack + 8 }}
             >
-              <PanelTabs value={tab} onChange={setTab} tabs={[
-                { value: "now", label: "Now" },
-                { value: "arrivals", label: "Arrivals" },
-                { value: "twin", label: "Twin" },
-              ]} />
+              <PanelTabs
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                  { value: "now", label: "Now" },
+                  { value: "arrivals", label: "Arrivals" },
+                  { value: "twin", label: "Twin" },
+                ]}
+              />
               {tab === "now" ? (
                 <div className="shrink-0 border-b border-[var(--line)]">
                   <PortHomeHandoffs portCode={port.code} />
@@ -274,14 +288,28 @@ function PortCockpitScreen() {
                       ) : null}
                       {tab === "now" ? (
                         <details className="border-t border-[var(--line)] p-2 text-xs">
-                          <summary className="cursor-pointer">Port weather</summary>
-                          <PortWeatherPanel port={port} timeline={workspace.timeline} baseAt={workspace.weatherAt} />
+                          <summary className="cursor-pointer">
+                            Port weather
+                          </summary>
+                          <PortWeatherPanel
+                            port={port}
+                            timeline={workspace.timeline}
+                            baseAt={workspace.weatherAt}
+                          />
                         </details>
                       ) : null}
                       {tab === "twin" ? (
                         <div className="p-3 text-xs">
-                          <p className="mb-2">Compare modelled berth and yard operations for {port.name}.</p>
-                          <Link to="/port/twin" className="font-medium underline">Open the port twin</Link>
+                          <p className="mb-2">
+                            Compare modelled berth and yard operations for{" "}
+                            {port.name}.
+                          </p>
+                          <Link
+                            to="/port/twin"
+                            className="font-medium underline"
+                          >
+                            Open the port twin
+                          </Link>
                         </div>
                       ) : null}
                     </div>
@@ -290,9 +318,8 @@ function PortCockpitScreen() {
               )}
               {tab === "now" ? (
                 <div className="shrink-0 p-2 border-t border-[var(--line)] text-xs leading-snug">
-                  <strong>Data now</strong> · Weather{" "}
-                  <WeatherDataNow />{" "}
-                  · Port activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
+                  <strong>Data now</strong> · Weather <WeatherDataNow /> · Port
+                  activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
                   {trafficSource.info.label} · Congestion{" "}
                   <DatedSource id="congestion-forecast" />
                   <DataNowSources opensAbove />
@@ -312,7 +339,10 @@ function PortCockpitScreen() {
               />
             </div>
 
-            <div data-map-label-occluder="children" className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-20">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-20"
+            >
               {traffic && plan ? (
                 <FloatPanel
                   title="Traffic board"

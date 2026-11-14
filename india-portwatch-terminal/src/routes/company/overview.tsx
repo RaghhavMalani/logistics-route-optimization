@@ -1,5 +1,9 @@
 import { useWorkspaceTarget } from "@/components/app/use-workspace-target";
-import { DataNowSources, WeatherDataNow, DatedSource } from "@/components/app/SourceHealth";
+import {
+  DataNowSources,
+  WeatherDataNow,
+  DatedSource,
+} from "@/components/app/SourceHealth";
 /**
  * Fleet Command.
  *
@@ -123,69 +127,78 @@ function ActionRow({
     ? ` by ${formatUtc(row.diversionDeadline)}`
     : "";
   const extra = row.delayHoursIfDiverted;
-  const diversionTime = extra != null && Number.isFinite(extra)
-    ? ` (${extra > 0 ? "+" : ""}${Math.round(extra)} h)`
-    : "";
-  const decision = row.recommendedAction === "evaluate_diversion"
-    ? `Decide${deadline} whether to reroute${diversionTime} or keep the current route.`
-    : `Review the exposure${deadline}.`;
+  const diversionTime =
+    extra != null && Number.isFinite(extra)
+      ? ` (${extra > 0 ? "+" : ""}${Math.round(extra)} h)`
+      : "";
+  const decision =
+    row.recommendedAction === "evaluate_diversion"
+      ? `Decide${deadline} whether to reroute${diversionTime} or keep the current route.`
+      : `Review the exposure${deadline}.`;
   return (
-    <div className={cn("border-b border-[var(--line)]/60 last:border-0", selected && "bg-[var(--panel-3)]")}>
-      <button
-      type="button"
-      onClick={onSelect}
-      data-testid="action-required-row"
-      data-owned-vessel={row.vesselId}
+    <div
       className={cn(
-        "block w-full px-2 py-1.5 text-left transition-colors",
-        !selected && "hover:bg-[var(--panel-2)]",
+        "border-b border-[var(--line)]/60 last:border-0",
+        selected && "bg-[var(--panel-3)]",
       )}
     >
-      <p className="text-xs font-semibold leading-snug">{arrival}. {decision}</p>
-      <div className="mt-1 flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 text-[10.5px] text-[var(--text-2)]">
-          {row.eventCategoryLabel}
-        </span>
-        <span
-          className={cn(
-            "num shrink-0 text-[11px]",
-            `text-[var(--${exposureTone(row.exposure)})]`,
-          )}
-        >
-          <ExposureScore value={row.exposure} />
-        </span>
-      </div>
+      <button
+        type="button"
+        onClick={onSelect}
+        data-testid="action-required-row"
+        data-owned-vessel={row.vesselId}
+        className={cn(
+          "block w-full px-2 py-1.5 text-left transition-colors",
+          !selected && "hover:bg-[var(--panel-2)]",
+        )}
+      >
+        <p className="text-xs font-semibold leading-snug">
+          {arrival}. {decision}
+        </p>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 text-[10.5px] text-[var(--text-2)]">
+            {row.eventCategoryLabel}
+          </span>
+          <span
+            className={cn(
+              "num shrink-0 text-[11px]",
+              `text-[var(--${exposureTone(row.exposure)})]`,
+            )}
+          >
+            <ExposureScore value={row.exposure} />
+          </span>
+        </div>
 
-      <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
-        {row.hoursToRiskArea != null ? (
-          <span className="num">
-            {row.hoursToRiskArea.toFixed(0)}h to the risk area
-          </span>
-        ) : null}
-        {row.delayHoursIfDiverted != null ? (
-          <span className="num">
-            diversion costs {row.delayHoursIfDiverted.toFixed(0)}h
-          </span>
-        ) : null}
-        {row.destinationPort ? (
-          <span className="num">→ {row.destinationPort}</span>
-        ) : null}
-      </div>
+        <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-[var(--text-3)]">
+          {row.hoursToRiskArea != null ? (
+            <span className="num">
+              {row.hoursToRiskArea.toFixed(0)}h to the risk area
+            </span>
+          ) : null}
+          {row.delayHoursIfDiverted != null ? (
+            <span className="num">
+              diversion costs {row.delayHoursIfDiverted.toFixed(0)}h
+            </span>
+          ) : null}
+          {row.destinationPort ? (
+            <span className="num">→ {row.destinationPort}</span>
+          ) : null}
+        </div>
 
-      <div className="mt-1 flex items-center gap-1.5">
-        <Pill
-          tone={
-            row.recommendedAction === "evaluate_diversion" ? "warn" : "info"
-          }
-        >
-          {row.recommendedAction.replace(/_/g, " ")}
-        </Pill>
-        {row.diversionDeadline ? (
-          <span className="num text-[10.5px] text-[var(--warn)]">
-            by {formatUtc(row.diversionDeadline)}
-          </span>
-        ) : null}
-      </div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <Pill
+            tone={
+              row.recommendedAction === "evaluate_diversion" ? "warn" : "info"
+            }
+          >
+            {row.recommendedAction.replace(/_/g, " ")}
+          </Pill>
+          {row.diversionDeadline ? (
+            <span className="num text-[10.5px] text-[var(--warn)]">
+              by {formatUtc(row.diversionDeadline)}
+            </span>
+          ) : null}
+        </div>
       </button>
       {row.actionBasis ? (
         <details className="px-2 pb-1.5 text-[10.5px] text-[var(--text-2)]">
@@ -204,11 +217,16 @@ function FleetCommand() {
   const fleet = useCompanyFleet(companyId);
   const [horizon, setHorizon] = useState(72);
   const risk = useCompanyRisk(companyId, horizon);
-  const [planningTab, setPlanningTab] = useState<"now" | "fleet" | "scenarios">("now");
+  const [planningTab, setPlanningTab] = useState<"now" | "fleet" | "scenarios">(
+    "now",
+  );
   const [scenarioRoute, setScenarioRoute] = useState<DecisionOption | null>(
     null,
   );
-  const { selectedVesselId: selectedVessel, setSelectedVesselId: setSelectedVessel } = workspace;
+  const {
+    selectedVesselId: selectedVessel,
+    setSelectedVesselId: setSelectedVessel,
+  } = workspace;
   const scenarioTarget = useWorkspaceTarget("scenario");
   useEffect(() => {
     if (scenarioTarget) setPlanningTab("scenarios");
@@ -236,8 +254,10 @@ function FleetCommand() {
   const fixes = useFixes(1);
 
   const vessels = useMemo(() => fleet.data?.vessels ?? [], [fleet.data]);
-  const actionRequired = risk.data?.actionRequired.filter((row) => row.exposure > 0) ?? [];
-  const monitorOnly = risk.data?.monitorOnly.filter((row) => row.exposure > 0) ?? [];
+  const actionRequired =
+    risk.data?.actionRequired.filter((row) => row.exposure > 0) ?? [];
+  const monitorOnly =
+    risk.data?.monitorOnly.filter((row) => row.exposure > 0) ?? [];
 
   const exposureByVessel = useMemo(() => {
     const map = new Map<string, number>();
@@ -357,19 +377,28 @@ function FleetCommand() {
         focus={workspace.focus}
         overlay={
           <>
-            <div data-map-label-occluder="children" className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute left-2.5 top-2.5 z-20 flex max-h-[calc(100%-96px)] w-[216px] flex-col gap-2"
+            >
               <MaritimeSearch ports={workspace.ports} onPick={onPick} />
               <TrafficFilters workspace={workspace} />
             </div>
 
-            <div data-map-label-occluder="children" className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 w-[248px]"
+            >
               <EnvironmentLegend
                 workspace={workspace}
                 frame={workspace.frame}
               />
             </div>
 
-            <div data-map-label-occluder="children" className="pointer-events-none absolute right-[372px] top-2.5 z-30">
+            <div
+              data-map-label-occluder="children"
+              className="pointer-events-none absolute right-[372px] top-2.5 z-30"
+            >
               <AgentConsole />
             </div>
 
@@ -394,7 +423,8 @@ function FleetCommand() {
                 value={planningTab}
                 onChange={(next) => {
                   setPlanningTab(next);
-                  if (next !== "scenarios") setTab(next === "now" ? "action" : "fleet");
+                  if (next !== "scenarios")
+                    setTab(next === "now" ? "action" : "fleet");
                 }}
                 tabs={[
                   { value: "now", label: "Now" },
@@ -410,7 +440,9 @@ function FleetCommand() {
               ) : null}
               {planningTab === "scenarios" && session?.mode !== "demo" ? (
                 <div className="p-3 text-xs">
-                  <Link className="underline" to="/company/global-eye">Open passage comparisons in Global Eye</Link>
+                  <Link className="underline" to="/company/global-eye">
+                    Open passage comparisons in Global Eye
+                  </Link>
                 </div>
               ) : null}
               {session?.mode === "demo" ? (
@@ -495,8 +527,20 @@ function FleetCommand() {
 
                   {planningTab === "fleet" ? (
                     <div className="flex gap-3 border-b border-[var(--line)] px-2 py-1.5 text-xs">
-                      <button type="button" aria-pressed={tab === "fleet"} onClick={() => setTab("fleet")}>Ships</button>
-                      <button type="button" aria-pressed={tab === "ports"} onClick={() => setTab("ports")}>Port exposure</button>
+                      <button
+                        type="button"
+                        aria-pressed={tab === "fleet"}
+                        onClick={() => setTab("fleet")}
+                      >
+                        Ships
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={tab === "ports"}
+                        onClick={() => setTab("ports")}
+                      >
+                        Port exposure
+                      </button>
                     </div>
                   ) : null}
 
@@ -746,9 +790,10 @@ function FleetCommand() {
               </div>
               {planningTab === "now" ? (
                 <div className="p-2 border-t border-[var(--line)] text-xs leading-snug">
-                  <strong>Data now</strong> · Weather <WeatherDataNow />
-                  {" "}· Port activity <DatedSource id="imf-portwatch-data" />
-                  {" "}· Traffic {trafficSource.info.label} · Congestion <DatedSource id="congestion-forecast" />
+                  <strong>Data now</strong> · Weather <WeatherDataNow /> · Port
+                  activity <DatedSource id="imf-portwatch-data" /> · Traffic{" "}
+                  {trafficSource.info.label} · Congestion{" "}
+                  <DatedSource id="congestion-forecast" />
                   <DataNowSources opensAbove />
                 </div>
               ) : null}

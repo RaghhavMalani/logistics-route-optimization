@@ -1,7 +1,11 @@
 import { useRouterState } from "@tanstack/react-router";
 
-export function useWorkspaceTarget(key: "port" | "hull" | "scenario" | "command") {
-  const search = useRouterState({ select: (state) => state.location.searchStr });
+export function useWorkspaceTarget(
+  key: "port" | "hull" | "scenario" | "command",
+) {
+  const search = useRouterState({
+    select: (state) => state.location.searchStr,
+  });
   return new URLSearchParams(search).get(key);
 }
 

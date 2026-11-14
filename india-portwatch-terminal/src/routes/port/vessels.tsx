@@ -2,7 +2,13 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
 import { ColumnChart } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   Num,
@@ -16,7 +22,9 @@ import { DataTable, type Column } from "@/components/kit/table";
 import { useFleet, useForecast, useVessels } from "@/services/hooks";
 import type { FleetRow, ForecastPoint } from "@/types/portwatch";
 
-export const Route = createFileRoute("/port/vessels")({ component: PortVessels });
+export const Route = createFileRoute("/port/vessels")({
+  component: PortVessels,
+});
 
 interface CallRow {
   vessel: FleetRow;
@@ -45,26 +53,40 @@ function PortVessels() {
 
   const rows = forecast.data ?? [];
   const byDay = new Map(rows.map((row) => [row.day, row]));
-  const activity = (vessels.data?.vessels ?? []).find((entry) => entry.portCode === port.code) ?? null;
+  const activity =
+    (vessels.data?.vessels ?? []).find(
+      (entry) => entry.portCode === port.code,
+    ) ?? null;
 
   const calls: CallRow[] = (fleet.data ?? [])
     .filter(
       (vessel) =>
-        vessel.intendedPortCode === port.code || vessel.recommendedPortCode === port.code,
+        vessel.intendedPortCode === port.code ||
+        vessel.recommendedPortCode === port.code,
     )
     .map((vessel) => {
-      const day = vessel.bestArrivalDay == null ? null : Math.round(vessel.bestArrivalDay);
+      const day =
+        vessel.bestArrivalDay == null
+          ? null
+          : Math.round(vessel.bestArrivalDay);
       const role: CallRow["role"] =
-        vessel.intendedPortCode === port.code && vessel.recommendedPortCode === port.code
+        vessel.intendedPortCode === port.code &&
+        vessel.recommendedPortCode === port.code
           ? "declared call"
           : vessel.recommendedPortCode === port.code
             ? "diverting here"
             : "may divert away";
-      return { vessel, role, day, target: day == null ? null : (byDay.get(day) ?? null) };
+      return {
+        vessel,
+        role,
+        day,
+        target: day == null ? null : (byDay.get(day) ?? null),
+      };
     });
 
   const lowestWait = rows.reduce<ForecastPoint | null>(
-    (best, row) => (!best || row.delayHoursP50 < best.delayHoursP50 ? row : best),
+    (best, row) =>
+      !best || row.delayHoursP50 < best.delayHoursP50 ? row : best,
     null,
   );
 
@@ -88,7 +110,9 @@ function PortVessels() {
       header: "Vessel ID",
       width: 138,
       hint: "Optimizer identifier — this artefact carries no IMO number",
-      render: (row) => <span className="num text-[var(--text-3)]">{row.vessel.id}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.vessel.id}</span>
+      ),
       sort: (row) => row.vessel.id,
     },
     {
@@ -96,7 +120,9 @@ function PortVessels() {
       header: "Relationship",
       width: 138,
       render: (row) => (
-        <Pill tone={row.role === "may divert away" ? "warn" : "info"}>{row.role}</Pill>
+        <Pill tone={row.role === "may divert away" ? "warn" : "info"}>
+          {row.role}
+        </Pill>
       ),
       sort: (row) => row.role,
     },
@@ -111,7 +137,9 @@ function PortVessels() {
         ) : (
           <span className="num">
             +{row.day}
-            <span className="ml-1 text-[10px] text-[var(--text-3)]">{row.target?.dateLabel}</span>
+            <span className="ml-1 text-[10px] text-[var(--text-3)]">
+              {row.target?.dateLabel}
+            </span>
           </span>
         ),
       sort: (row) => row.day,
@@ -147,7 +175,9 @@ function PortVessels() {
       header: "Buffer",
       align: "right",
       width: 84,
-      render: (row) => <Num value={row.vessel.bufferHours} digits={0} unit="h" />,
+      render: (row) => (
+        <Num value={row.vessel.bufferHours} digits={0} unit="h" />
+      ),
       sort: (row) => row.vessel.bufferHours,
     },
     {
@@ -155,7 +185,9 @@ function PortVessels() {
       header: "Confidence",
       align: "right",
       width: 104,
-      render: (row) => <Num value={row.target?.confidence} digits={0} scale={100} unit="%" />,
+      render: (row) => (
+        <Num value={row.target?.confidence} digits={0} scale={100} unit="%" />
+      ),
       sort: (row) => row.target?.confidence ?? null,
     },
     {
@@ -187,8 +219,13 @@ function PortVessels() {
         }
         meta={
           <>
-            <span className="num">observed {formatUtc(activity?.observedAt ?? port.observedAt)}</span>
-            <ProvenanceTag status={port.dataStatus} ageHours={port.dataAgeHours} />
+            <span className="num">
+              observed {formatUtc(activity?.observedAt ?? port.observedAt)}
+            </span>
+            <ProvenanceTag
+              status={port.dataStatus}
+              ageHours={port.dataAgeHours}
+            />
           </>
         }
         actions={<PortSwitcher />}
@@ -199,7 +236,10 @@ function PortVessels() {
         items={[
           {
             label: "Daily port calls",
-            value: activity?.dailyPortCalls?.toFixed(1) ?? port.vesselCalls?.toFixed(1) ?? "n/a",
+            value:
+              activity?.dailyPortCalls?.toFixed(1) ??
+              port.vesselCalls?.toFixed(1) ??
+              "n/a",
             note: "satellite-AIS aggregate, not per-vessel tracks",
           },
           {
@@ -218,11 +258,16 @@ function PortVessels() {
             value: lowestWait ? lowestWait.delayHoursP50.toFixed(1) : "n/a",
             unit: "h",
             tone: "ok",
-            note: lowestWait ? `day +${lowestWait.day} · ${lowestWait.dateLabel}` : "no forecast",
+            note: lowestWait
+              ? `day +${lowestWait.day} · ${lowestWait.dateLabel}`
+              : "no forecast",
           },
           {
             label: "AIS confidence",
-            value: activity?.confidence?.toFixed(2) ?? port.aisConfidence?.toFixed(2) ?? "n/a",
+            value:
+              activity?.confidence?.toFixed(2) ??
+              port.aisConfidence?.toFixed(2) ??
+              "n/a",
             note: "feed-level, not per vessel",
           },
         ]}
@@ -240,10 +285,10 @@ function PortVessels() {
               detail={
                 <>
                   The routing roster in this run carries{" "}
-                  <span className="num">{fleet.data?.length ?? 0}</span> vessels and none of
-                  them declares {port.short} as an intended or alternative call. Aggregate
-                  arrival pressure for the port is still measured — see the AIS activity
-                  panel.
+                  <span className="num">{fleet.data?.length ?? 0}</span> vessels
+                  and none of them declares {port.short} as an intended or
+                  alternative call. Aggregate arrival pressure for the port is
+                  still measured — see the AIS activity panel.
                 </>
               }
             />
@@ -272,9 +317,10 @@ function PortVessels() {
                     }))}
                   />
                   <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
-                    Predicted berth wait per horizon day. The green column is the lowest
-                    predicted wait in the window — it is a description of the forecast, not
-                    a scheduling instruction; the instruction is on the Decisions screen.
+                    Predicted berth wait per horizon day. The green column is
+                    the lowest predicted wait in the window — it is a
+                    description of the forecast, not a scheduling instruction;
+                    the instruction is on the Decisions screen.
                   </p>
                 </>
               ) : (
@@ -285,7 +331,10 @@ function PortVessels() {
             </div>
           </Panel>
 
-          <Panel title="AIS activity" note={activity ? "IMF PortWatch" : undefined}>
+          <Panel
+            title="AIS activity"
+            note={activity ? "IMF PortWatch" : undefined}
+          >
             {activity ? (
               <div className="px-3 py-2">
                 <KeyValue label="Daily port calls" dense>
@@ -301,7 +350,9 @@ function PortVessels() {
                   <Num value={activity.queuePressure} digits={2} />
                 </KeyValue>
                 <KeyValue label="Observed" dense>
-                  <span className="num text-[11px]">{formatUtc(activity.observedAt)}</span>
+                  <span className="num text-[11px]">
+                    {formatUtc(activity.observedAt)}
+                  </span>
                 </KeyValue>
                 <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11px] leading-snug text-[var(--text-3)]">
                   {activity.basis}

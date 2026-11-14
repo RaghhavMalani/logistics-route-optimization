@@ -116,9 +116,12 @@ function SourcesPage() {
                   <span className={expectedLagTone}>
                     {sourceStatusLabel[source.status]}
                   </span>
-                ) : source.status === "live" && source.id === "imf-portwatch-data"
-                  ? "Current daily snapshot"
-                  : sourceStatusLabel[source.status]}
+                ) : source.status === "live" &&
+                  source.id === "imf-portwatch-data" ? (
+                  "Current daily snapshot"
+                ) : (
+                  sourceStatusLabel[source.status]
+                )}
               </p>
               <h2 className="mt-1 text-lg font-semibold">{source.name}</h2>
               <p className="mt-1 text-sm text-[var(--text-2)]">
@@ -164,7 +167,9 @@ function SourcesPage() {
                     <dd>
                       {ageLabel(source.publicationLag.medianSeconds)} ·{" "}
                       {source.publicationLag.samples} distinct daily{" "}
-                      {source.publicationLag.samples === 1 ? "collection" : "collections"}
+                      {source.publicationLag.samples === 1
+                        ? "collection"
+                        : "collections"}
                     </dd>
                   </>
                 ) : null}

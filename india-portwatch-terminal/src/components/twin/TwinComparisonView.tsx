@@ -38,71 +38,86 @@ export function TwinComparisonView({
       aria-label="Modelled policy comparison"
     >
       <div className="flex flex-wrap items-center border-b border-[var(--line)]">
-      <p
-        data-testid="twin-comparison-winner"
-        className="px-3 py-1.5 text-xs text-[var(--text-2)]"
-      >
-        <span className="eyebrow mr-2">24-hour result</span>
-        <strong>
-          {winner === null
-            ? "The two policies tie on the modelled objective."
-            : `${COMPARISON_LABELS[winner === "fcfs" ? "baseline" : "lookahead"]} wins on the modelled objective.`}
-        </strong>
-      </p>
-      {transport}
+        <p
+          data-testid="twin-comparison-winner"
+          className="px-3 py-1.5 text-xs text-[var(--text-2)]"
+        >
+          <span className="eyebrow mr-2">24-hour result</span>
+          <strong>
+            {winner === null
+              ? "The two policies tie on the modelled objective."
+              : `${COMPARISON_LABELS[winner === "fcfs" ? "baseline" : "lookahead"]} wins on the modelled objective.`}
+          </strong>
+        </p>
+        {transport}
       </div>
       <div
         className="grid min-h-0 flex-1"
-        style={{ gridTemplateColumns: `minmax(0,${split}fr) 10px minmax(0,${100 - split}fr)` }}
+        style={{
+          gridTemplateColumns: `minmax(0,${split}fr) 10px minmax(0,${100 - split}fr)`,
+        }}
       >
         {lanes.map((lane) => {
           const playback = lane === "baseline" ? baseline : lookahead;
           const { state } = playback.sample(hour);
           return (
             <Fragment key={lane}>
-            {lane === "lookahead" ? (
-              <div
-                role="separator"
-                tabIndex={0}
-                aria-label="Resize policy comparison panes"
-                aria-orientation="vertical"
-                aria-valuemin={30}
-                aria-valuemax={70}
-                aria-valuenow={Math.round(split)}
-                className="z-20 grid cursor-col-resize touch-none place-items-center bg-[var(--panel-3)] outline-offset-[-2px] hover:bg-[var(--panel-4)] focus-visible:outline focus-visible:outline-2"
-                onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
-                onPointerMove={(event) => {
-                  if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-                  const track = event.currentTarget.parentElement?.getBoundingClientRect();
-                  if (track) resize(((event.clientX - track.left) / track.width) * 100);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-                  event.preventDefault();
-                  resize(split + (event.key === "ArrowLeft" ? -2 : 2));
-                }}
+              {lane === "lookahead" ? (
+                <div
+                  role="separator"
+                  tabIndex={0}
+                  aria-label="Resize policy comparison panes"
+                  aria-orientation="vertical"
+                  aria-valuemin={30}
+                  aria-valuemax={70}
+                  aria-valuenow={Math.round(split)}
+                  className="z-20 grid cursor-col-resize touch-none place-items-center bg-[var(--panel-3)] outline-offset-[-2px] hover:bg-[var(--panel-4)] focus-visible:outline focus-visible:outline-2"
+                  onPointerDown={(event) =>
+                    event.currentTarget.setPointerCapture(event.pointerId)
+                  }
+                  onPointerMove={(event) => {
+                    if (!event.currentTarget.hasPointerCapture(event.pointerId))
+                      return;
+                    const track =
+                      event.currentTarget.parentElement?.getBoundingClientRect();
+                    if (track)
+                      resize(
+                        ((event.clientX - track.left) / track.width) * 100,
+                      );
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+                      return;
+                    event.preventDefault();
+                    resize(split + (event.key === "ArrowLeft" ? -2 : 2));
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-9 w-0.5 rounded-full bg-[var(--line-strong)]"
+                  />
+                </div>
+              ) : null}
+              <figure
+                className="flex min-h-0 min-w-0 flex-col"
+                aria-label={COMPARISON_LABELS[lane]}
               >
-                <span aria-hidden="true" className="h-9 w-0.5 rounded-full bg-[var(--line-strong)]" />
-              </div>
-            ) : null}
-            <figure
-              className="flex min-h-0 min-w-0 flex-col"
-              aria-label={COMPARISON_LABELS[lane]}
-            >
-              <figcaption className="shrink-0 border-b border-[var(--line)] px-3 py-1.5">
-                <span className="eyebrow mr-2">
-                  {lane === "baseline" ? "01 / FCFS" : "02 / Lookahead"}
-                </span>
-                <strong className="text-xs">{COMPARISON_LABELS[lane]}</strong>
-              </figcaption>
-              <div
-                className="relative min-h-[calc(65svh+1px)] flex-1"
-                data-testid={`twin-pane-${lane}`}
-              >
-                <div className="absolute inset-0">{renderScene(lane, playback, state)}</div>
-                <ComparisonMetrics metrics={state.metrics} lane={lane} />
-              </div>
-            </figure>
+                <figcaption className="shrink-0 border-b border-[var(--line)] px-3 py-1.5">
+                  <span className="eyebrow mr-2">
+                    {lane === "baseline" ? "01 / FCFS" : "02 / Lookahead"}
+                  </span>
+                  <strong className="text-xs">{COMPARISON_LABELS[lane]}</strong>
+                </figcaption>
+                <div
+                  className="relative min-h-[calc(65svh+1px)] flex-1"
+                  data-testid={`twin-pane-${lane}`}
+                >
+                  <div className="absolute inset-0">
+                    {renderScene(lane, playback, state)}
+                  </div>
+                  <ComparisonMetrics metrics={state.metrics} lane={lane} />
+                </div>
+              </figure>
             </Fragment>
           );
         })}

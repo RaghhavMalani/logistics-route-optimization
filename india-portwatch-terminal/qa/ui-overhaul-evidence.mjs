@@ -10,7 +10,14 @@ if (
   ) ||
   !/^[a-f0-9]{40}$/.test(sha) ||
   !output ||
-  !["all", "screens", "story", "research", "twin-weather", "twin-stale"].includes(mode)
+  ![
+    "all",
+    "screens",
+    "story",
+    "research",
+    "twin-weather",
+    "twin-stale",
+  ].includes(mode)
 ) {
   throw new Error(
     "Pass the isolated preview origin, full SHA, evidence directory and optional mode.",
@@ -192,7 +199,11 @@ async function chooseCommand(page, text, name) {
   await input.fill(text);
   const result = palette.getByRole("option", { name }).first();
   await expect(result).toBeVisible();
-  for (let step = 0; step < 30 && (await result.getAttribute("aria-selected")) !== "true"; step++) {
+  for (
+    let step = 0;
+    step < 30 && (await result.getAttribute("aria-selected")) !== "true";
+    step++
+  ) {
     await input.press("ArrowDown");
   }
   await expect(result).toHaveAttribute("aria-selected", "true");
@@ -202,14 +213,24 @@ async function chooseCommand(page, text, name) {
 async function checkWorkspaceCommands() {
   const report = { name: "workspace commands", errors: [] };
   reports.push(report);
-  const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+  const context = await browser.newContext({
+    viewport: { width: 1366, height: 768 },
+  });
   try {
     const page = await context.newPage();
     watch(page, report);
     await page.goto(origin + "/login");
-    await page.getByRole("button", { name: "Company demo", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Company demo", exact: true })
+      .click();
     await page.waitForURL("**/company/overview");
-    const pending = page.waitForResponse((response) => response.url().endsWith("/demonstrations/select") && response.request().method() === "POST");
+    await expect(page.getByTestId("live-pulse")).toBeVisible();
+    const pending = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/demonstrations/select") &&
+        response.request().method() === "POST",
+    );
+    void pending.catch(() => {});
     await chooseCommand(page, "Run S10", /Run S10 with fictional inputs/);
     const result = await pending;
     assert.equal(result.status(), 200);
@@ -217,10 +238,15 @@ async function checkWorkspaceCommands() {
     assert.equal(result.request().postDataJSON().acknowledged, true);
     await chooseCommand(page, "Port Authority", "Port Authority");
     await page.waitForURL("**/port/overview");
+    await expect(page.getByTestId("live-pulse")).toBeVisible();
     await chooseCommand(page, "Research", "Research");
     await page.waitForURL("**/research");
-    await expect(page.getByRole("region", { name: "What the study found" })).toBeVisible();
-  } finally { await context.close(); }
+    await expect(
+      page.getByRole("region", { name: "What the study found" }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
 }
 
 async function story() {
@@ -279,8 +305,18 @@ async function story() {
   }
 }
 
-async function measureTwin({ record = false, suppressWeather = false, expectStale = suppressWeather } = {}) {
-  const report = { name: "twin-weather", record, suppressWeather, expectStale, errors: [] };
+async function measureTwin({
+  record = false,
+  suppressWeather = false,
+  expectStale = suppressWeather,
+} = {}) {
+  const report = {
+    name: "twin-weather",
+    record,
+    suppressWeather,
+    expectStale,
+    errors: [],
+  };
   reports.push(report);
   const context = await browser.newContext({
     viewport: { width: 1366, height: 768 },
@@ -305,6 +341,7 @@ async function measureTwin({ record = false, suppressWeather = false, expectStal
     await page.goto(origin + "/login");
     await page.getByRole("button", { name: "Port demo", exact: true }).click();
     await page.waitForURL("**/port/overview");
+    await expect(page.getByTestId("live-pulse")).toBeVisible();
     await page.goto(origin + "/port/twin");
     const status = page.getByTestId("twin-weather-status");
     await expect(status).toHaveText(
@@ -349,7 +386,10 @@ async function measureTwin({ record = false, suppressWeather = false, expectStal
       });
     if (record) {
       await page.screenshot({
-        path: join(output, `1366x768-twin-${expectStale ? "stale" : "current"}-weather.png`),
+        path: join(
+          output,
+          `1366x768-twin-${expectStale ? "stale" : "current"}-weather.png`,
+        ),
       });
       await page.waitForTimeout(20_000);
     }
@@ -357,7 +397,9 @@ async function measureTwin({ record = false, suppressWeather = false, expectStal
   } finally {
     await context.close();
     if (video) {
-      await video.saveAs(join(output, `twin-${expectStale ? "stale" : "current"}-weather.webm`));
+      await video.saveAs(
+        join(output, `twin-${expectStale ? "stale" : "current"}-weather.webm`),
+      );
       await video.delete();
     }
   }
@@ -389,7 +431,8 @@ try {
       "Twin rendered under 50 fps",
     );
   }
-  if (mode === "twin-stale") await measureTwin({ record: true, expectStale: true });
+  if (mode === "twin-stale")
+    await measureTwin({ record: true, expectStale: true });
   assert(
     reports.every((report) => report.errors.length === 0),
     "Browser or API errors in evidence",

@@ -26,7 +26,10 @@ function pidsOnPort(port) {
         ...new Set(
           out
             .split(/\r?\n/)
-            .filter((line) => line.includes("LISTENING") && line.includes(`:${port} `))
+            .filter(
+              (line) =>
+                line.includes("LISTENING") && line.includes(`:${port} `),
+            )
             .map((line) => line.trim().split(/\s+/).pop())
             .filter((pid) => pid && pid !== "0"),
         ),

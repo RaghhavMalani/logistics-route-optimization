@@ -6,7 +6,11 @@ export const CHAPTERS = [
     kicker: "Maritime operations · Indian ports",
     title: "A port system you can read at a glance.",
     body: "PortWatch X models chokepoints, lanes, hulls, quays and cargo bound for Indian ports, then helps an operator compare what to do and why. Scroll to follow one illustrative voyage.",
-    facts: [`${ports.length} registered ports`, "4 roles", "1 world per visitor"],
+    facts: [
+      `${ports.length} registered ports`,
+      "4 roles",
+      "1 world per visitor",
+    ],
     cam: { x: -78, z: 0, size: 300, az: 44, el: 33 },
   },
   {

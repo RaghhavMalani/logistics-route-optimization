@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { PortSwitcher, usePortContext } from "@/components/app/port-context";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   KeyValue,
   MiniBar,
@@ -44,7 +50,9 @@ function PortEvents() {
 
   const exposed: ExposedEvent[] = events
     .map((event) => {
-      const match = event.exposure?.find((entry) => entry.portCode === port.code);
+      const match = event.exposure?.find(
+        (entry) => entry.portCode === port.code,
+      );
       const affected = event.affectedPorts?.includes(port.code);
       if (!match && !affected) return null;
       return { event, exposure: match?.exposure ?? null };
@@ -52,14 +60,22 @@ function PortEvents() {
     .filter((row): row is ExposedEvent => row !== null)
     .sort((a, b) => (b.exposure ?? 0) - (a.exposure ?? 0));
 
-  const alerts = (bundle?.alerts ?? []).filter((alert) => alert.portCode === port.code);
+  const alerts = (bundle?.alerts ?? []).filter(
+    (alert) => alert.portCode === port.code,
+  );
   const peakExposure = exposed.reduce<number | null>(
     (peak, row) =>
-      row.exposure == null ? peak : peak == null ? row.exposure : Math.max(peak, row.exposure),
+      row.exposure == null
+        ? peak
+        : peak == null
+          ? row.exposure
+          : Math.max(peak, row.exposure),
     null,
   );
   const chokepoints = new Set(
-    exposed.map((row) => row.event.chokepoint).filter((code): code is string => Boolean(code)),
+    exposed
+      .map((row) => row.event.chokepoint)
+      .filter((code): code is string => Boolean(code)),
   );
 
   const columns: Array<Column<ExposedEvent>> = [
@@ -68,7 +84,9 @@ function PortEvents() {
       header: "Severity",
       width: 96,
       render: (row) => (
-        <Pill tone={severityTone(row.event.severity)}>{row.event.severity}</Pill>
+        <Pill tone={severityTone(row.event.severity)}>
+          {row.event.severity}
+        </Pill>
       ),
       sort: (row) => row.event.severityScore,
     },
@@ -92,7 +110,9 @@ function PortEvents() {
       key: "tag",
       header: "Type",
       width: 148,
-      render: (row) => <span className="num text-[var(--text-3)]">{row.event.tag}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.event.tag}</span>
+      ),
       sort: (row) => row.event.tag,
     },
     {
@@ -101,7 +121,9 @@ function PortEvents() {
       width: 156,
       render: (row) =>
         row.event.chokepointName ? (
-          <span className="text-[var(--text-2)]">{row.event.chokepointName}</span>
+          <span className="text-[var(--text-2)]">
+            {row.event.chokepointName}
+          </span>
         ) : (
           <span className="text-[var(--text-3)]">—</span>
         ),
@@ -130,7 +152,9 @@ function PortEvents() {
       key: "source",
       header: "Source",
       width: 128,
-      render: (row) => <span className="num text-[var(--text-3)]">{row.event.source}</span>,
+      render: (row) => (
+        <span className="num text-[var(--text-3)]">{row.event.source}</span>
+      ),
       sort: (row) => row.event.source,
     },
     {
@@ -139,7 +163,9 @@ function PortEvents() {
       align: "right",
       width: 124,
       render: (row) => (
-        <span className="num text-[var(--text-3)]">{formatUtc(row.event.timestamp)}</span>
+        <span className="num text-[var(--text-3)]">
+          {formatUtc(row.event.timestamp)}
+        </span>
       ),
       sort: (row) => row.event.timestamp,
     },
@@ -189,7 +215,8 @@ function PortEvents() {
           },
           {
             label: "Severe events",
-            value: exposed.filter((row) => row.event.severity === "severe").length,
+            value: exposed.filter((row) => row.event.severity === "severe")
+              .length,
             tone: "crit",
             note: "severity as classified by the event expert",
           },
@@ -212,11 +239,11 @@ function PortEvents() {
               title="No exposure recorded"
               detail={
                 <>
-                  None of the {events.length} events in the current feed reports a measured
-                  exposure to {port.name}. The disruption-propagation expert only links an
-                  event to a port where the lane-exposure graph carries a value for that
-                  pair — an unlinked event is not evidence of safety, only of no measured
-                  path.
+                  None of the {events.length} events in the current feed reports
+                  a measured exposure to {port.name}. The disruption-propagation
+                  expert only links an event to a port where the lane-exposure
+                  graph carries a value for that pair — an unlinked event is not
+                  evidence of safety, only of no measured path.
                 </>
               }
             />
@@ -234,7 +261,8 @@ function PortEvents() {
           <Panel title="Alerts raised for this port" note={`${alerts.length}`}>
             {alerts.length === 0 ? (
               <p className="p-3 text-[11.5px] leading-snug text-[var(--text-3)]">
-                No alert was raised for {port.short} against the current forecast.
+                No alert was raised for {port.short} against the current
+                forecast.
               </p>
             ) : (
               <ul>
@@ -244,7 +272,9 @@ function PortEvents() {
                     className="border-b border-[var(--line)]/50 px-3 py-2 last:border-0"
                   >
                     <div className="flex items-center gap-2">
-                      <Pill tone={severityTone(alert.severity)}>{alert.severity}</Pill>
+                      <Pill tone={severityTone(alert.severity)}>
+                        {alert.severity}
+                      </Pill>
                       <span className="num ml-auto text-[10px] text-[var(--text-3)]">
                         {formatUtc(alert.ts)}
                       </span>
@@ -254,7 +284,9 @@ function PortEvents() {
                     </p>
                     <div className="num mt-1 flex gap-3 text-[10px] text-[var(--text-3)]">
                       <span>{alert.action}</span>
-                      <span>priority {alert.priority?.toFixed(2) ?? "n/a"}</span>
+                      <span>
+                        priority {alert.priority?.toFixed(2) ?? "n/a"}
+                      </span>
                       <span>conf {alert.confidence?.toFixed(2) ?? "n/a"}</span>
                     </div>
                   </li>

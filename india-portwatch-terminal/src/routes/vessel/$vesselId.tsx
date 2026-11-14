@@ -1,11 +1,20 @@
-import { CongestionScore, CongestionForecastBand } from "@/components/kit/CongestionScore";
+import {
+  CongestionScore,
+  CongestionForecastBand,
+} from "@/components/kit/CongestionScore";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { statusTone, useFleetIntel } from "@/components/app/fleet-context";
 import { ColumnChart, QuantileChart } from "@/components/kit/charts";
-import { Page, PageBody, PageHeader, Panel, StatStrip } from "@/components/kit/layout";
+import {
+  Page,
+  PageBody,
+  PageHeader,
+  Panel,
+  StatStrip,
+} from "@/components/kit/layout";
 import {
   Delta,
   KeyValue,
@@ -26,17 +35,33 @@ import { useWorkspaceMap } from "@/components/command/useWorkspaceMap";
 import { useFixes } from "@/components/app/traffic-context";
 import { useForecast } from "@/services/hooks";
 
-export const Route = createFileRoute("/vessel/$vesselId")({ component: VesselDetail });
+export const Route = createFileRoute("/vessel/$vesselId")({
+  component: VesselDetail,
+});
 
 function formatEta(date: Date | null): string {
   if (!date) return "—";
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return `${String(date.getUTCDate()).padStart(2, "0")} ${months[date.getUTCMonth()]}`;
 }
 
 function VesselDetail() {
   const { vesselId } = Route.useParams();
-  const { intel, isLoading, error, refetch, ports, weather, events } = useFleetIntel();
+  const { intel, isLoading, error, refetch, ports, weather, events } =
+    useFleetIntel();
 
   const row = intel.find((entry) => entry.vessel.id === vesselId) ?? null;
   const destinationForecast = useForecast(row?.vessel.intendedPortCode ?? null);
@@ -63,7 +88,9 @@ function VesselDetail() {
   const geometry = useMemo(
     () =>
       selectionGeometry(fix, exposure, {
-        alternativeTo: row?.vessel.reroute ? row.vessel.recommendedPortCode : null,
+        alternativeTo: row?.vessel.reroute
+          ? row.vessel.recommendedPortCode
+          : null,
       }),
     [exposure, fix, row],
   );
@@ -164,7 +191,8 @@ function VesselDetail() {
           {
             label: "Current ETA",
             value: formatEta(row.etaDate),
-            note: scoredDay != null ? `horizon day +${scoredDay}` : "no scored day",
+            note:
+              scoredDay != null ? `horizon day +${scoredDay}` : "no scored day",
           },
           {
             label: "Recommended ETA",
@@ -184,7 +212,10 @@ function VesselDetail() {
           {
             label: "Port entry risk",
             value: vessel.intendedCongestionProbability?.toFixed(2) ?? "n/a",
-            tone: (vessel.intendedCongestionProbability ?? 0) >= 0.5 ? "crit" : "info",
+            tone:
+              (vessel.intendedCongestionProbability ?? 0) >= 0.5
+                ? "crit"
+                : "info",
             note: "P(congestion > 50) on the scored day",
           },
           {
@@ -195,7 +226,9 @@ function VesselDetail() {
           },
           {
             label: "Model confidence",
-            value: destination ? `${(destination.confidence * 100).toFixed(0)}%` : "n/a",
+            value: destination
+              ? `${(destination.confidence * 100).toFixed(0)}%`
+              : "n/a",
             note: `disagreement ${destination?.modelDisagreement?.toFixed(2) ?? "n/a"}`,
           },
         ]}
@@ -212,18 +245,25 @@ function VesselDetail() {
         </div>
 
         <aside className="flex w-[420px] shrink-0 flex-col overflow-y-auto 2xl:w-[480px]">
-          <Panel title="Operational recommendation" className="shrink-0 rounded-none border-x-0 border-t-0">
+          <Panel
+            title="Operational recommendation"
+            className="shrink-0 rounded-none border-x-0 border-t-0"
+          >
             <div className="p-3">
               <div className="mb-2 flex items-center gap-2">
                 <Pill tone={statusTone(row.status)} solid>
                   {row.status}
                 </Pill>
-                <span className="num text-[11px] text-[var(--text-3)]">{vessel.source}</span>
+                <span className="num text-[11px] text-[var(--text-3)]">
+                  {vessel.source}
+                </span>
               </div>
               <h2 className="text-[15px] font-medium leading-snug text-[var(--text)]">
                 {row.action}
               </h2>
-              <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-2)]">{row.why}</p>
+              <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-2)]">
+                {row.why}
+              </p>
               <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-relaxed text-[var(--text-3)]">
                 {vessel.recommendation}
               </p>
@@ -255,14 +295,22 @@ function VesselDetail() {
                   [
                     [
                       "Port",
-                      vessel.intendedPortName ?? vessel.intendedPortCode ?? "n/a",
-                      vessel.recommendedPortName ?? vessel.recommendedPortCode ?? "n/a",
+                      vessel.intendedPortName ??
+                        vessel.intendedPortCode ??
+                        "n/a",
+                      vessel.recommendedPortName ??
+                        vessel.recommendedPortCode ??
+                        "n/a",
                       null,
                     ],
                     [
                       "Arrival day",
-                      vessel.intendedArrivalDay != null ? `+${vessel.intendedArrivalDay}` : "n/a",
-                      vessel.bestArrivalDay != null ? `+${vessel.bestArrivalDay}` : "n/a",
+                      vessel.intendedArrivalDay != null
+                        ? `+${vessel.intendedArrivalDay}`
+                        : "n/a",
+                      vessel.bestArrivalDay != null
+                        ? `+${vessel.bestArrivalDay}`
+                        : "n/a",
                       null,
                     ],
                     [
@@ -274,7 +322,8 @@ function VesselDetail() {
                     [
                       "P(congestion)",
                       vessel.intendedCongestionProbability?.toFixed(2) ?? "n/a",
-                      vessel.alternativeCongestionProbability?.toFixed(2) ?? "n/a",
+                      vessel.alternativeCongestionProbability?.toFixed(2) ??
+                        "n/a",
                       vessel.intendedCongestionProbability != null &&
                       vessel.alternativeCongestionProbability != null
                         ? vessel.alternativeCongestionProbability -
@@ -285,7 +334,8 @@ function VesselDetail() {
                       "Optimizer cost",
                       vessel.intendedCost?.toFixed(2) ?? "n/a",
                       vessel.alternativeCost?.toFixed(2) ?? "n/a",
-                      vessel.intendedCost != null && vessel.alternativeCost != null
+                      vessel.intendedCost != null &&
+                      vessel.alternativeCost != null
                         ? vessel.alternativeCost - vessel.intendedCost
                         : null,
                     ],
@@ -294,13 +344,19 @@ function VesselDetail() {
                       destination?.congestionIndex?.toFixed(1) ?? "n/a",
                       alternative?.congestionIndex?.toFixed(1) ?? "n/a",
                       destination && alternative
-                        ? alternative.congestionIndex - destination.congestionIndex
+                        ? alternative.congestionIndex -
+                          destination.congestionIndex
                         : null,
                     ],
                   ] as Array<[string, string, string, number | null]>
                 ).map(([label, left, right, delta]) => (
-                  <tr key={label} className="border-b border-[var(--line)]/45 last:border-0">
-                    <td className="px-2.5 py-[5px] text-[11.5px] text-[var(--text-3)]">{label}</td>
+                  <tr
+                    key={label}
+                    className="border-b border-[var(--line)]/45 last:border-0"
+                  >
+                    <td className="px-2.5 py-[5px] text-[11.5px] text-[var(--text-3)]">
+                      {label}
+                    </td>
                     <td className="num px-2.5 py-[5px] text-right text-[12px] text-[var(--text)]">
                       {left}
                     </td>
@@ -336,7 +392,11 @@ function VesselDetail() {
 
           <Panel
             title="Arrival window"
-            note={window ? `declared +${window.earliest} … +${window.latest}` : undefined}
+            note={
+              window
+                ? `declared +${window.earliest} … +${window.latest}`
+                : undefined
+            }
             className="shrink-0 rounded-none border-x-0 border-t-0"
           >
             <div className="p-3">
@@ -347,7 +407,8 @@ function VesselDetail() {
                     points={forecastRows.map((point) => {
                       const inWindow =
                         window == null ||
-                        (point.day >= window.earliest && point.day <= window.latest);
+                        (point.day >= window.earliest &&
+                          point.day <= window.latest);
                       return {
                         label: point.dateLabel,
                         value: point.delayHoursP50,
@@ -361,8 +422,9 @@ function VesselDetail() {
                   />
                   <p className="mt-2 border-t border-[var(--line)] pt-2 text-[11.5px] leading-snug text-[var(--text-3)]">
                     Predicted berth wait per horizon day at{" "}
-                    {vessel.intendedPortName ?? "the destination"}. Grey columns fall outside
-                    the declared window; the green column is the day the optimizer scored.
+                    {vessel.intendedPortName ?? "the destination"}. Grey columns
+                    fall outside the declared window; the green column is the
+                    day the optimizer scored.
                   </p>
                 </>
               ) : (
@@ -373,23 +435,36 @@ function VesselDetail() {
             </div>
           </Panel>
 
-          <Panel title="Destination state" className="shrink-0 rounded-none border-x-0 border-t-0">
+          <Panel
+            title="Destination state"
+            className="shrink-0 rounded-none border-x-0 border-t-0"
+          >
             {destination ? (
               <div className="px-3 py-2">
                 <KeyValue label="Regime" dense>
-                  <Pill tone={riskTone(destination.risk)}>{destination.regime}</Pill>
+                  <Pill tone={riskTone(destination.risk)}>
+                    {destination.regime}
+                  </Pill>
                 </KeyValue>
                 <KeyValue label="Risk band" dense>
-                  <span className="text-[11.5px]">{riskLabel(destination.risk)}</span>
+                  <span className="text-[11.5px]">
+                    {riskLabel(destination.risk)}
+                  </span>
                 </KeyValue>
                 <KeyValue label="Observed congestion" dense>
-                  <CongestionScore value={destination.observedCongestionIndex} history={destination.congestionHistory} />
+                  <CongestionScore
+                    value={destination.observedCongestionIndex}
+                    history={destination.congestionHistory}
+                  />
                 </KeyValue>
                 <KeyValue label="Day-1 forecast" dense>
                   <CongestionScore value={destination.congestionIndex} />
                 </KeyValue>
                 <KeyValue label="80% band" dense>
-                  <CongestionForecastBand low={destination.forecastQ10} high={destination.forecastQ90} />
+                  <CongestionForecastBand
+                    low={destination.forecastQ10}
+                    high={destination.forecastQ90}
+                  />
                 </KeyValue>
                 <KeyValue label="Anchorage waiting" dense>
                   <Num value={destination.anchorageCount} />
@@ -443,8 +518,8 @@ function VesselDetail() {
             {row.exposure.length === 0 ? (
               <p className="px-3 py-3 text-[11.5px] leading-snug text-[var(--text-3)]">
                 No event in the current feed reports a measured exposure to{" "}
-                {vessel.intendedPortName ?? "the destination"}. That is an absence of a
-                measured path, not a guarantee of clear water.
+                {vessel.intendedPortName ?? "the destination"}. That is an
+                absence of a measured path, not a guarantee of clear water.
               </p>
             ) : (
               <ul>

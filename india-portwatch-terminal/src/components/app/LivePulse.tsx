@@ -1,26 +1,60 @@
-import { ageLabel, expectedLagTone, sourceStatusLabel, useSourceHealth } from "@/services/source-health";
+import {
+  ageLabel,
+  expectedLagTone,
+  sourceStatusLabel,
+  useSourceHealth,
+} from "@/services/source-health";
 import { useWorkspaceHandoffs } from "@/services/handoffs";
 import { Link } from "@tanstack/react-router";
 
 export function LivePulse() {
   useWorkspaceHandoffs();
   const health = useSourceHealth();
-  const sources = [...(health.data?.sources ?? [])].sort((a, b) => Number(b.core) - Number(a.core));
-  return <nav aria-label="Live source freshness" data-testid="live-pulse"
-    className="flex h-7 shrink-0 items-center gap-4 overflow-x-auto border-b border-[var(--line)] bg-[var(--panel)] px-3 font-mono text-[10px] text-[var(--text-2)]">
-    <Link to="/sources" className="shrink-0 uppercase tracking-wider">Sources</Link>
-    {!health.data ? <span>{health.isError ? "Unavailable · retained source health" : "Checking retained snapshots"}</span> : null}
-    {sources.map((source) => <Link key={source.id} to="/sources" data-source={source.id} data-status={source.status}
-      className={`flex shrink-0 items-center gap-1.5 ${source.status === "stale" || source.status === "unavailable" ? "text-[var(--text-3)]" : ""}`}
-      title={`${source.name} · ${sourceStatusLabel[source.status]} · ${source.detail}`}>
-      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${source.status === "live" ? "bg-emerald-700" : source.status === "expected_lag" ? "bg-amber-400" : source.status === "stale" ? "bg-amber-700" : "bg-neutral-400"}`} />
-      <span>{source.name}</span>
-      <span>{source.dataAgeSeconds == null ? "—" : ageLabel(source.dataAgeSeconds)}</span>
-      {source.status === "expected_lag" ? (
-        <span className={expectedLagTone}>
-          Within expected lag
+  const sources = [...(health.data?.sources ?? [])].sort(
+    (a, b) => Number(b.core) - Number(a.core),
+  );
+  return (
+    <nav
+      aria-label="Live source freshness"
+      data-testid="live-pulse"
+      className="flex h-7 shrink-0 items-center gap-4 overflow-x-auto border-b border-[var(--line)] bg-[var(--panel)] px-3 font-mono text-[10px] text-[var(--text-2)]"
+    >
+      <Link to="/sources" className="shrink-0 uppercase tracking-wider">
+        Sources
+      </Link>
+      {!health.data ? (
+        <span>
+          {health.isError
+            ? "Unavailable · retained source health"
+            : "Checking retained snapshots"}
         </span>
-      ) : <span className="sr-only">{sourceStatusLabel[source.status]}</span>}
-    </Link>)}
-  </nav>;
+      ) : null}
+      {sources.map((source) => (
+        <Link
+          key={source.id}
+          to="/sources"
+          data-source={source.id}
+          data-status={source.status}
+          className={`flex shrink-0 items-center gap-1.5 ${source.status === "stale" || source.status === "unavailable" ? "text-[var(--text-3)]" : ""}`}
+          title={`${source.name} · ${sourceStatusLabel[source.status]} · ${source.detail}`}
+        >
+          <span
+            aria-hidden
+            className={`h-1.5 w-1.5 rounded-full ${source.status === "live" ? "bg-emerald-700" : source.status === "expected_lag" ? "bg-amber-400" : source.status === "stale" ? "bg-amber-700" : "bg-neutral-400"}`}
+          />
+          <span>{source.name}</span>
+          <span>
+            {source.dataAgeSeconds == null
+              ? "—"
+              : ageLabel(source.dataAgeSeconds)}
+          </span>
+          {source.status === "expected_lag" ? (
+            <span className={expectedLagTone}>Within expected lag</span>
+          ) : (
+            <span className="sr-only">{sourceStatusLabel[source.status]}</span>
+          )}
+        </Link>
+      ))}
+    </nav>
+  );
 }

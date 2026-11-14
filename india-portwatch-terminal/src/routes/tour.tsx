@@ -17,6 +17,6 @@ export const Route = createFileRoute("/tour")({
           "An illustrative voyage through PortWatch’s intelligence, shipping comparisons, port twin, cargo commitments and four role workspaces.",
       },
     ],
-    links: [{rel:"stylesheet",href:tourCss}],
+    links: [{ rel: "stylesheet", href: tourCss }],
   }),
 });

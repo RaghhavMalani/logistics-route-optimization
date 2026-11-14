@@ -102,7 +102,10 @@ function rasterisePolygon(rings, land) {
     if (crossings.length < 2) continue;
     crossings.sort((a, b) => a - b);
     for (let i = 0; i + 1 < crossings.length; i += 2) {
-      const from = Math.max(0, Math.ceil((crossings[i] - GRID.minLon) / GRID.step - 0.5));
+      const from = Math.max(
+        0,
+        Math.ceil((crossings[i] - GRID.minLon) / GRID.step - 0.5),
+      );
       const to = Math.min(
         GRID.cols - 1,
         Math.floor((crossings[i + 1] - GRID.minLon) / GRID.step - 0.5),
@@ -274,8 +277,10 @@ class MinHeap {
         const l = 2 * i + 1;
         const r = l + 1;
         let smallest = i;
-        if (l < this.keys.length && this.keys[l] < this.keys[smallest]) smallest = l;
-        if (r < this.keys.length && this.keys[r] < this.keys[smallest]) smallest = r;
+        if (l < this.keys.length && this.keys[l] < this.keys[smallest])
+          smallest = l;
+        if (r < this.keys.length && this.keys[r] < this.keys[smallest])
+          smallest = r;
         if (smallest === i) break;
         this.swap(i, smallest);
         i = smallest;
@@ -294,8 +299,14 @@ class MinHeap {
 }
 
 const NEIGHBOURS = [
-  [1, 0], [-1, 0], [0, 1], [0, -1],
-  [1, 1], [1, -1], [-1, 1], [-1, -1],
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
 ];
 
 function findRoute(land, dist, startCell, goalCell) {
@@ -332,7 +343,8 @@ function findRoute(land, dist, startCell, goalCell) {
       // No corner cutting: a diagonal step whose two orthogonal neighbours are
       // land squeezes a route through a headland the raster says is closed.
       if (step[0] !== 0 && step[1] !== 0) {
-        if (land[idx(col + step[0], row)] || land[idx(col, row + step[1])]) continue;
+        if (land[idx(col + step[0], row)] || land[idx(col, row + step[1])])
+          continue;
       }
       const stepKm = Math.hypot(step[0] * dxKm, step[1] * dyKm);
       const cost = g[current] + stepKm * penalty(dist[next]);
@@ -366,7 +378,13 @@ function findRoute(land, dist, startCell, goalCell) {
 function nearestWater(land, lon, lat, maxRings = 40) {
   const col0 = colOf(lon);
   const row0 = rowOf(lat);
-  if (col0 >= 0 && row0 >= 0 && col0 < GRID.cols && row0 < GRID.rows && !land[idx(col0, row0)]) {
+  if (
+    col0 >= 0 &&
+    row0 >= 0 &&
+    col0 < GRID.cols &&
+    row0 < GRID.rows &&
+    !land[idx(col0, row0)]
+  ) {
     return idx(col0, row0);
   }
   for (let ring = 1; ring <= maxRings; ring += 1) {
@@ -407,7 +425,10 @@ function perpendicularKm(point, a, b) {
   const dy = by - ay;
   const lengthSq = dx * dx + dy * dy;
   if (lengthSq === 0) return Math.hypot(px - ax, py - ay);
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
+  const t = Math.max(
+    0,
+    Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq),
+  );
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
 
@@ -452,7 +473,8 @@ function segmentIsWater(land, a, b, sampleKm = 2) {
     const lat = a[1] + (b[1] - a[1]) * f;
     const col = colOf(lon);
     const row = rowOf(lat);
-    if (col < 0 || row < 0 || col >= GRID.cols || row >= GRID.rows) return false;
+    if (col < 0 || row < 0 || col >= GRID.cols || row >= GRID.rows)
+      return false;
     if (land[idx(col, row)]) return false;
   }
   return true;
@@ -468,7 +490,8 @@ function segmentIsWater(land, a, b, sampleKm = 2) {
  */
 function firstLandfall(land, coords, entryKm = 30) {
   let total = 0;
-  for (let i = 0; i < coords.length - 1; i += 1) total += haversineKm(coords[i], coords[i + 1]);
+  for (let i = 0; i < coords.length - 1; i += 1)
+    total += haversineKm(coords[i], coords[i + 1]);
   let travelled = 0;
   for (let i = 0; i < coords.length - 1; i += 1) {
     const a = coords[i];
@@ -501,7 +524,10 @@ function smooth(points, land, passes = 2) {
       const b = current[i + 1];
       const q = [a[0] + 0.25 * (b[0] - a[0]), a[1] + 0.25 * (b[1] - a[1])];
       const r = [a[0] + 0.75 * (b[0] - a[0]), a[1] + 0.75 * (b[1] - a[1])];
-      if (segmentIsWater(land, next[next.length - 1], q) && segmentIsWater(land, q, r)) {
+      if (
+        segmentIsWater(land, next[next.length - 1], q) &&
+        segmentIsWater(land, q, r)
+      ) {
         next.push(q, r);
       } else {
         next.push(a, b);
@@ -555,21 +581,37 @@ const GATEWAYS = [
 ];
 
 const WAYPOINTS = [
-  ...PORTS.map((p) => ({ id: p[0], name: p[1], lat: p[2], lon: p[3], kind: "port" })),
-  ...GATEWAYS.map((g) => ({ id: g[0], name: g[1], lat: g[2], lon: g[3], kind: "gateway" })),
+  ...PORTS.map((p) => ({
+    id: p[0],
+    name: p[1],
+    lat: p[2],
+    lon: p[3],
+    kind: "port",
+  })),
+  ...GATEWAYS.map((g) => ({
+    id: g[0],
+    name: g[1],
+    lat: g[2],
+    lon: g[3],
+    kind: "gateway",
+  })),
 ];
 
 /* ------------------------------------------------------------------ main -- */
 
 console.log(`grid ${GRID.cols}x${GRID.rows} cells at ${GRID.step} deg`);
 
-const landGeo = JSON.parse(fs.readFileSync(path.join(GEO, "region-land.json"), "utf8"));
+const landGeo = JSON.parse(
+  fs.readFileSync(path.join(GEO, "region-land.json"), "utf8"),
+);
 const land = new Uint8Array(GRID.cols * GRID.rows);
 
 for (const feature of landGeo.features) {
   const geometry = feature.geometry;
   const polygons =
-    geometry.type === "MultiPolygon" ? geometry.coordinates : [geometry.coordinates];
+    geometry.type === "MultiPolygon"
+      ? geometry.coordinates
+      : [geometry.coordinates];
   for (const rings of polygons) rasterisePolygon(rings, land);
 }
 
@@ -625,7 +667,9 @@ for (const pair of pairs) {
   const found = findRoute(land, dist, from.cell, to.cell);
   done += 1;
   if (done % 40 === 0) {
-    console.log(`  ${done}/${pairs.length} (${((Date.now() - started) / 1000).toFixed(0)}s)`);
+    console.log(
+      `  ${done}/${pairs.length} (${((Date.now() - started) / 1000).toFixed(0)}s)`,
+    );
   }
   if (!found) {
     failed += 1;
@@ -639,17 +683,20 @@ for (const pair of pairs) {
       ...middle.map((point) => [round(point[0]), round(point[1])]),
       [round(b.lon), round(b.lat)],
     ].filter(
-      (point, i, all) => i === 0 || point[0] !== all[i - 1][0] || point[1] !== all[i - 1][1],
+      (point, i, all) =>
+        i === 0 || point[0] !== all[i - 1][0] || point[1] !== all[i - 1][1],
     );
 
   const plain = simplify(found.coords, 3.5, land);
   // Smoothing reads far better on screen, but a rounded corner can clip a
   // headland the router avoided. Take the smoothed line only when it is clean.
   const candidate = assemble(smooth(plain, land, 2));
-  const coords = firstLandfall(land, candidate) === null ? candidate : assemble(plain);
+  const coords =
+    firstLandfall(land, candidate) === null ? candidate : assemble(plain);
 
   let km = 0;
-  for (let i = 0; i < coords.length - 1; i += 1) km += haversineKm(coords[i], coords[i + 1]);
+  for (let i = 0; i < coords.length - 1; i += 1)
+    km += haversineKm(coords[i], coords[i + 1]);
 
   legs[`${a.id}>${b.id}`] = {
     from: a.id,
@@ -669,11 +716,15 @@ for (const key of Object.keys(legs)) {
   const bad = firstLandfall(land, legs[key].coords);
   if (bad) {
     crossings += 1;
-    console.warn(`  ! ${key} crosses land at ${bad[0].toFixed(2)},${bad[1].toFixed(2)}`);
+    console.warn(
+      `  ! ${key} crosses land at ${bad[0].toFixed(2)},${bad[1].toFixed(2)}`,
+    );
   }
 }
 console.log(
-  crossings === 0 ? "validation: no leg crosses land" : `validation: ${crossings} legs cross land`,
+  crossings === 0
+    ? "validation: no leg crosses land"
+    : `validation: ${crossings} legs cross land`,
 );
 
 /* ----------------------------------------------------------------- write -- */
@@ -688,7 +739,8 @@ for (let i = 0; i < land.length; i += 1) {
 const provenance = {
   generatedAt: new Date().toISOString(),
   generator: "scripts/build-sea-routes.mjs",
-  basis: "Natural Earth 1:50m land polygons clipped to the Indian Ocean theatre",
+  basis:
+    "Natural Earth 1:50m land polygons clipped to the Indian Ocean theatre",
   method:
     "A* over a 0.1 degree water raster with an offshore-distance penalty, " +
     "Douglas-Peucker at 3.5 km, then land-checked Chaikin smoothing",
@@ -704,7 +756,12 @@ const provenance = {
 
 fs.writeFileSync(
   path.join(GEO, "sea-grid.json"),
-  JSON.stringify({ ...provenance, grid: GRID, landCells, water: packed.toString("base64") }),
+  JSON.stringify({
+    ...provenance,
+    grid: GRID,
+    landCells,
+    water: packed.toString("base64"),
+  }),
 );
 
 fs.writeFileSync(

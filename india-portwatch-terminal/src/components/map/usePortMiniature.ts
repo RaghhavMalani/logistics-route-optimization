@@ -39,10 +39,16 @@ export function usePortMiniature(
 ) {
   const [active, setActive] = useState<PortMiniatureTarget | null>(null);
   const port = enabled ? active : null;
-  const { weather, label } = usePortWeather(port?.code ?? null, port?.center[1], port?.center[0]);
+  const { weather, label } = usePortWeather(
+    port?.code ?? null,
+    port?.center[1],
+    port?.center[0],
+  );
   const currentWeather = useRef({ code: port?.code, weather });
   currentWeather.current = { code: port?.code, weather };
-  useEffect(() => { map?.triggerRepaint(); }, [map, weather]);
+  useEffect(() => {
+    map?.triggerRepaint();
+  }, [map, weather]);
   const latest = useRef(ports);
   const refresh = useRef<(() => void) | null>(null);
   latest.current = ports;
@@ -114,9 +120,13 @@ export function usePortMiniature(
           : null;
       sync(SCHEMATIC_ID, schematic, () =>
         import("./port-miniature-layer").then(
-          ({ createPortMiniature }) => (target) => createPortMiniature(target, () =>
-            currentWeather.current.code === target.code ? currentWeather.current.weather : null,
-          ),
+          ({ createPortMiniature }) =>
+            (target) =>
+              createPortMiniature(target, () =>
+                currentWeather.current.code === target.code
+                  ? currentWeather.current.weather
+                  : null,
+              ),
         ),
       );
     };
@@ -145,5 +155,8 @@ export function usePortMiniature(
   }, [enabled, map]);
 
   useEffect(() => refresh.current?.(), [ports]);
-  return useMemo(() => port ? { ...port, weatherLabel: label } : null, [port, label]);
+  return useMemo(
+    () => (port ? { ...port, weatherLabel: label } : null),
+    [port, label],
+  );
 }
