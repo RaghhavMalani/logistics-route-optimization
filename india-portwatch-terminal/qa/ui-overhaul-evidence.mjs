@@ -6,14 +6,17 @@ import { chromium, expect } from "@playwright/test";
 const [origin, sha, output, mode = "all"] = process.argv.slice(2);
 if (!/^https:\/\/india-portwatch-[a-z0-9]+-flash2404s-projects\.vercel\.app$/.test(origin) ||
     !/^[a-f0-9]{40}$/.test(sha) || !output ||
-    !["all", "screens", "story"].includes(mode)) {
+    !["all", "screens", "story", "research", "twin-weather"].includes(mode)) {
   throw new Error("Pass the isolated preview origin, full SHA, evidence directory and optional mode.");
 }
 const health = await fetch(origin + "/api/health").then((response) => response.json());
 assert.equal(health.release?.sha, sha);
 assert.equal(health.service?.status, "ok");
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(mode === "twin-weather" ? {
+  headless: false,
+  args: process.platform === "win32" ? ["--use-angle=d3d11", "--disable-software-rasterizer"] : [],
+} : {});
 const reports = [];
 const sizes = [[1024, 768], [1366, 768], [1440, 900], [1280, 720]];
 const screens = [
@@ -23,6 +26,7 @@ const screens = [
   ["vessel", "Vessel", "/vessel/overview"],
   ["admin", "Admin", "/admin/radar"],
   ["twin", "Port", "/port/twin"],
+  ["research", null, "/research"],
 ];
 
 function watch(page, report) {
@@ -90,6 +94,18 @@ async function screenShot(width, height, [name, role, path]) {
       await divider.press("ArrowLeft");
       await page.getByRole("button", { name: "Pause simulation" }).click();
       await page.getByRole("heading", { name: /Digital Twin/ }).scrollIntoViewIfNeeded();
+    } else if (name === "research") {
+      await page.goto(origin + path);
+      await expect(page.getByRole("region", { name: "Decision policy benchmark" })).toBeVisible();
+      if (mode !== "research") {
+        const findings = page.getByRole("region", { name: "What the study found" });
+        await expect(findings.getByText("SYNTHETIC CORPUS", { exact: true })).toHaveCount(3);
+        await expect(findings.getByText(/0 choices changed/)).toBeVisible();
+        const pdf = await context.request.get(origin + "/portwatch-study.pdf");
+        assert.equal(pdf.status(), 200);
+        assert.equal((await pdf.body()).subarray(0, 5).toString(), "%PDF-");
+        await findings.scrollIntoViewIfNeeded();
+      }
     } else if (role) {
       await checkMap(page, name, report);
     }
@@ -160,16 +176,82 @@ async function story() {
   }
 }
 
+async function measureTwin({ record = false, suppressWeather = false } = {}) {
+  const report = { name: "twin-weather", record, suppressWeather, errors: [] };
+  reports.push(report);
+  const context = await browser.newContext({
+    viewport: { width: 1366, height: 768 },
+    ...(record ? { recordVideo: { dir: output, size: { width: 1366, height: 768 } } } : {}),
+  });
+  if (suppressWeather) {
+    await context.route("**/api/intelligence/current?*", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get("view") !== "provider") return route.continue();
+      const response = await route.fetch();
+      const data = await response.json();
+      data.sources.surface.status = "STALE";
+      await route.fulfill({ response, json: data });
+    });
+  }
+  const page = await context.newPage();
+  const video = page.video();
+  watch(page, report);
+  try {
+    await page.goto(origin + "/login");
+    await page.getByRole("button", { name: "Port demo", exact: true }).click();
+    await page.waitForURL("**/port/overview");
+    await page.goto(origin + "/port/twin");
+    await expect(page.getByTestId("twin-weather-status")).toHaveText(suppressWeather
+      ? /stale · effects off/ : /Current hourly forecast · Open-Meteo/, { timeout: 25_000 });
+    await page.getByRole("button", { name: "Compare policies" }).click();
+    const panes = page.getByTestId("port-twin-scene");
+    const start = () => panes.evaluateAll((nodes) => nodes.map((node) => Number(node.dataset.frameCount)));
+    await expect(panes).toHaveCount(2);
+    await expect.poll(async () => (await start()).every((value) => value > 2)).toBe(true);
+    await page.bringToFront();
+    assert.equal(await page.evaluate(() => document.visibilityState), "visible");
+    const before = await start();
+    const at = performance.now();
+    await page.waitForTimeout(5000);
+    const after = await start();
+    const elapsed = (performance.now() - at) / 1000;
+    report.fps = after.map((frames, index) => (frames - before[index]) / elapsed);
+    report.gpu = await panes.first().locator("canvas").evaluate((canvas) => {
+      const gl = canvas.getContext("webgl2");
+      const extension = gl?.getExtension("WEBGL_debug_renderer_info");
+      return extension ? gl.getParameter(extension.UNMASKED_RENDERER_WEBGL) : null;
+    });
+    if (record) {
+      await page.screenshot({ path: join(output, "1366x768-twin-current-weather.png") });
+      await page.waitForTimeout(20_000);
+    }
+    console.log("Twin weather", JSON.stringify(report));
+  } finally {
+    await context.close();
+    if (video) {
+      await video.saveAs(join(output, "twin-current-weather.webm"));
+      await video.delete();
+    }
+  }
+}
+
 try {
   await mkdir(output, { recursive: true });
-  if (mode !== "story") {
+  if (mode === "all" || mode === "screens" || mode === "research") {
     for (const [width, height] of sizes) {
-      for (const screen of (width === 1280 ? screens.filter(([name]) => name === "twin") : screens)) {
+      const selected = width === 1280 ? screens.filter(([name]) => name === "twin") : screens;
+      for (const screen of mode === "research" ? selected.filter(([name]) => name === "research") : selected) {
         await screenShot(width, height, screen);
       }
     }
   }
-  if (mode !== "screens") await story();
+  if (mode === "all" || mode === "story") await story();
+  if (mode === "twin-weather") {
+    await measureTwin();
+    await measureTwin({ suppressWeather: true });
+    await measureTwin({ record: true });
+    assert(reports.slice(0, 2).every((report) => report.fps.every((fps) => fps >= 50)), "Twin rendered under 50 fps");
+  }
   assert(reports.every((report) => report.errors.length === 0), "Browser or API errors in evidence");
 } finally {
   await writeFile(join(output, `receipt-${mode}.json`), JSON.stringify({ origin, sha, reports }, null, 2));
