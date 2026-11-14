@@ -108,7 +108,8 @@ export function createPortMiniature(
     ((90 - port.shore.bearing) * Math.PI) / 180,
   );
   const center = new THREE.Vector3(9, 0.7, 0);
-  const effects = createPortSceneWeather(scene, center, 52, 58, 90 + port.shore.bearing);
+  const cranePositions = [-18, 18].map((z) => new THREE.Vector3(-16 + 6 * 0.56, 0.78 + 30.5 * 0.56, z));
+  const effects = createPortSceneWeather(scene, center, 52, 58, 90 + port.shore.bearing, cranePositions);
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let previousZoom = -1;
   let anchor = port.center;

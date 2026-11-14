@@ -34,6 +34,7 @@ export function createPortSceneWeather(
   depth: number,
   /** Compass bearing of the positive z-axis of the port model. */
   modelBearing: number,
+  cranePositions: readonly T.Vector3[] = [],
 ) {
   const group = new T.Group();
   const poles = new T.BoxGeometry(width * 0.005, width * 0.11, width * 0.005);
@@ -51,6 +52,18 @@ export function createPortSceneWeather(
     group.add(rig);
     return rig;
   });
+  // Pennants on the cranes show wind independently from the crane work cycle.
+  const craneFlags = cranePositions.map((position) => {
+    const rig = new T.Group();
+    rig.position.copy(position);
+    const flag = new T.Mesh(cloth, flagMaterial);
+    flag.scale.setScalar(0.52);
+    flag.position.x = width * 0.063 * 0.26;
+    rig.add(flag);
+    group.add(rig);
+    return rig;
+  });
+  const windIndicators = [...flags, ...craneFlags];
   const random = seededRandom(4721);
   const seeds = Array.from({ length: 64 }, () => [random(), random(), random()]);
   const positions = new T.BufferAttribute(new Float32Array(seeds.length * 6), 3);
@@ -67,6 +80,9 @@ export function createPortSceneWeather(
   let daylight = true;
   const localAngle = (bearing: number) => bearing - modelBearing * radians;
   return {
+    moveCraneFlag(index: number, x: number, y: number, z: number) {
+      craneFlags[index]?.position.set(x, y, z);
+    },
     draw(weather: MiniatureWeather | null, now: number, motion: boolean) {
       group.visible = weather !== null;
       if (!weather) return { direction: undefined, night: false, animate: false };
@@ -82,7 +98,7 @@ export function createPortSceneWeather(
       }
       const from = hour.wind_direction_10m;
       const wind = from == null ? null : localAngle((from + 180) * radians);
-      for (const flag of flags) {
+      for (const flag of windIndicators) {
         flag.visible = wind != null;
         if (wind != null) flag.rotation.y = -Math.PI / 2 - wind;
       }
