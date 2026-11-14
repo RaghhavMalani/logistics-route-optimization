@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "paperSourceSha": "92567c527a424c57cc392bc86b175a9a7903299d",
+  "costFirst": {
+    "pairs": 182,
+    "timeRegretHours": {
+      "estimate": 70.74959543918476,
+      "lower95": 51.0686252983439,
+      "upper95": 91.07446622623443
+    },
+    "costRegretUsd": {
+      "estimate": -9120.655705761163,
+      "lower95": -12046.798750070042,
+      "upper95": -6365.860976894783
+    }
+  },
+  "tail": {
+    "thresholdUsd": 10000.0,
+    "incumbentExceedance": {
+      "estimate": 0.2087912087912088,
+      "lower95": 0.14835164835164835,
+      "upper95": 0.2692307692307692
+    },
+    "rules": [
+      {
+        "rule": "R3",
+        "exceedance": {
+          "estimate": 0.04395604395604396,
+          "lower95": 0.016483516483516484,
+          "upper95": 0.07692307692307693
+        },
+        "meanCostRegretUsd": {
+          "estimate": 9180.390800627394,
+          "lower95": -4000.9287437939233,
+          "upper95": 24776.770301901168
+        },
+        "meanTimeRegretHours": {
+          "estimate": 82.88302926243405,
+          "lower95": 62.166733489368944,
+          "upper95": 104.63044229901595
+        }
+      },
+      {
+        "rule": "R4",
+        "exceedance": {
+          "estimate": 0.054945054945054944,
+          "lower95": 0.02197802197802198,
+          "upper95": 0.08791208791208792
+        },
+        "meanCostRegretUsd": {
+          "estimate": 17054.045292722083,
+          "lower95": 1159.840120570011,
+          "upper95": 35696.87619286634
+        },
+        "meanTimeRegretHours": {
+          "estimate": 87.54575049431857,
+          "lower95": 66.29408428620916,
+          "upper95": 109.52077180031387
+        }
+      }
+    ],
+    "extreme": {
+      "case": "cargo-5136",
+      "regretUsd": 759545.9154191514
+    }
+  },
+  "coverage": [
+    {
+      "nominalPercent": 50,
+      "rows": 4260,
+      "before": 0.3779342723004695,
+      "after": 0.38873239436619716
+    },
+    {
+      "nominalPercent": 80,
+      "rows": 4260,
+      "before": 0.7213615023474178,
+      "after": 0.7511737089201878
+    },
+    {
+      "nominalPercent": 90,
+      "rows": 4260,
+      "before": 0.8460093896713615,
+      "after": 0.893661971830986
+    }
+  ],
+  "decisions": [
+    {
+      "rule": "R1",
+      "pairs": 182,
+      "switches": 0
+    },
+    {
+      "rule": "R2",
+      "pairs": 182,
+      "switches": 0
+    },
+    {
+      "rule": "R3",
+      "pairs": 182,
+      "switches": 0
+    },
+    {
+      "rule": "R4",
+      "pairs": 182,
+      "switches": 0
+    },
+    {
+      "rule": "R5",
+      "pairs": 182,
+      "switches": 0
+    },
+    {
+      "rule": "time_only",
+      "pairs": 182,
+      "switches": 0
+    }
+  ]
+}
