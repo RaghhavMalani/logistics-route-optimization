@@ -2,6 +2,7 @@ import { formatUtc } from "@/components/kit/primitives";
 import type { ExposureSegment } from "@/lib/maritime/weather-field";
 import { worstExposure } from "@/lib/maritime/weather-field";
 import type { WeatherTimeline } from "@/lib/maritime/weather-model";
+import { useWorkspaceWeatherStatus } from "./use-workspace-weather-status";
 
 function remaining(eta: number | null | undefined, at: number) {
   if (eta == null || !Number.isFinite(eta)) return "Unavailable";
@@ -24,6 +25,7 @@ export function BridgePassage({
   timeline: WeatherTimeline;
 }) {
   const worst = worstExposure(exposure);
+  const weatherStatus = useWorkspaceWeatherStatus(timeline);
   const maxSpeed = Math.max(20, Math.ceil((recommendedSpeed ?? 0) / 5) * 5);
   return (
     <section
@@ -65,11 +67,15 @@ export function BridgePassage({
         )}
       </div>
       <h3 className="eyebrow">Route weather · forecast</h3>
+      {!weatherStatus.current ? (
+        <p className="mt-0.5 text-[11px] text-[var(--text-3)]">{weatherStatus.latest}</p>
+      ) : null}
       {worst ? (
         <>
           <p className="mt-0.5 text-[11px] text-[var(--text-3)]">
             {timeline.stripLabel ? `${timeline.stripLabel} · ` : ""}
-            {formatUtc(new Date(timeline.from).toISOString())} · Peak {worst.label} at +{Math.round(worst.leadHours)} h
+            {weatherStatus.current ? `${formatUtc(new Date(timeline.from).toISOString())} · ` : ""}
+            Peak {worst.label} at +{Math.round(worst.leadHours)} h
           </p>
           <ol
             aria-label="Weather along the passage"

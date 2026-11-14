@@ -29,7 +29,7 @@ import {
 import type { WeatherTimeline } from "@/lib/maritime/weather-model";
 import { cn } from "@/lib/utils";
 import { MobileMapPanel, useMapPanelAccess } from "./MapPanelAccess";
-import { useSourceHealth, ageLabel } from "@/services/source-health";
+import { useWorkspaceWeatherStatus } from "./use-workspace-weather-status";
 
 function clockLabel(ms: number): string {
   const date = new Date(ms);
@@ -70,11 +70,7 @@ export function TimeTransport({
   const { clock } = useTraffic();
   const state = useClockState();
   const access = useMapPanelAccess();
-  const sources = useSourceHealth();
-  const weather = sources.data?.sources.find((source) => source.id === "open-meteo-surface");
-  const current = timeline.available && timeline.to >= Date.now() &&
-    Math.abs(timeline.from - Date.now()) < (weather?.policySeconds ?? 3600) * 1000 && weather?.status === "live";
-  const expired = timeline.to < Date.now();
+  const { current, latest, expired } = useWorkspaceWeatherStatus(timeline);
 
   const maxHours = state.maxOffsetHours;
   const peak = Math.max(
@@ -184,11 +180,10 @@ export function TimeTransport({
         </div>
         <div className="num mt-[3px] text-[11.5px] text-[var(--text)]">
           <span data-testid="weather-offset">
-            {state.offsetHours < 0.5 && !current ? "Latest available" : offsetLabel(state.offsetHours)}
+            {!current ? latest : offsetLabel(state.offsetHours)}
           </span>
           <span className="ml-1.5 text-[10px] text-[var(--text-3)]">
-            {clockLabel(weatherAt)}
-            {!current && state.offsetHours < 0.5 ? ` (${ageLabel(Math.max(0, (Date.now() - timeline.observedAt) / 1000))} old)` : ""}
+            {current || state.offsetHours >= 0.5 ? clockLabel(weatherAt) : null}
           </span>
         </div>
       </div>
