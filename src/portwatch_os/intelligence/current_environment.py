@@ -6,6 +6,7 @@ is intentional. Retrieval is availability, never a model-run issue time.
 """
 from src.utils.settings import get_settings
 
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 import hashlib
@@ -13,12 +14,15 @@ import json
 import math
 import shutil
 from pathlib import Path
+from random import uniform
 from threading import RLock
+from time import sleep
 import xml.etree.ElementTree as ET
 import requests
 from src.utils import port_registry
 from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.freshness.job import RetryAfterError
+from src.portwatch_os.intelligence.surface_transport import SurfaceConnectTimeout, SurfaceTransport, SurfaceTransportError
 
 PACKAGED = Path(__file__).resolve().parents[3] / "data/cache/current_environment"
 ROOT = Path(get_settings().PORTWATCH_CURRENT_ENVIRONMENT_DIR or PACKAGED)
@@ -55,6 +59,9 @@ SURFACE_UNITS = {"wind_speed_10m": "kn", "wind_gusts_10m": "kn", "wind_direction
 # The five-day case shows today plus D+5, using complete UTC days.
 SURFACE_DAYS = 6
 SURFACE_BATCH_ARTIFACT = "current_surface_batch"
+SURFACE_TRANSPORT = SurfaceTransport()
+SURFACE_GROUPS = 4
+SURFACE_MAX_CONNECT_RETRIES = 4
 URLS = {"surface": "https://api.open-meteo.com/v1/forecast",
         "marine": "https://marine-api.open-meteo.com/v1/marine",
         "hazards": "https://www.gdacs.org/xml/rss.xml"}
@@ -213,13 +220,20 @@ def refresh_surface_batch(ports):
               "hourly": ",".join(SURFACE_UNITS), "forecast_days": SURFACE_DAYS}
     params = {**common, "latitude": ",".join(str(port.lat) for port in ports),
               "longitude": ",".join(str(port.lon) for port in ports)}
-    response = requests.get(URLS["surface"], params=params,
-                            headers={"User-Agent": "PortWatch-Capstone/1.0"}, timeout=OPEN_METEO_TIMEOUT)
+    response = SURFACE_TRANSPORT.fetch(params)
     received = wall_now()
-    if response.status_code == 429:
-        raise RetryAfterError("Open-Meteo surface HTTP 429", _retry_after(response.headers.get("Retry-After"), received))
-    response.raise_for_status()
-    payload = response.json()
+    if response.status == 429:
+        raise RetryAfterError("Open-Meteo surface HTTP 429", _retry_after(response.retry_after, received))
+    if not 200 <= response.status < 300:
+        raise SurfaceTransportError(f"HTTP {response.status}")
+    return publish_surface_batch(ports, common, response.content, received)
+
+
+def publish_surface_batch(ports, common, original, received):
+    """Validate every location and retain the exact shared source response."""
+    payload = json.loads(original)
+    if isinstance(payload, dict) and len(ports) == 1:
+        payload = [payload]
     if not isinstance(payload, list) or len(payload) != len(ports):
         raise ValueError("Open-Meteo returned the wrong number of locations")
     decoded = [_hourly(entry, SURFACE_UNITS) for entry in payload]
@@ -229,11 +243,48 @@ def refresh_surface_batch(ports):
                       and all(finite(row[field]) for field in SURFACE_UNITS) for row in rows)
            for port, (rows, _, grid) in zip(ports, decoded)):
         raise ValueError("Open-Meteo location order or current-hour coverage failed validation")
-    digest = hashlib.sha256(response.content).hexdigest()
+    digest = hashlib.sha256(original).hexdigest()
     return {port.locode: _save_snapshot("surface", port, read("surface", port, at=received),
             {**common, "latitude": port.lat, "longitude": port.lon}, rows, units, grid,
-            response.content, received, digest=digest, location_index=index)
+            original, received, digest=digest, location_index=index)
             for index, (port, (rows, units, grid)) in enumerate(zip(ports, decoded))}
+
+
+def collect_surface_groups(ports, hour, *, force=False):
+    """Preserve successful groups and retry only TCP/TLS timeouts immediately."""
+    updated = {}
+    failures = []
+    attempts = Counter()
+    now = wall_now()
+    for offset in range(min(len(ports), SURFACE_GROUPS)):
+        group = ports[offset::SURFACE_GROUPS]
+        if not force and all(
+            (check := read("surface", port, at=now).get("lastSuccessfulCheckAt")) and instant(check) >= hour
+            for port in group
+        ):
+            continue
+        for retry in range(SURFACE_MAX_CONNECT_RETRIES + 1):
+            try:
+                updated.update(refresh_surface_batch(group))
+            except SurfaceConnectTimeout as error:
+                attempts["connect_timeout"] += 1
+                if retry < SURFACE_MAX_CONNECT_RETRIES:
+                    sleep(uniform(0.05, 0.2 * 2 ** retry))
+                    continue
+                failures.append(error)
+            except RetryAfterError as error:
+                attempts["HTTP 429"] += 1
+                return updated, [*failures, error], dict(attempts)
+            except SurfaceTransportError as error:
+                attempts[error.kind] += 1
+                failures.append(error)
+            except (ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+                attempts["invalid_response"] += 1
+                failures.append(error)
+            else:
+                attempts["ok"] += 1
+            break
+    return updated, failures, dict(attempts)
 
 
 def bundle(port):

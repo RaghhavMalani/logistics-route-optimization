@@ -133,10 +133,10 @@ def test_worker_sees_weather_transport_error_and_retains_snapshot(tmp_path, monk
 
 def test_surface_batch_one_request_with_complete_utc_days(tmp_path, monkeypatch):
     import json
-    from types import SimpleNamespace
     import pytest
     from src.portwatch_os.freshness.job import RetryAfterError
     from src.portwatch_os.intelligence import current_environment as weather
+    from src.portwatch_os.intelligence.surface_transport import SurfaceResponse
     from src.utils.port_registry import PORTS
 
     monkeypatch.setattr(weather, "ROOT", tmp_path)
@@ -150,29 +150,75 @@ def test_surface_batch_one_request_with_complete_utc_days(tmp_path, monkeypatch)
         for port in ports
     ]
     calls = []
-    response = SimpleNamespace(status_code=200, headers={}, json=lambda: payload,
-                               content=json.dumps(payload).encode(), raise_for_status=lambda: None)
-    def fetch(url, **kwargs):
-        calls.append((url, kwargs))
+    response = SurfaceResponse(200, None, json.dumps(payload).encode())
+    def fetch(params):
+        calls.append(params)
         return response
 
-    monkeypatch.setattr(weather.requests, "get", fetch)
+    monkeypatch.setattr(weather.SURFACE_TRANSPORT, "fetch", fetch)
     rows = weather.refresh_surface_batch(ports)
     assert set(rows) == {port.locode for port in ports}
     assert len(calls) == 1
-    _, call = calls[0]
-    assert call["timeout"] == (8, 18)
-    assert call["params"]["forecast_days"] == 6
-    assert call["params"]["latitude"] == ",".join(str(port.lat) for port in ports)
+    assert calls[0]["forecast_days"] == 6
+    assert calls[0]["latitude"] == ",".join(str(port.lat) for port in ports)
     originals = list((tmp_path / "archive").glob("*.response"))
     assert len(originals) == 1 and originals[0].read_bytes() == response.content
 
-    response.status_code = 429
-    response.headers["Retry-After"] = "1200"
+    response = SurfaceResponse(429, "1200", b"")
     with pytest.raises(RetryAfterError) as throttled:
         weather.refresh_surface_batch(ports)
     assert throttled.value.retry_at == NOW + timedelta(minutes=20)
     assert weather.read("surface", ports[0], at=NOW)["snapshotId"] == rows[ports[0].locode]["snapshotId"]
+
+
+def test_surface_groups_keep_good_ports_and_bound_connect_retries(monkeypatch):
+    from collections import Counter
+    from src.portwatch_os.intelligence import current_environment as weather
+    from src.portwatch_os.intelligence.surface_transport import SurfaceConnectTimeout, SurfaceTransportError
+    from src.utils.port_registry import PORTS
+
+    calls = Counter()
+    group_starts = [port.locode for port in PORTS[:4]]
+
+    def collect(group):
+        first = group[0].locode
+        calls[first] += 1
+        if first == group_starts[0]:
+            raise SurfaceConnectTimeout()
+        if first == group_starts[1]:
+            raise SurfaceTransportError("http_timeout")
+        return {port.locode: {} for port in group}
+
+    monkeypatch.setattr(weather, "refresh_surface_batch", collect)
+    monkeypatch.setattr(weather, "sleep", lambda _: None)
+    rows, failures, attempts = weather.collect_surface_groups(PORTS, NOW, force=True)
+    assert list(calls.values()) == [5, 1, 1, 1]
+    assert set(rows) == {port.locode for port in (*PORTS[2::4], *PORTS[3::4])}
+    assert attempts == {"connect_timeout": 5, "http_timeout": 1, "ok": 2}
+    assert [type(error) for error in failures] == [SurfaceConnectTimeout, SurfaceTransportError]
+
+
+def test_surface_groups_skip_checked_ports_and_stop_at_429(monkeypatch):
+    from src.portwatch_os.freshness.job import RetryAfterError
+    from src.portwatch_os.intelligence import current_environment as weather
+    from src.utils.port_registry import PORTS
+
+    calls = []
+    deadline = NOW + timedelta(minutes=20)
+
+    def collect(group):
+        calls.append(group[0].locode)
+        raise RetryAfterError("Open-Meteo surface HTTP 429", deadline)
+
+    checked = {port.locode for port in PORTS[::4]}
+    monkeypatch.setattr(weather, "read", lambda kind, port, **kw:
+                        {"lastSuccessfulCheckAt": NOW.isoformat()} if port.locode in checked else {})
+    monkeypatch.setattr(weather, "refresh_surface_batch", collect)
+    rows, failures, attempts = weather.collect_surface_groups(PORTS, NOW)
+    assert calls == [PORTS[1].locode]
+    assert not rows
+    assert attempts == {"HTTP 429": 1}
+    assert failures[0].retry_at == deadline
 
 
 def test_retry_after_sets_a_durable_minimum_wait(tmp_path):
@@ -185,17 +231,19 @@ def test_retry_after_sets_a_durable_minimum_wait(tmp_path):
 
     deadline = wall_now() + timedelta(hours=2)
     def collect(context):
-        raise RetryAfterError("Open-Meteo surface HTTP 429", deadline)
+        raise RetryAfterError("Open-Meteo surface HTTP 429", deadline, detail={"httpAttempts": {"HTTP 429": 1}})
 
-    job = RefreshJob(FreshnessPolicy("surface", "Open-Meteo", timedelta(hours=1),
+    artifact = "current_surface_batch"
+    job = RefreshJob(FreshnessPolicy(artifact, "Open-Meteo", timedelta(hours=1),
                                    timedelta(hours=2)), lambda: ArtifactProbe(), collect)
     journal = FreshnessJournal(tmp_path / "journal.sqlite3")
     first = RefreshCoordinator(journal=journal)
     first.register(job)
-    first.request("surface", reason="test", wait=True)
-    assert first.record("surface").next_attempt_at == deadline
+    first.request(artifact, reason="test", wait=True)
+    assert first.record(artifact).next_attempt_at == deadline
     restarted = RefreshCoordinator(journal=journal)
     restarted.register(job)
-    assert "surface" not in restarted.due(now=deadline - timedelta(seconds=1))
-    assert "surface" in restarted.due(now=deadline)
-    assert journal.recent_outcomes("surface", wall_now(), hours=48)["http429"] == 1
+    assert artifact not in restarted.due(now=deadline - timedelta(seconds=1))
+    assert artifact in restarted.due(now=deadline)
+    assert journal.recent_outcomes(artifact, wall_now(), hours=48)["http429"] == 1
+    assert journal.load(artifact)[1][-1]["detail"] == {"httpAttempts": {"HTTP 429": 1}}

@@ -33,3 +33,9 @@ The baseline contains the 12 complete UTC hours from 16 November 15:00 UTC throu
 All 16 baseline errors were timeouts. The eight hours without any successful delivery still had retained data for all ports. On JNPA, the four new receipts preserved the identical values first received at 20:13 IST on 16 November.
 
 Run the scorer from the repository root on the preview container with `python -m scripts.measure_surface_preview --state /app/state --start 2026-11-16T15:00:00Z --end 2026-11-17T03:00:00Z`.
+
+## Direct transport candidate
+
+The surface scheduler splits the 13 ports into groups of 4, 3, 3 and 3. It runs them sequentially over a persistent, certificate-verified HTTPS connection. When it reconnects, it offers a saved TLS session where the TLS adapter supports resumption, resolves IPv4 again and advances through the available A records. TCP and TLS share a three-second budget after DNS lookup. The HTTP socket has an eight-second timeout. Only TCP/TLS timeouts cause up to four immediate retries, with jitter. A 429 stops the remaining groups and honours the provider's retry deadline through the existing persistent circuit breaker.
+
+The scheduler keeps successful groups and only requests missing groups on another scheduled attempt in the same hour. It records individual HTTP attempts on both successful and failed runs. The original forecast bytes, per-port location binding and availability timestamps remain available for evidence and labelling.

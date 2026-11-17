@@ -32,7 +32,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.portwatch_os import telemetry
 from src.portwatch_os.clock import wall_now
-from src.portwatch_os.freshness.job import JobOutcome, RefreshContext, RefreshJob, RefreshResult, RetryAfterError
+from src.portwatch_os.freshness.job import JobOutcome, RefreshAttemptError, RefreshContext, RefreshJob, RefreshResult
 from src.portwatch_os.freshness.journal import safe_error
 from src.portwatch_os.freshness.write_health import is_storage_error, record_write
 from src.portwatch_os.freshness.policy import (
@@ -296,14 +296,16 @@ class RefreshCoordinator:
                 )
                 record_write(policy.artifact, ok=True)
         except Exception as exc:  # noqa: BLE001 - every failure is a result
-            if isinstance(exc, RetryAfterError):
+            detail = {}
+            if isinstance(exc, RefreshAttemptError):
                 retry_at = exc.retry_at
+                detail = exc.detail
             if is_storage_error(exc):
                 record_write(policy.artifact, ok=False)
             finished = wall_now()  # wall-clock: see above
             result = RefreshResult(
                 artifact=policy.artifact, ok=False, started_at=now, finished_at=finished, attempt=attempt,
-                reason=reason, error=safe_error(exc),
+                reason=reason, error=safe_error(exc), detail=detail,
             )
             log.warning("refresh %s failed (attempt %d): %s", policy.artifact, attempt, result.error)
 

@@ -2,9 +2,8 @@
 from src.utils.settings import get_settings
 
 from datetime import timedelta
-from random import uniform
 from src.portwatch_os.clock import LIVE, get_clock, wall_now
-from src.portwatch_os.freshness.job import RefreshJob, JobOutcome
+from src.portwatch_os.freshness.job import RefreshJob, JobOutcome, RefreshAttemptError, RetryAfterError
 from src.portwatch_os.freshness.policy import FreshnessPolicy, ArtifactProbe
 from src.portwatch_os.intelligence import free_sources, current_environment as environment
 from src.utils import port_registry
@@ -47,28 +46,39 @@ def jobs():
             rationale='Explicit noncommercial research. Retained public products; provider cadence and value kind remain separate.'),
             probe=probe,run=run,eligibility=eligibility))
     # A single scheduler record serializes all surface calls, including retries.
-    # Give each deployment a different phase within the last few minutes of the hour.
-    surface_lead = timedelta(seconds=uniform(180, 300))
-
     def surface_probe():
         now = wall_now()
         checks = [environment.read("surface", port, at=now).get("lastSuccessfulCheckAt")
                   for port in port_registry.PORTS]
-        return ArtifactProbe(observed_at=min(map(environment.instant, checks)) if all(checks) else None)
+        checked_at = min(map(environment.instant, checks)) if all(checks) else None
+        return ArtifactProbe(observed_at=checked_at.replace(minute=0, second=0, microsecond=0) if checked_at else None,
+                             source_timestamp=checked_at)
 
     def surface_run(context):
-        rows = environment.refresh_surface_batch(port_registry.PORTS)
+        hour = context.started_at.replace(minute=0, second=0, microsecond=0)
+        rows, failures, attempts = environment.collect_surface_groups(port_registry.PORTS, hour, force=context.requested)
         for port in port_registry.PORTS:
-            environment.retain_feedback(port)
-        checked_at = next(iter(rows.values()))["lastSuccessfulCheckAt"]
-        return JobOutcome(changed=True, observed_at=environment.instant(checked_at),
-                          detail={"ports": len(rows)})
+            if port.locode in rows:
+                environment.retain_feedback(port)
+        detail = {"ports": len(rows), "httpAttempts": attempts}
+        if failures:
+            last_error = failures[-1]
+            if isinstance(last_error, RetryAfterError):
+                raise RetryAfterError(str(last_error), last_error.retry_at, detail=detail) from last_error
+            # Preserve successes from the other groups. A later scheduled run
+            # can fill the holes in the hour without repeating those groups.
+            raise RefreshAttemptError(f"Open-Meteo surface groups failed: {', '.join(key for key in attempts if key != 'ok')}",
+                                      detail=detail) from last_error
+        if not rows:
+            return JobOutcome(skipped_reason="All port groups already checked in this UTC hour", detail=detail)
+        checked_at = max(environment.instant(row["lastSuccessfulCheckAt"]) for row in rows.values())
+        return JobOutcome(changed=True, observed_at=checked_at, detail=detail)
 
     result.append(RefreshJob(policy=FreshnessPolicy(
         artifact=environment.SURFACE_BATCH_ARTIFACT, label="All port surface forecasts", provider="Open-Meteo",
-        fresh_for=timedelta(hours=1), lead=surface_lead, stale_after=timedelta(hours=2), max_attempts=3,
+        fresh_for=timedelta(hours=1), stale_after=timedelta(hours=2), max_attempts=3,
         backoff_base=timedelta(minutes=5), backoff_cap=timedelta(hours=1),
-        rationale="One multi-location hourly forecast and one retry circuit for the surface endpoint."),
+        rationale="Four sequential location groups per UTC hour, one retry circuit for the surface endpoint."),
         probe=surface_probe, run=surface_run, eligibility=current_weather_eligibility))
     for port in port_registry.PORTS:
         def probe(port=port):

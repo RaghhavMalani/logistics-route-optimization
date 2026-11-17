@@ -56,6 +56,8 @@ class FreshnessJournal:
             key: result.detail[key] for key in ('sourceObservedAt', 'sourceReceivedAt')
             if result.artifact == 'port_forecast' and key in result.detail
         }
+        if result.artifact == 'current_surface_batch' and 'httpAttempts' in result.detail:
+            payload['detail']['httpAttempts'] = result.detail['httpAttempts']
         rendered = json.dumps(payload)
         finished = result.finished_at.astimezone(timezone.utc).isoformat()
         with self.connect() as db:
