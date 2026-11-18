@@ -26,7 +26,8 @@ def test_relay_authentication_provenance_and_idempotence(tmp_path, monkeypatch):
     monkeypatch.setattr(weather, "world_now", lambda: now)
     monkeypatch.setattr(weather_relay, "wall_now", lambda: now)
     monkeypatch.setattr(weather_relay, "current_weather_eligibility", lambda: None)
-    monkeypatch.setattr(surface_relay, "relay_settings", lambda: ("https://relay.vercel.app/api/weather", key))
+    monkeypatch.setattr(surface_relay, "relay_settings",
+                        lambda: surface_relay.RelaySettings("https://relay.vercel.app/api/weather", key))
     app = FastAPI()
     app.include_router(weather_relay.router, prefix="/api")
     client = TestClient(app)

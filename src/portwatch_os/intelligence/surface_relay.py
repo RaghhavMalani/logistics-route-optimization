@@ -1,6 +1,7 @@
 """Signed requests for the optional surface collector on a separate network."""
 
 from datetime import timedelta
+from dataclasses import dataclass
 import hashlib
 import hmac
 import json
@@ -18,6 +19,13 @@ CALLBACK_PATH = "/api/intelligence/internal/surface-relay"
 MAX_SKEW_SECONDS = 120
 
 
+@dataclass(frozen=True, repr=False)
+class RelaySettings:
+    url: str
+    secret: str
+    bypass: str | None = None
+
+
 def relay_settings():
     settings = get_settings()
     url, secret = settings.PORTWATCH_WEATHER_RELAY_URL, settings.PORTWATCH_WEATHER_RELAY_SECRET
@@ -28,7 +36,7 @@ def relay_settings():
             or origin.username or origin.password or origin.port is not None
             or origin.path != "/api/weather" or origin.query or origin.fragment):
         return None
-    return url, secret
+    return RelaySettings(url, secret, settings.PORTWATCH_WEATHER_RELAY_BYPASS)
 
 
 def signature(secret, direction, group, timestamp, body):
@@ -37,14 +45,15 @@ def signature(secret, direction, group, timestamp, body):
 
 
 def collect(group, params, config):
-    url, secret = config
     body = json.dumps(params, separators=(",", ":")).encode()
     sent_at = int(wall_now().timestamp())
+    headers = {"Content-Type": "application/octet-stream",
+               "X-Weather-Group": str(group), "X-Weather-Timestamp": str(sent_at),
+               "X-Weather-Signature": signature(config.secret, "request", group, sent_at, body)}
+    if config.bypass:
+        headers["x-vercel-protection-bypass"] = config.bypass
     try:
-        response = requests.post(url, data=body, timeout=(3, 20), allow_redirects=False,
-                                 headers={"Content-Type": "application/octet-stream",
-                                          "X-Weather-Group": str(group), "X-Weather-Timestamp": str(sent_at),
-                                          "X-Weather-Signature": signature(secret, "request", group, sent_at, body)})
+        response = requests.post(config.url, data=body, timeout=(3, 20), allow_redirects=False, headers=headers)
         if response.status_code != 200:
             raise SurfaceTransportError("relay_unconfirmed")
         receipt = response.json()

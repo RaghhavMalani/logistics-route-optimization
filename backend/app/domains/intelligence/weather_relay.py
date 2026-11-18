@@ -66,7 +66,7 @@ async def accept(request: Request):
             raise HTTPException(413, "Weather response exceeds relay limit")
         body.extend(data)
     original = bytes(body)
-    expected = surface_relay.signature(config[1], "receipt", group, timestamp, original)
+    expected = surface_relay.signature(config.secret, "receipt", group, timestamp, original)
     if not hmac.compare_digest(provided, expected):
         raise HTTPException(401, "Invalid relay signature")
     return {"snapshots": await run_in_threadpool(store, int(group), sent_at, original)}
