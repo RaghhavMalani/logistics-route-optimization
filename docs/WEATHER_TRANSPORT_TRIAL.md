@@ -26,9 +26,11 @@ The 15 November incident showed two surface attempts with TCP established in 19�
 
 The baseline contains the 12 complete UTC hours from 16 November 15:00 UTC through 17 November 03:00 UTC. Each HTTP attempt is counted once. A delivery cycle succeeds if all 13 ports have an archived response fetched during that UTC hour with finite values for all five surface fields in that hour. Retained forecasts that still cover that hour are tracked separately. The availability-policy column uses the immutable first receipt of the current forecast values, which the app uses to label weather stale after one hour. Repeated successful checks with identical forecast values do not change that instant.
 
-| Preview phase | Valid HTTP attempts | All-port delivery cycles | All ports inside availability policy at close | HTTP 429 |
+| Preview phase | Valid delivery attempts | All-port delivery cycles | All ports inside availability policy at close | HTTP 429 |
 | --- | --- | --- | --- | --- |
 | 1. Single 13-port request | 4/20 (20.0%) | 4/12 (33.3%) | 0/12 | 0 |
+| 2. Four groups via Railway | 27/273 (9.9%) | 3/12 (25.0%) | 1/12 | 0 |
+| 3. Four groups via Vercel Preview | 48/48 (100%) | 12/12 (100%) | 2/12 | 0 |
 
 All 16 baseline errors were timeouts. The eight hours without any successful delivery still had retained data for all ports. On JNPA, the four new receipts preserved the identical values first received at 20:13 IST on 16 November.
 
@@ -49,3 +51,13 @@ The isolated Railway scheduler triggers the separate Vercel preview function at 
 The function accepts only signed collection requests and fetches the fixed Open-Meteo endpoint. It signs the original response bytes, group and timestamp for the Railway callback. The callback applies the same forecast validator as direct collection and retains the raw bytes. The provider remains Open-Meteo. A separate `via relay` field records delivery. Both hosts read the HMAC secret from their Preview environment. The Railway route returns 404 when the relay is disabled.
 
 For the trial, one reported attempt is one requested group delivery. `relay_unconfirmed` records the cases where Railway cannot confirm that the function ran or that Open-Meteo was reached. Confirmed provider timeouts and callback errors have separate counters.
+
+### Completed relay trial
+
+The measured SHA was `9134c676180dc43da361c946eac46cbc05f1613f`. The 12-hour window was 18 November 2026, 09:30–21:30 IST (04:00–16:00 UTC). All 48 requests produced signed, validated group deliveries, with zero HTTP 429 responses, provider timeouts, callback errors or unconfirmed attempts. All 13 ports had data delivered in each cycle. The manual end-to-end check happened before the window. At the final check the preview service and scheduler were healthy and all 13 latest port receipts reported `via relay`.
+
+Only two cycle closes had all ports within the app's one-hour availability policy. In the other ten the provider returned the same forecast values already on file, so validation succeeded while the original first-availability dates stayed intact. The application continued to label those forecasts stale. The relay met the 98% delivery target in this trial. There were no missed Open-Meteo cycles to trigger MET Norway.
+
+The separate relay project is disconnected from GitHub and uses a project-scoped automation credential to reach its protected Preview function. Vercel classified the project's first upload as Production despite the Preview option. That unused deployment was removed. The trial used Preview deployment `dpl_99ekJQTPFEQcuUfuW2NkCFETpf2j`, which targeted the isolated Railway preview for every callback. [Vercel's first-deployment behaviour](https://github.com/vercel/vercel-plugin/blob/main/commands/deploy.md).
+
+Local evidence is under `work/weather-transport-20261116/` in the parent workspace. `RELAY_12H.json` records the complete hourly and attempt counts. `RELAY_FINAL_HEALTH.json` confirms the running service and source distinction.
