@@ -6,6 +6,7 @@ from src.portwatch_os.clock import LIVE, get_clock, wall_now
 from src.portwatch_os.freshness.job import RefreshJob, JobOutcome, RefreshAttemptError, RetryAfterError
 from src.portwatch_os.freshness.policy import FreshnessPolicy, ArtifactProbe
 from src.portwatch_os.intelligence import free_sources, current_environment as environment
+from src.portwatch_os.intelligence.surface_relay import relay_settings
 from src.utils import port_registry
 
 
@@ -56,7 +57,8 @@ def jobs():
 
     def surface_run(context):
         hour = context.started_at.replace(minute=0, second=0, microsecond=0)
-        rows, failures, attempts = environment.collect_surface_groups(port_registry.PORTS, hour, force=context.requested)
+        rows, failures, attempts = environment.collect_surface_groups(
+            port_registry.PORTS, hour, force=context.requested, relay_config=relay_settings())
         for port in port_registry.PORTS:
             if port.locode in rows:
                 environment.retain_feedback(port)

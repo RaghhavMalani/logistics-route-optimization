@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from . import intelligence, current_inputs, public_research, public_workspace, shipping_intelligence, operational_evidence, shared_feedback, navigation_restrictions, operational_notices, learning, capabilities
-from . import source_status
+from . import source_status, weather_relay
 
 router = APIRouter()
 router.include_router(intelligence.router)
@@ -18,3 +18,4 @@ router.include_router(operational_notices.router)
 router.include_router(learning.router)
 router.include_router(capabilities.router)
 router.include_router(source_status.router)
+router.include_router(weather_relay.router)

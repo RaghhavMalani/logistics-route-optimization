@@ -22,6 +22,7 @@ import requests
 from src.utils import port_registry
 from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.freshness.job import RetryAfterError
+from src.portwatch_os.intelligence import surface_relay
 from src.portwatch_os.intelligence.surface_transport import SurfaceConnectTimeout, SurfaceTransport, SurfaceTransportError
 
 PACKAGED = Path(__file__).resolve().parents[3] / "data/cache/current_environment"
@@ -58,6 +59,8 @@ SURFACE_UNITS = {"wind_speed_10m": "kn", "wind_gusts_10m": "kn", "wind_direction
                  "precipitation": "mm", "visibility": "m"}
 # The five-day case shows today plus D+5, using complete UTC days.
 SURFACE_DAYS = 6
+SURFACE_QUERY = {"timezone": "GMT", "wind_speed_unit": "kn",
+                 "hourly": ",".join(SURFACE_UNITS), "forecast_days": SURFACE_DAYS}
 SURFACE_BATCH_ARTIFACT = "current_surface_batch"
 SURFACE_TRANSPORT = SurfaceTransport()
 SURFACE_GROUPS = 4
@@ -167,7 +170,8 @@ def _hourly(data, expected):
     return rows, units, grid
 
 
-def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at, *, digest=None, location_index=None):
+def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at, *, digest=None,
+                   location_index=None, relay_fetched_at=None):
     snapshot = {"kind": kind, "portCode": port.locode if kind != "hazards" else None,
                     "source": URLS[kind], "issuedAt": None, "observedAt": None,
                     "availableAt": at.isoformat(), "fetchedAt": at.isoformat(), "rows": rows, "units": units,
@@ -183,6 +187,9 @@ def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at
         snapshot["responseLocationIndex"] = location_index
     if identical and previous.get("availableAt"):
         snapshot["availableAt"] = previous["availableAt"]
+    if relay_fetched_at is not None:
+        snapshot["delivery"] = "via relay"
+        snapshot["relayFetchedAt"] = relay_fetched_at.isoformat()
     snapshot["lastSuccessfulCheckAt"] = at.isoformat()
     snapshot["snapshotId"] = hashlib.sha256(json.dumps(snapshot, sort_keys=True).encode()).hexdigest()
     with LOCK:
@@ -214,22 +221,28 @@ def _retry_after(value, received):
         return None
 
 
-def refresh_surface_batch(ports):
+def refresh_surface_batch(ports, *, relay_group=None, relay_config=None):
     """Collect one validated response, then publish one dated snapshot per port."""
-    common = {"timezone": "GMT", "wind_speed_unit": "kn",
-              "hourly": ",".join(SURFACE_UNITS), "forecast_days": SURFACE_DAYS}
-    params = {**common, "latitude": ",".join(str(port.lat) for port in ports),
+    params = {**SURFACE_QUERY, "latitude": ",".join(str(port.lat) for port in ports),
               "longitude": ",".join(str(port.lon) for port in ports)}
+    if relay_config:
+        snapshots = surface_relay.collect(relay_group, params, relay_config)
+        now = wall_now()
+        rows = {port.locode: read("surface", port, at=now) for port in ports}
+        if not all(row.get("delivery") == "via relay" and row.get("snapshotId") == snapshots.get(locode)
+                   for locode, row in rows.items()):
+            raise SurfaceTransportError("relay_callback_error")
+        return rows
     response = SURFACE_TRANSPORT.fetch(params)
     received = wall_now()
     if response.status == 429:
         raise RetryAfterError("Open-Meteo surface HTTP 429", _retry_after(response.retry_after, received))
     if not 200 <= response.status < 300:
         raise SurfaceTransportError(f"HTTP {response.status}")
-    return publish_surface_batch(ports, common, response.content, received)
+    return publish_surface_batch(ports, response.content, received)
 
 
-def publish_surface_batch(ports, common, original, received):
+def publish_surface_batch(ports, original, received, *, relay_fetched_at=None):
     """Validate every location and retain the exact shared source response."""
     payload = json.loads(original)
     if isinstance(payload, dict) and len(ports) == 1:
@@ -245,12 +258,12 @@ def publish_surface_batch(ports, common, original, received):
         raise ValueError("Open-Meteo location order or current-hour coverage failed validation")
     digest = hashlib.sha256(original).hexdigest()
     return {port.locode: _save_snapshot("surface", port, read("surface", port, at=received),
-            {**common, "latitude": port.lat, "longitude": port.lon}, rows, units, grid,
-            original, received, digest=digest, location_index=index)
+            {**SURFACE_QUERY, "latitude": port.lat, "longitude": port.lon}, rows, units, grid,
+            original, received, digest=digest, location_index=index, relay_fetched_at=relay_fetched_at)
             for index, (port, (rows, units, grid)) in enumerate(zip(ports, decoded))}
 
 
-def collect_surface_groups(ports, hour, *, force=False):
+def collect_surface_groups(ports, hour, *, force=False, relay_config=None):
     """Preserve successful groups and retry only TCP/TLS timeouts immediately."""
     updated = {}
     failures = []
@@ -265,7 +278,9 @@ def collect_surface_groups(ports, hour, *, force=False):
             continue
         for retry in range(SURFACE_MAX_CONNECT_RETRIES + 1):
             try:
-                updated.update(refresh_surface_batch(group))
+                rows = (refresh_surface_batch(group, relay_group=offset, relay_config=relay_config)
+                        if relay_config else refresh_surface_batch(group))
+                updated.update(rows)
             except SurfaceConnectTimeout as error:
                 attempts["connect_timeout"] += 1
                 if retry < SURFACE_MAX_CONNECT_RETRIES:
@@ -335,7 +350,9 @@ def map_signals():
             "seaState": None, "windRisk": None, "rainRisk": None, "waveRisk": None, "stormRisk": None,
             "confidence": None, "weatherRegime": None, "shockScore": None, "persistenceScore": None,
             "forwardLoad": None, "advisory": "Hourly public forecast, not a station observation or congestion forecast input.",
-            "dataSource": "Open-Meteo independently refreshed surface/marine forecasts"})
+            "dataSource": ("Open-Meteo surface forecast via relay; independent marine forecast"
+                           if data["sources"]["surface"].get("delivery") == "via relay"
+                           else "Open-Meteo independently refreshed surface/marine forecasts")})
     return signals
 
 

@@ -76,6 +76,8 @@ class Settings(BaseSettings):
     PORTWATCH_WEATHER_FEEDBACK_DB: str | None = None
     PORTWATCH_WEATHER_FEEDBACK_REPORT: str | None = None
     PORTWATCH_WEATHER_RECONCILIATION: str | None = None
+    PORTWATCH_WEATHER_RELAY_SECRET: str | None = Field(default=None, repr=False, exclude=True)
+    PORTWATCH_WEATHER_RELAY_URL: str | None = None
     RAILWAY_DEPLOYMENT_ID: str | None = None
     RAILWAY_ENVIRONMENT_ID: str | None = None
     RAILWAY_SERVICE_ID: str | None = None

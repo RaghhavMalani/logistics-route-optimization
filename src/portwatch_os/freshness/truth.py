@@ -114,6 +114,9 @@ def retained_sources(now):
         metrics = job_metrics([current_environment.SURFACE_BATCH_ARTIFACT] if kind == "surface" else
                               [f'current_{kind}_{port.locode}' for port in PORTS])
         detail = f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.'
+        relayed = sum(sample.get("delivery") == "via relay" for sample in samples)
+        if relayed:
+            detail += f' {relayed}/{len(PORTS)} latest port responses received via relay.'
         if kind == "surface" and coordinator.journal:
             recent = coordinator.journal.recent_outcomes(current_environment.SURFACE_BATCH_ARTIFACT, now, hours=48)
             detail += f' Batch collections in the last 48 hours: {recent["successes"]}/{recent["attempts"]} successful, {recent["http429"]} rate-limited.'

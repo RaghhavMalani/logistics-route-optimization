@@ -1,0 +1,8 @@
+{
+  "name": "portwatch-weather-relay",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  }
+}
