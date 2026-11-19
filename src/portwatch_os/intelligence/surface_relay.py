@@ -30,14 +30,16 @@ class RelaySettings:
 
 def relay_settings():
     settings = get_settings()
+    if settings.PORTWATCH_WEATHER_RELAY_ENABLED.lower() not in ("1", "true", "yes", "on"):
+        return None
     url, secret = settings.PORTWATCH_WEATHER_RELAY_URL, settings.PORTWATCH_WEATHER_RELAY_SECRET
     if not url or not secret or len(secret) < 32:
-        return None
+        raise SurfaceTransportError("relay_configuration")
     origin = urlsplit(url)
     if (origin.scheme != "https" or not (origin.hostname or "").endswith(".vercel.app")
             or origin.username or origin.password or origin.port is not None
             or origin.path != "/api/weather" or origin.query or origin.fragment):
-        return None
+        raise SurfaceTransportError("relay_configuration")
     return RelaySettings(url, secret, settings.PORTWATCH_WEATHER_RELAY_BYPASS)
 
 

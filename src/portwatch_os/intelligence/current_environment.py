@@ -261,6 +261,8 @@ def publish_surface_batch(ports, original, received, *, relay_fetched_at=None):
 
 def collect_surface_groups(ports, hour, *, force=False, relay_config=None):
     """Preserve successful groups and retry only TCP/TLS timeouts immediately."""
+    if relay_config:
+        return collect_relay_groups(ports, hour, force=force, relay_config=relay_config)
     updated = {}
     failures = []
     attempts = Counter()
@@ -274,9 +276,7 @@ def collect_surface_groups(ports, hour, *, force=False, relay_config=None):
             continue
         for retry in range(SURFACE_MAX_CONNECT_RETRIES + 1):
             try:
-                rows = (refresh_surface_batch(group, relay_group=offset, relay_config=relay_config)
-                        if relay_config else refresh_surface_batch(group))
-                updated.update(rows)
+                updated.update(refresh_surface_batch(group))
             except SurfaceConnectTimeout as error:
                 attempts["connect_timeout"] += 1
                 if retry < SURFACE_MAX_CONNECT_RETRIES:
@@ -296,6 +296,42 @@ def collect_surface_groups(ports, hour, *, force=False, relay_config=None):
                 attempts["ok"] += 1
             break
     return updated, failures, dict(attempts)
+
+
+def collect_relay_groups(ports, hour, *, force, relay_config):
+    """One relay pass and at most one direct fallback for the unresolved ports."""
+    updated, missing = {}, []
+    attempts = Counter()
+    now = wall_now()
+    for offset in range(min(len(ports), SURFACE_GROUPS)):
+        group = ports[offset::SURFACE_GROUPS]
+        if not force and all(
+            (check := read("surface", port, at=now).get("lastSuccessfulCheckAt")) and instant(check) >= hour
+            for port in group
+        ):
+            continue
+        try:
+            updated.update(refresh_surface_batch(group, relay_group=offset, relay_config=relay_config))
+        except RetryAfterError as error:
+            attempts["HTTP 429"] += 1
+            return updated, [error], dict(attempts)
+        except (SurfaceTransportError, ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+            attempts[getattr(error, "kind", "relay_invalid_response")] += 1
+            missing.extend(group)
+        else:
+            attempts["ok"] += 1
+    if missing:
+        try:
+            updated.update(refresh_surface_batch(missing))
+        except RetryAfterError as error:
+            attempts["HTTP 429"] += 1
+            return updated, [error], dict(attempts)
+        except (SurfaceTransportError, SurfaceConnectTimeout, ValueError, TypeError,
+                KeyError, IndexError, AttributeError) as error:
+            attempts["direct_fallback_failed"] += 1
+            return updated, [error], dict(attempts)
+        attempts["ok"] += 1
+    return updated, [], dict(attempts)
 
 
 def bundle(port):

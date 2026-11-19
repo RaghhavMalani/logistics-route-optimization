@@ -57,8 +57,9 @@ def jobs():
 
     def surface_run(context):
         hour = context.started_at.replace(minute=0, second=0, microsecond=0)
+        relay_config = relay_settings()
         rows, failures, attempts = environment.collect_surface_groups(
-            port_registry.PORTS, hour, force=context.requested, relay_config=relay_settings())
+            port_registry.PORTS, hour, force=context.requested, relay_config=relay_config)
         for port in port_registry.PORTS:
             if port.locode in rows:
                 environment.retain_feedback(port)
@@ -70,6 +71,7 @@ def jobs():
             # Preserve successes from the other groups. A later scheduled run
             # can fill the holes in the hour without repeating those groups.
             raise RefreshAttemptError(f"Open-Meteo surface groups failed: {', '.join(key for key in attempts if key != 'ok')}",
+                                      retry_at=hour + timedelta(hours=1) if relay_config else None,
                                       detail=detail) from last_error
         if not rows:
             return JobOutcome(skipped_reason="All port groups already checked in this UTC hour", detail=detail)
