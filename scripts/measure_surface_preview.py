@@ -11,6 +11,7 @@ from pathlib import Path
 import sqlite3
 
 from src.utils.port_registry import PORTS
+from src.portwatch_os.intelligence.forecast_freshness import describe
 
 HOUR = timedelta(hours=1)
 FIELDS = ("wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "precipitation", "visibility")
@@ -59,7 +60,7 @@ def cycle_coverage(archive, start, end):
                 instant(row["validAt"]) for row in data["rows"]
                 if all(type(row.get(key)) in (int, float) and isfinite(row[key]) for key in FIELDS)
             }
-            snapshots[data["portCode"]].append((fetched, available, hours))
+            snapshots[data["portCode"]].append((fetched, available, hours, data))
     cycles = []
     close = start + HOUR
     while close <= end:
@@ -67,6 +68,7 @@ def cycle_coverage(archive, start, end):
         missing = []
         stale = []
         retained_only = []
+        current = []
         for port in sorted(ports):
             candidates = (row for row in snapshots[port] if row[0] < close)
             latest = max(candidates, key=lambda row: row[0], default=None)
@@ -76,11 +78,15 @@ def cycle_coverage(archive, start, end):
                 stale.append(port)
             if latest is not None and latest[0] < hour and hour in latest[2]:
                 retained_only.append(port)
+            if latest is not None and describe(latest[3], close)["status"] == "CURRENT":
+                current.append(port)
         cycles.append({"end": close.isoformat(), "portsWithData": len(ports) - len(missing), "missing": missing,
-                       "portsRetainedOnly": len(retained_only), "portsWithinAvailabilityPolicy": len(ports) - len(stale)})
+                       "portsRetainedOnly": len(retained_only), "portsWithinAvailabilityPolicy": len(ports) - len(stale),
+                       "portsCurrent": len(current)})
         close += HOUR
     return {"total": len(cycles), "successful": sum(not cycle["missing"] for cycle in cycles),
             "allPortsWithinAvailabilityPolicy": sum(cycle["portsWithinAvailabilityPolicy"] == len(ports) for cycle in cycles),
+            "allPortsCurrent": sum(cycle["portsCurrent"] == len(ports) for cycle in cycles),
             "ports": len(ports), "cycles": cycles}
 
 

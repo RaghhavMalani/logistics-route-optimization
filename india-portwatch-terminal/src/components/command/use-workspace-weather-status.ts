@@ -1,6 +1,7 @@
 import { useSourceHealth, ageLabel } from "@/services/source-health";
 import { formatUtc } from "@/components/kit/primitives";
 import type { WeatherTimeline } from "@/lib/maritime/weather-model";
+import { forecastReceiptLabel } from "@/lib/forecast-freshness";
 
 export function useWorkspaceWeatherStatus(timeline: WeatherTimeline) {
   const weather = useSourceHealth().data?.sources.find(
@@ -10,12 +11,14 @@ export function useWorkspaceWeatherStatus(timeline: WeatherTimeline) {
   const current =
     timeline.available &&
     timeline.to >= now &&
-    Math.abs(timeline.from - now) < (weather?.policySeconds ?? 3600) * 1000 &&
+    timeline.from <= now &&
     weather?.status === "live";
   const observedAt = new Date(timeline.observedAt);
   const latest =
-    timeline.available && Number.isFinite(timeline.observedAt)
-      ? `Latest available · ${formatUtc(observedAt.toISOString())} (${ageLabel(Math.max(0, (now - timeline.observedAt) / 1000))})`
-      : "Weather unavailable";
+    current && weather?.checkedAt
+      ? forecastReceiptLabel(weather, true, now)
+      : timeline.available && Number.isFinite(timeline.observedAt)
+        ? `Latest available · ${formatUtc(observedAt.toISOString())} (${ageLabel(Math.max(0, (now - timeline.observedAt) / 1000))})`
+        : "Weather unavailable";
   return { current, latest, expired: timeline.to < now };
 }

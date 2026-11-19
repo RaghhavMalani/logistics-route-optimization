@@ -22,7 +22,7 @@ import requests
 from src.utils import port_registry
 from src.portwatch_os.clock import wall_now, world_now
 from src.portwatch_os.freshness.job import RetryAfterError
-from src.portwatch_os.intelligence import surface_relay
+from src.portwatch_os.intelligence import forecast_freshness, surface_relay
 from src.portwatch_os.intelligence.surface_transport import SurfaceConnectTimeout, SurfaceTransport, SurfaceTransportError
 
 PACKAGED = Path(__file__).resolve().parents[3] / "data/cache/current_environment"
@@ -91,6 +91,8 @@ def dated(snapshot, now=None):
         return {**snapshot, "rows": [], "ageHours": None, "status": "UNAVAILABLE",
                 "reason": "This source response was not available at the query instant"}
     age = max(0, (now - instant(snapshot["availableAt"])).total_seconds())
+    if snapshot["kind"] in ("surface", "marine"):
+        return {**snapshot, "ageHours": round(age/3600, 2), **forecast_freshness.describe(snapshot, now)}
     return {**snapshot, "ageHours": round(age/3600, 2),
             "status": "CURRENT" if age <= TTL[snapshot["kind"]] else "STALE"}
 
@@ -187,6 +189,16 @@ def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at
         snapshot["responseLocationIndex"] = location_index
     if identical and previous.get("availableAt"):
         snapshot["availableAt"] = previous["availableAt"]
+    if kind in ("surface", "marine"):
+        snapshot["valuesChangedAt"] = (
+            previous.get("valuesChangedAt") or previous.get("availableAt")
+            if identical else at.isoformat()
+        ) or at.isoformat()
+        snapshot["forecastIssuedAt"] = snapshot["valuesChangedAt"]
+        snapshot["forecastIssueBasis"] = "VALUES_LAST_CHANGED"
+        snapshot["timeBasis"] = ("Provider run time unavailable for Best Match. Forecast issue is estimated "
+                                 "from the last value change. Checked time records successful retrieval. "
+                                 "First availability remains immutable for the same values.")
     if relay_fetched_at is not None:
         snapshot["delivery"] = "via relay"
         snapshot["relayFetchedAt"] = relay_fetched_at.isoformat()
@@ -375,6 +387,9 @@ def map_signals():
         rain = next((row["rainfall"] for row in data["daily"] if row["date"] == first["validAt"][:10]), None)
         signals.append({"portCode": port.locode, "name": port.name, "observedAt": None,
             "forecastFrom": first["validAt"], "availableAt": data["sources"]["surface"]["availableAt"],
+            **{key: data["sources"]["surface"].get(key) for key in
+               ("checkedAt", "forecastIssuedAt", "forecastIssueBasis", "checkPolicySeconds",
+                "modelUpdateSeconds", "issueMarginSeconds", "latestAvailable")},
             "sourceState": "FORECAST", "hourly": rows, "forecast": [], "impactScore": 0,
             "windKnots": first["wind_speed_10m"], "gustKnots": first["wind_gusts_10m"],
             "rainfallMm24h": rain, "waveHeightM": first.get("wave_height"),

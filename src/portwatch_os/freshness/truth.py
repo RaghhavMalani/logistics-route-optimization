@@ -107,13 +107,17 @@ def retained_sources(now):
         for sample in samples:
             coverage = max((row.get('validAt', '') for row in sample['rows']), default='')
             state, age = classify(sample.get('availableAt'), now, current_environment.TTL[kind], valid_through=coverage)
+            if sample.get("checkedAt"):
+                state = 'live' if sample.get("status") == 'CURRENT' else 'stale'
+                age = sample.get("forecastAgeSeconds")
             evaluated.append((state, age, sample.get('availableAt')))
         current = sum(row[0] == 'live' for row in evaluated)
         retained = [row for row in evaluated if row[1] is not None]
         state = 'live' if current == len(PORTS) else 'stale' if retained else 'unavailable'
         metrics = job_metrics([current_environment.SURFACE_BATCH_ARTIFACT] if kind == "surface" else
                               [f'current_{kind}_{port.locode}' for port in PORTS])
-        detail = f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.'
+        detail = (f'{current}/{len(PORTS)} ports within check, estimated issue-age and valid-time policy. '
+                  'Issue time estimated from the last forecast value change; provider run time unavailable for Best Match.')
         relayed = sum(sample.get("delivery") == "via relay" for sample in samples)
         if relayed:
             detail += f' {relayed}/{len(PORTS)} latest port responses received via relay.'
@@ -124,6 +128,12 @@ def retained_sources(now):
                      'observedAt': None, 'availableAt': min((row[2] for row in retained), default=None),
                      'dataAgeSeconds': max((row[1] for row in retained), default=None),
                      'policySeconds': current_environment.TTL[kind], 'core': True,
+                     'checkedAt': min((s['checkedAt'] for s in samples if s.get('checkedAt')), default=None),
+                     'forecastIssuedAt': min((s['forecastIssuedAt'] for s in samples if s.get('forecastIssuedAt')), default=None),
+                     'forecastIssueBasis': 'VALUES_LAST_CHANGED',
+                     'checkPolicySeconds': current_environment.forecast_freshness.CHECK_SECONDS,
+                     'issuePolicySeconds': (current_environment.forecast_freshness.MODEL_UPDATE_SECONDS
+                                            + current_environment.forecast_freshness.ISSUE_MARGIN_SECONDS),
                      'portsCurrent': current, 'portsTotal': len(PORTS),
                      'detail': detail,
                      'termsUrl': 'https://open-meteo.com/en/terms',

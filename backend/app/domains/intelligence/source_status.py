@@ -40,6 +40,11 @@ class PublicationLag(BaseModel):
 
 
 class SourceHealth(BaseModel):
+    checkedAt: str | None = None
+    forecastIssuedAt: str | None = None
+    forecastIssueBasis: str | None = None
+    checkPolicySeconds: int | None = None
+    issuePolicySeconds: int | None = None
     id: str
     name: str
     provider: str

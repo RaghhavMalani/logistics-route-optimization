@@ -3,6 +3,7 @@ import { getJson } from "./api";
 import type { WeatherSignal } from "@/types/portwatch";
 import type { FinancialEvaluation } from "@/types/decisions";
 import type { FrozenPortContext } from "./port-context";
+import type { ForecastClocks } from "@/lib/forecast-freshness";
 
 export interface PassageConsumption {
   referenceSpeedKn: number;
@@ -303,7 +304,7 @@ export interface CurrentEnvironment {
   status?: string;
   sources: Record<
     string,
-    {
+    ForecastClocks & {
       status: string;
       availableAt: string | null;
       issuedAt: string | null;
