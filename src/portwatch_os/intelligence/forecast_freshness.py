@@ -12,6 +12,17 @@ def instant(value):
     return result.replace(tzinfo=timezone.utc) if result.tzinfo is None else result.astimezone(timezone.utc)
 
 
+def covers_hour(row, now, fields):
+    if not isinstance(row, dict):
+        return False
+    try:
+        valid = instant(row.get("validAt"))
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return False
+    return valid <= now < valid + timedelta(hours=1) and all(
+        type(row.get(key)) in (int, float) and isfinite(row[key]) for key in fields)
+
+
 def describe(snapshot, now):
     checked = snapshot.get("lastSuccessfulCheckAt") or snapshot.get("fetchedAt") or snapshot.get("availableAt")
     # Best Match combines models. A static per-model metadata response cannot
@@ -21,11 +32,7 @@ def describe(snapshot, now):
     issue_age = (now - instant(issue)).total_seconds() if issue else None
     fields = ("wave_height",) if snapshot["kind"] == "marine" else (
         "wind_speed_10m", "wind_gusts_10m", "wind_direction_10m", "precipitation", "visibility")
-    covered = any(
-        instant(row["validAt"]) <= now < instant(row["validAt"]) + timedelta(hours=1)
-        and all(type(row.get(key)) in (int, float) and isfinite(row[key]) for key in fields)
-        for row in snapshot.get("rows", [])
-    )
+    covered = any(covers_hour(row, now, fields) for row in snapshot.get("rows", []))
     current = (checked_age is not None and 0 <= checked_age <= CHECK_SECONDS
                and issue_age is not None and 0 <= issue_age <= MODEL_UPDATE_SECONDS + ISSUE_MARGIN_SECONDS
                and covered)

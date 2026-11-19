@@ -48,6 +48,7 @@ def jobs():
             probe=probe,run=run,eligibility=eligibility))
     # A single scheduler record serializes all surface calls, including retries.
     def surface_probe():
+        # wall-clock: schedule actual provider checks independently of replay time.
         now = wall_now()
         checks = [environment.read("surface", port, at=now).get("lastSuccessfulCheckAt")
                   for port in port_registry.PORTS]

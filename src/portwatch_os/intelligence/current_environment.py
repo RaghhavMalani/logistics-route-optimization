@@ -239,9 +239,11 @@ def refresh_surface_batch(ports, *, relay_group=None, relay_config=None):
               "longitude": ",".join(str(port.lon) for port in ports)}
     if relay_config:
         original, timestamp = surface_relay.collect(relay_group, params, relay_config)
+        # wall-clock: receipt time is when these verified bytes arrived here.
         return publish_surface_batch(ports, original, wall_now(),
                                      relay_fetched_at=datetime.fromtimestamp(timestamp, timezone.utc))
     response = SURFACE_TRANSPORT.fetch(params)
+    # wall-clock: direct provider availability records actual receipt.
     received = wall_now()
     if response.status == 429:
         raise RetryAfterError("Open-Meteo surface HTTP 429", _retry_after(response.retry_after, received))
@@ -278,6 +280,7 @@ def collect_surface_groups(ports, hour, *, force=False, relay_config=None):
     updated = {}
     failures = []
     attempts = Counter()
+    # wall-clock: deduplicate real scheduled collection receipts in this hour.
     now = wall_now()
     for offset in range(min(len(ports), SURFACE_GROUPS)):
         group = ports[offset::SURFACE_GROUPS]
@@ -314,6 +317,7 @@ def collect_relay_groups(ports, hour, *, force, relay_config):
     """One relay pass and at most one direct fallback for the unresolved ports."""
     updated, missing = {}, []
     attempts = Counter()
+    # wall-clock: relay collection uses real receipt times across replay scopes.
     now = wall_now()
     for offset in range(min(len(ports), SURFACE_GROUPS)):
         group = ports[offset::SURFACE_GROUPS]

@@ -50,6 +50,7 @@ def signature(secret, direction, group, nonce, timestamp, body):
 
 def collect(group, params, config):
     body = json.dumps(params, separators=(",", ":")).encode()
+    # wall-clock: authentication expiry is tied to the actual network exchange.
     sent_at = int(wall_now().timestamp())
     nonce = secrets.token_hex(16)
     headers = {"Content-Type": "application/octet-stream",
@@ -70,6 +71,7 @@ def collect(group, params, config):
             timestamp = response.headers.get("X-Weather-Timestamp", "")
             received_nonce = response.headers.get("X-Weather-Nonce")
             provided = response.headers.get("X-Weather-Signature", "")
+            # wall-clock: reject an expired response before accepting source bytes.
             now = wall_now()
             if (not timestamp.isascii() or not timestamp.isdecimal() or len(timestamp) != 10
                     or received_nonce != nonce or len(provided) != 64 or not provided.isascii()):
@@ -92,6 +94,7 @@ def collect(group, params, config):
         return payload, int(timestamp)
     if outcome == "HTTP 429":
         wait = receipt.get("retryAfterSeconds")
+        # wall-clock: the upstream retry floor applies to real provider traffic.
         retry_at = wall_now() + timedelta(seconds=wait) if type(wait) is int and 0 <= wait <= 86400 else None
         raise RetryAfterError("Open-Meteo surface HTTP 429 via relay", retry_at)
     if outcome not in ("relay_provider_timeout", "relay_provider_http", "relay_invalid_response", "relay_rate_limited"):
