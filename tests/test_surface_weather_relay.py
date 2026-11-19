@@ -1,64 +1,66 @@
-"""The machine callback shares the direct collector's validation and receipt clocks."""
+"""Authenticate every response and retain the provider's original bytes."""
 
+import base64
 from datetime import datetime, timedelta, timezone
 import json
+from unittest.mock import Mock
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+import pytest
 
-from backend.app.domains.intelligence import weather_relay
 from src.portwatch_os.intelligence import current_environment as weather, surface_relay
+from src.portwatch_os.intelligence.surface_transport import SurfaceTransportError
 from src.utils.port_registry import PORTS
 
+NOW = datetime(2026, 11, 19, 9, tzinfo=timezone.utc)
+SECRET = "test" * 16
 
-def test_relay_authentication_provenance_and_idempotence(tmp_path, monkeypatch):
-    now = datetime(2026, 11, 18, 10, 12, tzinfo=timezone.utc)
-    key = "test" * 16
-    group = 0
-    expected_ports = PORTS[group::weather.SURFACE_GROUPS]
-    current_hour = now.replace(minute=0).isoformat()
+
+@pytest.mark.parametrize("fault", [None, "signature", "old", "nonce", "provider"])
+def test_pull_response_signature_time_and_request_binding(monkeypatch, fault):
+    config = surface_relay.RelaySettings("https://relay.vercel.app/api/weather", SECRET)
+    monkeypatch.setattr(surface_relay, "wall_now", lambda: NOW)
+
+    def request(url, **kwargs):
+        nonce = kwargs["headers"]["X-Weather-Nonce"]
+        stamp = int((NOW - timedelta(minutes=6) if fault == "old" else NOW).timestamp())
+        content = json.dumps({"outcome": "ok",
+                              "provider": "wrong" if fault == "provider" else weather.URLS["surface"],
+                              "original": base64.b64encode(b"[]").decode()}).encode()
+        headers = {"X-Weather-Nonce": "0" * 32 if fault == "nonce" else nonce,
+                   "X-Weather-Timestamp": str(stamp),
+                   "X-Weather-Signature": "0" * 64 if fault == "signature" else
+                   surface_relay.signature(SECRET, "response", 0, nonce, stamp, content)}
+        response = Mock(headers=headers)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.iter_content.return_value = [content]
+        return response
+
+    monkeypatch.setattr(surface_relay.requests, "post", request)
+    if fault:
+        with pytest.raises(SurfaceTransportError):
+            surface_relay.collect(0, {}, config)
+    else:
+        assert surface_relay.collect(0, {}, config) == (b"[]", int(NOW.timestamp()))
+
+
+def test_pull_original_uses_existing_validation_and_preserves_provenance(tmp_path, monkeypatch):
+    ports = PORTS[::4]
     original = json.dumps([
         {"latitude": port.lat, "longitude": port.lon, "hourly_units": weather.SURFACE_UNITS,
-         "hourly": {"time": [current_hour], **{name: [3] for name in weather.SURFACE_UNITS}}}
-        for port in expected_ports
+         "hourly": {"time": [NOW.isoformat()], **{name: [3] for name in weather.SURFACE_UNITS}}}
+        for port in ports
     ]).encode()
     monkeypatch.setattr(weather, "ROOT", tmp_path)
-    monkeypatch.setattr(weather, "world_now", lambda: now)
-    monkeypatch.setattr(weather_relay, "wall_now", lambda: now)
-    monkeypatch.setattr(weather_relay, "current_weather_eligibility", lambda: None)
-    monkeypatch.setattr(surface_relay, "relay_settings",
-                        lambda: surface_relay.RelaySettings("https://relay.vercel.app/api/weather", key))
-    app = FastAPI()
-    app.include_router(weather_relay.router, prefix="/api")
-    client = TestClient(app)
-
-    def post(body, *, signed_body=None, signed_at=now, direction="receipt"):
-        stamp = int(signed_at.timestamp())
-        return client.post(surface_relay.CALLBACK_PATH, content=body, headers={
-            "X-Weather-Group": str(group), "X-Weather-Timestamp": str(stamp),
-            "X-Weather-Signature": surface_relay.signature(key, direction, group, stamp,
-                                                           signed_body if signed_body is not None else body),
-        })
-
-    assert post(original, signed_body=b"tampered").status_code == 401
-    assert post(original, direction="request").status_code == 401
-    assert post(original, signed_at=now - timedelta(minutes=5)).status_code == 401
-    assert post(original, signed_at=now + timedelta(minutes=5)).status_code == 401
-    assert post(b"[]").status_code == 422
-    assert post(b"x" * (weather_relay.MAX_RESPONSE_BYTES + 1)).status_code == 413
-    assert not list(tmp_path.iterdir())
-
-    result = post(original)
-    assert result.status_code == 200
-    assert post(original).json() == result.json()
-    assert post(original, signed_at=now - timedelta(seconds=1)).status_code == 409
-    snapshots = result.json()["snapshots"]
-    assert set(snapshots) == {port.locode for port in expected_ports}
-    assert len(list((tmp_path / "archive").glob("*.json"))) == len(expected_ports)
-    for port in expected_ports:
-        snapshot = weather.read("surface", port, at=now)
-        assert snapshot["snapshotId"] == snapshots[port.locode]
+    monkeypatch.setattr(weather, "world_now", lambda: NOW)
+    monkeypatch.setattr(weather, "wall_now", lambda: NOW)
+    monkeypatch.setattr(surface_relay, "collect", lambda *args: (original, int(NOW.timestamp())))
+    rows = weather.refresh_surface_batch(ports, relay_group=0, relay_config=object())
+    for snapshot in rows.values():
         assert snapshot["delivery"] == "via relay"
-        assert snapshot["relayFetchedAt"] == snapshot["fetchedAt"] == now.isoformat()
         assert snapshot["issuedAt"] is None
+        assert snapshot["relayFetchedAt"] == snapshot["fetchedAt"] == NOW.isoformat()
         assert (tmp_path / "archive" / (snapshot["responseSha256"] + ".response")).read_bytes() == original
+    monkeypatch.setattr(surface_relay, "collect", lambda *args: (b"[]", int(NOW.timestamp())))
+    with pytest.raises(ValueError, match="number of locations"):
+        weather.refresh_surface_batch(ports, relay_group=0, relay_config=object())

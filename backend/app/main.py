@@ -147,8 +147,7 @@ async def _storage_failures(request: Request, exc: Exception):
 #: Routes a request may reach with no identity even when identity is required:
 #: liveness, the policy statements that say what this deployment verifies, and
 #: the API's own description.
-IDENTITY_EXEMPT = ("/api/health", "/api/provenance", "/api/advisories/policy", "/api/auth/login", "/", "/docs", "/openapi.json", "/redoc",
-                   "/api/intelligence/internal/surface-relay")  # Machine route checks its own HMAC.
+IDENTITY_EXEMPT = ("/api/health", "/api/provenance", "/api/advisories/policy", "/api/auth/login", "/", "/docs", "/openapi.json", "/redoc")
 
 
 @app.middleware("http")

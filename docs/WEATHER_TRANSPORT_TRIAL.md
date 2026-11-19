@@ -61,3 +61,9 @@ Only two cycle closes had all ports within the app's one-hour availability polic
 The separate relay project is disconnected from GitHub and uses a project-scoped automation credential to reach its protected Preview function. Vercel classified the project's first upload as Production despite the Preview option. That unused deployment was removed. The trial used Preview deployment `dpl_99ekJQTPFEQcuUfuW2NkCFETpf2j`, which targeted the isolated Railway preview for every callback. [Vercel's first-deployment behaviour](https://github.com/vercel/vercel-plugin/blob/main/commands/deploy.md).
 
 Local evidence is under `work/weather-transport-20261116/` in the parent workspace. `RELAY_12H.json` records the complete hourly and attempt counts. `RELAY_FINAL_HEALTH.json` confirms the running service and source distinction.
+
+## Pull relay hardening, 19 November
+
+During the 9134c67 trial, the existing Railway single-owner freshness coordinator invoked `current_surface_batch` once per UTC hour. Its `surface_run` called four sequential port groups. Each invocation authenticated a POST to the Vercel Preview function. The function fetched Open-Meteo and posted a signed callback to Railway. Vercel Cron did not invoke any trial request.
+
+The hardened relay returns signed original bytes to the waiting Railway scheduler. Each request has a cryptographically random challenge. The response signature covers that challenge, group, timestamp and full envelope, including the fixed provider identity and raw response. The backend rejects a mismatched challenge, a timestamp older than five minutes, a future timestamp beyond 30 seconds and any signature mismatch before parsing weather data. The callback route is removed.

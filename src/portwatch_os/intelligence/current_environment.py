@@ -226,13 +226,9 @@ def refresh_surface_batch(ports, *, relay_group=None, relay_config=None):
     params = {**SURFACE_QUERY, "latitude": ",".join(str(port.lat) for port in ports),
               "longitude": ",".join(str(port.lon) for port in ports)}
     if relay_config:
-        snapshots = surface_relay.collect(relay_group, params, relay_config)
-        now = wall_now()
-        rows = {port.locode: read("surface", port, at=now) for port in ports}
-        if not all(row.get("delivery") == "via relay" and row.get("snapshotId") == snapshots.get(locode)
-                   for locode, row in rows.items()):
-            raise SurfaceTransportError("relay_callback_error")
-        return rows
+        original, timestamp = surface_relay.collect(relay_group, params, relay_config)
+        return publish_surface_batch(ports, original, wall_now(),
+                                     relay_fetched_at=datetime.fromtimestamp(timestamp, timezone.utc))
     response = SURFACE_TRANSPORT.fetch(params)
     received = wall_now()
     if response.status == 429:
