@@ -1,7 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import queries from "../queries.json" with { type: "json" };
 
 const maximumOriginalBytes = 1024 * 1024;
 const provider = "https://api.open-meteo.com/v1/forecast";
+const recentRequests = new Map();
+const nextGroupRequestAt = new Map();
 
 function signature(secret, direction, group, nonce, timestamp, bytes) {
   return createHmac("sha256", secret).update(`${direction}\n${group}\n${nonce}\n${timestamp}\n`).update(bytes).digest("hex");
@@ -18,13 +21,9 @@ async function readBody(iterable, limit) {
   return Buffer.concat(parts, size);
 }
 
-function validQuery(query) {
-  const numbers = /^-?\d+(?:\.\d+)?(?:,-?\d+(?:\.\d+)?){2,3}$/u;
-  return typeof query.latitude === "string" && numbers.test(query.latitude)
-    && typeof query.longitude === "string" && numbers.test(query.longitude)
-    && query.latitude.split(",").length === query.longitude.split(",").length
-    && query.timezone === "GMT" && query.wind_speed_unit === "kn" && query.forecast_days === 6
-    && query.hourly === "wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,visibility";
+function validQuery(query, expected) {
+  return query && !Array.isArray(query) && Object.keys(query).length === Object.keys(expected).length
+    && Object.entries(expected).every(([key, value]) => query[key] === value);
 }
 
 function retryAfterSeconds(value) {
@@ -64,8 +63,8 @@ export default async function handle(req, res) {
   } catch {
     return res.status(400).json({ outcome: "request" });
   }
-  if (!query || !validQuery(query)) return res.status(400).json({ outcome: "request" });
-  const { latitude, longitude, timezone, wind_speed_unit, hourly, forecast_days } = query;
+  if (!validQuery(query, queries[Number(group)])) return res.status(400).json({ outcome: "request" });
+  const { latitude, longitude, timezone, wind_speed_unit, hourly, forecast_days } = queries[Number(group)];
   function signedReply(outcome) {
     const body = Buffer.from(JSON.stringify({ ...outcome, provider }));
     const fetchedAt = String(Math.floor(Date.now() / 1000));
@@ -75,6 +74,19 @@ export default async function handle(req, res) {
     res.setHeader("Content-Type", "application/json");
     return res.status(200).send(body);
   }
+  const now = Date.now();
+  for (const [challenge, expiresAt] of recentRequests) {
+    if (expiresAt <= now) recentRequests.delete(challenge);
+  }
+  if (recentRequests.has(nonce)) return res.status(409).json({ outcome: "replay" });
+  // Shared across concurrent invocations in this warm instance. The single-owner
+  // Railway scheduler and durable breaker also bound collection across restarts.
+  if (recentRequests.size >= 256 || (nextGroupRequestAt.get(group) ?? 0) > now) {
+    res.setHeader("Retry-After", "30");
+    return signedReply({ outcome: "relay_rate_limited" });
+  }
+  recentRequests.set(nonce, now + 300_000);
+  nextGroupRequestAt.set(group, now + 30_000);
 
   let original;
   try {

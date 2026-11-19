@@ -92,6 +92,6 @@ def collect(group, params, config):
         wait = receipt.get("retryAfterSeconds")
         retry_at = wall_now() + timedelta(seconds=wait) if type(wait) is int and 0 <= wait <= 86400 else None
         raise RetryAfterError("Open-Meteo surface HTTP 429 via relay", retry_at)
-    if outcome not in ("relay_provider_timeout", "relay_provider_http", "relay_invalid_response", "HTTP 429"):
+    if outcome not in ("relay_provider_timeout", "relay_provider_http", "relay_invalid_response", "relay_rate_limited"):
         outcome = "relay_unconfirmed"
     raise SurfaceTransportError(outcome)
