@@ -183,9 +183,10 @@ def _save_snapshot(kind, port, previous, params, rows, units, grid, original, at
     identical = previous.get("responseSha256") == snapshot["responseSha256"]
     # A multi-location original is shared across the ports. Compare the parsed
     # local forecast so a change at another port cannot re-date an unchanged one.
-    if digest is not None:
+    if kind in ("surface", "marine"):
         identical = (previous.get("rows") == rows and previous.get("returnedGrid") == grid
                      and previous.get("units") == units)
+    if digest is not None:
         snapshot["responseLocationIndex"] = location_index
     if identical and previous.get("availableAt"):
         snapshot["availableAt"] = previous["availableAt"]

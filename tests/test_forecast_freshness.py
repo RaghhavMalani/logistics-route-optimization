@@ -59,3 +59,19 @@ def test_same_values_preserve_issue_proxy_and_changed_values_advance_it(tmp_path
     changed = deepcopy(previous["rows"])
     changed[0]["precipitation"] = 5
     assert save(changed)["forecastIssuedAt"] == NOW.isoformat()
+
+
+def test_changed_response_metadata_cannot_advance_a_marine_issue_proxy(tmp_path, monkeypatch):
+    monkeypatch.setattr(weather, "ROOT", tmp_path)
+    monkeypatch.setattr(weather, "world_now", lambda: NOW)
+    previous = {"kind": "marine", "availableAt": (NOW - timedelta(hours=5)).isoformat(),
+                "rows": [{"validAt": NOW.isoformat(), "wave_height": 1.5}],
+                "units": {"wave_height": "m"}, "returnedGrid": {"latitude": 19, "longitude": 73},
+                "responseSha256": "previous-original"}
+    result = weather._save_snapshot("marine", weather.port_registry.resolve("INNSA"),
+                                   previous, {}, previous["rows"], previous["units"],
+                                   previous["returnedGrid"], b"new-generationtime-ms", NOW)
+    assert result["status"] == "CURRENT"
+    assert result["responseSha256"] != previous["responseSha256"]
+    assert result["forecastIssuedAt"] == previous["availableAt"]
+    assert result["checkedAt"] == NOW.isoformat()
