@@ -75,3 +75,18 @@ def test_changed_response_metadata_cannot_advance_a_marine_issue_proxy(tmp_path,
     assert result["responseSha256"] != previous["responseSha256"]
     assert result["forecastIssuedAt"] == previous["availableAt"]
     assert result["checkedAt"] == NOW.isoformat()
+
+
+def test_marine_schedule_uses_successful_check_even_when_forecast_values_do_not_change(monkeypatch):
+    from src.portwatch_os.freshness.free_research import jobs
+    from src.portwatch_os.freshness.job import RefreshContext
+    row = {"status": "CURRENT", "availableAt": (NOW - timedelta(hours=5)).isoformat(),
+           "lastSuccessfulCheckAt": NOW.isoformat(), "snapshotId": "unchanged-values-new-check"}
+    monkeypatch.setattr(weather, "read", lambda *a, **kw: row)
+    monkeypatch.setattr(weather, "refresh", lambda *a, **kw: row)
+    monkeypatch.setattr(weather, "retain_feedback", lambda port: None)
+    job = next(job for job in jobs() if job.artifact.startswith("current_marine_"))
+    assert job.probe().observed_at == NOW
+    assert job.policy.state_for(NOW - job.probe().observed_at) == "FRESH"
+    result = job.run(RefreshContext(job.artifact, NOW, 1, "test"))
+    assert result.observed_at == NOW

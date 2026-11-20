@@ -88,12 +88,13 @@ def jobs():
     for port in port_registry.PORTS:
         def probe(port=port):
             row=environment.read('marine',port)
-            return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
+            checked = row.get('lastSuccessfulCheckAt') or row.get('availableAt')
+            return ArtifactProbe(observed_at=environment.instant(checked) if checked else None)
         def run(context,port=port):
             row=environment.refresh('marine',port,force=True,strict=True)
-            if row['status']!='CURRENT': raise RuntimeError(row.get('reason','No current qualified forecast'))
             environment.retain_feedback(port)
-            return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
+            return JobOutcome(changed=True,observed_at=environment.instant(row['lastSuccessfulCheckAt']),
+                              detail={'snapshotId':row['snapshotId']})
         result.append(RefreshJob(policy=FreshnessPolicy(artifact=f'current_marine_{port.locode}',label=f'{port.name} marine forecast',provider='Open-Meteo',
             fresh_for=timedelta(hours=1),lead=timedelta(minutes=5),stale_after=timedelta(hours=2),max_attempts=2,
             backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),

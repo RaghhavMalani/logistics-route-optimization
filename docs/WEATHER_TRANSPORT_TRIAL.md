@@ -71,3 +71,28 @@ The hardened relay returns signed original bytes to the waiting Railway schedule
 The relay's generated query allow-list contains only the registered port coordinates and six fixed forecast parameters. Its exporter has a freshness check against the Python registry. Unknown fields and changed coordinates are rejected before any upstream call. Authenticated requests are limited to one call per group per 30 seconds per warm function instance, with a five-minute nonce replay cache capped at 256 entries. The Railway scheduler remains single-owner and uses a durable retry circuit. The function limiter is local to a warm instance and is additional to those scheduler limits.
 
 `PORTWATCH_WEATHER_RELAY_ENABLED=1` selects the pull relay. The default `0` selects the existing direct grouped collector. When the relay is enabled, one collection pass tries the four groups, then makes at most one direct request containing all unresolved ports. A failed fallback leaves the cycle failed and the persistent scheduler defers to the next UTC hour. A provider 429 preserves its retry floor and ends the cycle. The direct fallback does not bypass that throttle.
+
+### Hardened pull trial
+
+The measured build was `a50f803d53e75c966dcbb6fbee8e4a398d2a69b3`. It ran on the isolated preview with the relay flag on and the production collection configuration. The window contained 12 complete UTC hours from 19 November 05:00 UTC to 17:00 UTC (10:30–22:30 IST).
+
+| Measure | Result |
+| --- | --- |
+| Valid group deliveries | 48/48 (100%) |
+| Cycles delivering all 13 ports | 12/12 (100%) |
+| Cycles with all 13 ports current at close | 12/12 (100%) |
+| HTTP 429 responses | 0 |
+| Failed relay attempts | 0 |
+| Direct fallback attempts | 0 |
+
+The current-weather measure applies the policy in `UI_NUMBERS.md` to the latest archived receipt at each cycle close. It requires current-hour field coverage, a successful check within 90 minutes and an issue estimate within the six-hour model interval plus two-hour margin. The preceding immutable-availability policy would have counted only 3/12 of these cycles inside one hour. Identical validated forecasts retain their original availability and value-change estimate while their check clock advances.
+
+Full CI passed on the exact measured SHA, with 1,841 backend tests passed and two existing skips. All browser jobs, typecheck, generated-client checks, lint and build passed. Lint retains 51 existing warnings and zero errors. The hosted golden path passed at 1366×768 and 1280×720. A current twin displayed the separate check/issue clocks. A browser-only stale-check fixture switched its label to “weather stale · effects off”. [Exact-SHA CI](https://github.com/RaghhavMalani/logistics-route-optimization/actions/runs/44460642827).
+
+Hosted negative checks returned 401 for an invalid signature and an expired request, and 400 for an unapproved parameter, before the observation window. Local Node tests also verified request replay, response signing, registered coordinates and the per-instance rate limiter. Backend tests cover response replay binding, old timestamps, provider identity, original-byte retention, fallback bounds, flag-off behavior and forecast clock boundaries.
+
+The app preview is https://india-portwatch-mh9iv2yg5-flash2404s-projects.vercel.app. Its Vercel deployment is `dpl_CdjdKJps4owiCUiwmgN4wPLAyws7`, the relay Preview deployment is `dpl_3xSiLWsaCSDAk1ec91x6UBZeREur`, and its isolated Railway deployment is `37d8c6ed-6b3a-453f-921f-5a1051ae8da9`. The final trial used the pull protocol.
+
+Evidence is in the parent workspace under `work/weather-transport-20261119/`. `PULL_TRIAL_12H.json` holds per-hour counts. `BINDING.json` records exact service identities. `FINAL_PULL_VERIFICATION.json` holds the hosted negative checks and flag receipt. `BROWSER.json`, `TWIN_CURRENT.png`, `TWIN_STALE.png` and `panel-final/` hold browser evidence. `PULL_TRIAL_12H-key-removed.json` verifies removal of the temporary diagnostics credential.
+
+The post-trial check on 20 November found healthy local service responses while public Railway ingress timed out. It also found marine jobs repeatedly scheduling from their old first-availability clock after successful checks returned identical values. The scheduler now uses `lastSuccessfulCheckAt` for marine eligibility and records a valid collection independently of whether upstream forecasts are current. A regression test requires an unchanged five-hour-old marine forecast with a new check to remain outside the scheduler's due list.
