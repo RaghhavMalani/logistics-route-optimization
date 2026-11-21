@@ -96,3 +96,25 @@ The app preview is https://india-portwatch-mh9iv2yg5-flash2404s-projects.vercel.
 Evidence is in the parent workspace under `work/weather-transport-20261119/`. `PULL_TRIAL_12H.json` holds per-hour counts. `BINDING.json` records exact service identities. `FINAL_PULL_VERIFICATION.json` holds the hosted negative checks and flag receipt. `BROWSER.json`, `TWIN_CURRENT.png`, `TWIN_STALE.png` and `panel-final/` hold browser evidence. `PULL_TRIAL_12H-key-removed.json` verifies removal of the temporary diagnostics credential.
 
 The post-trial check on 20 November found healthy local service responses while public Railway ingress timed out. It also found marine jobs repeatedly scheduling from their old first-availability clock after successful checks returned identical values. The scheduler now uses `lastSuccessfulCheckAt` for marine eligibility and records a valid collection independently of whether upstream forecasts are current. A regression test requires an unchanged five-hour-old marine forecast with a new check to remain outside the scheduler's due list.
+
+### Final corrected preview
+
+The final measured application build is `0e3cb2b682f5563bdafadda9b80a78f4ddd61afe`. The complete repeat window ran on 20 November from 10:30 to 22:30 IST (05:00–17:00 UTC), with the relay flag on. This window also verifies the corrected marine scheduler.
+
+| Measure | Final result |
+| --- | --- |
+| Valid surface group deliveries | 48/48 (100%) |
+| Cycles delivering all 13 ports | 12/12 (100%) |
+| Cycles with all 13 ports current at close | 12/12 (100%) |
+| Surface or marine HTTP 429 responses | 0 |
+| Direct surface fallback attempts | 0 |
+| Marine collections | 169/169 successful |
+| Marine cadence | 13 collections per port, minimum interval approximately 55 minutes |
+
+The old one-hour first-availability rule would have counted only 2/12 cycles as current. The new rule counted 12/12, while preserving original availability and retaining the explicit estimate on issue time. The repeat trial required no fallback provider.
+
+Public ingress was healthy after the redeployment and at the final recheck on 21 November. The API reported the expected SHA, service health `ok`, a running scheduler, all 13 surface ports current and 76.69% free disk. The final hosted panel smoke passed both projector sizes. The current/stale miniature browser check passed without console or API errors. [Full CI passed on the measured SHA](https://github.com/RaghhavMalani/logistics-route-optimization/actions/runs/44674679963), including 1,842 backend tests with two existing skips.
+
+The final app preview is https://india-portwatch-hjct8eba8-flash2404s-projects.vercel.app, Vercel deployment `dpl_GTvmgYGL1CNkaBMMuWSC3DoN2qUe`, with isolated Railway deployment `6a51ddab-16ad-40f6-abd1-d8588f922152`. It reuses relay Preview deployment `dpl_3xSiLWsaCSDAk1ec91x6UBZeREur`. The relay source tree is identical between a50f803 and 0e3cb2b.
+
+Final receipts are in the parent workspace under `work/weather-transport-20261120/`. They include `FINAL_TRIAL_12H.json`, `MARINE_CADENCE.json`, `HEALTH_AFTER.json`, `CI.json`, `BROWSER.json`, `TWIN_CURRENT.png`, `TWIN_STALE.png` and the golden-path screenshots in `panel/`. The corresponding key-removal receipts verify cleanup of temporary diagnostics credentials.
