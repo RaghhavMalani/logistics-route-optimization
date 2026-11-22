@@ -64,7 +64,8 @@ def jobs():
         for port in port_registry.PORTS:
             if port.locode in rows:
                 environment.retain_feedback(port)
-        detail = {"ports": len(rows), "httpAttempts": attempts}
+        detail = {"ports": len(rows), "directFallbackAttempts": attempts.pop("direct_fallback_started", 0),
+                  "httpAttempts": attempts}
         if failures:
             last_error = failures[-1]
             if isinstance(last_error, RetryAfterError):

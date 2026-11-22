@@ -81,6 +81,7 @@ def test_one_direct_fallback_per_failed_relay_cycle(monkeypatch, recovered):
     assert bool(failures) != recovered
     assert set(rows) == ({port.locode for port in PORTS} if recovered else set())
     assert counts["relay_provider_timeout"] == 4
+    assert counts["direct_fallback_started"] == 1
     assert counts.get("direct_fallback_failed", 0) == (0 if recovered else 1)
 
 

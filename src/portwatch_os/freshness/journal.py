@@ -58,6 +58,7 @@ class FreshnessJournal:
         }
         if result.artifact == 'current_surface_batch' and 'httpAttempts' in result.detail:
             payload['detail']['httpAttempts'] = result.detail['httpAttempts']
+            payload['detail']['directFallbackAttempts'] = result.detail.get('directFallbackAttempts', 0)
         rendered = json.dumps(payload)
         finished = result.finished_at.astimezone(timezone.utc).isoformat()
         with self.connect() as db:

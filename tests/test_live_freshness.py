@@ -246,4 +246,5 @@ def test_retry_after_sets_a_durable_minimum_wait(tmp_path):
     assert artifact not in restarted.due(now=deadline - timedelta(seconds=1))
     assert artifact in restarted.due(now=deadline)
     assert journal.recent_outcomes(artifact, wall_now(), hours=48)["http429"] == 1
-    assert journal.load(artifact)[1][-1]["detail"] == {"httpAttempts": {"HTTP 429": 1}}
+    assert journal.load(artifact)[1][-1]["detail"] == {
+        "httpAttempts": {"HTTP 429": 1}, "directFallbackAttempts": 0}

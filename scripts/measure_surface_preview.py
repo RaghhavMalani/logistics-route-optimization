@@ -31,8 +31,10 @@ def attempt_outcomes(journal, artifact, start, end):
         ).fetchall()
     failures = Counter()
     successful = 0
+    fallbacks = 0
     for ok, rendered in rows:
         result = json.loads(rendered)
+        fallbacks += result.get("detail", {}).get("directFallbackAttempts", 0)
         attempts = result.get("detail", {}).get("httpAttempts")
         if attempts is not None:
             successful += attempts.get("ok", 0)
@@ -43,7 +45,8 @@ def attempt_outcomes(journal, artifact, start, end):
             error = result.get("error") or "unspecified"
             kind = "HTTP 429" if "HTTP 429" in error else "timeout" if "timed out" in error.lower() else error.split(":", 1)[0]
             failures[kind] += 1
-    return {"total": successful + sum(failures.values()), "successful": successful, "failures": failures}
+    return {"total": successful + sum(failures.values()), "successful": successful, "failures": failures,
+            "directFallbackAttempts": fallbacks}
 
 
 def cycle_coverage(archive, start, end):

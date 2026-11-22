@@ -338,6 +338,7 @@ def collect_relay_groups(ports, hour, *, force, relay_config):
         else:
             attempts["ok"] += 1
     if missing:
+        attempts["direct_fallback_started"] += 1
         try:
             updated.update(refresh_surface_batch(missing))
         except RetryAfterError as error:
