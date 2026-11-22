@@ -54,6 +54,7 @@ import {
 } from "./twin-presentation";
 
 import { usePortWeather } from "@/components/miniature/use-port-weather";
+import { ForecastReceiptText } from "@/components/kit/ForecastReceiptText";
 import { usePortRegistry } from "@/services/hooks";
 import { createTwinPlayback } from "./twin-playback";
 import { twinCallPickId, twinSelection } from "./twin-selection";
@@ -286,7 +287,7 @@ export function PortTwinScreen({ portCode }: { portCode: string }) {
               </span>
             </span>
             <span data-testid="twin-weather-status" className="text-xs">
-              {weatherLabel}
+              <ForecastReceiptText text={weatherLabel} />
             </span>
           </span>
         }

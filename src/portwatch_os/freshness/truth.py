@@ -1,5 +1,5 @@
 """Shared wall-clock freshness truth for API health, Sources and workspace SSE."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from src.portwatch_os.freshness.publication_lag import IMF_CADENCE, imf_publication_lag
 
 
@@ -41,6 +41,7 @@ def retained_sources(now):
     from src.portwatch_os.intelligence import current_environment
     from src.utils.port_registry import PORTS
     coordinator = install_product_jobs(get_coordinator())
+    from app.data.portwatch import CANON, observation_receipt
 
     def job_metrics(artifacts):
         jobs = [coordinator.attempt_metrics(key, now) for key in artifacts if key in coordinator.artifacts()]
@@ -62,24 +63,39 @@ def retained_sources(now):
     budget = max(IMF_CADENCE.total_seconds(), lag["medianSeconds"] or 0)
     state, age = classify_daily_activity(observed, now, lag)
     shared = job_metrics(['port_forecast'])
+    checked = observation_receipt()
+    checked_at = instant(checked.get("collectedAt"))
+    published = [instant(checked.get("dates", {}).get(port_id)) for port_id in CANON]
+    observed_day = instant(observed)
+    publication_confirmed = (
+        checked_at is not None and timedelta(0) <= now - checked_at <= timedelta(hours=36)
+        and observed_day is not None and any(published)
+        and observed_day.date() == max(day.date() for day in published if day)
+    )
+    activity_detail = ('Daily satellite-AIS aggregates. Age is the observation date, not the export receipt; '
+                       'publication lag remains visible.')
+    if publication_confirmed and state != "live":
+        activity_detail = f'IMF publication lag · latest published observation {observed_day:%d %b %Y} UTC.'
     rows = [{'id': 'imf-portwatch-data', 'name': 'Port activity', 'provider': 'IMF PortWatch',
              'status': state, 'observedAt': instant(observed), 'dataAgeSeconds': age, 'core': True,
              'policySeconds': budget, 'publicationLag': lag,
-             'detail': 'Daily satellite-AIS aggregates. Age is the observation date, not the export receipt; publication lag remains visible.',
+             'detail': activity_detail,
              'termsUrl': 'https://portwatch.imf.org/pages/data-and-methodology', **shared}]
     status = cache.get_live_status()
     origin = status.get('forecastOrigin')
+    origin_day = instant(origin)
     through = status.get('targetThrough')
     valid = instant(through)
     # Date-only horizons include that UTC calendar day.
     if valid:
-        from datetime import timedelta
         valid = valid.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     state, age = classify_daily_activity(origin, now, lag, valid_through=valid.isoformat() if valid else '')
     rows.append({'id': 'congestion-forecast', 'name': 'Congestion forecast', 'provider': 'PortWatch model',
                  'status': state, 'observedAt': instant(origin), 'validThrough': valid,
                  'dataAgeSeconds': age, 'core': True, 'policySeconds': budget, 'publicationLag': lag,
-                 'detail': 'Modelled from the latest accepted activity observation. An expired horizon is historical, even after a new export.', **shared})
+                 'detail': ('Modelled congestion forecast based on IMF observations through '
+                            + (f'{origin_day:%d %b %Y} UTC. ' if origin_day else 'an unavailable date. ')
+                            + 'An expired horizon is historical.'), **shared})
     for kind, name in [('surface', 'Port weather'), ('marine', 'Marine forecast')]:
         samples = []
         for port in PORTS:
@@ -91,18 +107,37 @@ def retained_sources(now):
         for sample in samples:
             coverage = max((row.get('validAt', '') for row in sample['rows']), default='')
             state, age = classify(sample.get('availableAt'), now, current_environment.TTL[kind], valid_through=coverage)
+            if sample.get("checkedAt"):
+                state = 'live' if sample.get("status") == 'CURRENT' else 'stale'
+                age = sample.get("forecastAgeSeconds")
             evaluated.append((state, age, sample.get('availableAt')))
         current = sum(row[0] == 'live' for row in evaluated)
         retained = [row for row in evaluated if row[1] is not None]
         state = 'live' if current == len(PORTS) else 'stale' if retained else 'unavailable'
+        metrics = job_metrics([current_environment.SURFACE_BATCH_ARTIFACT] if kind == "surface" else
+                              [f'current_{kind}_{port.locode}' for port in PORTS])
+        detail = (f'{current}/{len(PORTS)} ports within check, estimated issue-age and valid-time policy. '
+                  'Issue time estimated from the last forecast value change; provider run time unavailable for Best Match.')
+        relayed = sum(sample.get("delivery") == "via relay" for sample in samples)
+        if relayed:
+            detail += f' {relayed}/{len(PORTS)} latest port responses received via relay.'
+        if kind == "surface" and coordinator.journal:
+            recent = coordinator.journal.recent_outcomes(current_environment.SURFACE_BATCH_ARTIFACT, now, hours=48)
+            detail += f' Batch collections in the last 48 hours: {recent["successes"]}/{recent["attempts"]} successful, {recent["http429"]} rate-limited.'
         rows.append({'id': f'open-meteo-{kind}', 'name': name, 'provider': 'Open-Meteo', 'status': state,
                      'observedAt': None, 'availableAt': min((row[2] for row in retained), default=None),
                      'dataAgeSeconds': max((row[1] for row in retained), default=None),
                      'policySeconds': current_environment.TTL[kind], 'core': True,
+                     'checkedAt': min((s['checkedAt'] for s in samples if s.get('checkedAt')), default=None),
+                     'forecastIssuedAt': min((s['forecastIssuedAt'] for s in samples if s.get('forecastIssuedAt')), default=None),
+                     'forecastIssueBasis': 'VALUES_LAST_CHANGED',
+                     'checkPolicySeconds': current_environment.forecast_freshness.CHECK_SECONDS,
+                     'issuePolicySeconds': (current_environment.forecast_freshness.MODEL_UPDATE_SECONDS
+                                            + current_environment.forecast_freshness.ISSUE_MARGIN_SECONDS),
                      'portsCurrent': current, 'portsTotal': len(PORTS),
-                     'detail': f'{current}/{len(PORTS)} ports within response-age and valid-time policy. Provider forecasts, not station observations; issue time unavailable.',
+                     'detail': detail,
                      'termsUrl': 'https://open-meteo.com/en/terms',
-                     **job_metrics([f'current_{kind}_{port.locode}' for port in PORTS])})
+                     **metrics})
     try:
         hazards = current_environment.read('hazards', PORTS[0], at=now)
     except (ValueError, OSError, KeyError):

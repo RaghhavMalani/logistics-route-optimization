@@ -1,6 +1,8 @@
 import { useCurrentMapWeather } from "@/services/current-inputs";
 import { Pill, formatUtc } from "@/components/kit/primitives";
 import { useSourceHealth, ageLabel } from "@/services/source-health";
+import { forecastReceiptLabel } from "@/lib/forecast-freshness";
+import { ForecastReceiptText } from "@/components/kit/ForecastReceiptText";
 
 export function CurrentWeatherStatus() {
   const weather = useCurrentMapWeather();
@@ -15,17 +17,19 @@ export function CurrentWeatherStatus() {
     <span
       className="flex items-center gap-1.5"
       data-testid="current-weather-status"
-      title={`Independent public forecast receipts; first port available ${formatUtc(receipt)}. Provider issue time unavailable. Activity data has its own age.`}
+      title={`First available ${formatUtc(receipt)}. ~ estimates issue time from the last value change in the Best Match forecast. Activity has its own age.`}
     >
       <span className="eyebrow text-[10px]">Weather</span>
       <Pill tone={current ? "info" : "neutral"}>
-        {current
-          ? `current ${source?.portsCurrent ?? rows.length} ports`
-          : weather.isPending
-            ? "checking"
-            : source?.availableAt
-              ? `Latest available · ${formatUtc(source.availableAt)} (${ageLabel(source.dataAgeSeconds)} old)`
-              : "unavailable"}
+        {current ? (
+          <ForecastReceiptText text={forecastReceiptLabel(source, true)} />
+        ) : weather.isPending ? (
+          "checking"
+        ) : source?.availableAt ? (
+          `Latest available · ${formatUtc(source.availableAt)} (${ageLabel(source.dataAgeSeconds)} old)`
+        ) : (
+          "unavailable"
+        )}
       </Pill>
     </span>
   );

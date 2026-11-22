@@ -40,6 +40,7 @@ def test_upstream_staleness_is_data_degradation_only(tmp_path, monkeypatch):
     path.write_text('{}')
     monkeypatch.setattr(cache, 'FORECAST_CACHE', path)
     monkeypatch.setattr(health, 'durable_stores', lambda: {'ok': True})
+    monkeypatch.setattr(health, 'state_capacity', lambda path: {'status': 'ok'})
     monkeypatch.setattr(source_status, 'source_status', lambda: {'degraded': True, 'sources': [
         {'id': 'congestion-forecast', 'status': 'stale', 'core': True},
         {'id': 'weather', 'status': 'live', 'core': True}], 'scheduler': {}})

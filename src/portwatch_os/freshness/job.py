@@ -31,6 +31,19 @@ class RefreshContext:
     requested: bool = False
 
 
+class RefreshAttemptError(RuntimeError):
+    """A failed refresh with bounded diagnostic counters and an optional retry floor."""
+
+    def __init__(self, message: str, retry_at: datetime | None = None, *, detail=None):
+        super().__init__(message)
+        self.retry_at = retry_at
+        self.detail = detail or {}
+
+
+class RetryAfterError(RefreshAttemptError):
+    """A provider throttled this refresh, optionally with an earliest retry instant."""
+
+
 @dataclass
 class RefreshResult:
     """What one attempt did."""

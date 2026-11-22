@@ -1,4 +1,5 @@
 import { COLORS } from "@/components/miniature/palette";
+import { ForecastReceiptText } from "@/components/kit/ForecastReceiptText";
 /**
  * The maritime picture.
  *
@@ -1238,7 +1239,7 @@ export function MaritimeMap({
             ) : null}
             {miniature?.code === label.id ? (
               <span className="block text-[9.5px] text-[var(--text-3)]">
-                {miniature.weatherLabel}
+                <ForecastReceiptText text={miniature.weatherLabel} />
               </span>
             ) : null}
           </button>

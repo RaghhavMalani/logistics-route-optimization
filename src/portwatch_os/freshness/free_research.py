@@ -2,10 +2,11 @@
 from src.utils.settings import get_settings
 
 from datetime import timedelta
-from src.portwatch_os.clock import LIVE, get_clock
-from src.portwatch_os.freshness.job import RefreshJob, JobOutcome
+from src.portwatch_os.clock import LIVE, get_clock, wall_now
+from src.portwatch_os.freshness.job import RefreshJob, JobOutcome, RefreshAttemptError, RetryAfterError
 from src.portwatch_os.freshness.policy import FreshnessPolicy, ArtifactProbe
 from src.portwatch_os.intelligence import free_sources, current_environment as environment
+from src.portwatch_os.intelligence.surface_relay import relay_settings
 from src.utils import port_registry
 
 
@@ -45,21 +46,61 @@ def jobs():
             backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=3),
             rationale='Explicit noncommercial research. Retained public products; provider cadence and value kind remain separate.'),
             probe=probe,run=run,eligibility=eligibility))
-    for port in port_registry.PORTS:
-        for kind in ('surface','marine'):
-            def probe(port=port,kind=kind):
-                row=environment.read(kind,port)
-                return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)
-            def run(context,port=port,kind=kind):
-                row=environment.refresh(kind,port,force=True,strict=True)
-                if row['status']!='CURRENT': raise RuntimeError(row.get('reason','No current qualified forecast'))
+    # A single scheduler record serializes all surface calls, including retries.
+    def surface_probe():
+        # wall-clock: schedule actual provider checks independently of replay time.
+        now = wall_now()
+        checks = [environment.read("surface", port, at=now).get("lastSuccessfulCheckAt")
+                  for port in port_registry.PORTS]
+        checked_at = min(map(environment.instant, checks)) if all(checks) else None
+        return ArtifactProbe(observed_at=checked_at.replace(minute=0, second=0, microsecond=0) if checked_at else None,
+                             source_timestamp=checked_at)
+
+    def surface_run(context):
+        hour = context.started_at.replace(minute=0, second=0, microsecond=0)
+        relay_config = relay_settings()
+        rows, failures, attempts = environment.collect_surface_groups(
+            port_registry.PORTS, hour, force=context.requested, relay_config=relay_config)
+        for port in port_registry.PORTS:
+            if port.locode in rows:
                 environment.retain_feedback(port)
-                return JobOutcome(changed=True,observed_at=environment.instant(row['availableAt']),detail={'snapshotId':row['snapshotId']})
-            result.append(RefreshJob(policy=FreshnessPolicy(artifact=f'current_{kind}_{port.locode}',label=f'{port.name} {kind} forecast',provider='Open-Meteo',
-                fresh_for=timedelta(hours=1),lead=timedelta(minutes=5),stale_after=timedelta(hours=2),max_attempts=2,
-                backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
-                rationale='Current hourly port forecast, independent of lagging activity observations; not station measurements.'),
-                probe=probe,run=run,eligibility=current_weather_eligibility))
+        detail = {"ports": len(rows), "directFallbackAttempts": attempts.pop("direct_fallback_started", 0),
+                  "httpAttempts": attempts}
+        if failures:
+            last_error = failures[-1]
+            if isinstance(last_error, RetryAfterError):
+                raise RetryAfterError(str(last_error), last_error.retry_at, detail=detail) from last_error
+            # Preserve successes from the other groups. A later scheduled run
+            # can fill the holes in the hour without repeating those groups.
+            raise RefreshAttemptError(f"Open-Meteo surface groups failed: {', '.join(key for key in attempts if key != 'ok')}",
+                                      retry_at=hour + timedelta(hours=1) if relay_config else None,
+                                      detail=detail) from last_error
+        if not rows:
+            return JobOutcome(skipped_reason="All port groups already checked in this UTC hour", detail=detail)
+        checked_at = max(environment.instant(row["lastSuccessfulCheckAt"]) for row in rows.values())
+        return JobOutcome(changed=True, observed_at=checked_at, detail=detail)
+
+    result.append(RefreshJob(policy=FreshnessPolicy(
+        artifact=environment.SURFACE_BATCH_ARTIFACT, label="All port surface forecasts", provider="Open-Meteo",
+        fresh_for=timedelta(hours=1), stale_after=timedelta(hours=2), max_attempts=3,
+        backoff_base=timedelta(minutes=5), backoff_cap=timedelta(hours=1),
+        rationale="Four sequential location groups per UTC hour, one retry circuit for the surface endpoint."),
+        probe=surface_probe, run=surface_run, eligibility=current_weather_eligibility))
+    for port in port_registry.PORTS:
+        def probe(port=port):
+            row=environment.read('marine',port)
+            checked = row.get('lastSuccessfulCheckAt') or row.get('availableAt')
+            return ArtifactProbe(observed_at=environment.instant(checked) if checked else None)
+        def run(context,port=port):
+            row=environment.refresh('marine',port,force=True,strict=True)
+            environment.retain_feedback(port)
+            return JobOutcome(changed=True,observed_at=environment.instant(row['lastSuccessfulCheckAt']),
+                              detail={'snapshotId':row['snapshotId']})
+        result.append(RefreshJob(policy=FreshnessPolicy(artifact=f'current_marine_{port.locode}',label=f'{port.name} marine forecast',provider='Open-Meteo',
+            fresh_for=timedelta(hours=1),lead=timedelta(minutes=5),stale_after=timedelta(hours=2),max_attempts=2,
+            backoff_base=timedelta(minutes=5),backoff_cap=timedelta(hours=1),
+            rationale='Current hourly port forecast, independent of lagging activity observations; not station measurements.'),
+            probe=probe,run=run,eligibility=current_weather_eligibility))
     def hazard_probe():
         row=environment.read('hazards',port_registry.PORTS[0])
         return ArtifactProbe(observed_at=environment.instant(row['availableAt']) if row.get('availableAt') else None)

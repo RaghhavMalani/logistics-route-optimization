@@ -56,6 +56,9 @@ class FreshnessJournal:
             key: result.detail[key] for key in ('sourceObservedAt', 'sourceReceivedAt')
             if result.artifact == 'port_forecast' and key in result.detail
         }
+        if result.artifact == 'current_surface_batch' and 'httpAttempts' in result.detail:
+            payload['detail']['httpAttempts'] = result.detail['httpAttempts']
+            payload['detail']['directFallbackAttempts'] = result.detail.get('directFallbackAttempts', 0)
         rendered = json.dumps(payload)
         finished = result.finished_at.astimezone(timezone.utc).isoformat()
         with self.connect() as db:
@@ -98,6 +101,23 @@ class FreshnessJournal:
             if not history and state and state[3]:
                 history = [(state[3],)]
         return state, [json.loads(row[0]) for row in reversed(history)]
+
+    def recent_outcomes(self, artifact, now, *, hours):
+        since = (now - timedelta(hours=hours)).astimezone(timezone.utc).isoformat()
+        until = now.astimezone(timezone.utc).isoformat()
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT finished,ok,result FROM refresh_attempts "
+                "WHERE artifact=? AND skipped=0 AND finished>=? AND finished<=? ORDER BY finished",
+                (artifact, since, until),
+            ).fetchall()
+        count = len(rows)
+        successes = sum(bool(row[1]) for row in rows)
+        return {"attempts": count, "successes": successes,
+                "rate": successes / count if count else None,
+                "http429": sum(not row[1] and "HTTP 429" in (json.loads(row[2]).get("error") or "") for row in rows),
+                "firstFinishedAt": rows[0][0] if count else None,
+                "lastFinishedAt": rows[-1][0] if count else None}
 
     def metrics(self, artifact, now):
         since = (now - timedelta(days=7)).astimezone(timezone.utc).isoformat()

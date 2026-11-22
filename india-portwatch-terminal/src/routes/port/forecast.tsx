@@ -189,7 +189,8 @@ function PortForecast() {
         meta={
           <>
             <span className="num">
-              origin {formatUtc(first?.originDate ?? port.forecastOrigin)}
+              based on activity through{" "}
+              {formatUtc(first?.originDate ?? port.forecastOrigin)}
             </span>
             <ProvenanceTag
               status={first?.dataStatus ?? port.dataStatus}

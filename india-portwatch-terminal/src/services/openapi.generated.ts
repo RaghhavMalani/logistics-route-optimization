@@ -7696,6 +7696,10 @@ export interface components {
             attempts7d: number;
             /** Availableat */
             availableAt?: string | null;
+            /** Checkpolicyseconds */
+            checkPolicySeconds?: number | null;
+            /** Checkedat */
+            checkedAt?: string | null;
             /** Circuit */
             circuit?: string | null;
             /**
@@ -7707,10 +7711,16 @@ export interface components {
             dataAgeSeconds?: number | null;
             /** Detail */
             detail: string;
+            /** Forecastissuebasis */
+            forecastIssueBasis?: string | null;
+            /** Forecastissuedat */
+            forecastIssuedAt?: string | null;
             /** Homepage */
             homepage?: string | null;
             /** Id */
             id: string;
+            /** Issuepolicyseconds */
+            issuePolicySeconds?: number | null;
             /** Lasterror */
             lastError?: string | null;
             /** Lasterrorat */
@@ -8298,6 +8308,10 @@ export interface components {
             attempts7d: number;
             /** Availableat */
             availableAt?: string | null;
+            /** Checkpolicyseconds */
+            checkPolicySeconds?: number | null;
+            /** Checkedat */
+            checkedAt?: string | null;
             /** Circuit */
             circuit?: string | null;
             /**
@@ -8309,10 +8323,16 @@ export interface components {
             dataAgeSeconds?: number | null;
             /** Detail */
             detail: string;
+            /** Forecastissuebasis */
+            forecastIssueBasis?: string | null;
+            /** Forecastissuedat */
+            forecastIssuedAt?: string | null;
             /** Homepage */
             homepage?: string | null;
             /** Id */
             id: string;
+            /** Issuepolicyseconds */
+            issuePolicySeconds?: number | null;
             /** Lasterror */
             lastError?: string | null;
             /** Lasterrorat */

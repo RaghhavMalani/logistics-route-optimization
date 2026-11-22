@@ -26,6 +26,8 @@ import type {
 import type { DecisionProblem } from "@/types/decisions";
 import { Button } from "@/components/ui/button";
 import { formatUtc, Pill } from "@/components/kit/primitives";
+import { forecastReceiptLabel } from "@/lib/forecast-freshness";
+import { ForecastReceiptText } from "@/components/kit/ForecastReceiptText";
 import {
   Dialog,
   DialogClose,
@@ -370,13 +372,21 @@ export function CurrentInputControl({
                         >
                           {kind} {source.status}
                         </Pill>
-                        <p>Available {formatUtc(source.availableAt)}</p>
-                        <p>
-                          Issue time{" "}
-                          {source.issuedAt
-                            ? formatUtc(source.issuedAt)
-                            : "unavailable"}
-                        </p>
+                        {source.forecastIssuedAt ? (
+                          <p>
+                            <ForecastReceiptText
+                              text={forecastReceiptLabel(
+                                source,
+                                source.status === "CURRENT",
+                              )}
+                            />
+                          </p>
+                        ) : (
+                          <p>
+                            Available {formatUtc(source.availableAt)} · issue
+                            time unavailable
+                          </p>
+                        )}
                       </div>
                     ),
                   )}

@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getJson } from "@/services/api";
+import {
+  forecastIsCurrent,
+  forecastReceiptLabel,
+} from "@/lib/forecast-freshness";
 import type {
   CurrentEnvironment,
   CurrentHour,
@@ -32,11 +36,11 @@ export function usePortWeather(
   });
   const source = query.data?.sources.surface;
   const now = Date.now();
-  const age = now - Date.parse(source?.availableAt ?? "");
+  const current = source ? forecastIsCurrent(source, now) : false;
   const stale =
-    source?.status === "STALE" || (Number.isFinite(age) && age > 3_600_000);
+    source?.status === "STALE" || (source?.status === "CURRENT" && !current);
   const hour =
-    !stale && !query.isError && source?.status === "CURRENT" && age >= 0
+    current && !query.isError
       ? query.data?.hourly.find((row) => {
           const start = Date.parse(row.validAt);
           return start <= now && now < start + 3_600_000;
@@ -47,7 +51,7 @@ export function usePortWeather(
     [hour, lat, lon],
   );
   const label = weather
-    ? "Current hourly forecast · Open-Meteo"
+    ? forecastReceiptLabel(source!, true, now)
     : stale
       ? "Open-Meteo weather stale · effects off"
       : "Current Open-Meteo weather unavailable · effects off";
