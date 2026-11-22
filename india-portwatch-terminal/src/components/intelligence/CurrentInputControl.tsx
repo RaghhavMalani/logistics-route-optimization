@@ -27,6 +27,7 @@ import type { DecisionProblem } from "@/types/decisions";
 import { Button } from "@/components/ui/button";
 import { formatUtc, Pill } from "@/components/kit/primitives";
 import { forecastReceiptLabel } from "@/lib/forecast-freshness";
+import { ForecastReceiptText } from "@/components/kit/ForecastReceiptText";
 import {
   Dialog,
   DialogClose,
@@ -372,11 +373,13 @@ export function CurrentInputControl({
                           {kind} {source.status}
                         </Pill>
                         {source.forecastIssuedAt ? (
-                          <p title="~ estimates issue time from the last change in forecast values. Open-Meteo Best Match does not identify the contributing run.">
-                            {forecastReceiptLabel(
-                              source,
-                              source.status === "CURRENT",
-                            )}
+                          <p>
+                            <ForecastReceiptText
+                              text={forecastReceiptLabel(
+                                source,
+                                source.status === "CURRENT",
+                              )}
+                            />
                           </p>
                         ) : (
                           <p>

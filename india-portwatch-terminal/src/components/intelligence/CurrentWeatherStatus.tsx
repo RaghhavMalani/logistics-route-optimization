@@ -2,6 +2,7 @@ import { useCurrentMapWeather } from "@/services/current-inputs";
 import { Pill, formatUtc } from "@/components/kit/primitives";
 import { useSourceHealth, ageLabel } from "@/services/source-health";
 import { forecastReceiptLabel } from "@/lib/forecast-freshness";
+import { ForecastReceiptText } from "@/components/kit/ForecastReceiptText";
 
 export function CurrentWeatherStatus() {
   const weather = useCurrentMapWeather();
@@ -20,13 +21,15 @@ export function CurrentWeatherStatus() {
     >
       <span className="eyebrow text-[10px]">Weather</span>
       <Pill tone={current ? "info" : "neutral"}>
-        {current
-          ? forecastReceiptLabel(source, true)
-          : weather.isPending
-            ? "checking"
-            : source?.availableAt
-              ? `Latest available · ${formatUtc(source.availableAt)} (${ageLabel(source.dataAgeSeconds)} old)`
-              : "unavailable"}
+        {current ? (
+          <ForecastReceiptText text={forecastReceiptLabel(source, true)} />
+        ) : weather.isPending ? (
+          "checking"
+        ) : source?.availableAt ? (
+          `Latest available · ${formatUtc(source.availableAt)} (${ageLabel(source.dataAgeSeconds)} old)`
+        ) : (
+          "unavailable"
+        )}
       </Pill>
     </span>
   );
